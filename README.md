@@ -17,4 +17,4 @@ Querying (a) channel(s) is done by sending a string that is composed of these pa
 
 q<number of channels><channel 1 name><channel 1 significant digits>...<channel n name><channel n significant digits>\n\r
   
-Example: q2c15c23\n\r queries the channels "c1" and "c2" with 5 and 3 significant digits respectively.
+Example: q2c15c23\n\r queries the 2 channels "c1" and "c2" with 5 and 3 significant digits respectively.
