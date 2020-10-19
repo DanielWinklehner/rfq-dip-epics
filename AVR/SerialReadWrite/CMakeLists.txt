@@ -6,8 +6,13 @@ project(SerialReadWrite LANGUAGES CXX C ASM)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(PROG_TYPE "wiring")
-set(USBPORT "/dev/ttyACM0")
+if(NOT DEFINED PROG_TYPE)
+    set(PROG_TYPE "wiring")
+    message(STATUS "PROG_TYPE (programmer) not defined, assuming Arduino bootloader and using programmer 'writing'" )
+endif()
+if(NOT DEFINED USBPORT)
+    message(FATAL_ERROR "USBPORT must be defined. CMake will exit." )
+endif()
 
 ## Variables regarding the AVR chip
 # Notes:
