@@ -18,29 +18,7 @@
 #include "staticio/port_defs.hpp"
 #include "staticio/pwm.hpp"
 
-// Suggestion: Watchdog Timer
-// Enable wdt in main, use it as a reset point, if the AVR ever malfunctions.
-// Likely to set as Interrupt and System Reset Mode. Interrupt trigger would
-// save current pin out states to EEPROM. On reset, it would read EEPROM for
-// the last used values, and set accordingly. Not sure if EEPROM values should
-// be reset after reading.
-
 static FILE mystdout;
-
-// RY - Don't make these mistakes. Debug hard.
-/*
- * ---------- IMPORTANT ----------
- * IMPORTANT: ALWAYS MAKE SURE 'num_cmds' IS CORRECT.
- * POSSIBLE FAILURE:
- * - Reading memory beyond intended
- * - Not checking enough commands
- *
- * IMPORTANT: ALWAYS MAKE SURE THERE ARE ENOUGH VARIABLES IN 'eval::eval' TO
- * SATISFY THE SSCANF.
- * POSSIBLE FAILURES:
- * - Undefined behavior (b/c sscanf is prone to it)
- * ----------*---------*----------
- */
 
 // qCH
 // sCH:1
@@ -56,6 +34,7 @@ const Eval::CMDEntry links[] = {
       IO::Digital::write(IO::Pin::p05, (bool)setval);
       DEBUG_PRINT("Query: Set Dpin: 5, Value: %d\n", (bool)setval);
     } },
+
   { []() {
      // Link2read
      printf("q2:%hhu", IO::Digital::read(IO::Pin::p40));
@@ -66,6 +45,7 @@ const Eval::CMDEntry links[] = {
       IO::Digital::write(IO::Pin::p30, (bool)setval);
       DEBUG_PRINT("Query: Set Dpin: 30, Value: %d\n", (bool)setval);
     } },
+
   { []() {
      // Link3read
      printf("q3:%u", IO::Analog::read(IO::Pin::pA00));
@@ -92,7 +72,7 @@ main(void)
     PWM::init_timer(2); // For pin 9
     Digital::pin_ddr(Pin::p09, DDR::OUTPUT);
 
-    Analog::init(); // Fpr A0
+    Analog::init(); // For A0
   }
 
   USART::init();

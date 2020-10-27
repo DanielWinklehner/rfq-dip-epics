@@ -124,7 +124,7 @@ static const Pin_t p53{ GpioPin(B, 0) }; // PB0, SS, PCINT0
 #define pMISO pPin50 // SPI MISO
 #define pSCK pPin52  // SPI SCK
 
-} // namespace detail
+} // namespace pins
 } // namespace IO
 
 #endif // ATMEGA2560_PORT_DEF_H

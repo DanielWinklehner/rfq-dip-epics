@@ -67,7 +67,7 @@ set(FLAGS_WARNINGS "-Wall -Wextra -Wpedantic")
 set(FLAGS_DEBUG "-g -ggdb")
 set(FLAGS_RELEASE "-Os")
 set(FLAGS_TUNING "-ffunction-sections -fdata-sections")
-set(FLAGS_LINKER "-lm -lprintf_flt -Wl,-u,vfprintf -Wl,--gc-sections -Wl,--relax -flto")
+set(FLAGS_LINKER "-lm -lprintf_min -lscanf_min -Wl,-u,vfprintf -Wl,--gc-sections -Wl,--relax -flto")
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${FLAGS_MAIN} ${FLAGS_WARNINGS} ${FLAGS_TUNING} ${FLAGS_LINKER}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 ${FLAGS_MAIN} ${FLAGS_WARNINGS} ${FLAGS_TUNING} ${FLAGS_LINKER}")
