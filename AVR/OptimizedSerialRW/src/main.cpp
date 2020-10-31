@@ -77,7 +77,7 @@ main(void)
 
   USART::init();
 
-  // Enable fprint to USART
+  // Enable printf to USART
   fdev_setup_stream(&mystdout, USART::put_char, NULL, _FDEV_SETUP_WRITE);
   stdout = &mystdout;
 

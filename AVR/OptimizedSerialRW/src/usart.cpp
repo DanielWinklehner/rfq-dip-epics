@@ -62,12 +62,15 @@ send(char* data, size_t size)
   }
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 int
 put_char(char data, FILE* stream)
 {
   send(data);
   return 0;
 }
+#pragma GCC diagnostic pop
 
 void
 get_string()
