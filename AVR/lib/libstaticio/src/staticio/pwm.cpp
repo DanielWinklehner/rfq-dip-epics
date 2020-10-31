@@ -68,7 +68,7 @@ write(const Pin::Pin_t& pin, uint8_t duty_cycle)
 void
 disable(const Pin::Pin_t& pin)
 {
-  *(pin.tccr) & ~(1 << pin.com);
+  *(pin.tccr) &= ~(1 << pin.com);
 }
 
 } // namespace detail

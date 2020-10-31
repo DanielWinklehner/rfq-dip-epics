@@ -5,7 +5,9 @@
 
 #include <stdio.h>
 
+#ifndef USART_RX_BUFFER_SIZE
 #define USART_RX_BUFFER_SIZE 16
+#endif
 
 namespace USART {
 

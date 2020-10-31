@@ -116,13 +116,13 @@ static const Pin_t p51{ GpioPin(B, 2) }; // PB2, MOSI, PCINT2
 static const Pin_t p52{ GpioPin(B, 1) }; // PB1, SCK, PCINT1
 static const Pin_t p53{ GpioPin(B, 0) }; // PB0, SS, PCINT0
 
-#define pSDA pPin20 // I2C SDA
-#define pSCL pPin21 // I2C SCL
+#define pSDA p20 // I2C SDA
+#define pSCL p21 // I2C SCL
 
-#define pSS pPin53   // SPI SS
-#define pMOSI pPin51 // SPI MOSI
-#define pMISO pPin50 // SPI MISO
-#define pSCK pPin52  // SPI SCK
+#define pSS p53   // SPI SS
+#define pMOSI p51 // SPI MOSI
+#define pMISO p50 // SPI MISO
+#define pSCK p52  // SPI SCK
 
 } // namespace pins
 } // namespace IO

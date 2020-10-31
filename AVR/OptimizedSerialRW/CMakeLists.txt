@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 
 set(CMAKE_SYSTEM_NAME  Generic)
 project(OptimizedSerialRW LANGUAGES CXX C ASM)
@@ -31,17 +31,33 @@ if(NOT DEFINED MCU)
     set(MCU   atmega2560)
     message(STATUS "MCU not defined, assuming Arduino Mega (atmega2560)" )
 endif()
+
 if(NOT DEFINED F_CPU)
     set(F_CPU   16000000)
     message(STATUS "MCU not defined, assuming Arduino standard at 16 Mhz" )
 endif()
 
-#set(BAUD  2400)
 if(NOT DEFINED BAUD)
     set(BAUD 19200)
     message(STATUS "BAUD not defined, assuming 19200" )
 endif()
-#set(BAUD 76800)  # EPICS asyn driver does not seem to work bauds above 200k
+
+if(NOT DEFINED USE_LIBCOM)
+  set(USE_LIBCOM 2)
+  message(STATUS "Communication library to use not specified, defaulting to libcom2")
+endif()
+
+
+# libcom1
+if (USE_LIBCOM EQUAL 1)
+  if(DEFINED USE_ETHERCAT AND USE_ETHERCAT)
+      message(FATAL_ERROR "libcom1 does not have Ethercat support")
+  endif()
+# libcom2
+elseif(USE_LIBCOM EQUAL 2)
+else()
+endif()
+
 add_definitions(-DF_CPU=${F_CPU} -DBAUD=${BAUD})
 
 # Nothing should be changed below this line.
@@ -67,7 +83,7 @@ set(FLAGS_WARNINGS "-Wall -Wextra -Wpedantic")
 set(FLAGS_DEBUG "-g -ggdb")
 set(FLAGS_RELEASE "-Os")
 set(FLAGS_TUNING "-ffunction-sections -fdata-sections")
-set(FLAGS_LINKER "-lm -lprintf_min -lscanf_min -Wl,-u,vfprintf -Wl,--gc-sections -Wl,--relax -flto")
+set(FLAGS_LINKER "-lm -lprintf_flt -lscanf_flt -Wl,-u,vfprintf -Wl,--gc-sections -Wl,--relax -flto")
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${FLAGS_MAIN} ${FLAGS_WARNINGS} ${FLAGS_TUNING} ${FLAGS_LINKER}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 ${FLAGS_MAIN} ${FLAGS_WARNINGS} ${FLAGS_TUNING} ${FLAGS_LINKER}")
@@ -77,17 +93,20 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${FLAGS_RELEASE}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${FLAGS_RELEASE}")
 
 ## Important project paths
+get_filename_component(PARENT_DIR ${CMAKE_SOURCE_DIR}/../ ABSOLUTE)
 set(BASE_PATH    "${${PROJECT_NAME}_SOURCE_DIR}")
 set(INC_PATH     "${BASE_PATH}/include")
 set(SRC_PATH     "${BASE_PATH}/src")
-set(LIB_DIR_PATH "${BASE_PATH}/lib")
+set(LIB_DIR_PATH "${PARENT_DIR}/lib")
 
 ## Libraries
 # Note: libraries need to always be recompiled with the binary because of definitions defined in the project need to be passed through.
 file(GLOB_RECURSE LIB_SRC LIST_DIRECTORIES true CONFIGURE_DEPENDS
-  ${LIB_DIR_PATH}/*.cpp)
+  "${LIB_DIR_PATH}/libstaticio/*.cpp"
+  "${LIB_DIR_PATH}/libcom${USE_LIBCOM}/*.cpp")
 set(LIB_INC_PATH
-  "${LIB_DIR_PATH}/libstaticio/include")
+  "${LIB_DIR_PATH}/libstaticio/include"
+  "${LIB_DIR_PATH}/libcom${USE_LIBCOM}/include")
 
 ## Project Setup
 include_directories(${INC_PATH} ${LIB_INC_PATH})
@@ -96,6 +115,7 @@ add_executable(${PROJECT_NAME}
   "src/usart.cpp"
   "src/eval.cpp"
   ${LIB_SRC})
+
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}.elf")
 
 # Compiling targets
