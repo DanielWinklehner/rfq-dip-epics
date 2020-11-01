@@ -34,7 +34,7 @@ set(F_CPU 16000000 CACHE STRING "Clock speed of AVR")
 set(BAUD 19200 CACHE STRING "Baud rate")
 set(USE_LIBCOM 2 CACHE STRING "Comm. lib used")
 set(USE_ETHERCAT OFF CACHE BOOL "Ethercat or Serial")
-
+set(PRINTF_TRACE OFF CACHE BOOL "Debug tracing")
 
 # libcom1 and ethercat cannot be used together at the moment.
 if (USE_LIBCOM EQUAL 1 AND USE_ETHERCAT)
@@ -42,7 +42,7 @@ if (USE_LIBCOM EQUAL 1 AND USE_ETHERCAT)
 endif()
 
 message(STATUS "Settings: PROG_TYPE=${PROG_TYPE} USBPORT=${USBPORT} MCU=${MCU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT}")
-add_compile_definitions(F_CPU=${F_CPU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT})
+add_compile_definitions(F_CPU=${F_CPU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT} PRINTF_TRACE=${PRINTF_TRACE})
 
 # Nothing should be changed below this line.
 # ----------------------------------------------------------------
@@ -86,11 +86,9 @@ set(LIB_DIR_PATH "${PARENT_DIR}/lib")
 ## Libraries
 # Note: libraries need to always be recompiled with the binary because of definitions defined in the project need to be passed through.
 file(GLOB_RECURSE LIB_SRC LIST_DIRECTORIES true CONFIGURE_DEPENDS
-  "${LIB_DIR_PATH}/libprintf/printf/printf.c"
   "${LIB_DIR_PATH}/libstaticio/*.cpp"
   "${LIB_DIR_PATH}/libcom/*.cpp")
 set(LIB_INC_PATH
-  "${LIB_DIR_PATH}/libprintf/"
   "${LIB_DIR_PATH}/libstaticio/include"
   "${LIB_DIR_PATH}/libcom/include")
 

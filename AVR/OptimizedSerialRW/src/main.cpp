@@ -4,9 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define PRINTF_TRACE 1
-
-#if PRINTF_TRACE == 1
+#if defined PRINTF_TRACE && PRINTF_TRACE == 1
 #define DEBUG_PRINT(fmt, args...) printf(fmt, ##args)
 #else
 #define DEBUG_PRINT(fmt, args...)
