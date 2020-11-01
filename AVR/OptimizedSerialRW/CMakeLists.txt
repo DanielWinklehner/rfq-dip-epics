@@ -13,8 +13,11 @@ endif()
 if(NOT DEFINED USBPORT)
     message(FATAL_ERROR "USBPORT must be defined. CMake will exit." )
 endif()
+if(NOT DEFINED MCU)
+    set(MCU   atmega2560)
+    message(STATUS "MCU not defined, assuming Arduino Mega (atmega2560)" )
+endif()
 
-## Variables regarding the AVR chip
 # Notes:
 # Baud 2400, 16Mhz F_CPU, with U2X enabled gives 0% error, but is very slow
 # Baud 19200, 16Mhz F_CPU, with U2X enabled gives +-0.2% error
@@ -27,38 +30,19 @@ endif()
 # BAUD = ( F_CPU / ( 8 * (UBRR +1)) ) (On U2X)
 # Err% = ((BAUD_{closest} / Baud) - 1)
 
-if(NOT DEFINED MCU)
-    set(MCU   atmega2560)
-    message(STATUS "MCU not defined, assuming Arduino Mega (atmega2560)" )
+set(F_CPU 16000000 CACHE STRING "Clock speed of AVR")
+set(BAUD 19200 CACHE STRING "Baud rate")
+set(USE_LIBCOM 2 CACHE STRING "Comm. lib used")
+set(USE_ETHERCAT OFF CACHE BOOL "Ethercat or Serial")
+
+
+# libcom1 and ethercat cannot be used together at the moment.
+if (USE_LIBCOM EQUAL 1 AND USE_ETHERCAT)
+    message(FATAL_ERROR "libcom1 does not have Ethercat support")
 endif()
 
-if(NOT DEFINED F_CPU)
-    set(F_CPU   16000000)
-    message(STATUS "MCU not defined, assuming Arduino standard at 16 Mhz" )
-endif()
-
-if(NOT DEFINED BAUD)
-    set(BAUD 19200)
-    message(STATUS "BAUD not defined, assuming 19200" )
-endif()
-
-if(NOT DEFINED USE_LIBCOM)
-  set(USE_LIBCOM 2)
-  message(STATUS "Communication library to use not specified, defaulting to libcom2")
-endif()
-
-
-# libcom1
-if (USE_LIBCOM EQUAL 1)
-  if(DEFINED USE_ETHERCAT AND USE_ETHERCAT)
-      message(FATAL_ERROR "libcom1 does not have Ethercat support")
-  endif()
-# libcom2
-elseif(USE_LIBCOM EQUAL 2)
-else()
-endif()
-
-add_definitions(-DF_CPU=${F_CPU} -DBAUD=${BAUD})
+message(STATUS "Settings: PROG_TYPE=${PROG_TYPE} USBPORT=${USBPORT} MCU=${MCU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT}")
+add_compile_definitions(F_CPU=${F_CPU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT})
 
 # Nothing should be changed below this line.
 # ----------------------------------------------------------------
@@ -102,11 +86,13 @@ set(LIB_DIR_PATH "${PARENT_DIR}/lib")
 ## Libraries
 # Note: libraries need to always be recompiled with the binary because of definitions defined in the project need to be passed through.
 file(GLOB_RECURSE LIB_SRC LIST_DIRECTORIES true CONFIGURE_DEPENDS
+  "${LIB_DIR_PATH}/libprintf/printf/printf.c"
   "${LIB_DIR_PATH}/libstaticio/*.cpp"
-  "${LIB_DIR_PATH}/libcom${USE_LIBCOM}/*.cpp")
+  "${LIB_DIR_PATH}/libcom/*.cpp")
 set(LIB_INC_PATH
+  "${LIB_DIR_PATH}/libprintf/"
   "${LIB_DIR_PATH}/libstaticio/include"
-  "${LIB_DIR_PATH}/libcom${USE_LIBCOM}/include")
+  "${LIB_DIR_PATH}/libcom/include")
 
 ## Project Setup
 include_directories(${INC_PATH} ${LIB_INC_PATH})

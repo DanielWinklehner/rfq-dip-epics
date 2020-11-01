@@ -6,7 +6,7 @@
 
 #define PRINTF_TRACE 0
 
-#if PRINTF_TRACE
+#if PRINTF_TRACE == 1
 #define DEBUG_PRINT(fmt, args...) printf(fmt, ##args)
 #else
 #define DEBUG_PRINT(fmt, args...)
@@ -17,6 +17,8 @@
 #include "staticio/gpio.hpp"
 #include "staticio/port_defs.hpp"
 #include "staticio/pwm.hpp"
+
+#include "com/eval.hpp"
 
 static FILE mystdout;
 
@@ -58,6 +60,53 @@ const Eval::CMDEntry links[] = {
     } },
 };
 
+constexpr float
+s1_get()
+{
+  return 0.03456;
+}
+
+constexpr void
+s1_set(float)
+{}
+
+constexpr float
+s2_get()
+{
+  return 0.08567;
+}
+
+constexpr void
+s2_set(float)
+{}
+
+constexpr float
+s3_get()
+{
+  return 3.45678;
+}
+
+constexpr void
+s3_set(float)
+{}
+
+constexpr float
+l1_get()
+{
+  return 4.56789;
+}
+
+constexpr void
+l1_set(float)
+{}
+
+static constexpr Eval::ChannelMap<4> lookup{ {
+  { 's', 1, &s1_get, &s1_set },
+  { 's', 2, &s2_get, &s2_set },
+  { 's', 3, &s3_get, &s3_set },
+  { 'l', 1, &l1_get, &l1_set },
+} };
+
 int
 main(void)
 {
@@ -88,9 +137,11 @@ main(void)
     if (USART::rx_done_flag == 1) {
       USART::get_string();
 
-      // TODO: if status is fail, and there have been multiple failed attempts,
-      // Pause the code, and let the watchdog reset the AVR.
-      uint8_t status = Eval::eval(USART::eval_str, links);
+      static char write_buf[16]{ 0 };
+      uint8_t status = Eval::eval(lookup, USART::eval_str, write_buf);
+
+      DEBUG_PRINT("Eval returned with: %hhu\n", status);
+      printf("%s\n", write_buf);
     }
   }
 
