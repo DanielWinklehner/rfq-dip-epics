@@ -27,6 +27,9 @@ send(unsigned char data);
 void
 send(char* data, size_t size);
 
+void
+send(const char* data, size_t size);
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 // This function is for redirecting stream to UART

@@ -99,7 +99,6 @@ include_directories(${INC_PATH} ${LIB_INC_PATH})
 add_executable(${PROJECT_NAME}
   "src/main.cpp"
   "src/usart.cpp"
-  "src/eval.cpp"
   ${LIB_SRC})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}.elf")

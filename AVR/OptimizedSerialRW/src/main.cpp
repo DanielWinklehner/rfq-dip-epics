@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define PRINTF_TRACE 0
+#define PRINTF_TRACE 1
 
 #if PRINTF_TRACE == 1
 #define DEBUG_PRINT(fmt, args...) printf(fmt, ##args)
@@ -13,98 +13,53 @@
 #endif
 
 #include "usart.hpp"
-#include "eval.hpp"
-#include "staticio/gpio.hpp"
-#include "staticio/port_defs.hpp"
-#include "staticio/pwm.hpp"
-
+#include "staticio/io.hpp"
+#include "com/com.hpp"
 #include "com/eval.hpp"
 
 static FILE mystdout;
 
-// qCH
-// sCH:1
-
-const Eval::CMDEntry links[] = {
-  //readback, setpoint
-  { []() {
-     // Link1read
-     printf("q1:%hhu", IO::Digital::read(IO::Pin::p10));
-   },
-    [](int setval) {
-      // Link1set
-      IO::Digital::write(IO::Pin::p05, (bool)setval);
-      DEBUG_PRINT("Query: Set Dpin: 5, Value: %d\n", (bool)setval);
-    } },
-
-  { []() {
-     // Link2read
-     printf("q2:%hhu", IO::Digital::read(IO::Pin::p40));
-     DEBUG_PRINT("Query: Dpin: 40");
-   },
-    [](int setval) {
-      // Link2set
-      IO::Digital::write(IO::Pin::p30, (bool)setval);
-      DEBUG_PRINT("Query: Set Dpin: 30, Value: %d\n", (bool)setval);
-    } },
-
-  { []() {
-     // Link3read
-     printf("q3:%u", IO::Analog::read(IO::Pin::pA00));
-     DEBUG_PRINT("Query: Apin: A0");
-   },
-    [](int setval) {
-      // Link3set
-      IO::Analog::write_pwm(IO::Pin::p09, setval);
-      DEBUG_PRINT("Query: Set Apin: 9, Value: %d\n", setval);
-    } },
-};
-
-constexpr float
-s1_get()
+float
+d1_get()
 {
-  return 0.03456;
+  return IO::Digital::read(IO::Pin::p10);
 }
 
-constexpr void
-s1_set(float)
-{}
-
-constexpr float
-s2_get()
+void
+d1_set(float setval)
 {
-  return 0.08567;
+  IO::Digital::write(IO::Pin::p05, (int)(setval));
 }
 
-constexpr void
-s2_set(float)
-{}
-
-constexpr float
-s3_get()
+float
+d2_get()
 {
-  return 3.45678;
+  return IO::Digital::read(IO::Pin::p40);
 }
 
-constexpr void
-s3_set(float)
-{}
-
-constexpr float
-l1_get()
+void
+d2_set(float setval)
 {
-  return 4.56789;
+  IO::Digital::write(IO::Pin::p30, (int)setval);
 }
 
-constexpr void
-l1_set(float)
-{}
+float
+a1_get()
+{
+  uint16_t val = IO::Analog::read(IO::Pin::pA00);
+  return val * (5.0 / 1023.0);
+}
 
-static constexpr Eval::ChannelMap<4> lookup{ {
-  { 's', 1, &s1_get, &s1_set },
-  { 's', 2, &s2_get, &s2_set },
-  { 's', 3, &s3_get, &s3_set },
-  { 'l', 1, &l1_get, &l1_set },
+void
+a1_set(float setval)
+{
+  IO::Analog::write_pwm(IO::Pin::p09, (uint8_t)setval);
+}
+
+static constexpr Comm::ChannelMap<3> lookup{ {
+  { 'd', 1, &d1_get, &d1_set },
+  { 'd', 2, &d2_get, &d2_set },
+  { 'a', 1, &a1_get, &a1_set },
 } };
 
 int
@@ -138,10 +93,27 @@ main(void)
       USART::get_string();
 
       static char write_buf[16]{ 0 };
-      uint8_t status = Eval::eval(lookup, USART::eval_str, write_buf);
+      uint8_t status = Comm::eval(lookup, USART::eval_str, write_buf);
 
       DEBUG_PRINT("Eval returned with: %hhu\n", status);
-      printf("%s\n", write_buf);
+
+      switch (status) {
+        case Comm::PRC_QUERY:
+          printf("%s\n", write_buf);
+          break;
+        case Comm::ERR_PRECISION_TOO_LARGE:
+          USART::send("ERR2", 4);
+          break;
+        case Comm::ERR_CHANNEL_LOOKUP:
+          USART::send("ERR4", 4);
+          break;
+        case Comm::ERR_UNKNOWN:
+          USART::send("ERR0", 4);
+          break;
+        case Comm::PRC_SET:
+        default:
+          break;
+      }
     }
   }
 

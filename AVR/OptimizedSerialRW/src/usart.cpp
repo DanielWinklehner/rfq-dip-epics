@@ -62,6 +62,14 @@ send(char* data, size_t size)
   }
 }
 
+void
+send(const char* data, size_t size)
+{
+  for (uint8_t i = 0; i < size; ++i) {
+    send(data[i]);
+  }
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 int
