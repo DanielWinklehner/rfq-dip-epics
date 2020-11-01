@@ -1,3 +1,0 @@
-[submodule "AVR/OptimizedSerialRW/lib/AVRTools"]
-	path = AVR/OptimizedSerialRW/lib/AVRTools
-	url = https://github.com/igormiktor/AVRTools.git

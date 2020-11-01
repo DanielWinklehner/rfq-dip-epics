@@ -1,0 +1,4 @@
+EPICS_BASE=${EPICS_BASE}
+SUPPORT=$(EPICS_BASE)/../support
+undefine IPAC
+undefine SNCSEQ

@@ -1,0 +1,19 @@
+Terminator = LF;
+
+com1_getLink {
+    # q01<chanelnum><precision>
+    out "q01\$1\$2";
+
+    # o<channelnum><com1exponent>
+    # %z is custom defined by LibCom1ExponentConverter
+    in "o%*c%*c%z";
+}
+
+com1_setLink_flt {
+    # s<channel><flt>
+    out "s\$1%f";
+}
+
+com1_setLink {
+    out "s\$1%d";
+}

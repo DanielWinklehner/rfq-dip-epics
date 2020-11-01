@@ -1,0 +1,77 @@
+# AVR 1
+record(bo, "avr1:ch1:setpoint") {
+    field(DESC, "Set I/O pin 5")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d1) $(PORTA)")
+}
+record(ai, "avr1:ch1:readback") {
+    field(DESC, "Read I/O pin 10")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(d1,0) $(PORTA)")
+    field(SCAN, ".1 second")
+}
+record(bo, "avr1:ch2:setpoint") {
+    field(DESC, "Set I/O pin 30")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d2) $(PORTA)")
+}
+record(ai, "avr1:ch2:readback") {
+    field(DESC, "Read I/O pin 40")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(d2,0) $(PORTA)")
+    field(SCAN, ".1 second")
+}
+record(ao, "avr1:ch3:setpoint") {
+    field(DESC, "Set I/O pin 9")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(a1) $(PORTA)")
+    field(DRVL, 0)
+    field(DRVH, 255)
+}
+record(ai, "avr1:ch3:readback") {
+    field(DESC, "Read I/O pin 40")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(a1,3) $(PORTA)")
+    field(SCAN, ".1 second")
+    field(PREC, 3)
+}
+
+# AVR 2
+record(bo, "avr2:ch1:setpoint") {
+    field(DESC, "Set I/O pin 5")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d1) $(PORTB)")
+}
+record(ai, "avr2:ch1:readback") {
+    field(DESC, "Read I/O pin 10")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(d1,0) $(PORTB)")
+    field(SCAN, ".1 second")
+}
+record(bo, "avr2:ch2:setpoint") {
+    field(DESC, "Set I/O pin 30")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d2) $(PORTB)")
+}
+record(ai, "avr2:ch2:readback") {
+    field(DESC, "Read I/O pin 40")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(d2,0) $(PORTB)")
+    field(SCAN, ".1 second")
+}
+record(ao, "avr2:ch3:setpoint") {
+    field(DESC, "Set I/O pin 9")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(a1) $(PORTB)")
+    field(DRVL, 0)
+    field(DRVH, 255)
+}
+record(ai, "avr2:ch3:readback") {
+    field(DESC, "Read I/O pin 40")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(a1,3) $(PORTB)")
+    field(SCAN, ".1 second")
+    field(PREC, 3)
+}
+
+
