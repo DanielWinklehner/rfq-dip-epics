@@ -2,8 +2,6 @@ record(bo, "$(DEVICE):ch1:setpoint") {
     field(DESC, "Set I/O pin 5")
     field(DTYP, "stream")
     field(OUT, "@libcom1.proto com1_setLink(d1) $(PORT)")
-    field(DRVL, "0")
-    field(DRVH, "1")
 #    field(PRIO,"HIGH")
 }
 
@@ -11,8 +9,6 @@ record(bo, "$(DEVICE):ch2:setpoint") {
     field(DESC, "Set I/O pin 30")
     field(DTYP, "stream")
     field(OUT, "@libcom1.proto com1_setLink(d2) $(PORT)")
-    field(DRVL, "0")
-    field(DRVH, "1")
 #    field(PRIO,"HIGH")
 }
 
@@ -44,3 +40,5 @@ record(ai, "$(DEVICE):ch3:readback") {
     field(PREC, 3)
     field(EGU, "V")
 }
+
+
