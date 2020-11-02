@@ -7,6 +7,7 @@
 namespace Comm {
   static constexpr uint8_t PRC_QUERY = 1;
   static constexpr uint8_t PRC_SET = 2;
+  static constexpr uint8_t PRC_QALL = 3;
   static constexpr uint8_t ERR_UNKNOWN = 10;
   static constexpr uint8_t ERR_CHANNEL_LOOKUP = 11;
   static constexpr uint8_t ERR_PRECISION_TOO_LARGE = 12;
@@ -40,6 +41,9 @@ namespace Comm {
             }
       }
       return channels[0];
+    }
+    constexpr const Channel& operator [](size_t idx) const {
+      return channels[idx];
     }
 
     constexpr size_t size() const {

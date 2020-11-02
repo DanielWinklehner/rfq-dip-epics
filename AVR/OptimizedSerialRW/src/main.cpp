@@ -90,23 +90,26 @@ main(void)
     if (USART::rx_done_flag == 1) {
       USART::get_string();
 
-      static char write_buf[16]{ 0 };
+      DEBUG_PRINT("USART Received: %s", USART::eval_str);
+
+      static char write_buf[512]{ 0 };
       uint8_t status = Comm::eval(lookup, USART::eval_str, write_buf);
 
       DEBUG_PRINT("Eval returned with: %hhu\n", status);
 
       switch (status) {
         case Comm::PRC_QUERY:
+        case Comm::PRC_QALL:
           printf("%s\n", write_buf);
           break;
         case Comm::ERR_PRECISION_TOO_LARGE:
-          USART::send("ERR2", 4);
+          printf_P(PSTR("ERR2\n"));
           break;
         case Comm::ERR_CHANNEL_LOOKUP:
-          USART::send("ERR4", 4);
+          printf_P(PSTR("ERR4\n"));
           break;
         case Comm::ERR_UNKNOWN:
-          USART::send("ERR0", 4);
+          printf_P(PSTR("ERR0\n"));
           break;
         case Comm::PRC_SET:
         default:

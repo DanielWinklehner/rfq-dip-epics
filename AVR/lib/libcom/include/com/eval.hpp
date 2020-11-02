@@ -107,10 +107,9 @@ eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
     // - 1 for the second exp. digit
     // Conv buffer needs at least 11 bytes (6 digits of precision)
 
-    // It is easiest just to allocate N3 bytes
-    static_assert (N3 > 14, "Write buffers need to have at least 14 bytes.");
-    char buffer_exp[N3]{ 0 };
-    char buffer_conv[N3]{ 0 };
+    // It is easiest just to allocate 16 bytes
+    char buffer_exp[16]{ 0 };
+    char buffer_conv[16]{ 0 };
 
     // avr-libc does not support the * (variable width precision)
     // this is an ugly workaround
@@ -166,7 +165,22 @@ eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
     (*channel.setter)(setval);
     return PRC_SET;
 
-  } else {
+  } else if (src[OFST_STATEMNT] == 'A') {
+    DEBUG_PRINT("Query All\n");
+    // Get all values in %g form.
+    memset(write_buffer, 0, N3);
+    write_buffer[0] = 'o';
+    int bytes_written = 1;
+    for (size_t i = 0; i < channels.size(); ++i) {
+      bytes_written += snprintf(write_buffer + bytes_written,
+                                N3 - bytes_written,
+                                "%g:",
+                                (channels[i].getter)());
+      DEBUG_PRINT("Total Bytes Written: %d\n", bytes_written);
+    }
+    write_buffer[bytes_written - 1] = '\0'; // Remove last colon
+    DEBUG_PRINT("Query All: %s\n", write_buffer);
+    return PRC_QALL;
   }
 
   return ERR_UNKNOWN;
