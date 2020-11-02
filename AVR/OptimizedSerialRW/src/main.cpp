@@ -86,17 +86,19 @@ main(void)
   // Enable global interrupts
   sei();
 
+  static char write_buf[512]{ 0 };
+
   for (;;) {
     if (USART::rx_done_flag == 1) {
       USART::get_string();
 
       DEBUG_PRINT("USART Received: %s", USART::eval_str);
-
-      static char write_buf[512]{ 0 };
+#if IO_INTR_MODE == 1
+      uint8_t status = io_intr_setter(lookup, USART::eval_str);
+#else
       uint8_t status = Comm::eval(lookup, USART::eval_str, write_buf);
-
+#endif
       DEBUG_PRINT("Eval returned with: %hhu\n", status);
-
       switch (status) {
         case Comm::PRC_QUERY:
         case Comm::PRC_QALL:
@@ -116,7 +118,14 @@ main(void)
           break;
       }
     }
-  }
+#if IO_INTR_MODE == 1
+    else {
+      Comm::io_intr_query(lookup, write_buf);
+      printf("%s\n", write_buf);
+      _delay_ms(20);
+    }
+#endif
+  };
 
   return 0;
 }

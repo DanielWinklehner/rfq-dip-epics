@@ -35,14 +35,25 @@ set(BAUD 19200 CACHE STRING "Baud rate")
 set(USE_LIBCOM 2 CACHE STRING "Comm. lib used")
 set(USE_ETHERCAT OFF CACHE BOOL "Ethercat or Serial")
 set(PRINTF_TRACE OFF CACHE BOOL "Debug tracing")
+set(IO_INTR_MODE OFF CACHE BOOL "I/O INTR Mode fo EPICS")
 
 # libcom1 and ethercat cannot be used together at the moment.
 if (USE_LIBCOM EQUAL 1 AND USE_ETHERCAT)
     message(FATAL_ERROR "libcom1 does not have Ethercat support")
 endif()
 
-message(STATUS "Settings: PROG_TYPE=${PROG_TYPE} USBPORT=${USBPORT} MCU=${MCU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT}")
-add_compile_definitions(F_CPU=${F_CPU} BAUD=${BAUD} USE_LIBCOM=${USE_LIBCOM} USE_ETHERCAT=${USE_ETHERCAT} PRINTF_TRACE=${PRINTF_TRACE})
+message(STATUS "Settings: PROG_TYPE=${PROG_TYPE} USBPORT=${USBPORT} MCU=${MCU}
+  BAUD=${BAUD}
+  USE_LIBCOM=${USE_LIBCOM}
+  USE_ETHERCAT=${USE_ETHERCAT}
+  PRINTF_TRACE=${PRINTF_TRACE}
+  IO_INTR_MODE=${IO_INTR_MODE}")
+add_compile_definitions(F_CPU=${F_CPU}
+  BAUD=${BAUD}
+  USE_LIBCOM=${USE_LIBCOM}
+  USE_ETHERCAT=${USE_ETHERCAT}
+  PRINTF_TRACE=${PRINTF_TRACE}
+  IO_INTR_MODE=${IO_INTR_MODE})
 
 # Nothing should be changed below this line.
 # ----------------------------------------------------------------

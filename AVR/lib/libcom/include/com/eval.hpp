@@ -41,6 +41,55 @@ conv_sci_to_libcom1_out(char (&src)[N1],
   return 0;
 }
 
+template<size_t N1, size_t N3>
+uint8_t
+io_intr_query(const ChannelMap<N1>& channels, char (&write_buffer)[N3]) {
+  DEBUG_PRINT("Query All\n");
+  // Get all values in %g form.
+  memset(write_buffer, 0, N3);
+  write_buffer[0] = 'o';
+  int bytes_written = 1;
+  for (size_t i = 0; i < channels.size(); ++i) {
+    bytes_written += snprintf(write_buffer + bytes_written,
+                              N3 - bytes_written,
+                              "%g:",
+                              (channels[i].getter)());
+    DEBUG_PRINT("Total Bytes Written: %d\n", bytes_written);
+  }
+  write_buffer[bytes_written - 1] = '\0'; // Remove last colon
+  DEBUG_PRINT("Query All: %s\n", write_buffer);
+  return PRC_QALL;
+}
+
+template<size_t N1, size_t N2>
+uint8_t
+io_intr_setter(const ChannelMap<N1>& channels, char (&src)[N2]) {
+  // Conversions first
+  uint8_t num = src[detail::OFST_S_CH_NUM] - '0';
+  float setval = atof(&src[detail::OFST_S_FLT]);
+
+  DEBUG_PRINT("Raw Query: Ch_iden: %hhu, Ch_num: %hhu, Setval: %f\n",
+              src[detail::OFST_S_CH_IDEN],
+              num,
+              setval);
+
+  // Find the channel
+  uint8_t channel_lookup_error;
+  const Channel& channel =
+    channels.at(src[detail::OFST_S_CH_IDEN], num, &channel_lookup_error);
+  if ((bool)channel_lookup_error)
+    return ERR_CHANNEL_LOOKUP;
+
+  DEBUG_PRINT("Query: Ch_iden: %c,  Ch_num: %hhu, Setval: %f\n",
+              channel.iden,
+              channel.num,
+              setval);
+
+  // Call the channel setter
+  (*channel.setter)(setval);
+  return PRC_SET;
+}
+
 template<size_t N1, size_t N2, size_t N3>
 uint8_t
 eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
@@ -55,28 +104,20 @@ eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
   // Set Byte 2: Channel Num
   // Set Byte 3+: Float formatted as string
 
-  static constexpr uint8_t OFST_STATEMNT = 0;
-  static constexpr uint8_t OFST_Q_CH_IDEN = 3;
-  static constexpr uint8_t OFST_Q_CH_NUM = 4;
-  static constexpr uint8_t OFST_Q_PRCN = 5;
-  static constexpr uint8_t OFST_S_CH_IDEN = 1;
-  static constexpr uint8_t OFST_S_CH_NUM = 2;
-  static constexpr uint8_t OFST_S_FLT = 3;
-
-  if (src[OFST_STATEMNT] == 'q') {
+  if (src[detail::OFST_STATEMNT] == 'q') {
     // Conversions first
-    uint8_t num = src[OFST_Q_CH_NUM] - '0';
-    uint8_t precision = atoi(&src[OFST_Q_PRCN]);
+    uint8_t num = src[detail::OFST_Q_CH_NUM] - '0';
+    uint8_t precision = atoi(&src[detail::OFST_Q_PRCN]);
 
     DEBUG_PRINT("Raw Query: Ch_iden: %hhu,  Ch_num: %hhu, Precision: %hhu\n",
-                src[OFST_Q_CH_IDEN],
+                src[detail::OFST_Q_CH_IDEN],
                 num,
                 precision);
 
     // Search the the channel
     uint8_t channel_lookup_error;
     const Channel& channel =
-      channels.at(src[OFST_Q_CH_IDEN], num, &channel_lookup_error);
+      channels.at(src[detail::OFST_Q_CH_IDEN], num, &channel_lookup_error);
     if ((bool)channel_lookup_error)
       return ERR_CHANNEL_LOOKUP;
 
@@ -114,7 +155,7 @@ eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
     // avr-libc does not support the * (variable width precision)
     // this is an ugly workaround
     char conv_sci_notation[] = "%+.0e";
-    conv_sci_notation[3] = src[OFST_Q_PRCN];
+    conv_sci_notation[3] = src[detail::OFST_Q_PRCN];
 
     snprintf(buffer_exp, N3, conv_sci_notation, (*channel.getter)());
 
@@ -132,64 +173,30 @@ eval(const ChannelMap<N1>& channels, char (&src)[N2], char (&write_buffer)[N3])
     // Write to the out buffer
     memset(write_buffer, 0, N3);
     write_buffer[0] = 'o';
-    write_buffer[1] = src[OFST_Q_CH_IDEN];
-    write_buffer[2] = src[OFST_Q_CH_NUM];
+    write_buffer[1] = src[detail::OFST_Q_CH_IDEN];
+    write_buffer[2] = src[detail::OFST_Q_CH_NUM];
     memcpy(write_buffer + 3, buffer_conv, conv_bytes_wrote);
 
     DEBUG_PRINT("Output Buffer: %s\n", write_buffer);
     return PRC_QUERY;
 
-  } else if (src[OFST_STATEMNT] == 's') {
-    // Conversions first
-    uint8_t num = src[OFST_S_CH_NUM] - '0';
-    float setval = atof(&src[OFST_S_FLT]);
+  } else if (src[detail::OFST_STATEMNT] == 's') {
+    return io_intr_setter(channels, src);
 
-    DEBUG_PRINT("Raw Query: Ch_iden: %hhu, Ch_num: %hhu, Setval: %f\n",
-                src[OFST_S_CH_IDEN],
-                num,
-                setval);
+  } else if (src[detail::OFST_STATEMNT] == 'A') {
+    return io_intr_query(channels, write_buffer);
+  } else {
 
-    // Find the channel
-    uint8_t channel_lookup_error;
-    const Channel& channel =
-      channels.at(src[OFST_S_CH_IDEN], num, &channel_lookup_error);
-    if ((bool)channel_lookup_error)
-      return ERR_CHANNEL_LOOKUP;
-
-    DEBUG_PRINT("Query: Ch_iden: %c,  Ch_num: %hhu, Setval: %f\n",
-                channel.iden,
-                channel.num,
-                setval);
-
-    // Call the channel setter
-    (*channel.setter)(setval);
-    return PRC_SET;
-
-  } else if (src[OFST_STATEMNT] == 'A') {
-    DEBUG_PRINT("Query All\n");
-    // Get all values in %g form.
-    memset(write_buffer, 0, N3);
-    write_buffer[0] = 'o';
-    int bytes_written = 1;
-    for (size_t i = 0; i < channels.size(); ++i) {
-      bytes_written += snprintf(write_buffer + bytes_written,
-                                N3 - bytes_written,
-                                "%g:",
-                                (channels[i].getter)());
-      DEBUG_PRINT("Total Bytes Written: %d\n", bytes_written);
-    }
-    write_buffer[bytes_written - 1] = '\0'; // Remove last colon
-    DEBUG_PRINT("Query All: %s\n", write_buffer);
-    return PRC_QALL;
   }
 
   return ERR_UNKNOWN;
 }
-#endif
+
+#endif // USE_LIBCOM == 1
 
 #if USE_LIBCOM == 2
 
-#endif
+#endif //USE_LIBCOM == 2
 
 } // namespace Comm
 #endif // EVAL_HPP

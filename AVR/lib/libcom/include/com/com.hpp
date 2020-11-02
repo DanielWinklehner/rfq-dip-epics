@@ -12,6 +12,16 @@ namespace Comm {
   static constexpr uint8_t ERR_CHANNEL_LOOKUP = 11;
   static constexpr uint8_t ERR_PRECISION_TOO_LARGE = 12;
 
+  namespace detail {
+    static constexpr uint8_t OFST_STATEMNT = 0;
+    static constexpr uint8_t OFST_Q_CH_IDEN = 3;
+    static constexpr uint8_t OFST_Q_CH_NUM = 4;
+    static constexpr uint8_t OFST_Q_PRCN = 5;
+    static constexpr uint8_t OFST_S_CH_IDEN = 1;
+    static constexpr uint8_t OFST_S_CH_NUM = 2;
+    static constexpr uint8_t OFST_S_FLT = 3;
+  }
+
 #if USE_LIBCOM == 1
   using GetterFunc = float (*)();
   using SetterFunc = void (*)(float);
@@ -42,6 +52,7 @@ namespace Comm {
       }
       return channels[0];
     }
+
     constexpr const Channel& operator [](size_t idx) const {
       return channels[idx];
     }
