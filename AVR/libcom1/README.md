@@ -19,7 +19,7 @@ This communication library is for serial communication with Arduinos, and the li
 - Comparison using `ArduinoExample.ino` on an Atmega2560:
     - Flash Memory: 6804 vs 13382 bytes
     - RAM: 500 vs 622 bytes
-    - Theoretical max polling rate for all channels: 822 Hz vs 151 Hz
+    - Theoretical max polling rate for all channels: 220 Hz vs 151 Hz
     - Processing time in microseconds:
       | Command | libcom1 (w/ printf) | communication_library |
       | --- | --- | --- |
@@ -39,6 +39,7 @@ This communication library is for serial communication with Arduinos, and the li
 - The Arduino IDE is not required, and projects can link this library as a header-only one.
 
 # Documentation
+- Code usage: `#include <libcom1.hpp>` in source file, after importing the library
 - To query one channel, send "q01", followed by the channel identification, the channel number, and the precision.
     - The output format is `o[vwxyz]` where:
         - v is the channel name (identification followed by number),
