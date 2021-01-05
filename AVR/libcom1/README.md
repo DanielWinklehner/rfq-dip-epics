@@ -7,14 +7,14 @@ This communication library is for serial communication with Arduinos, and the li
 
 ## Changes from `communication_library`
 - Keywords:
-    - "A" is used to query all channel
-    - keywords "c", "i", and "n" are no longer used
+    - "A" is used to query all channel.
+    - keywords "c", "i", and "n" are no longer used.
     - Querying channels can only be done in one of two modes: single or all.
 
 - Implementation detail changes:
-    - IOHandler to handle IO events
-    - Use of compile-time checks and optimizations to fail before compiling and to reduce binary size
-    - User can set desired output buffer size
+    - IOHandler to handle IO events.
+    - Use of compile-time checks and optimizations to fail before compiling and to reduce binary size.
+    - User can set desired output buffer size.
 
 - Comparison using `ArduinoExample.ino` on an Atmega2560:
     - Flash Memory: 6804 vs 13382 bytes
@@ -49,8 +49,8 @@ This communication library is for serial communication with Arduinos, and the li
     - For example, to query a channel with identification "a", number 1, and precision 3, send "q01a13", and if the channel's value is 4091.71, it should output `oa1+40923+`.
     - Limitations:
         - Channel identification must be one character, and channel number must each be one digit.
-        - Channels cannot have the identification of 0x00 nor can it have a number of 0x00
-        - Channel identifiers must be unique
+        - Channels cannot have the identification of 0x00 nor can it have a number of 0x00.
+        - Channel identifiers must be unique.
         - Precision must be an integer between 0 and 6, inclusive, because floats lose precision over 6 decimal places.
         - The exponent output is at most 1 digit long. If it is longer, it is lost.
 - To set a channel to a new value, send "s", followed by the channel identification, the channel number, and the set float value formatted as a string.
@@ -67,6 +67,6 @@ This communication library is for serial communication with Arduinos, and the li
 
 - Other errors:
     - If the program stops running/responding, an assert has failed.
-    - Compile-time errors should be readable enough to make out what is wrong
+    - Compile-time errors should be readable enough to make out what is wrong.
 
-- printf support must be enabled when using debug mode (which can be enabled by editing the `libcom1_com.hpp` file)
+- printf support must be enabled when using debug mode (which can be enabled by editing the `libcom1_com.hpp` file).
