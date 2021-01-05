@@ -51,10 +51,18 @@ char serial_in_buffer[128]{0};
 mist1::com1::IOHandler<128> io_ctx(
     // Read from the serial port
     [](){
-      while (Serial.available() == 0)
-      { asm volatile("nop"); }
-
-      Serial.readBytesUntil('\n', serial_in_buffer, 128);
+      // Blocking Example ------------------------------------
+      while (Serial.available() == 0)                       //
+      { asm volatile("nop"); }                              //
+                                                            //
+      Serial.readBytesUntil('\n', serial_in_buffer, 128);   //
+      
+      // Non-blocking example --------------------------------
+//    if (Serial.available() == 0)                          //
+//      serial_in_buffer[0] = '\0';                         //
+//    else                                                  //
+//      Serial.readBytesUntil('\n', serial_in_buffer, 128); //
+      
       return serial_in_buffer;
     },
     // Write to the serial port
