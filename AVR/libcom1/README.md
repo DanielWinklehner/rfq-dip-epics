@@ -37,3 +37,36 @@ This communication library is for serial communication with Arduinos, and the li
     - On devices that do not have serial, this could be a dummy buffer, or stdin/stdout on a terminal window, or even a file.
 - This library should work with any C++11 or greater compatible compiler, and only uses the C standard library. The C++ compiler provides compile-time features to check for things, and to optimize away during compile-time. libutil provides the required C++ headers and utilities, so that they are not required.
 - The Arduino IDE is not required, and projects can link this library as a header-only one.
+
+# Documentation
+- To query one channel, send "q01", followed by the channel identification, the channel number, and the precision.
+    - The output format is `o[vwxyz]` where:
+        - v is the channel name (identification followed by number),
+        - w is the sign (plus or minus) of the mantissa of scientific notation of the channel's value,
+        - x is the absolute value of the mantissa of scientific notation, without the decimal and with the indicated precision as the length of x minus 1, of the channel's value (rounded up or down),
+        - y is the absolute value of the exponent of scientific notation of the channel's value,
+        - z is the sign (plus or minus) of the exponent of scientific notation of the channel's value.
+    - For example, to query a channel with identification "a", number 1, and precision 3, send "q01a13", and if the channel's value is 4091.71, it should output `oa1+40923+`.
+    - Limitations:
+        - Channel identification must be one character, and channel number must each be one digit.
+        - Channels cannot have the identification of 0x00 nor can it have a number of 0x00
+        - Channel identifiers must be unique
+        - Precision must be an integer between 0 and 6, inclusive, because floats lose precision over 6 decimal places.
+        - The exponent output is at most 1 digit long. If it is longer, it is lost.
+- To set a channel to a new value, send "s", followed by the channel identification, the channel number, and the set float value formatted as a string.
+    - For example, to set a channel with identification "a" and number 1 to a value of 3.10, send "sa13.10".
+    - This does not return any feedback.
+- To query all channels, send "A".
+    - The output format is, by default, `o%g:` (in printf format), with each `%g:` repeating for each channel in the order they are presented in the channel map, with the exception of the last channel, which will have its colon removed.
+    - In the event where the format `%g` is not available, we use the %e format, with trailing zeros removed from the fractional part.
+
+- Error messages:
+    - ERR0 indicates that the queried input is unknown. The first letter of the input should be "q", "s", or "A".
+    - ERR1 indicates that the queried precision is too large. The precision should be an integer between 0 and 6, inclusive.
+    - ERR4 indicates that the queried channel could not be found.
+
+- Other errors:
+    - If the program stops running/responding, an assert has failed.
+    - Compile-time errors should be readable enough to make out what is wrong
+
+- printf support must be enabled when using debug mode (which can be enabled by editing the `libcom1_com.hpp` file)
