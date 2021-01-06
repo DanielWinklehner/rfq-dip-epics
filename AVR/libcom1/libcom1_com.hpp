@@ -14,6 +14,7 @@ namespace com1 {
 #pragma message ("If DEBUG is enabled, there must exist printf support!")
   static constexpr bool DEBUG = false;
 
+  // Values returned from processing input in liibcom1_eval.hpp to indicate an error or completion in processing an input
   static constexpr uint8_t PRC_QUERY = 1;
   static constexpr uint8_t PRC_SET = 2;
   static constexpr uint8_t PRC_QALL = 3;
@@ -22,6 +23,7 @@ namespace com1 {
   static constexpr uint8_t ERR_PRECISION_TOO_LARGE = 12;
   static constexpr uint8_t ERR_NO_DATA = 15;
 
+  // Offset values to find the byte in question of the input
   namespace detail {
     static constexpr uint8_t OFST_STATEMENT = 0;
     static constexpr uint8_t OFST_Q_CH_IDEN = 3;
@@ -37,6 +39,7 @@ namespace com1 {
      return static_cast<uint16_t>( (a << 8u) | b );
   }
 
+  // Each channel has two identifications (one letter and one digit), a getter function, and a setter function
   struct Channel {
     using GetterFunc = float (*)();
     using SetterFunc = void (*)(float);
