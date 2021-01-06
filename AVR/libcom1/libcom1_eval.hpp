@@ -86,6 +86,9 @@ public:
     : m_io(io), m_map(channels)
   {}
 
+  // Function for the device to process the input and write an output.
+  // Unacceptable inputs will output an error, elaborated in the README.
+  // This function would be continuously run in a loop. If there's no input, there is no output.
   void communicate()
   {
     switch (process_input()) {
@@ -113,6 +116,8 @@ public:
     }
   }
 
+  // Function for polling communication.
+  // Null input would query all channels.
   void intr_communicate()
   {
     m_io.read();
@@ -131,8 +136,10 @@ public:
     }
   }
 
+  // Returns a value to the communicate() function
+  // Calls different function based on the first Byte of the input (query channel, set channel, or query all channels)
   uint8_t process_input() {
-    // Byte 0: Statement
+    // Byte 0: Statement (query channel, set channel, query all channels)
     // Query Byte 1: Must be 0, This is a modified version of com1 protocol is designed for EPICS
     // Query Byte 2: Must be 1, Only a single channel can be queried at a time
     // Query Byte 3: Channel Iden
@@ -164,7 +171,9 @@ public:
     }
   }
 private:
-
+  // Returns specific error if the precision is too large or the channel does not exist
+  // If there is no error, outputs the queried channel's information to the indicated precision and returns PRC_QUERY
+  // Includes debug output.
   uint8_t single_query() {
     char* src = m_io.m_input;
 
@@ -183,6 +192,7 @@ private:
                      precision);
 
     // Search for the channel
+    // Returns error if channel doesn't exist
     const auto channel = m_map.at( i16u_iden(src[detail::OFST_Q_CH_IDEN], chnl_num) );
     if (!channel)
       return ERR_CHANNEL_LOOKUP;
@@ -252,6 +262,9 @@ private:
     return PRC_QUERY;
   }
 
+  // Returns specific error if the channel does not exist
+  // If there is no error, sets the given channel to the given new value and returns PRC_QUERY
+  // Includes debug output
   uint8_t io_intr_setter() {
     char* src = m_io.m_input;
 
@@ -282,6 +295,8 @@ private:
     return PRC_SET;
   }
 
+  // Outputs all channels and their values, then returns PRC_QALL
+  // Includes debug output
   uint8_t query_all() {
   m_io.write_debug("Query All\n");
 
