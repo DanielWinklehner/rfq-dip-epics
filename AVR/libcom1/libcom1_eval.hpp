@@ -280,9 +280,9 @@ private:
     // Search for channel
     const auto channel = m_map.at(  i16u_iden( src[detail::OFST_S_CH_IDEN], chnl_num) );
     if (!channel)
-      return channel.error();
+//      return channel.error();
 //    if ((bool) channel_lookup_error)
-//      return ERR_CHANNEL_LOOKUP;
+      return ERR_CHANNEL_LOOKUP;
 
     m_io.write_debug("Processed Query: Chnl: %c%u, Setval: %f\n",
                      (*channel).m_idenA,
