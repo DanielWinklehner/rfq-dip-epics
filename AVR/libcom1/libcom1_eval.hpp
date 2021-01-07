@@ -218,22 +218,20 @@ private:
 
     // The Arduino IDE does not have the linker flags set to
     // enable vfprintf with float support on the AVR8 platform
-#if defined(Arduino_h) && defined(__AVR__)
+#if defined(__AVR__)
+  #if defined(Arduino_h)
     dtostre( (*channel).m_getter() , buffer_exp, precision, DTOSTR_ALWAYS_SIGN | DTOSTR_PLUS_SIGN);
+  #else
+    // avr-libc does not support '*' (variable width precision). This is an ugly workaround
+    char conv_sci_notation[] = "%+.0e";
+    conv_sci_notation[3] = src[detail::OFST_Q_PRCN];
+    snprintf(buffer_exp, 16, conv_sci_notation, static_cast<double>( (*channel).m_getter() ) );
+  #endif
 #else
     // This is the version as outlined by the C/C++ standard in the header <cstdio> / <stdio.h>
-    snprintf(buffer_exp, 16, "%+.*e", precision, (*channel).m_getter());
+    snprintf(buffer_exp, 16, "%+.*e", precision, static_cast<double>( (*channel).m_getter() ));
 #endif
     m_io.write_debug("As sci. notation: %s\n", buffer_exp);
-
-//   Original:
-//    // Note: avr-libc does not support '*' (variable width precision)
-//    // this is an ugly hack / workaround
-//    char conv_sci_notation[] = "%+.0e";
-//    conv_sci_notation[3] = src[detail::OFST_Q_PRCN];
-
-//    // Convert the getter value to sci notation
-//    snprintf(buffer_exp, 16, conv_sci_notation, (*channel).m_getter());
 
     // Convert sci notation to original libcom1 format
     // and write to out buffer
