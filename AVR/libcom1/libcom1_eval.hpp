@@ -195,7 +195,8 @@ private:
     // Returns error if channel doesn't exist
     const auto channel = m_map.at( i16u_iden(src[detail::OFST_Q_CH_IDEN], chnl_num) );
     if (!channel)
-      return ERR_CHANNEL_LOOKUP;
+		return channel.error();
+//      return ERR_CHANNEL_LOOKUP;
 
     m_io.write_debug("Processed Query: Chnl: %c%u, Precision: %u\n",
                      (*channel).m_idenA,
@@ -280,9 +281,9 @@ private:
     // Search for channel
     const auto channel = m_map.at(  i16u_iden( src[detail::OFST_S_CH_IDEN], chnl_num) );
     if (!channel)
-//      return channel.error();
+      return channel.error();
 //    if ((bool) channel_lookup_error)
-      return ERR_CHANNEL_LOOKUP;
+//      return ERR_CHANNEL_LOOKUP;
 
     m_io.write_debug("Processed Query: Chnl: %c%u, Setval: %f\n",
                      (*channel).m_idenA,
@@ -310,13 +311,13 @@ private:
       // The Arduino IDE does not support for any float-related printf's, so
       // we opt to use %e, with trailing zeros removed.
 #if defined(Arduino_h) && defined(__AVR__)
-      dtostre( channel.m_getter() , target + bytes_written, 6, 0);
+      dtostre( channel.m_getter() , target + bytes_written, 6, DTOSTR_ALWAYS_SIGN | DTOSTR_PLUS_SIGN);
 
       // Trailing zeros are removed from the fractional part of the result
-      char* e_ptr = target + bytes_written + 8;
+      char* e_ptr = target + bytes_written + 9;
 
       char* zero_start = e_ptr;
-      while(zero_start != target + bytes_written + 2 && *(zero_start - 1) == '0')
+      while(zero_start != target + bytes_written + 3 && *(zero_start - 1) == '0')
       { --zero_start; }
 
       m_io.write_debug("Outbuffer: %s\n", target);
@@ -324,7 +325,7 @@ private:
       // 1 for e, 1 for sign, 2 for power
       memmove(zero_start, e_ptr, 4);
 
-      bytes_written += (12 - (e_ptr - zero_start));
+      bytes_written += (13 - (e_ptr - zero_start));
 
       // Add colon to end
       target[bytes_written++] = ':';
