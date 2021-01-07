@@ -43,8 +43,8 @@ int main() {
   // Pin setup
   {
     using namespace IO;
-    Digital::pin_ddr(Pin::p45, DDR::OUTPUT);
-    Digital::pin_ddr(Pin::p50, DDR::INPUT);
+    Digital::pin_ddr(Pin::p50, DDR::OUTPUT);
+    Digital::pin_ddr(Pin::p45, DDR::INPUT);
     Digital::pin_ddr(Pin::p30, DDR::OUTPUT);
     Digital::pin_ddr(Pin::p40, DDR::INPUT);
 
