@@ -179,7 +179,9 @@ private:
 
     // Conversions from input
     uint8_t chnl_num = src[detail::OFST_Q_CH_NUM] - '0';
-    uint8_t precision = atoi(&src[detail::OFST_Q_PRCN]);
+    
+    uint8_t precision = src[detail::OFST_Q_PRCN] - '0';
+               // atoi(&src[detail::OFST_Q_PRCN]);
 
     // Floats only have enough precision for 6 decimal places
     // Negative numbers don't need to be checked b/c overflow
@@ -195,8 +197,7 @@ private:
     // Returns error if channel doesn't exist
     const auto channel = m_map.at( i16u_iden(src[detail::OFST_Q_CH_IDEN], chnl_num) );
     if (!channel)
-		return channel.error();
-//      return ERR_CHANNEL_LOOKUP;
+      return channel.error();
 
     m_io.write_debug("Processed Query: Chnl: %c%u, Precision: %u\n",
                      (*channel).m_idenA,
@@ -282,8 +283,6 @@ private:
     const auto channel = m_map.at(  i16u_iden( src[detail::OFST_S_CH_IDEN], chnl_num) );
     if (!channel)
       return channel.error();
-//    if ((bool) channel_lookup_error)
-//      return ERR_CHANNEL_LOOKUP;
 
     m_io.write_debug("Processed Query: Chnl: %c%u, Setval: %f\n",
                      (*channel).m_idenA,

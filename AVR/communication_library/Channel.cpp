@@ -33,11 +33,11 @@ unsigned mist1::Channel::get_channel_number() {
 
 void mist1::Channel::call_set_func(float value) {
   
-  Serial.print("Responding to request to change value of channel ");
-  Serial.print(_channel_identifier);
-  Serial.print(_channel_number);
-  Serial.print(" to ");
-  Serial.println(value);
+  //Serial.print("Responding to request to change value of channel ");
+  //Serial.print(_channel_identifier);
+  //Serial.print(_channel_number);
+  //Serial.print(" to ");
+  //Serial.println(value);
   
   _set_func(value);
 }

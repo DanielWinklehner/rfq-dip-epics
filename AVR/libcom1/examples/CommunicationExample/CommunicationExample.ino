@@ -96,7 +96,7 @@ void setup() {
 void loop() {
   // device.communicate() is for polling communication
 
-  // device.intr_communicate(delayms) is for EPICS IO Interrupt Mode communication
+  // device.intr_communicate() is for EPICS IO Interrupt Mode communication
   // It wouldn't be a bad idea to put a delay here w/ intr_communicate mode
   // In addition, the read function in the IOHandler constructor must be non-blocking
   // and return a null byte '\0' when there is no serial data to read.
