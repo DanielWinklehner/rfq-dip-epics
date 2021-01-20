@@ -1,0 +1,44 @@
+record(bo, "$(DEVICE):ch1:setpoint") {
+    field(DESC, "Set I/O pin 5")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d1) $(PORT)")
+#    field(PRIO,"HIGH")
+}
+
+record(bo, "$(DEVICE):ch2:setpoint") {
+    field(DESC, "Set I/O pin 30")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(d2) $(PORT)")
+#    field(PRIO,"HIGH")
+}
+
+record(ao, "$(DEVICE):ch3:setpoint") {
+    field(DESC, "Set I/O pin 9")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink(a1) $(PORT)")
+    field(DRVL, 0)
+    field(DRVH, 255)
+    field(EGU, "V")
+#    field(PRIO,"HIGH")
+}
+
+record(ai, "$(DEVICE):ch1:readback") {
+    field(DESC, "Read I/O pin 10")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_3val($(DEVICE):ch2:readback, $(DEVICE):ch3:readback) $(PORT)")
+#    field(SCAN, "I/O Intr")
+    field(SCAN, ".02 second")
+#    field(PRIO, "LOW")
+}
+
+record(ai, "$(DEVICE):ch2:readback") {
+    field(DESC, "Read I/O pin 40")
+}
+
+record(ai, "$(DEVICE):ch3:readback") {
+    field(DESC, "Read I/O pin 40")
+    field(PREC, 3)
+    field(EGU, "V")
+}
+
+

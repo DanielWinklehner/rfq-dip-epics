@@ -1,0 +1,4 @@
+EPICS_BASE=${EPICS_BASE}
+ASYN=$(EPICS_BASE)/../support/asyn
+undefine CALC
+undefine PCRE
