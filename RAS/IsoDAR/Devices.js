@@ -18,7 +18,8 @@ const MassFlowControllers = [
 ]
 
 const FaradayCups = [
-  {macros: {'$(device)': 'testIOC'}, current: 'pva://$(device):amplitude', front_plate_current: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', legend: 'Faraday Cup', prec: 2, current_label: 'Current', front_plate_current_label: 'Front-Plate current'},
+  {macros: {'$(device)': 'testIOC'}, current: 'pva://$(device):amplitude', front_plate_current: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', legend: 'Faraday Cup DB1', prec: 2, current_label: 'Current', front_plate_current_label: 'Front-Plate current'},
+  {macros: {'$(device)': 'testIOC'}, current: 'pva://$(device):amplitude', front_plate_current: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', legend: 'Faraday Cup DB2', prec: 2, current_label: 'Current', front_plate_current_label: 'Front-Plate current', no_button:1},
 ]
 
 const Valves = [

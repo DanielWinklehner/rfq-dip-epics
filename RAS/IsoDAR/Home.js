@@ -21,7 +21,7 @@ import {PowerSupplies, TempSensors, MassFlowControllers, FaradayCups, Valves, Io
 class Home extends React.Component {
   constructor(props){
     super(props);
-    this.state = {PowerSupplies: PowerSupplies, TempSensors: TempSensors, MassFlowControllers: MassFlowControllers, FaradayCups: FaradayCups, Valves: Valves, IonGaugeControllers: IonGaugeControllers};
+    this.state = {PowerSupplies: PowerSupplies, TempSensors: TempSensors, MassFlowControllers: MassFlowControllers, FaradayCups: [FaradayCups[0]], Valves: Valves, IonGaugeControllers: IonGaugeControllers};
   }
   render() {
     return (

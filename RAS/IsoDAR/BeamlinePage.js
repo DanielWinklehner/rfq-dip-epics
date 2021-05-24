@@ -53,11 +53,6 @@ class BeamlinePage extends React.Component {
                 <Grid item sm={12}><FaradayCup {...fc}/></Grid>
               ))
             }
-            {
-              this.state.FaradayCups.map(fc => (
-                <Grid item sm={12}><FaradayCup {...fc}/></Grid>
-              ))
-            }
           </Grid>
 
         </Grid>

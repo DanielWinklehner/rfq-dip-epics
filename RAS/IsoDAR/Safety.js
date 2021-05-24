@@ -3,10 +3,10 @@ import PropTypes from 'prop-types';
 import Grid from '@material-ui/core/Grid';
 
 import TimeStampGraph from './Utils/TimeStampGraph.js';
-import FaradayCup from './Utils/FaradayCup.js'
+import TempSensor from './Utils/TempSensor.js'
 import IonGaugeController from "./Utils/IonGaugeController.js"
 
-import {Interlocks, WaterFlowControllers, FaradayCups, IonGaugeControllers} from './Devices.js';
+import {Interlocks, WaterFlowControllers, TempSensors, IonGaugeControllers} from './Devices.js';
 import Indicator from './Utils/Indicator.js';
 import WaterFlowController from './Utils/WaterFlowController.js';
 import "./Home.css"
@@ -15,13 +15,13 @@ import "./Home.css"
 class Safety extends React.Component {
   constructor(props){
     super(props);
-    this.state = {Interlocks: Interlocks, WaterFlowControllers: WaterFlowControllers, FaradayCups: FaradayCups, IonGaugeControllers: IonGaugeControllers};
+    this.state = {Interlocks: Interlocks, WaterFlowControllers: WaterFlowControllers, TempSensors: TempSensors, IonGaugeControllers: IonGaugeControllers};
   }
   render() {
     return (
       <div>
         <Grid container style={{"justify-content":"center"}}>
-          <Grid item container spacing={0} style={{"width":"fit-content"}}>
+          <Grid item container spacing={0} style={{"width":"fit-content", "height":"fit-content"}}>
             <fieldset>
             <legend>HV Interlocks</legend>
             <Grid container spacing={3} style={{"flex-direction":"column"}}>
@@ -34,7 +34,7 @@ class Safety extends React.Component {
             </fieldset>
           </Grid>
 
-          <Grid item container style={{"width":"fit-content"}}>
+          <Grid item container style={{"width":"fit-content", "height":"fit-content"}}>
             {
               this.state.WaterFlowControllers.map(wfc => (
                 <Grid item><WaterFlowController {...wfc}/></Grid>
@@ -42,13 +42,20 @@ class Safety extends React.Component {
             }
           </Grid>
           
-          <Grid item container style={{"width":"fit-content"}}>
+          <Grid item container className={"Temperature sensors"} xs={12} sm={4} style={{"justify-content":"space-around", "width":"fit-content"}}>
+            {
+              this.state.TempSensors.map(ts => (
+                <Grid item sm={3} xs={12}><TempSensor {...ts}/></Grid>
+              )) 
+            }
+          </Grid>
+          {/* <Grid item container style={{"width":"fit-content"}}>
             {
               this.state.FaradayCups.map(fc => (
                 <Grid item><FaradayCup {...fc}/></Grid>
               ))
             }
-          </Grid>
+          </Grid> */}
           
           <Grid item container style={{"width":"fit-content"}}>
             {
