@@ -6,15 +6,12 @@ Repository for the development of an EPICS based control system for RFQ-DIP/MIST
     - communication_library
       - Original communication library designed to work with previous control system
       - Protocol: libcom1 over serial
-    - SerialReadWrite
-      - EPICS playground over the serial bus
-    - OptimizedSerialRW
-      - EPICS playground w/o the Arduino library
-      - Protocol: EPICS and libcom1 over serial
-    - lib/libstatcio
+    - lib/libstatcio (Deprecated)
       - A rewrite of the Arduino GPIO library for avr-libc that utilizes significantly more compile-time constants
       - Will eventually include USART + SPI bus handling for Serial and Ethercat
-    - lib/libcom
-      - A libcom1 implementation w/o multiply queries using avr-libc
-      - A libcom2 implementation using avr-libc
+    - lib/libcom1
+      - A libcom1 implementation w/o multiply queries
+	- lib/libutil
+	  - Collection of utilities used by libcom
 - EPICS: Files related to EPICS (such as configuration files)
+- RAS: RAS configuration
