@@ -1,0 +1,90 @@
+# matsusada_co_ctrl.db
+#
+# This file provides protocol definitions for the Matsusada CO series of power supply controllers
+# to be used by StreamDevice
+#
+# Assumptions:
+# - To be used with Serial over USB
+# - Using hex mode on the power supply controller
+# Documentation for the commands are taken from:
+# https://wiki.jlab.org/ciswiki/images/5/5b/CO_series_REV_0.4.pdf
+#
+# Author(s): Ryan Yang (ryang2@mit.edu)
+#
+# Changlog:
+# 2021/05/23 - Documentation
+# 2021/02/08 - Added file
+
+
+# As described in the manual for Serial/USB
+Terminator = CR;
+
+# Voltage (Hex)
+set_voltage {
+    out "#\$1 CH0 %04X";
+}
+
+get_voltage {
+    out "#\$1 CH0?";
+    in "CH0=%XH"
+}
+
+read_voltage {
+    out "#\$1 MN1";
+    in "MONI1=%XH";
+}
+
+# Current (Hex)
+set_current {
+    out "#\$1 CH1 %04X";
+}
+
+get_current {
+    out "#\$1 CH1?";
+    in "CH1=%XH"
+}
+
+read_current {
+    out "#\$1 MN2";
+    in "MONI2=%XH";
+}
+
+# Polarity (0 = Positive, 1 = Negative)
+set_polarity {
+    out "#\$1 PL%d";
+}
+
+get_polarity {
+    out "#\$1 PL?";
+    in "PL%d"
+}
+
+read_polarity {
+    out "#\$1 PLM";
+    in "PLM=%d";
+}
+
+# Status
+reset {
+    # Enable remote control support and reset the cut off state
+    out "#\$1 REN";
+    out "#\$1 RST";
+}
+
+set_status {
+    out "#\$1 SW%d";
+    
+    @init {
+      reset;
+    }
+}
+
+read_status {
+    out "#\$1 STS";
+ 
+    # STS outputs the status of remote control, as the last parmeter, 
+    # but since we always turn it on in the on cmd and never turn it off,
+    # it is unneeded.
+    in "#%*d %{CF|CO} %*c%*c";
+}
+

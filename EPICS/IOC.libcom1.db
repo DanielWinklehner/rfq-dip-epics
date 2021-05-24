@@ -1,3 +1,19 @@
+# libcom1.db
+#
+# Params Required:
+# DEVICE: EPICS PV Prefix
+# PORT: asyn device port
+#
+# This file provides examples of using libcom1.proto to communicate with
+# devices using libcom1. Specifically, it was used with an Arduino who which
+# had several pins electrically connected
+#
+# Author(s): Ryan Yang (ryang2@mit.edu)
+#
+# Changlog:
+# 2021/05/23 - Documentation
+# 2021/01/25 - Added conversion from Volts to Raw value
+
 record(bo, "$(DEVICE):ch1:setpoint") {
     field(DESC, "Set I/O pin 5")
     field(DTYP, "stream")
@@ -16,10 +32,14 @@ record(ao, "$(DEVICE):ch3:setpoint") {
     field(DESC, "Set I/O pin 9")
     field(DTYP, "stream")
     field(OUT, "@libcom1.proto com1_setLink(a1) $(PORT)")
-    field(DRVL, 0)
-    field(DRVH, 255)
+    field(DRVL, "0")
+    field(DRVH, "5")
+# This part converts from a scale of 0->5 to a scale of 0->255
+# by doing: RVAL = (OVAL - EOFF)/(ESLO)
+    field(LINR, "SLOPE")
+    field(ESLO, "0.0196078431372549") # 1/51
+    field(EOFF, "0")
     field(EGU, "V")
-#    field(PRIO,"HIGH")
 }
 
 record(ai, "$(DEVICE):ch1:readback") {
@@ -36,9 +56,7 @@ record(ai, "$(DEVICE):ch2:readback") {
 }
 
 record(ai, "$(DEVICE):ch3:readback") {
-    field(DESC, "Read I/O pin 40")
+    field(DESC, "Read I/O pin A0")
     field(PREC, 3)
-    field(EGU, "V")
 }
-
 

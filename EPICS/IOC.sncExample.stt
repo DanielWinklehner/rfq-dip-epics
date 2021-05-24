@@ -1,0 +1,110 @@
+// sncExample.stt
+//
+// This file provides a demo for using EPICS sequencer as a PID controller
+// 
+// Author(s): Ryan Yang (ryang2@mit.edu)
+// 
+// Changlog:
+// 2021/05/23 - Documentation
+// 2021/05/17 - Added sncExample.stt
+
+program sncExample
+
+option +s;
+
+%%#include <millis.h>
+
+// User settings
+int onOff;
+assign onOff to "pid:onOff";
+monitor onOff;
+
+double sampleTime;
+assign sampleTime to "pid:sampleTime";
+monitor sampleTime;
+
+double setpoint;
+assign setpoint to "pid:setpoint";
+monitor setpoint;
+
+double Kp;
+assign Kp to "pid:Kp";
+monitor Kp;
+
+double Ki;
+assign Ki to "pid:Ki";
+monitor Ki;
+
+double Kd;
+assign Kd to "pid:Kd";
+monitor Kd;
+
+double bias;
+assign bias to "pid:bias";
+monitor bias;
+
+// Outside feedback
+double readback;
+assign readback to "pid:readback";
+monitor readback;
+
+// Output
+double output;
+assign output to "pid:output";
+
+
+// Internal
+double setpointPrior;
+double errorPrior;
+double integralPrior;
+
+double error;
+double integral;
+double derivative;
+
+unsigned long now;
+unsigned long lastMeasurement;
+
+ss pidSS {
+    state init {    
+        when (delay(2)) {
+            printf("sncExample: Startup delay over\n");
+        } state normalOutput
+    }
+    
+    state normalOutput {
+        when (!onOff && delay(0.002)) { // Off
+            if (setpointPrior != setpoint) {
+                output = setpoint;
+                setpointPrior = setpoint;
+                pvPut(output);
+            }
+        } state normalOutput
+        
+        when (onOff && delay(0.002)) { // On
+        } state pidOutput
+    }
+    
+    state pidOutput {
+        when (!onOff && delay(0.002)) {
+        } state normalOutput
+        
+        when (onOff) {
+            now = millis();
+            if ((now - lastMeasurement) >= (sampleTime*1000)) {
+                // This discrete formula may be incorrect
+                error = setpoint - readback;
+                integral = integralPrior + error * sampleTime;
+                derivative = (error - errorPrior)/sampleTime;
+                output = Kp * error + Ki * integral + Kd * derivative + bias;
+                
+                errorPrior = error;
+                integralPrior = integral;
+                lastMeasurement = now;
+                pvPut(output);
+           }
+           sleep_ms(0);
+        } state pidOutput
+    }
+}
+

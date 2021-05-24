@@ -1,5 +1,19 @@
-// Place me in StreaDevice/src
-// Don't forget to modify StreamDevice/src/CONFIG_STREAM 
+/**
+ * LibCom1ExponentConverter.cc
+ *
+ * IMPORTANT:
+ * - Place me in <StreamDeviceRoot>/src
+ * - Don't forget to modify <StreamDeviceRoot>/src/CONFIG_STREAM and add me
+ *
+ * This file provides the conversion from libcom1's float string format to a
+ * standard %g float format that is used by printf() and scanf().
+ *
+ * Author(s): Ryan Yang (ryang2@mit.edu)
+ * Changlog:
+ * 2021/05/23 - Documentation
+ * 2020/11/01 - Added file
+ *
+ */
 
 #include "StreamFormatConverter.h"
 #include "StreamError.h"
