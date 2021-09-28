@@ -1,6 +1,6 @@
 //#include <Channel.h>
 #include <stdio.h>
-#include <libcom1.h>
+#include <libcom1.hpp>
 
 // Set up serial communication
 char inputMessage[128];
@@ -159,6 +159,3 @@ void loop() {
     device.communicate();
   }  
 }
-
-
-

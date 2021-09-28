@@ -2,7 +2,7 @@
 //#include <Channel.h>
 //#include <Communication.h>
 #include <stdio.h>
-#include <libcom1.h>
+#include <libcom1.hpp>
 #include <MAX31856.h>
 
 // Set up serial communication
@@ -153,10 +153,10 @@ float dummyGetFunc(){
 
 using mist1::com1::Channel;
 MakeChannelMap(lookup, 4, ({
-    Channel{'t', 1, &get_t1,},
-    Channel{'t', 2, &get_t2},
-    Channel{'t', 3, &get_t3},
-    Channel{'t', 4, &get_t4},
+    Channel{'t', 1, &get_t1, &dummySetFunc},
+    Channel{'t', 2, &get_t2, &dummySetFunc},
+    Channel{'t', 3, &get_t3, &dummySetFunc},
+    Channel{'t', 4, &get_t4, &dummySetFunc},
   })
 );
 char serial_in_buffer[128]{0};
@@ -167,7 +167,6 @@ mist1::com1::IOHandler<128> io_ctx(
       { asm volatile("nop"); }
 
       Serial.readBytesUntil('\n', serial_in_buffer, 127);
-      time_a = micros();
 
       return serial_in_buffer;
     },
