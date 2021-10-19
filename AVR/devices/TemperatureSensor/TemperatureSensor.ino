@@ -1,7 +1,6 @@
 //#include <Adafruit_MAX31856.h>
 //#include <Channel.h>
 //#include <Communication.h>
-#include <stdio.h>
 #include <libcom1.hpp>
 #include <MAX31856.h>
 
@@ -159,6 +158,7 @@ MakeChannelMap(lookup, 4, ({
     Channel{'t', 4, &get_t4, &dummySetFunc},
   })
 );
+
 char serial_in_buffer[128]{0};
 
 mist1::com1::IOHandler<128> io_ctx(
@@ -188,10 +188,11 @@ void setup() {
   digitalWrite(LED_ERR, HIGH);
   
   // Define the pins used to communicate with the MAX31856
-  temperature1 = new MAX31856(SDI, SDO, CS1, SCK);
-  temperature2 = new MAX31856(SDI, SDO, CS2, SCK);
-  temperature3 = new MAX31856(SDI, SDO, CS3, SCK);
-  temperature4 = new MAX31856(SDI, SDO, CS4, SCK);
+  // These 4 lines are causing issues??? -PW
+//  temperature1 = new MAX31856(SDI, SDO, CS1, SCK);
+//  temperature2 = new MAX31856(SDI, SDO, CS2, SCK);
+//  temperature3 = new MAX31856(SDI, SDO, CS3, SCK);
+//  temperature4 = new MAX31856(SDI, SDO, CS4, SCK);
   
   // Initializing the MAX31855's registers
   temperature1->writeRegister(REGISTER_CR0, CR0_INIT);
