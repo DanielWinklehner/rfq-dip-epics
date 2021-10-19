@@ -151,7 +151,7 @@ float dummyGetFunc(){
 }
 
 using mist1::com1::Channel;
-MakeChannelMap(lookup, 4, ({
+MakeChannelMap(comlookup, 4, ({
     Channel{'t', 1, &get_t1, &dummySetFunc},
     Channel{'t', 2, &get_t2, &dummySetFunc},
     Channel{'t', 3, &get_t3, &dummySetFunc},
@@ -175,7 +175,7 @@ mist1::com1::IOHandler<128> io_ctx(
       Serial.println(str);
     }
 );
-mist1::com1::SerialDevice<128, 4> device(io_ctx, lookup);
+mist1::com1::SerialDevice<128, 4> comdevice(io_ctx, comlookup);
 
 
 void setup() {
@@ -189,10 +189,10 @@ void setup() {
   
   // Define the pins used to communicate with the MAX31856
   // These 4 lines are causing issues??? -PW
-//  temperature1 = new MAX31856(SDI, SDO, CS1, SCK);
-//  temperature2 = new MAX31856(SDI, SDO, CS2, SCK);
-//  temperature3 = new MAX31856(SDI, SDO, CS3, SCK);
-//  temperature4 = new MAX31856(SDI, SDO, CS4, SCK);
+  temperature1 = new MAX31856(SDI, SDO, CS1, SCK);
+  temperature2 = new MAX31856(SDI, SDO, CS2, SCK);
+  temperature3 = new MAX31856(SDI, SDO, CS3, SCK);
+  temperature4 = new MAX31856(SDI, SDO, CS4, SCK);
   
   // Initializing the MAX31855's registers
   temperature1->writeRegister(REGISTER_CR0, CR0_INIT);
@@ -234,6 +234,6 @@ void loop() {
   
   if (Serial.available()) {
     digitalWrite(LED_COM, HIGH);
-    device.communicate();
+    comdevice.communicate();
   }  
 }
