@@ -2,6 +2,8 @@
 //#include <Communication.h>
 #include <libcom1.hpp>
 
+// Compile with Teensy 3.6?
+
 #define USE_OLED
 //#define DEBUG
 
@@ -84,7 +86,7 @@ float get_aim_pressure(){
   return gauge2_torr;
 }
 
-void dummyFunc(float set_value){
+void dummySetFunc(float set_value){
   //Serial.println("Called the dummy function!");
 }
 
@@ -579,5 +581,3 @@ double volt_to_torr(double volt)
   // Do a linear extrapolation to the calibration data
   return pressures_torr[index_lower] + (pressures_torr[index_lower + 1]- pressures_torr[index_lower]) * (volt - voltages[index_lower]) / (voltages[index_lower + 1] - voltages[index_lower]);
 }
-
-

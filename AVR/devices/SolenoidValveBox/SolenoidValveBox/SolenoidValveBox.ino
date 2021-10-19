@@ -243,4 +243,3 @@ void loop() {
     device.communicate();
   }
 }
-
