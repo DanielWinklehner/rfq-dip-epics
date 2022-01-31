@@ -58,7 +58,7 @@ MAX31856 *temperature7;
 
 float t[] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-
+// Who named these?
 float get_t1(){
   return t[0];
 }
@@ -114,12 +114,12 @@ void dummySetFunc(float set_value){
 using mist1::com1::Channel;
 MakeChannelMap(lookup, 12, ({
     Channel{'t', 1, &get_t1, &dummySetFunc},
-    Channel{'t', 2, &get_t1, &dummySetFunc},
-    Channel{'t', 3, &get_t1, &dummySetFunc},
-    Channel{'t', 4, &get_t1, &dummySetFunc},
-    Channel{'t', 5, &get_t1, &dummySetFunc},
-    Channel{'t', 6, &get_t1, &dummySetFunc},
-    Channel{'t', 7, &get_t1, &dummySetFunc},
+    Channel{'t', 2, &get_t2, &dummySetFunc},
+    Channel{'t', 3, &get_t3, &dummySetFunc},
+    Channel{'t', 4, &get_t4, &dummySetFunc},
+    Channel{'t', 5, &get_t5, &dummySetFunc},
+    Channel{'t', 6, &get_t6, &dummySetFunc},
+    Channel{'t', 7, &get_t7, &dummySetFunc},
     Channel{'f', 1, &get_flow1, &dummySetFunc},
     Channel{'f', 2, &get_flow2, &dummySetFunc},
     Channel{'f', 3, &get_flow3, &dummySetFunc},
