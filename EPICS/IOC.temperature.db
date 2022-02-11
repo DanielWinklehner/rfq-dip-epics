@@ -1,0 +1,32 @@
+# Author: Philip Weigel
+record(ai, "$(DEVICE):t1:gettemp") {
+    field(DESC, "Get T1 temperature")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(t1) $(PORT)")
+    field(SCAN. "1 second")
+    field(PRIO, "LOW")
+}
+
+record(ai, "$(DEVICE):t2:gettemp") {
+    field(DESC, "Get T2 temperature")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(t2) $(PORT)")
+    field(SCAN. "1 second")
+    field(PRIO, "LOW")
+}
+
+record(ai, "$(DEVICE):t3:gettemp") {
+    field(DESC, "Get T3 temperature")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(t3) $(PORT)")
+    field(SCAN. "1 second")
+    field(PRIO, "LOW")
+}
+
+record(ai, "$(DEVICE):t4:gettemp") {
+    field(DESC, "Get T4 temperature")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_getLink(t4) $(PORT)")
+    field(SCAN. "1 second")
+    field(PRIO, "LOW")
+}
