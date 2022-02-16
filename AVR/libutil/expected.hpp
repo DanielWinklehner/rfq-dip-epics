@@ -5,7 +5,6 @@
 #include "libutil_utility.hpp"
 
 #ifdef __AVR__
-  #include "placementnew.hpp"
   #include <assert.h>
 #else
   #include <cassert>
