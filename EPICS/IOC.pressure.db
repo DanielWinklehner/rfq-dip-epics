@@ -1,0 +1,16 @@
+# Author: Philip Weigel
+record(ai, "$(DEVICE):apg:getpressure") {
+    field(DESC, "Get APG Pressure")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_setLink(p1) $(PORT)")
+    field(SCAN. ".5 second")
+    field(PRIO, "LOW")
+}
+
+record(ai, "$(DEVICE):aim:getpressure") {
+    field(DESC, "Get AIM Pressure")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_setLink(p2) $(PORT)")
+    field(SCAN. ".5 second")
+    field(PRIO, "LOW")
+}
