@@ -1,9 +1,11 @@
+# Author: Philip Weigel
+
 record(bi, "$(DEVICE):i1:get_interlock") {
     field(DESC, "Get interlock 1 status")
     field(DTYP, "stream")
     field(INP, "@libcom1.proto com1_getLink(i1) $(PORT)")
     field(SCAN, "0.1 second")    
-    field(PRIO,"HIGH")
+    field(PRIO, "HIGH")
 }
 
 record(bi, "$(DEVICE):i2:get_interlock") {
@@ -11,7 +13,7 @@ record(bi, "$(DEVICE):i2:get_interlock") {
     field(DTYP, "stream")
     field(INP, "@libcom1.proto com1_getLink(i2) $(PORT)")
     field(SCAN, "0.1 second")
-    field(PRIO,"HIGH")
+    field(PRIO, "HIGH")
 }
 
 record (bo "$(DEVICE):s1:set_solenoid") {
