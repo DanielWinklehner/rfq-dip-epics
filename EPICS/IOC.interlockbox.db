@@ -1,29 +1,29 @@
 # Author: Philip Weigel
 
-record(bi, "$(DEVICE):i1:get_interlock") {
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All interlocks")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".1 second")
+    field(NELM, "4")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):i1:get_interlock")
+    field(LNK1, "$(DEVICE):i2:get_interlock")
+}
+
+record(ai, "$(DEVICE):i1:get_interlock") {
     field(DESC, "Get interlock 1 status")
-    field(DTYP, "stream")
-    field(INP, "@libcom1.proto com1_getLink(i1) $(PORT)")
-    field(SCAN, "0.1 second")    
-    field(PRIO, "HIGH")
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(SCAN, "Passive")    
 }
 
-record(bi, "$(DEVICE):i2:get_interlock") {
+record(ai, "$(DEVICE):i2:get_interlock") {
     field(DESC, "Get interlock 2 status")
-    field(DTYP, "stream")
-    field(INP, "@libcom1.proto com1_getLink(i2) $(PORT)")
-    field(SCAN, "0.1 second")
-    field(PRIO, "HIGH")
-}
-
-record (bo "$(DEVICE):s1:set_solenoid") {
-    field(DESC, "Set solenoid 1")
-    field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_setLink(s1) $(PORT)")
-}
-
-record (bo "$(DEVICE):s2:set_solenoid") {
-    field(DESC, "Set solenoid 2")
-    field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_setLink(s2) $(PORT)")
+	field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(SCAN, "Passive")
 }

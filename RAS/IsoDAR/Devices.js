@@ -7,10 +7,10 @@ const PowerSupplies = [
 ]
 
 const TempSensors = [
-  {macros: {'$(device)':'AU-20P7-1'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 1'},
-  {macros: {'$(device)':'AU-20P7-1'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 2'},
-  {macros: {'$(device)':'AU-20P7-1'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 3'},
-  {macros: {'$(device)':'AU-20P7-1'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 4'},
+  {macros: {'$(device)':'avr10'}, pv: 'pva://$(device):t2:gettemp', prec: 2, legend:'Back Plate Temp'},
+  {macros: {'$(device)':'avr10'}, pv: 'pva://$(device):t3:gettemp', prec: 2, legend:'Magnet Plate Temp'},
+  {macros: {'$(device)':'abc'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 3'},
+  {macros: {'$(device)':'abc'}, pv: 'pva://$(device):voltage:set', prec: 2, legend:'Temp Sensor 4'},
 ]
 
 const MassFlowControllers = [
@@ -23,23 +23,23 @@ const FaradayCups = [
 ]
 
 const Valves = [
-  {macros: {'$(device)': 'testIOC'}, button: 'pva://$(device):BO1', legend: 'Vent Valve'},
-  {macros: {'$(device)': 'testIOC'}, button: 'pva://$(device):BO1', legend: 'Foreline Valve'},
-  {macros: {'$(device)': 'testIOC'}, button: 'pva://$(device):BO1', legend: 'Mass Flow Valve'},
-  {macros: {'$(device)': 'testIOC'}, button: 'pva://$(device):BO1', legend: 'Source-Body Valve'},
+  {macros: {'$(device)': 'avr12'}, button: 'pva://$(device):s1:set', legend: 'Foreline Valve'},
+  {macros: {'$(device)': 'avr12'}, button: 'pva://$(device):s2:set', legend: 'MFC Shutoff Valve'},
+  {macros: {'$(device)': 'avr12'}, button: 'pva://$(device):s3:set', legend: 'Vent Valve'},
+  {macros: {'$(device)': 'avr12'}, button: 'pva://$(device):s4:set', legend: 'Faraday Cup'},
 ]
 
 const IonGaugeControllers = [
-  {macros: {'$(device)': 'testIOC'}, apg: 'pva://$(device):amplitude', diag_box: 'pva://$(device):amplitude', naim: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', apg_label: 'APG Pressure', diag_box_label: 'Diagnostic Box Pressure', naim_label: 'nAIM-S Ion Gauge Source Pressure', legend: 'Ion Gauge Controller', prec: 2},
+  {macros: {'$(device)': 'avr6'}, apg: 'pva://$(device):apg:getpressure', diag_box: 'pva://$(device):diag_box:getpressure', naim: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', apg_label: 'APG Pressure', diag_box_label: 'Diagnostic Box Pressure', naim_label: 'nAIM-S Ion Gauge Source Pressure', legend: 'Ion Gauge Controller', prec: 2},
 ]
 
 const Interlocks = [
-  {macros: {'$(device)': 'testIOC'}, pv: 'pva://$(device):BO1', label: 'HV Door Upper', onColor: 'green', offColor: 'red'},
-  {macros: {'$(device)': 'testIOC'}, pv: 'pva://$(device):BO1', label: 'HV Door Lower', onColor: 'green', offColor: 'red'},
+  {macros: {'$(device)': 'avr11'}, pv: 'pva://$(device):i1:get_interlock', label: 'HV Door Upper', onColor: 'green', offColor: 'red'},
+  {macros: {'$(device)': 'avr11'}, pv: 'pva://$(device):i2:get_interlock', label: 'HV Door Lower', onColor: 'green', offColor: 'red'},
 ]
 
 const WaterFlowControllers = [
-  {macros: {'$(device)': 'testIOC'}, read1: 'pva://$(device):amplitude', read2: 'pva://$(device):amplitude', read3: 'pva://$(device):amplitude', read4: 'pva://$(device):amplitude', read1_label: 'Backplate', read2_label: 'Turbo pump', read3_label: 'Source Body', read4_label: 'Water flow', legend:'Water Flow Controller', prec: 2}
+  {macros: {'$(device)': 'avr10'}, read1: 'pva://$(device):f1:getflow', read2: 'pva://$(device):f2:getflow', read3: 'pva://$(device):f3:getflow', read4: 'pva://$(device):f4:getflow', read1_label: 'Backplate', read2_label: 'Turbo pump', read3_label: 'Source Body', read4_label: 'Water flow', legend:'Water Flow Controller', prec: 2}
 ]
 
 export {PowerSupplies, TempSensors, MassFlowControllers, FaradayCups, Valves, IonGaugeControllers, Interlocks, WaterFlowControllers};

@@ -73,7 +73,7 @@ class Safety extends React.Component {
             <TimeStampGraph legends={['Backplate', 'Turbo pump', 'Source body', 'Water flow']} pvs={['pva://testIOC:amplitude', 'pva://testIOC:amplitude', 'pva://testIOC:amplitude', 'pva://testIOC:amplitude']} yUnits='V' height="20vw" width="30vw"/>
           </Grid>
           <Grid item>
-            <TimeStampGraph legends={['APG Pressure', 'DB Pressure', 'Source body', 'nAIM-S IGS Pressure']} pvs={['pva://testIOC:amplitude', 'pva://testIOC:amplitude', 'pva://testIOC:amplitude', 'pva://testIOC:amplitude']} yUnits='V' height="20vw" width="30vw"/>
+            <TimeStampGraph legends={['APG Pressure', 'DB Pressure', 'Source body', 'nAIM-S IGS Pressure']} pvs={['pva://avr6:apg:getpressure', 'pva://avr6:diag_box:getpressure', 'pva://testIOC:amplitude', 'pva://testIOC:amplitude']} yUnits='torr' height="20vw" width="30vw"/>
           </Grid>
 
         </Grid>

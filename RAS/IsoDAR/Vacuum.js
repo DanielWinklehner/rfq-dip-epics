@@ -5,7 +5,7 @@ import Grid from '@material-ui/core/Grid';
 import IonGaugeController from "./Utils/IonGaugeController.js"
 import TimeStampGraph from './Utils/TimeStampGraph.js';
 import NamedButton from './Utils/NamedButton.js';
-
+import ToggleButton from '../BaseComponents/ToggleButton.js';
 
 import {Valves, IonGaugeControllers} from './Devices.js';
 

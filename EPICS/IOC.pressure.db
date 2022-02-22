@@ -13,7 +13,7 @@ record(aai, "$(DEVICE):data") {
 record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):apg:getpressure")
-    field(LNK1, "$(DEVICE):aim:getpressure")
+    field(LNK1, "$(DEVICE):diag_box:getpressure")
 }
 
 record(ai, "$(DEVICE):apg:getpressure") {
@@ -22,8 +22,8 @@ record(ai, "$(DEVICE):apg:getpressure") {
     field(SCAN, "Passive")
 }
 
-record(ai, "$(DEVICE):aim:getpressure") {
-    field(DESC, "Get AIM Pressure")
+record(ai, "$(DEVICE):diag_box:getpressure") {
+    field(DESC, "Get Diagnostic Box Pressure")
     field(INP, "$(DEVICE):data.VAL[1] CA")
     field(SCAN, "Passive")
 }

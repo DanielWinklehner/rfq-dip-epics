@@ -1,0 +1,105 @@
+# Author: Philip Weigel
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All solenoid statuses")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".5 second")
+    field(NELM, "8")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):s1:get")
+    field(LNK1, "$(DEVICE):s2:get")
+	field(LNK2, "$(DEVICE):s3:get")
+	field(LNK3, "$(DEVICE):s4:get")
+	field(LNK4, "$(DEVICE):s5:get")
+	field(LNK5, "$(DEVICE):s6:get")
+	field(LNK6, "$(DEVICE):s7:get")
+	field(LNK7, "$(DEVICE):s8:get")
+}
+
+record(ai, "$(DEVICE):s1:get") {
+    field(DESC, "Get s1 status")
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s2:get") {
+    field(DESC, "Get s2 status")
+    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s3:get") {
+    field(DESC, "Get s3 status")
+    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s4:get") {
+    field(DESC, "Get s4 status")
+    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s5:get") {
+    field(DESC, "Get s5 status")
+    field(INP, "$(DEVICE):data.VAL[4] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s6:get") {
+    field(DESC, "Get s6 status")
+    field(INP, "$(DEVICE):data.VAL[5] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s7:get") {
+    field(DESC, "Get s7 status")
+    field(INP, "$(DEVICE):data.VAL[6] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):s8:get") {
+    field(DESC, "Get s8 status")
+    field(INP, "$(DEVICE):data.VAL[7] CA")
+    field(SCAN, "Passive")
+}
+
+record(bo, "$(DEVICE):s1:set") {
+	field(DESC, "Set s1")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s1) $(PORT)")
+}
+record(bo, "$(DEVICE):s2:set") {
+	field(DESC, "Set s2")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s2) $(PORT)")
+}
+record(bo, "$(DEVICE):s3:set") {
+	field(DESC, "Set s3")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s3) $(PORT)")
+}
+record(bo, "$(DEVICE):s4:set") {
+	field(DESC, "Set s4")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s4) $(PORT)")
+}
+record(ao, "$(DEVICE):s5:set") {
+	field(DESC, "Set s5")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s5) $(PORT)")
+}
+record(ao, "$(DEVICE):s6:set") {
+	field(DESC, "Set s6")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s6) $(PORT)")
+}
+record(ao, "$(DEVICE):s7:set") {
+	field(DESC, "Set s7")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s7) $(PORT)")
+}
+record(ao, "$(DEVICE):s8:set") {
+	field(DESC, "Set s8")
+	field(DTYP, "stream")
+	field(OUT, "@libcom1.proto com1_setLink(s8) $(PORT)")
+}
