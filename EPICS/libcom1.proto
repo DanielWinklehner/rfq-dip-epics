@@ -31,7 +31,7 @@ com1_setLink_flt {
     out "s\$1%f";
 }
 
-# Set a value on a channel using an intenger
+# Set a value on a channel using an integer
 com1_setLink {
     out "s\$1%d";
 }

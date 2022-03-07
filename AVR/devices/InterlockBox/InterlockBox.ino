@@ -1,45 +1,42 @@
-//#include <Channel.h>
-#include <stdio.h>
 #include <libcom1.hpp>
-
-// Set up serial communication
-char inputMessage[128];
-//mist1::Communication com = mist1::Communication("Sensor Box");
 
 volatile int com_flag = 0;
 
 // Solenoid Valve Variables (Relays). x2.
-const int solenoidValvePins[] = {26, 24}; // (relay 1 and 4 are unused on board.)
+const int solenoidValvePins[] = {26, 24}; //
 bool solenoidValveValues[] = {HIGH, HIGH}; // Relays are closed when pulled to ground. Default should be open (HIGH).
 
+const int interlockOutPins[] = {28, 22}; //
+bool interlockOutValues[] = {HIGH, HIGH}; // Relays are closed when pulled to ground. Default should be open (HIGH).
+
 // Micro Switches for interlocks. x2.
-const int microSwitchPins[] = {2, 3}; 
-bool microSwitchValues[] = {LOW, LOW};
+const int interlockInPins[] = {2, 3}; 
+bool interlockInValues[] = {LOW, LOW};
 
 // Vacuum Valves. x2.
-const int vacuumValvePins[] = {21, 20, 19, 18};
+const int vacuumValvePins[] = {7, 6, 5, 4};
 bool vacuumValveMicroSwitchValues[] = {LOW, LOW, LOW, LOW};
 bool vacuumValveValues[] = {LOW, LOW};  // For each vacuum valve, two microswitches determine whether or not it's open.
 
 // Define pins for error state LED, communication LED
 #define LED_ERR 12
 #define LED_COM 13
-#define LED_INTLK_OPEN 11
-#define LED_INTLK_CLOSED 10
+#define LED_INTLK_OPEN 10
+#define LED_INTLK_CLOSED 11
 
 float get_interlock1(){
-  return (float)microSwitchValues[0];
+  return (float)interlockInValues[0];
 }
 
 float get_interlock2(){
-  return (float)microSwitchValues[1];
+  return (float)interlockInValues[1];
 }
 
 void set_solenoid1(float set_value){
   if (set_value == 1.0) {
     solenoidValveValues[0] = LOW;
     digitalWrite(solenoidValvePins[0], LOW);
-  } else if (set_value = 0.0) {
+  } else {
     solenoidValveValues[0] = HIGH;
     digitalWrite(solenoidValvePins[0], HIGH);
   }
@@ -49,7 +46,7 @@ void set_solenoid2(float set_value){
   if (set_value == 1.0) {
     solenoidValveValues[1] = LOW;
     digitalWrite(solenoidValvePins[1], LOW);
-  } else if (set_value = 0.0) {
+  } else {
     solenoidValveValues[1] = HIGH;
     digitalWrite(solenoidValvePins[1], HIGH);
   }
@@ -96,6 +93,12 @@ void setup()   {
   pinMode(LED_COM, OUTPUT);
   digitalWrite(LED_COM, LOW);
   digitalWrite(LED_ERR, LOW);
+
+  // Init Interlock LED's
+  pinMode(LED_INTLK_OPEN, OUTPUT);
+  pinMode(LED_INTLK_CLOSED, OUTPUT);
+  digitalWrite(LED_INTLK_OPEN, HIGH);
+  digitalWrite(LED_INTLK_CLOSED, LOW);
   
   // Initialise the Arduino data pins.
 
@@ -110,17 +113,23 @@ void setup()   {
     pinMode(vacuumValvePins[i], INPUT);
   }
   
-  // Microswitches.
-  for (unsigned i = 0; i < sizeof(microSwitchPins) / sizeof(int); i++) {
-    pinMode(microSwitchPins[i], INPUT);
+  // Interlock Input
+  for (unsigned i = 0; i < sizeof(interlockInPins) / sizeof(int); i++) {
+    pinMode(interlockInPins[i], INPUT);
+  }
+
+  //Interlock Output
+  for (unsigned i = 0; i < sizeof(interlockOutPins) / sizeof(int); i++) {
+    pinMode(interlockOutPins[i], OUTPUT);
+    digitalWrite(interlockOutPins[i], HIGH);
   }
     
   Serial.begin(115200);
 
-  //com.add_channel(mist1::Channel("INTERLOCK1", 'i', 1, &dummySetFunc, &get_interlock1));
-  //com.add_channel(mist1::Channel("INTERLOCK2", 'i', 2, &dummySetFunc, &get_interlock2));
-  //com.add_channel(mist1::Channel("SOLENOID1", 's', 1, &set_solenoid1, &dummyGetFunc));
-  //com.add_channel(mist1::Channel("SOLENOID2", 's', 2, &set_solenoid2, &dummyGetFunc));
+//  com.add_channel(mist1::Channel("INTERLOCK1", 'i', 1, &dummySetFunc, &get_interlock1));
+//  com.add_channel(mist1::Channel("INTERLOCK2", 'i', 2, &dummySetFunc, &get_interlock2));
+//  com.add_channel(mist1::Channel("SOLENOID1", 's', 1, &set_solenoid1, &dummyGetFunc));
+//  com.add_channel(mist1::Channel("SOLENOID2", 's', 2, &set_solenoid2, &dummyGetFunc));
  
 }
 
@@ -148,14 +157,33 @@ void loop() {
   }
   
   // Read Micro Switches.
-  for (unsigned i = 0; i < sizeof(microSwitchPins) / sizeof(int); i++) {
-    microSwitchValues[i] = digitalRead(microSwitchPins[i]);
+  for (unsigned i = 0; i < sizeof(interlockInPins) / sizeof(int); i++) {
+    interlockInValues[i] = digitalRead(interlockInPins[i]);
+  }
+
+  if ( (interlockInValues[0] == HIGH) && (interlockInValues[1] == HIGH)){
+    // Interlock is CLOSED
+    digitalWrite(LED_INTLK_OPEN, LOW);
+    digitalWrite(LED_INTLK_CLOSED, HIGH);
+    digitalWrite(interlockOutPins[0], LOW);
+    digitalWrite(interlockOutPins[1], LOW);
+  } else {
+    // Interlock is OPEN
+    digitalWrite(LED_INTLK_OPEN, HIGH);
+    digitalWrite(LED_INTLK_CLOSED, LOW);
+    digitalWrite(interlockOutPins[0], HIGH);
+    digitalWrite(interlockOutPins[1], HIGH);
   }
 
   // GUI Communication.
   digitalWrite(LED_COM, LOW);
+
   if (Serial.available()) {
+    
     digitalWrite(LED_COM, HIGH);
+    
     device.communicate();
-  }  
+
+  }
 }
+

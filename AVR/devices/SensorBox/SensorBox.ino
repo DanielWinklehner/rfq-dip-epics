@@ -273,7 +273,7 @@ void loop() {
     t[4] = temperature5->readThermocouple(CELSIUS);
     t[5] = temperature6->readThermocouple(CELSIUS);
     t[6] = temperature7->readThermocouple(CELSIUS);
-    // t[7] = temperature8->readThermocouple(CELSIUS);
+//    t[7] = temperature8->readThermocouple(CELSIUS);
   }
 
   // GUI Communication.

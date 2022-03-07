@@ -128,7 +128,7 @@ void setup() {
   
   // Define the pins used to communicate with the MAX31856
   temperature1 = new MAX31856(SDI, SDO, CS1, SCK);
-  temperature2 = new MAX31856(SDI, SDO, CS2, SK);
+  temperature2 = new MAX31856(SDI, SDO, CS2, SCK);
   temperature3 = new MAX31856(SDI, SDO, CS3, SCK);
   temperature4 = new MAX31856(SDI, SDO, CS4, SCK);
 

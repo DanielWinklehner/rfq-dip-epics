@@ -76,8 +76,8 @@ class Home extends React.Component {
           </Grid> */}
           
           <Grid item spacing={2} container xs={12} sm={8}>
-            <TimeStampGraph legends = {['Graph 1']} pvs={['pva://testIOC:amplitude']} yUnits='V' width="50%" height="30vh"/>
-            <TimeStampGraph legends = {['Graph 2']} pvs={['pva://testIOC:amplitude']} yUnits='A' width="50%" height="30vh"/>
+            <TimeStampGraph legends = {['Graph 1']} pvs={['pva://avr6:apg:getpressure']} yUnits='torr' width="50%" height="30vh"/>
+            <TimeStampGraph legends = {['Graph 2']} pvs={['pva://AU-20P7-1:voltage:get']} yUnits='V' width="50%" height="30vh"/>
           </Grid>
 
           <Grid container item spacing={2} xs={12} sm={4} style={{"align-items": "center", "position":"relative", "bottom":"1em"}}>
