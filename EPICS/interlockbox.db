@@ -39,5 +39,5 @@ record(calc, "interlock_status") {
     field(INPA, "$(DEVICE):i1:get_interlock.VAL NPP")
     field(INPB, "$(DEVICE):i2:get_interlock.VAL NPP")
     field(CALC, "A||B ? 1 : 0")  # 1 if A or B, 0 otherwise
-    field(SCAN, "
+    field(SCAN, "Passive")
 }
