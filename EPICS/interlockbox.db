@@ -16,14 +16,28 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(LNK1, "$(DEVICE):i2:get_interlock")
 }
 
-record(ai, "$(DEVICE):i1:get_interlock") {
+record(bi, "$(DEVICE):i1:get_interlock") {
     field(DESC, "Get interlock 1 status")
     field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(ZNAM, "Closed")
+    field(ONAM, "Open")
+    field(OSV, "MAJOR")  # Severity of a one-value error
     field(SCAN, "Passive")    
 }
 
-record(ai, "$(DEVICE):i2:get_interlock") {
+record(bi, "$(DEVICE):i2:get_interlock") {
     field(DESC, "Get interlock 2 status")
-	field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(ZNAM, "Closed")
+    field(ONAM, "Open")
+    field(OSV, "MAJOR")  #Severity of a one-value error
     field(SCAN, "Passive")
+}
+
+record(calc, "interlock_status") {
+    field(DESC, "Status of the interlocks")
+    field(INPA, "$(DEVICE):i1:get_interlock.VAL NPP")
+    field(INPB, "$(DEVICE):i2:get_interlock.VAL NPP")
+    field(CALC, "A||B ? 1 : 0")  # 1 if A or B, 0 otherwise
+    field(SCAN, "
 }

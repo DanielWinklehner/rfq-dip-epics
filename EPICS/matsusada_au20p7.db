@@ -174,12 +174,12 @@ record(bo, "AU-20P7-$(UNITNUM):reset") {
 }
 
 record(calc, "AU-20P7-$(UNITNUM):power:read") {
-  field(DESC, "Read power of $(PORT):$(UNITNUM)")
-   field(INPA, "AU-20P7-$(UNITNUM):voltage:read.VAL NPP")
-   field(INPB, "AU-20P7-$(UNITNUM):current:read.VAL NPP")
-   field(CALC, "A * B / 1000")
-   field(SCAN, ".1 second")
-   field(PREC, "3")
-   field(EGU, "W")
+    field(DESC, "Read power of $(PORT):$(UNITNUM)")
+    field(INPA, "AU-20P7-$(UNITNUM):voltage:read.VAL NPP")
+    field(INPB, "AU-20P7-$(UNITNUM):current:read.VAL NPP")
+    field(CALC, "A * B / 1000")
+    field(SCAN, ".1 second")
+    field(PREC, "3")
+    field(EGU, "W")
 }
 
