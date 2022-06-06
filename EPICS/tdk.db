@@ -46,16 +46,16 @@ record(ai, "$(DEVICE):current:get") {
 }
 
 record(bo, "$(DEVICE):status:set") {
-	field(DESC, "Set status")
-	field(DTYP, "stream")
-	field(OUT, "@tdk.proto set_status $(PORT)")
+    field(DESC, "Set status")
+    field(DTYP, "stream")
+    field(OUT, "@tdk.proto set_status $(PORT)")
 }
 
 record(bi, "$(DEVICE):status:get") {
-	field(DESC, "Set status")
-	field(DTYP, "stream")
-	field(INP, "@tdk.proto get_status $(PORT)")
-	field(SCAN, ".1 second")
+    field(DESC, "Set status")
+    field(DTYP, "stream")
+    field(INP, "@tdk.proto get_status $(PORT)")
+    field(SCAN, ".1 second")
     field(ZNAM, "OFF")
     field(ONAM, "ON")
 }

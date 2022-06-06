@@ -14,8 +14,8 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):t1:get")
     field(LNK1, "$(DEVICE):t2:get")
-	field(LNK2, "$(DEVICE):t3:get")
-	field(LNK3, "$(DEVICE):t4:get")
+    field(LNK2, "$(DEVICE):t3:get")
+    field(LNK3, "$(DEVICE):t4:get")
 }
 
 record(ai, "$(DEVICE):t1:get") {
