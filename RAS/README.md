@@ -2,9 +2,9 @@
 #### Authors: Abutalib Namazov (abutalib@mit.edu) and Monica Busza (mmbusza@mit.edu)
 
 
-First, read instructions for setting up RAS from [here](https://github.com/DanielWinklehner/rfq-dip-epics/wiki). The folder `IsoDAR` in this repository should be added to the path `ReactApp/scr/components`.
+First, read instructions for setting up RAS from [here](https://github.com/DanielWinklehner/rfq-dip-epics/wiki). The folder `IsoDAR` in this repository should be added to the path `ReactApp/src/components`.
 
-Make sure to add IPs to `.env`. In addition, add following two lines to `ReactApp/scr/Routes.js` to access `/isodar`:
+Make sure to add IPs to `.env`. In addition, add following two lines to `ReactApp/src/Routes.js` to access `/isodar`:
 ```js
 import Main from './components/IsoDAR/Main'; // this should be added to the top of the file
 <Route exact path="/isodar" component={Main}/> // this should be added inside <Switch> tag
