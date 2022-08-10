@@ -8,12 +8,14 @@ record(aai, "$(DEVICE):data") {
     field(NELM, "4")
     field(FTVL, "DOUBLE")
     field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+    field(PINI, "YES")
 }
 
 record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):i1:get_interlock")
     field(LNK1, "$(DEVICE):i2:get_interlock")
+    field(PINI, "YES")
 }
 
 record(bi, "$(DEVICE):i1:get_interlock") {
@@ -22,7 +24,10 @@ record(bi, "$(DEVICE):i1:get_interlock") {
     field(ZNAM, "Closed")
     field(ONAM, "Open")
     field(OSV, "MAJOR")  # Severity of a one-value error
-    field(SCAN, "Passive")    
+    field(SCAN, "Passive") 
+    field(PINI, "YES")
+    field(SIMM, "NO")
+    field(SVAL, 0)
 }
 
 record(bi, "$(DEVICE):i2:get_interlock") {
@@ -32,8 +37,13 @@ record(bi, "$(DEVICE):i2:get_interlock") {
     field(ONAM, "Open")
     field(OSV, "MAJOR")  #Severity of a one-value error
     field(SCAN, "Passive")
+    field(PINI, "YES")
+    field(SIMM, "NO")
+    field(SVAL, 0)
 }
 
+# Might want to look at DOL for some of the power supplies for 'continuous control'
+# https://epics.anl.gov/base/R7-0/6-docs/boRecord.html
 record(calc, "interlock_status") {
     field(DESC, "Status of the interlocks")
     field(INPA, "$(DEVICE):i1:get_interlock.VAL NPP")
