@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Grid from '@material-ui/core/Grid';
+import Grid from '@mui/material/Grid';
 
 import FaradayCup from "./Utils/FaradayCup.js"
 import PowerSupply from "./Utils/PowerSupply.js"
@@ -8,16 +8,17 @@ import TimeStampGraph from './Utils/TimeStampGraph.js';
 import NamedButton from './Utils/NamedButton.js';
 import Beamline from './Utils/Beamline.js'
 
-import {FaradayCups} from './Devices.js';
+import {FaradayCups, PowerSupplies} from './Devices.js';
 
-const PowerSupplies = [
-  {macros: {'$(device)':'AU-20P7-1'}, vol_set: 'pva://$(device):voltage:set', cur_set: 'pva://$(device):current:set', vol_read: 'pva://$(device):voltage:read', cur_read: 'pva://$(device):current:read', button: 'pva://$(device):status:set', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Source'},
-  {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Quadrapole 1'},
-  {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Puller'},
-  {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Dipole'},
-  {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Einzel Lens'},
-  {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Quadrapole 2'},
-]
+// const PowerSupplies = [
+//   {macros: {'$(device)':'AU-20P7-1'}, vol_set: 'pva://$(device):voltage:set', cur_set: 'pva://$(device):current:set', vol_read: 'pva://$(device):voltage:read', cur_read: 'pva://$(device):current:read', button: 'pva://$(device):status:set', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Source'},
+//   {macros: {'$(device)':'AU-20P7-2'}, vol_set: 'pva://$(device):voltage:set', cur_set: 'pva://$(device):current:set', vol_read: 'pva://$(device):voltage:read', cur_read: 'pva://$(device):current:read', button: 'pva://$(device):status:set', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Source'},
+//   {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Quadrapole 1'},
+//   {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Puller'},
+//   {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Dipole'},
+//   {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Einzel Lens'},
+//   {macros: {'$(device)':'testIOC'}, vol_set: 'pva://$(device):amplitude', cur_set: 'pva://$(device):amplitude', vol_read: 'pva://$(device):amplitude', cur_read: 'pva://$(device):amplitude', button: 'pva://$(device):BO1', vol_set_label: 'Voltage set', cur_set_label: 'Current set', vol_read_label: 'Voltage read', cur_read_label: 'Current read', prec: 2, title:'Quadrapole 2'},
+// ]
 
 class BeamlinePage extends React.Component {
   constructor(props){

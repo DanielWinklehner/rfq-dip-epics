@@ -1,0 +1,40 @@
+# Author: Philip Weigel
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All solenoid statuses")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".5 second")
+    field(NELM, "16")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):t1:get")
+    field(LNK1, "$(DEVICE):t2:get")
+    field(LNK2, "$(DEVICE):t3:get")
+    field(LNK3, "$(DEVICE):t4:get")
+}
+
+record(ai, "$(DEVICE):t1:get") {
+    field(DESC, "Get t1")
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):t2:get") {
+    field(DESC, "Get t2")
+    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):t3:get") {
+    field(DESC, "Get t3")
+    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(SCAN, "Passive")
+}
+record(ai, "$(DEVICE):t4:get") {
+    field(DESC, "Get t4")
+    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(SCAN, "Passive")
+}

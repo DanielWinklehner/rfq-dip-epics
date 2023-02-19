@@ -1,0 +1,16 @@
+# Author: Philip Weigel
+
+record(ai, "$(DEVICE):pressure:get") {
+    field(DESC, "Get pressure of $(PORT):$(DEVICE)")
+    field(DTYP, "stream")
+    field(INP, "@aim.proto get_pressure $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU,  "torr")
+}
+
+
+record(bo, "$(DEVICE):enable") {
+	field(DESC, "Enable/Disable $(DEVICE)")
+	field(DTYP, "stream")
+	field(OUT, "@aim.proto enable $(PORT)")
+}

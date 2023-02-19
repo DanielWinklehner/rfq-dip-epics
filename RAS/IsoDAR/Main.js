@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
+import { withStyles } from '@mui/styles';
+import Typography from '@mui/material/Typography';
 
 
 import TraditionalLayout from '../UI/Layout/ComposedLayouts/TraditionalLayout.js';
@@ -56,15 +56,30 @@ class Main extends React.Component {
           handleTabChange={this.handleChange}
           tabValue={value}
         />
-        {value === 0 && <TabContainer><Home/></TabContainer>}
-        {value === 1 && <Plots/>}
-        {value === 2 && <Vacuum/>}
+        {/* Making the tab containers like this will allow the objects to persist and not be deleted when changing tabs */}
+        <div style={{ display: value === 0? 'block': 'none'}}>
+          <TabContainer><Home/></TabContainer>
+        </div>
+        <div style={{ display: value === 1? 'block': 'none'}}>
+          <TabContainer><Plots/></TabContainer>
+        </div>
+        <div style={{ display: value === 2? 'block': 'none'}}>
+          <TabContainer><Vacuum/></TabContainer>
+        </div>
+        <div style={{ display: value === 3? 'block': 'none'}}>
+          <TabContainer><Safety/></TabContainer>
+        </div>
+        <div style={{ display: value === 4? 'block': 'none'}}>
+          <TabContainer><Beamline/></TabContainer>
+        </div>
+        {/* {value === 0 && <TabContainer><Home/></TabContainer>}
+        {value === 1 && <TabContainer><Plots/></TabContainer>}
+        {value === 2 && <TabContainer><Vacuum/></TabContainer>}
         {value === 3 && <TabContainer><Safety/></TabContainer>}
-        {value === 4 && <Beamline/>}
+        {value === 4 && <TabContainer><Beamline/></TabContainer>} */}
       </div>
     )
   }
-
 }
 
 Main.propTypes = {

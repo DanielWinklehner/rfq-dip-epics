@@ -1,8 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Grid from '@material-ui/core/Grid';
-import TextField from '@material-ui/core/TextField';
-import MenuItem from '@material-ui/core/MenuItem';
+import Grid from '@mui/material/Grid';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+
+import { withRouter } from 'react-router-dom';
 
 import Beamline from "./Utils/Beamline.js"
 import PowerSupply from "./Utils/PowerSupply.js"
@@ -12,8 +14,8 @@ import IonGaugeController from "./Utils/IonGaugeController.js"
 import FaradayCup from "./Utils/FaradayCup.js"
 import NamedButton from './Utils/NamedButton.js';
 import TimeStampGraph from './Utils/TimeStampGraph.js';
-
-
+import GraphY from '../BaseComponents/GraphY.js';
+import ModGraphY from './Utils/ModGraphY.js';
 import './Home.css'
 import emergency from './Media/emergency.png';
 import {PowerSupplies, TempSensors, MassFlowControllers, FaradayCups, Valves, IonGaugeControllers} from './Devices.js';
@@ -26,11 +28,11 @@ class Home extends React.Component {
   render() {
     return (
       <div>
-        <Grid container xs={12} sm={12} style={{"justify-content":"center"}}>
+        {/* <Grid container xs={12} sm={12} style={{"justify-content":"center"}}>
           <Grid item>
             <Beamline/>
           </Grid>
-        </Grid>
+        </Grid> */}
         <Grid container spacing={1} style={{display: "flex"}}>
           <Grid item container spacing={1} className={"Power supplies"} xs={12} sm={8}>
             {
@@ -76,8 +78,11 @@ class Home extends React.Component {
           </Grid> */}
           
           <Grid item spacing={2} container xs={12} sm={8}>
-            <TimeStampGraph legends = {['Graph 1']} pvs={['pva://avr6:apg:getpressure']} yUnits='torr' width="50%" height="30vh"/>
-            <TimeStampGraph legends = {['Graph 2']} pvs={['pva://AU-20P7-1:voltage:get']} yUnits='V' width="50%" height="30vh"/>
+          <TimeStampGraph legends = {['APG']} pvs={['pva://PRESSURE:apg:getpressure']} yUnits='torr' width="50%" height="30vh" yMin={6000} yMax={6000} />
+          {/* <ModGraphY legends = {['Graph 1']} pvs={['testIOC:test3']} yUnits='torr' width="50%" height="30vh" /> */}
+          {/* <TimeStampGraph legends = {['Graph 1']} pvs={['pva://avr6:apg:getpressure']} yUnits='torr' width="50%" height="30vh"/> */}
+          {/* <GraphY legends = {['Graph 1']} pvs={['testIOC:test4']} yUnits='torr' width="50%" height="30vh" maxLength={1000} usePolling={true} useTimeStamp={true} yMin={-5000} yMax={5000} pollingRate={250} updateRate={250}/> */}
+          <TimeStampGraph legends = {['AIM']} pvs={['pva://AIM:getpressure']} yUnits='torr' width="50%" height="30vh"/>
           </Grid>
 
           <Grid container item spacing={2} xs={12} sm={4} style={{"align-items": "center", "position":"relative", "bottom":"1em"}}>
@@ -101,4 +106,4 @@ Home.propTypes = {
   classes: PropTypes.object.isRequired,
 };
 
-export default Home;
+export default withRouter(Home);

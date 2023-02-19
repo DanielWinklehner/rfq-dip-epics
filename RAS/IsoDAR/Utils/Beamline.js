@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Grid from '@material-ui/core/Grid';
+import Grid from '@mui/material/Grid';
 import BeamLineCanvas from '../../SvgBeamlineComponents/BeamLineCanvas';
 import HorizontalBeamline from '../../SvgBeamlineComponents/HorizontalBeamline';
 import EmiVert from './Svgs/EmiVert';

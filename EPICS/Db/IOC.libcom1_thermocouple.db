@@ -1,0 +1,158 @@
+# libcom1_thermocouple.db
+#
+# Params Required:
+# DEVICE: EPICS PV Prefix
+# PORT: asyn device port
+#
+# This file provides PVs for the libcom1-enabled Thermocouple-Arduino board
+#
+# Author(s): Ryan Yang (ryang2@mit.edu)
+#
+# Changlog:
+# 2021/05/23 - Documentation
+# 2021/04/11 - Added file
+
+
+# DO NOT USE THIS, STREAM DEVICE CAN ONLY SUPPORT UP TO 9 PARAMETERS
+# THIS IS BROKEN, USE THE ARRAY VERSION BELOW
+#record(ai, "$(DEVICE):t1") {
+#    field(DESC, "Thermocouple 1")
+#    field(DTYP, "stream")
+#    field(INP, "@libcom1.proto read_all_16val($(DEVICE):t2, $(DEVICE):t3, $(DEVICE):t4, $(DEVICE):t1, $(DEVICE):t2, $(DEVICE):t3, $(DEVICE):t4, $(DEVICE):ft1, $(DEVICE):ft2, $(DEVICE):ft3, $(DEVICE):ft4, $(DEVICE):fj1, $(DEVICE):fj2, $(DEVICE):fj3, $(DEVICE):fj4) $(PORT)")
+#    field(SCAN, ".5 second")
+#    field(EGU, "*C")
+#}
+
+
+# Read in data as an array
+record(aai, "$(DEVICE):data") {
+    field(DESC, "Raw data from Arduino Thermocouple")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array() $(PORT)")
+    field(SCAN, ".1 second")
+    field(NELM, "16")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+# Fanout processing links to the AI records, each using a forced CA access INP
+record(fanout, $(DEVICE):int:fanout) {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):temp1")
+    field(LNK1, "$(DEVICE):temp2")
+    field(LNK2, "$(DEVICE):temp3")
+    field(LNK3, "$(DEVICE):temp4")
+    field(LNK4, "$(DEVICE):junction1")
+    field(LNK5, "$(DEVICE):junction2")
+    field(LNK6, "$(DEVICE):junction3")
+    field(LNK7, "$(DEVICE):junction4")
+    field(LNK8, "$(DEVICE):faultt1")
+    field(LNK9, "$(DEVICE):faultt2")
+    field(LNKA, "$(DEVICE):faultt3")
+    field(LNKB, "$(DEVICE):faultt4")
+    field(LNKC, "$(DEVICE):faultj1")
+    field(LNKD, "$(DEVICE):faultj2")
+    field(LNKE, "$(DEVICE):faultj3")
+    field(LNKF, "$(DEVICE):faultj4")
+}
+
+# Termperatures for thermocouple and junctions
+record(ai, "$(DEVICE):temp1") {
+    field(DESC, "Thermocouple 1")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+}
+
+record(ai, "$(DEVICE):temp2") {
+    field(DESC, "Thermocouple 2")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[1] CA")
+}
+
+record(ai, "$(DEVICE):temp3") {
+    field(DESC, "Thermocouple 3")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[2] CA")
+}
+
+record(ai, "$(DEVICE):temp4") {
+    field(DESC, "Thermocouple 4")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[3] CA")
+}
+
+record(ai, "$(DEVICE):junction1") {
+    field(DESC, "Junction 1")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[4] CA")
+}
+
+record(ai, "$(DEVICE):junction2") {
+    field(DESC, "Junction 2")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[5] CA")
+}
+
+record(ai, "$(DEVICE):junction3") {
+    field(DESC, "Junction 3")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[6] CA")
+}
+
+record(ai, "$(DEVICE):junction4") {
+    field(DESC, "Junction 4")
+    field(SCAN, "Passive")
+    field(EGU, "*C")
+    field(INP, "$(DEVICE):data.VAL[7] CA")
+}
+
+
+# Faults for thermocouple and junctions
+# 0: Nothing, 1: No MAX31856, 2: FaultVoltage, 3: FaultOpen
+record(ai, "$(DEVICE):faultt1") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[8] CA")
+}
+
+record(ai, "$(DEVICE):faultt2") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[9] CA")
+}
+
+record(ai, "$(DEVICE):faultt3") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[10] CA")
+}
+
+record(ai, "$(DEVICE):faultt4") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[11] CA")
+}
+
+record(ai, "$(DEVICE):faultj1") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[12] CA")
+}
+
+record(ai, "$(DEVICE):faultj2") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[13] CA")
+}
+
+record(ai, "$(DEVICE):faultj3") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[14] CA")
+}
+
+record(ai, "$(DEVCE):faultj4") {
+    field(SCAN, "Passive")
+    field(INP, "$(DEVICE):data.VAL[15] CA")
+}
+I
