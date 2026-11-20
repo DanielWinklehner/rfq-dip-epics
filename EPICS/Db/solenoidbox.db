@@ -24,42 +24,42 @@ record(fanout, "$(DEVICE):int:fanout") {
 
 record(ai, "$(DEVICE):s1:get") {
     field(DESC, "Get s1 status")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s2:get") {
     field(DESC, "Get s2 status")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s3:get") {
     field(DESC, "Get s3 status")
-    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s4:get") {
     field(DESC, "Get s4 status")
-    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s5:get") {
     field(DESC, "Get s5 status")
-    field(INP, "$(DEVICE):data.VAL[4] CA")
+    field(INP, "$(DEVICE):data.VAL[4] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s6:get") {
     field(DESC, "Get s6 status")
-    field(INP, "$(DEVICE):data.VAL[5] CA")
+    field(INP, "$(DEVICE):data.VAL[5] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s7:get") {
     field(DESC, "Get s7 status")
-    field(INP, "$(DEVICE):data.VAL[6] CA")
+    field(INP, "$(DEVICE):data.VAL[6] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):s8:get") {
     field(DESC, "Get s8 status")
-    field(INP, "$(DEVICE):data.VAL[7] CA")
+    field(INP, "$(DEVICE):data.VAL[7] CA MS")
     field(SCAN, "Passive")
 }
 

@@ -20,24 +20,24 @@ record(fanout, "$(DEVICE):int:fanout") {
 
 record(ai, "$(DEVICE):t1:gettemp") {
     field(DESC, "Get T1 temperature")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")   
 }
 
 record(ai, "$(DEVICE):t2:gettemp") {
     field(DESC, "Get T2 temperature")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t3:gettemp") {
     field(DESC, "Get T3 temperature")
-    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t4:gettemp") {
     field(DESC, "Get T4 temperature")
-    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
 }

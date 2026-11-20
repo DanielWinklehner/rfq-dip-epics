@@ -1,1 +1,25 @@
-When installing the StreamDevice support module for EPICS, add the exponent converter (see file for specifics).
+StreamDevice
+------------
+The databases in Db/ that talk to libcom1 devices (read_all_array, com1_get, the acknowledged
+sets, identity and streaming in Db/libcom1.proto) use plain %g numbers and work with an
+unmodified StreamDevice.
+
+Only the legacy single query (com1_getLink, "q01...") needs the custom %z format. If you use
+it, add StreamDevice.LibCom1ExponentConverter.cc when installing the StreamDevice support
+module for EPICS (see file for specifics). No database in this repository uses it.
+
+Serial or TCP
+-------------
+The protocol file is the same for both, only the asyn port in st.cmd differs:
+
+  drvAsynSerialPortConfigure("AVR11","COM11")            # USB serial
+  drvAsynIPPortConfigure("OPTA1","192.168.1.50:5025")    # TCP, see AVR/libcom1/examples/EthernetExample
+
+Alarms
+------
+The element records (e.g. $(DEVICE):i1:get_interlock) read the array record $(DEVICE):data
+through CA links with MS, so they turn INVALID when the device stops answering. Keep the MS
+when adding records, otherwise a dead device looks like a healthy one showing its last values.
+
+Db/libcom1_device.db adds identity records (device name, firmware, channel order) for any
+libcom1 device with protocol 2 firmware.

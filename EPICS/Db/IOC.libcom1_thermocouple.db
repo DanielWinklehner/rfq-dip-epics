@@ -61,56 +61,56 @@ record(ai, "$(DEVICE):temp1") {
     field(DESC, "Thermocouple 1")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
 }
 
 record(ai, "$(DEVICE):temp2") {
     field(DESC, "Thermocouple 2")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
 }
 
 record(ai, "$(DEVICE):temp3") {
     field(DESC, "Thermocouple 3")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
 }
 
 record(ai, "$(DEVICE):temp4") {
     field(DESC, "Thermocouple 4")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
 }
 
 record(ai, "$(DEVICE):junction1") {
     field(DESC, "Junction 1")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[4] CA")
+    field(INP, "$(DEVICE):data.VAL[4] CA MS")
 }
 
 record(ai, "$(DEVICE):junction2") {
     field(DESC, "Junction 2")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[5] CA")
+    field(INP, "$(DEVICE):data.VAL[5] CA MS")
 }
 
 record(ai, "$(DEVICE):junction3") {
     field(DESC, "Junction 3")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[6] CA")
+    field(INP, "$(DEVICE):data.VAL[6] CA MS")
 }
 
 record(ai, "$(DEVICE):junction4") {
     field(DESC, "Junction 4")
     field(SCAN, "Passive")
     field(EGU, "*C")
-    field(INP, "$(DEVICE):data.VAL[7] CA")
+    field(INP, "$(DEVICE):data.VAL[7] CA MS")
 }
 
 
@@ -118,41 +118,41 @@ record(ai, "$(DEVICE):junction4") {
 # 0: Nothing, 1: No MAX31856, 2: FaultVoltage, 3: FaultOpen
 record(ai, "$(DEVICE):faultt1") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[8] CA")
+    field(INP, "$(DEVICE):data.VAL[8] CA MS")
 }
 
 record(ai, "$(DEVICE):faultt2") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[9] CA")
+    field(INP, "$(DEVICE):data.VAL[9] CA MS")
 }
 
 record(ai, "$(DEVICE):faultt3") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[10] CA")
+    field(INP, "$(DEVICE):data.VAL[10] CA MS")
 }
 
 record(ai, "$(DEVICE):faultt4") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[11] CA")
+    field(INP, "$(DEVICE):data.VAL[11] CA MS")
 }
 
 record(ai, "$(DEVICE):faultj1") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[12] CA")
+    field(INP, "$(DEVICE):data.VAL[12] CA MS")
 }
 
 record(ai, "$(DEVICE):faultj2") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[13] CA")
+    field(INP, "$(DEVICE):data.VAL[13] CA MS")
 }
 
 record(ai, "$(DEVICE):faultj3") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[14] CA")
+    field(INP, "$(DEVICE):data.VAL[14] CA MS")
 }
 
 record(ai, "$(DEVCE):faultj4") {
     field(SCAN, "Passive")
-    field(INP, "$(DEVICE):data.VAL[15] CA")
+    field(INP, "$(DEVICE):data.VAL[15] CA MS")
 }
 I

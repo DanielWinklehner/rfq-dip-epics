@@ -9,6 +9,7 @@ include $(TOP)/configure/CONFIG
 # DB += dbSubExample.db
 DB += libcom1.db
 DB += libcom1.proto
+DB += libcom1_device.db
 DB += pressure.db
 DB += interlockbox.db
 DB += sensorbox.db

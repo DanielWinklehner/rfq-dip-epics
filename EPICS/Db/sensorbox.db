@@ -28,72 +28,72 @@ record(fanout, "$(DEVICE):int:fanout") {
 
 record(ai, "$(DEVICE):t1:gettemp") {
     field(DESC, "Get t1 temperature")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t2:gettemp") {
     field(DESC, "Get t2 temperature")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t3:gettemp") {
     field(DESC, "Get t3 temperature")
-    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t4:gettemp") {
     field(DESC, "Get t4 temperature")
-    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t5:gettemp") {
     field(DESC, "Get t5 temperature")
-    field(INP, "$(DEVICE):data.VAL[4] CA")
+    field(INP, "$(DEVICE):data.VAL[4] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t6:gettemp") {
     field(DESC, "Get t6 temperature")
-    field(INP, "$(DEVICE):data.VAL[5] CA")
+    field(INP, "$(DEVICE):data.VAL[5] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):t7:gettemp") {
     field(DESC, "Get t7 temperature")
-    field(INP, "$(DEVICE):data.VAL[6] CA")
+    field(INP, "$(DEVICE):data.VAL[6] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):f1:getflow") {
     field(DESC, "Get f1 flow")
-    field(INP, "$(DEVICE):data.VAL[7] CA")
+    field(INP, "$(DEVICE):data.VAL[7] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):f2:getflow") {
     field(DESC, "Get f2 flow")
-    field(INP, "$(DEVICE):data.VAL[8] CA")
+    field(INP, "$(DEVICE):data.VAL[8] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):f3:getflow") {
     field(DESC, "Get f3 flow")
-    field(INP, "$(DEVICE):data.VAL[9] CA")
+    field(INP, "$(DEVICE):data.VAL[9] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):f4:getflow") {
     field(DESC, "Get f4 flow")
-    field(INP, "$(DEVICE):data.VAL[10] CA")
+    field(INP, "$(DEVICE):data.VAL[10] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):f5:getflow") {
     field(DESC, "Get f5 flow")
-    field(INP, "$(DEVICE):data.VAL[11] CA")
+    field(INP, "$(DEVICE):data.VAL[11] CA MS")
     field(SCAN, "Passive")
 }

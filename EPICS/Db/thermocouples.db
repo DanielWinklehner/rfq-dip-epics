@@ -20,21 +20,21 @@ record(fanout, "$(DEVICE):int:fanout") {
 
 record(ai, "$(DEVICE):t1:get") {
     field(DESC, "Get t1")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):t2:get") {
     field(DESC, "Get t2")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):t3:get") {
     field(DESC, "Get t3")
-    field(INP, "$(DEVICE):data.VAL[2] CA")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
 }
 record(ai, "$(DEVICE):t4:get") {
     field(DESC, "Get t4")
-    field(INP, "$(DEVICE):data.VAL[3] CA")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
 }

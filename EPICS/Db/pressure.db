@@ -18,12 +18,12 @@ record(fanout, "$(DEVICE):int:fanout") {
 
 record(ai, "$(DEVICE):apg:getpressure") {
     field(DESC, "Get APG Pressure")
-    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
 }
 
 record(ai, "$(DEVICE):diag_box:getpressure") {
     field(DESC, "Get Diagnostic Box Pressure")
-    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
 }
