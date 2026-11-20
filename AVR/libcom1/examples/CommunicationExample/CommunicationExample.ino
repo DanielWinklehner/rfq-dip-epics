@@ -114,8 +114,8 @@ void setup() {
 void loop() {
   // service() processes at most one received command and returns immediately otherwise,
   // so loop() stays free for the real work of the device (interlocks, regulation, ...).
-  // It also runs everything that needs the time: streaming ("P<ms>", for EPICS I/O Intr
-  // records) and the communication timeout.
+  // It also runs everything that needs the time: streaming ("P<ms>") and the
+  // communication timeout.
   //
   // device.communicate() does the same without the time dependent parts.
   // device.intr_communicate() is the old I/O Intr mode: it sends all channels on every

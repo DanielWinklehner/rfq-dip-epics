@@ -9,10 +9,8 @@
 #
 #   dbLoadRecords("db/libcom1_device.db","PORT='AVR11',DEVICE=avr11")
 #
-# The identity is read every 10 seconds. These records therefore
-#  - show within seconds when a device was unplugged or a different one sits on the port
-#    (COM port numbers change), and
-#  - act as the heartbeat for devices that use the libcom1 communication timeout while streaming.
+# The identity is read every 10 seconds. These records therefore show within seconds when a
+# device was unplugged or a different one sits on the port (COM port numbers change).
 #
 # The array from read_all_array is positional. Compare $(DEVICE):channels with the order your
 # database assumes whenever firmware is updated.
@@ -37,15 +35,4 @@ record(stringin, "$(DEVICE):channels") {
     field(DESC, "Channels in query-all order")
     field(DTYP, "stream")
     field(INP, "@libcom1.proto com1_channels $(PORT)")
-}
-
-# Stream period in ms, 0 = off. Use together with an aai record that has
-# SCAN = "I/O Intr" and INP = "@libcom1.proto read_stream_array $(PORT)".
-record(longout, "$(DEVICE):stream_period") {
-    field(DESC, "Stream period, 0 = off")
-    field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_stream_period $(PORT)")
-    field(EGU, "ms")
-    field(DRVL, "0")
-    field(DRVH, "60000")
 }

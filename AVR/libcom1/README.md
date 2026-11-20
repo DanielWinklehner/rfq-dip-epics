@@ -68,6 +68,7 @@ One command per line, terminated by LF (a CR before it is ignored). `<c><n>` is 
 - Not-a-number and infinities are sent as `nan`, `inf` and `-inf`.
 - A channel without a getter keeps its position in the `A` reply and reads as `0`.
 - Stream frames: `<seq>` counts frames and wraps at 65535, so a gap means lost frames. `<device ms>` is the time passed to `service()` when the frame was built, so the sampling instant does not depend on transport delays. A slow `loop()` skips frames, it does not send bursts.
+- A frame is never sent in the middle of a reply, but one that is already on the wire when a command arrives reaches the client before the reply. A client that streams and also sends commands has to skip lines starting with `t` while it waits for a reply. A StreamDevice protocol cannot do that: it takes the frame for the reply and reports a mismatch although the command was executed (9 of 80 acknowledged sets at a 100 ms period in a test IOC). In an IOC, poll with `A` and leave streaming off on every port that has records waiting for a reply.
 - Legacy query example: channel `a1`, precision 3, value 4091.71 gives `oa1+40923+`. The format has one exponent digit, so it only covers 1e-9 to 9.99e9. Outside that range the device answers `ERR6`. Use `g` instead, which has no such limit and needs no custom StreamDevice converter.
 
 Limitations:
@@ -118,7 +119,7 @@ Do not read with `Serial.readBytesUntil()`:
 ### Communication timeout
 `device.set_comm_timeout(5000, &outputs_off)` calls `outputs_off()` once when no valid command arrived for 5 s, and again after communication came back and was lost again. `device.comm_lost()` tells the current state. Garbage (`ERR0`) does not count as a sign of life.
 - It is off by default. Which state is safe, and whether dropping to it when an IOC restarts is acceptable, is a decision per device.
-- With streaming the control system may never send anything. Let it send `I` every few seconds as a heartbeat (`EPICS/Db/libcom1_device.db` does).
+- A client that only listens to a stream never sends anything. Let it send `I` every few seconds as a heartbeat. An IOC that polls needs nothing extra, every poll counts.
 - This is not a replacement for a hardware watchdog or for hard wired interlocks.
 
 ### Serial or TCP

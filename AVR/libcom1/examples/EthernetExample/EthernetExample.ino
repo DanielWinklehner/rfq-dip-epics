@@ -107,7 +107,7 @@ void setup() {
   device.set_identity("EthernetExample", __DATE__);
 
   // No valid command for 5 s: relays off. The IOC polls much faster than that.
-  // When you only use streaming, let the IOC send "I" every few seconds as a heartbeat.
+  // A client that only listens to a stream has to send "I" every few seconds as a heartbeat.
   device.set_comm_timeout(5000, &relays_off);
 }
 

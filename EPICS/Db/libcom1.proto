@@ -47,11 +47,13 @@ com1_get {
 
 # Rudimentory methods to read multiple values from device
 read_all_3val {
+    extrainput = ignore;
     out "A";
     in "o%g:%(\$1)g:%(\$2)g";
 }
 
 read_all_3val_iointr {
+    extrainput = ignore;
     in "o%g:%(\$1)g:%(\$2)g";
 }
 
@@ -87,6 +89,7 @@ com1_setLink {
 # Acknowledged sets: the device answers "ok", or "ERR<n>" which puts the record into alarm
 # (INVALID/CALC). No answer at all gives INVALID/TIMEOUT.
 # Need libcom1 protocol 2 firmware: older firmware answers ERR0 and does not execute the set.
+# Do not use them on a port where the device streams, see "Streaming" below.
 com1_setLink_flt_ack {
     extrainput = ignore;
     # S<channel><flt>
@@ -133,6 +136,13 @@ com1_channels {
 #################################################################################################
 # Streaming: the device sends all channels on its own at a fixed rate
 #################################################################################################
+
+# NOT for ports with records that wait for a reply (acknowledged sets, com1_get, identity,
+# read_all_array). A frame that is on the wire when such a command is sent arrives before the
+# reply. StreamDevice takes it for the reply and puts the record into alarm, although the device
+# executed the command. Measured in a test IOC: 9 of 80 acknowledged sets at a 100 ms period,
+# 20 of 80 at 20 ms. In an IOC, poll with read_all_array instead. Streaming is for a port that
+# is only listened to (plus unacknowledged sets), or for clients that can skip the frames.
 
 # Stream period in ms, 0 = off:  record(longout, ...) { field(OUT, "@libcom1.proto com1_stream_period $(PORT)") }
 com1_stream_period {

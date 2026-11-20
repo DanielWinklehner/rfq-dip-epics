@@ -23,6 +23,19 @@ protocol 2 firmware. Older firmware answers ERR0 and does not execute the set, s
 device before loading the updated database for it. "ok" means the device accepted the command;
 whether the hardware followed is still what the read-back PVs are for.
 
+An alarm on a set record means "not confirmed", not "not executed". A device that was only
+stalled finds the command in its receive buffer when it resumes and executes it then (seen in
+the IOC test with a frozen board). After an alarm, check the read-back before setting again.
+
+Polling, not streaming
+----------------------
+The databases poll the devices (read_all_array). Keep it that way on every port that has records
+waiting for a reply (acknowledged sets, com1_get, identity). With streaming switched on ("P<ms>")
+a frame can arrive between a command and its reply. StreamDevice then takes the frame for the
+reply and the record goes into alarm although the device executed the command: 9 of 80
+acknowledged sets at a 100 ms stream period in a test IOC. read_stream_array is for a port that
+is only listened to.
+
 Alarms
 ------
 The element records (e.g. $(DEVICE):i1:get_interlock) read the array record $(DEVICE):data

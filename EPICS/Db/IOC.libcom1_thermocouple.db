@@ -151,8 +151,7 @@ record(ai, "$(DEVICE):faultj3") {
     field(INP, "$(DEVICE):data.VAL[14] CA MS")
 }
 
-record(ai, "$(DEVCE):faultj4") {
+record(ai, "$(DEVICE):faultj4") {
     field(SCAN, "Passive")
     field(INP, "$(DEVICE):data.VAL[15] CA MS")
 }
-I
