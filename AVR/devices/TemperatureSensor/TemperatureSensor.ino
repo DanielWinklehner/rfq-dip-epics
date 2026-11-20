@@ -147,7 +147,9 @@ void dummySetFunc(float set_value){
 }
 
 float dummyGetFunc(){
-  //Serial.println("Called the dummy function!");
+  // Write-only channel. Must return a value: falling off the end of a non-void function
+  // is undefined behaviour and put garbage into the query-all reply.
+  return 0.0;
 }
 
 using mist1::com1::Channel;
@@ -159,16 +161,17 @@ MakeChannelMap(comlookup, 4, ({
   })
 );
 
-char serial_in_buffer[128]{0};
+// Collects the received characters into complete lines. Never blocks, always NUL-terminates.
+mist1::com1::LineBuffer<128> serial_in_buffer;
 
 mist1::com1::IOHandler<128> io_ctx(
-    [](){
-      while (Serial.available() == 0)
-      { asm volatile("nop"); }
-
-      Serial.readBytesUntil('\n', serial_in_buffer, 127);
-
-      return serial_in_buffer;
+    // One complete line, or an empty string if there is none yet
+    []() -> char* {
+      while (Serial.available() > 0) {
+        if (serial_in_buffer.feed((char)Serial.read()))
+          return serial_in_buffer.take();
+      }
+      return serial_in_buffer.none();
     },
 
     [](char* str){
@@ -181,6 +184,8 @@ mist1::com1::SerialDevice<128, 4> comdevice(io_ctx, comlookup);
 void setup() {
   
   Serial.begin(115200);
+  // Reported by the identity query "I", so the IOC can check what is on this port
+  comdevice.set_identity("TemperatureSensor", __DATE__);
 
   pinMode(LED_COM, OUTPUT);
   pinMode(LED_ERR, OUTPUT);
@@ -234,6 +239,9 @@ void loop() {
   
   if (Serial.available()) {
     digitalWrite(LED_COM, HIGH);
-    comdevice.communicate();
-  }  
+  }
+
+  // Handles at most one complete command per pass and never waits for more input.
+  // service() also runs the optional streaming ("P<ms>") and communication timeout.
+  comdevice.service(millis());
 }

@@ -131,7 +131,9 @@ void dummySetFunc(float set_value){
 }
 
 float dummyGetFunc(){
-  //Serial.println("Called the dummy function!");
+  // Write-only channel. Must return a value: falling off the end of a non-void function
+  // is undefined behaviour and put garbage into the query-all reply.
+  return 0.0;
 }
 
 using mist1::com1::Channel;
@@ -146,15 +148,18 @@ MakeChannelMap(lookup, 7, ({
   })
 );
 
-char serial_in_buffer[128]{0};
+// Collects the received characters into complete lines. Never blocks, always NUL-terminates.
+mist1::com1::LineBuffer<128> serial_in_buffer;
 // Template parameter is buffer size for the output buffer
+// (at least 14 bytes per channel plus 2, see mist1::com1::min_out_buffer_size)
 mist1::com1::IOHandler<128> io_ctx(
-    // Read from the serial port
-    [](){
-      while (Serial.available() == 0)                       //
-      { asm volatile("nop"); }                              //
-      Serial.readBytesUntil('\n', serial_in_buffer, 127);   //
-      return serial_in_buffer;
+    // Read from the serial port: one complete line, or an empty string if there is none yet
+    []() -> char* {
+      while (Serial.available() > 0) {
+        if (serial_in_buffer.feed((char)Serial.read()))
+          return serial_in_buffer.take();
+      }
+      return serial_in_buffer.none();
     },
     // Write to the serial port
     [](char* str){
@@ -166,6 +171,8 @@ mist1::com1::SerialDevice<128, 7> device(io_ctx, lookup);
 
 void setup() {
   Serial.begin(115200);
+  // Reported by the identity query "I", so the IOC can check what is on this port
+  device.set_identity("PSController_HV", __DATE__);
 
   // Set up analog reference
   analogReference(EXTERNAL);
@@ -239,11 +246,11 @@ void loop() {
   digitalWrite(LED_COM, LOW);
 
   if (Serial.available()) {
-    
     digitalWrite(LED_COM, HIGH);
-    
-    //com.respond_to_input_message();
-    device.communicate();
-  }  
+  }
+
+  // Handles at most one complete command per pass and never waits for more input.
+  // service() also runs the optional streaming ("P<ms>") and communication timeout.
+  device.service(millis());
 }
 

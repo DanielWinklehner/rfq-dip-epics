@@ -16,183 +16,51 @@ bool solenoidValveValues[] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH}; /
 #define LED_ERR 12
 #define LED_COM 13
 
-void set_solenoid1(float set_value){
+// One pair of callbacks for all valves. `valve` is the index into solenoidValvePins,
+// handed over by the channel map below (see mist1::com1::IndexedChannel).
+void set_solenoid(uint8_t valve, float set_value){
   if (set_value == 1.0) {
-    solenoidValveValues[0] = LOW;
-    digitalWrite(solenoidValvePins[0], LOW);
+    solenoidValveValues[valve] = LOW;
+    digitalWrite(solenoidValvePins[valve], LOW);
   } else {
-    solenoidValveValues[0] = HIGH;
-    digitalWrite(solenoidValvePins[0], HIGH);
+    solenoidValveValues[valve] = HIGH;
+    digitalWrite(solenoidValvePins[valve], HIGH);
   }
 }
 
-float get_solenoid1(){
-  if (digitalRead(solenoidValvePins[0]) == LOW) {
+float get_solenoid(uint8_t valve){
+  if (digitalRead(solenoidValvePins[valve]) == LOW) {
     return 1.0;
   } else {
     return 0.0;
   }
 }
 
-void set_solenoid2(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[1] = LOW;
-    digitalWrite(solenoidValvePins[1], LOW);
-  } else {
-    solenoidValveValues[1] = HIGH;
-    digitalWrite(solenoidValvePins[1], HIGH);
-  }
-}
-
-float get_solenoid2(){
-  if (digitalRead(solenoidValvePins[1]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid3(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[2] = LOW;
-    digitalWrite(solenoidValvePins[2], LOW);
-  } else {
-    solenoidValveValues[2] = HIGH;
-    digitalWrite(solenoidValvePins[2], HIGH);
-  }
-}
-
-float get_solenoid3(){
-  if (digitalRead(solenoidValvePins[2]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid4(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[3] = LOW;
-    digitalWrite(solenoidValvePins[3], LOW);
-  } else {
-    solenoidValveValues[3] = HIGH;
-    digitalWrite(solenoidValvePins[3], HIGH);
-  }
-}
-
-float get_solenoid4(){
-  if (digitalRead(solenoidValvePins[3]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid5(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[4] = LOW;
-    digitalWrite(solenoidValvePins[4], LOW);
-  } else {
-    solenoidValveValues[4] = HIGH;
-    digitalWrite(solenoidValvePins[4], HIGH);
-  }
-}
-
-float get_solenoid5(){
-  if (digitalRead(solenoidValvePins[4]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid6(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[5] = LOW;
-    digitalWrite(solenoidValvePins[5], LOW);
-  } else {
-    solenoidValveValues[5] = HIGH;
-    digitalWrite(solenoidValvePins[5], HIGH);
-  }
-}
-
-float get_solenoid6(){
-  if (digitalRead(solenoidValvePins[5]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid7(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[6] = LOW;
-    digitalWrite(solenoidValvePins[6], LOW);
-  } else {
-    solenoidValveValues[6] = HIGH;
-    digitalWrite(solenoidValvePins[6], HIGH);
-  }
-}
-
-float get_solenoid7(){
-  if (digitalRead(solenoidValvePins[6]) == LOW) {
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-void set_solenoid8(float set_value){
-  if (set_value == 1.0) {
-    solenoidValveValues[7] = LOW;
-    digitalWrite(solenoidValvePins[7], LOW);
-  } else {
-    solenoidValveValues[7] = HIGH;
-    digitalWrite(solenoidValvePins[7], HIGH);
-  }
-}
-
-float get_solenoid8(){
-  if (digitalRead(solenoidValvePins[7]) == LOW){
-    return 1.0;
-  } else {
-    return 0.0;
-  }
-}
-
-/*
-void dummySetFunc(float set_value){
-  //Serial.println("Called the dummy function!");
-}
-
-float dummyGetFunc(){
-  //Serial.println("Called the dummy function!");
-}
-*/
-
-
-using mist1::com1::Channel;
+using mist1::com1::IndexedChannel;
 MakeChannelMap(lookup, 8, ({
-    Channel{ 's', 1, &get_solenoid1, &set_solenoid1},
-    Channel{ 's', 2, &get_solenoid2, &set_solenoid2},
-    Channel{ 's', 3, &get_solenoid3, &set_solenoid3},
-    Channel{ 's', 4, &get_solenoid4, &set_solenoid4},
-    Channel{ 's', 5, &get_solenoid5, &set_solenoid5},
-    Channel{ 's', 6, &get_solenoid6, &set_solenoid6},
-    Channel{ 's', 7, &get_solenoid7, &set_solenoid7},
-    Channel{ 's', 8, &get_solenoid8, &set_solenoid8},
+    IndexedChannel('s', 1, &get_solenoid, &set_solenoid, 0),
+    IndexedChannel('s', 2, &get_solenoid, &set_solenoid, 1),
+    IndexedChannel('s', 3, &get_solenoid, &set_solenoid, 2),
+    IndexedChannel('s', 4, &get_solenoid, &set_solenoid, 3),
+    IndexedChannel('s', 5, &get_solenoid, &set_solenoid, 4),
+    IndexedChannel('s', 6, &get_solenoid, &set_solenoid, 5),
+    IndexedChannel('s', 7, &get_solenoid, &set_solenoid, 6),
+    IndexedChannel('s', 8, &get_solenoid, &set_solenoid, 7),
   })
 );
 
-char serial_in_buffer[128]{0};
+// Collects the received characters into complete lines. Never blocks, always NUL-terminates.
+mist1::com1::LineBuffer<128> serial_in_buffer;
 // Template parameter is buffer size for the output buffer
-mist1::com1::IOHandler<128> io_ctx(
-    // Read from the serial port
-    [](){
-      while (Serial.available() == 0)                       //
-      { asm volatile("nop"); }                              //
-      Serial.readBytesUntil('\n', serial_in_buffer, 127);   //
-      return serial_in_buffer;
+// (at least 14 bytes per channel plus 2, see mist1::com1::min_out_buffer_size)
+mist1::com1::IOHandler<160> io_ctx(
+    // Read from the serial port: one complete line, or an empty string if there is none yet
+    []() -> char* {
+      while (Serial.available() > 0) {
+        if (serial_in_buffer.feed((char)Serial.read()))
+          return serial_in_buffer.take();
+      }
+      return serial_in_buffer.none();
     },
     // Write to the serial port
     [](char* str){
@@ -200,7 +68,7 @@ mist1::com1::IOHandler<128> io_ctx(
     }
 );
 
-mist1::com1::SerialDevice<128, 8> device(io_ctx, lookup);
+mist1::com1::SerialDevice<160, 8> device(io_ctx, lookup);
 
 void setup()   { 
   // Init Com and Error LED's
@@ -218,6 +86,8 @@ void setup()   {
   }
       
   Serial.begin(115200);
+  // Reported by the identity query "I", so the IOC can check what is on this port
+  device.set_identity("SolenoidValveBox", __DATE__);
   /*
   com.add_channel(mist1::Channel("SOLENOID1", 's', 1, &set_solenoid1, &get_solenoid1));
   com.add_channel(mist1::Channel("SOLENOID2", 's', 2, &set_solenoid2, &get_solenoid2));
@@ -236,10 +106,10 @@ void loop() {
   digitalWrite(LED_COM, LOW);
 
   if (Serial.available()) {
-    
     digitalWrite(LED_COM, HIGH);
-    
-    //com.respond_to_input_message();
-    device.communicate();
   }
+
+  // Handles at most one complete command per pass and never waits for more input.
+  // service() also runs the optional streaming ("P<ms>") and communication timeout.
+  device.service(millis());
 }

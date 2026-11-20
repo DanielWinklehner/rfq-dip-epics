@@ -56,28 +56,38 @@ void dummySetFunc(float set_value){
   //Serial.println("Called the dummy function!");
 }
 
-float dummyGetFunc(){
-  //Serial.println("Called the dummy function!");
+// Commanded state of the two solenoid valves (1 = energised), so that the query-all reply
+// holds real values for these channels. They used to come from a function without a return
+// statement, which is undefined behaviour and put garbage into the reply.
+float get_solenoid1(){
+  return (solenoidValveValues[0] == LOW) ? 1.0 : 0.0;
+}
+
+float get_solenoid2(){
+  return (solenoidValveValues[1] == LOW) ? 1.0 : 0.0;
 }
 
 using mist1::com1::Channel;
 MakeChannelMap(lookup, 4, ({
     Channel{ 'i', 1, &get_interlock1, &dummySetFunc},
     Channel{ 'i', 2, &get_interlock2, &dummySetFunc},
-    Channel{ 's', 1, &dummyGetFunc, &set_solenoid1},
-    Channel{ 's', 2, &dummyGetFunc, &set_solenoid2}
+    Channel{ 's', 1, &get_solenoid1, &set_solenoid1},
+    Channel{ 's', 2, &get_solenoid2, &set_solenoid2}
   })
 );
 
-char serial_in_buffer[128]{0};
+// Collects the received characters into complete lines. Never blocks, always NUL-terminates.
+mist1::com1::LineBuffer<128> serial_in_buffer;
 // Template parameter is buffer size for the output buffer
+// (at least 14 bytes per channel plus 2, see mist1::com1::min_out_buffer_size)
 mist1::com1::IOHandler<128> io_ctx(
-    // Read from the serial port
-    [](){
-      while (Serial.available() == 0)                       //
-      { asm volatile("nop"); }                              //
-      Serial.readBytesUntil('\n', serial_in_buffer, 127);   //
-      return serial_in_buffer;
+    // Read from the serial port: one complete line, or an empty string if there is none yet
+    []() -> char* {
+      while (Serial.available() > 0) {
+        if (serial_in_buffer.feed((char)Serial.read()))
+          return serial_in_buffer.take();
+      }
+      return serial_in_buffer.none();
     },
     // Write to the serial port
     [](char* str){
@@ -125,6 +135,8 @@ void setup()   {
   }
     
   Serial.begin(115200);
+  // Reported by the identity query "I", so the IOC can check what is on this port
+  device.set_identity("InterlockBox", __DATE__);
 
 //  com.add_channel(mist1::Channel("INTERLOCK1", 'i', 1, &dummySetFunc, &get_interlock1));
 //  com.add_channel(mist1::Channel("INTERLOCK2", 'i', 2, &dummySetFunc, &get_interlock2));
@@ -179,11 +191,11 @@ void loop() {
   digitalWrite(LED_COM, LOW);
 
   if (Serial.available()) {
-    
     digitalWrite(LED_COM, HIGH);
-    
-    device.communicate();
-
   }
+
+  // Handles at most one complete command per pass and never waits for more input.
+  // service() also runs the optional streaming ("P<ms>") and communication timeout.
+  device.service(millis());
 }
 

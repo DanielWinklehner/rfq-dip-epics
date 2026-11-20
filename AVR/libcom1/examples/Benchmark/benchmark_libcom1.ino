@@ -39,19 +39,22 @@ MakeChannelMap(lookup, 10, ({
   })
 );
 
-char serial_in_buffer[128]{0};
+mist1::com1::LineBuffer<128> serial_in_buffer;
 unsigned long tot_time = 0;
 unsigned long time_a = 0;
 
-mist1::com1::IOHandler<128> io_ctx(
-    [](){
-      while (Serial.available() == 0)
-      { asm volatile("nop"); }
-      
-      Serial.readBytesUntil('\n', serial_in_buffer, 127);
+// 10 channels need at least 14 * 10 + 2 = 142 bytes
+mist1::com1::IOHandler<160> io_ctx(
+    // Waits for a complete line on purpose: the benchmark times the processing of one command.
+    // A real device should not block here, see CommunicationExample.
+    []() -> char* {
+      for (;;) {
+        if (Serial.available() > 0 && serial_in_buffer.feed((char)Serial.read()))
+          break;
+      }
       time_a = micros();
-      
-      return serial_in_buffer;
+
+      return serial_in_buffer.take();
     },
 
     [](char* str){
@@ -63,7 +66,7 @@ mist1::com1::IOHandler<128> io_ctx(
     }
 );
 
-mist1::com1::SerialDevice<128, 10> device(io_ctx, lookup);
+mist1::com1::SerialDevice<160, 10> device(io_ctx, lookup);
 
 void setup() {
   Serial.begin(115200);

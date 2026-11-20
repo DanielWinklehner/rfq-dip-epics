@@ -29,7 +29,8 @@ MAX31856 *temperature3;
 MAX31856 *temperature4;
 
 using mist1::com1::Channel;
-char serial_in_buffer[128]{0};
+// Collects the received characters into complete lines. Never blocks, always NUL-terminates.
+mist1::com1::LineBuffer<128> serial_in_buffer;
 
 void dummy_set(float){}
 
@@ -99,13 +100,13 @@ MakeChannelMap(lookup, 16, ({
 );
 
 mist1::com1::IOHandler<512> io_ctx(
-  //Read
-  [](){
-    while (Serial.available() == 0) { asm volatile("nop"); }
-    digitalWrite(LED_COM, HIGH);
-    Serial.readBytesUntil('\n', serial_in_buffer, 128);
-    digitalWrite(LED_COM, LOW);
-    return serial_in_buffer;
+  //Read: one complete line, or an empty string if there is none yet
+  []() -> char* {
+    while (Serial.available() > 0) {
+      if (serial_in_buffer.feed((char)Serial.read()))
+        return serial_in_buffer.take();
+    }
+    return serial_in_buffer.none();
   },
 
   //Write
@@ -120,6 +121,8 @@ mist1::com1::SerialDevice<512, 16> device(io_ctx, lookup);
 
 void setup() {
   Serial.begin(19200);
+  // Reported by the identity query "I", so the IOC can check what is on this port
+  device.set_identity("Thermocouple", __DATE__);
 
   pinMode(LED_COM, OUTPUT);
   pinMode(LED_ERR, OUTPUT);
@@ -154,6 +157,8 @@ void setup() {
 }
 
 void loop() {
-  device.communicate();
+  // Handles at most one complete command per pass and never waits for more input.
+  // service() also runs the optional streaming ("P<ms>") and communication timeout.
+  device.service(millis());
 }
 
