@@ -11,6 +11,7 @@ Repository for the development of an EPICS based control system for RFQ-DIP/MIST
       - Will eventually include USART + SPI bus handling for Serial and Ethercat
     - lib/libcom1
       - A libcom1 implementation w/o multiply queries
+      - Protocol, usage and tests are described in AVR/libcom1/README.md (`make -C AVR/libcom1/tests` runs the tests)
 	- lib/libutil
 	  - Collection of utilities used by libcom
 - EPICS: Files related to EPICS (such as configuration files)

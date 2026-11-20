@@ -1,14 +1,14 @@
 #ifndef d4c36745_libutil_extra_h
 #define d4c36745_libutil_extra_h
 
-#ifdef __AVR__
+// Needed on every platform, not only AVR: abort(), ::size_t and ::ptrdiff_t are used below.
 #include <stdlib.h>
 #include <stddef.h>
-#endif
 
 namespace stdx
 {
-  [[noreturn]] void terminate() {
+  // inline: this header may be included from more than one translation unit
+  [[noreturn]] inline void terminate() {
     abort();
   }
 
