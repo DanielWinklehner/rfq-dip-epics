@@ -15,6 +15,14 @@ The protocol file is the same for both, only the asyn port in st.cmd differs:
   drvAsynSerialPortConfigure("AVR11","COM11")            # USB serial
   drvAsynIPPortConfigure("OPTA1","192.168.1.50:5025")    # TCP, see AVR/libcom1/examples/EthernetExample
 
+Acknowledged sets
+-----------------
+The set records in Db/solenoidbox.db and Db/libcom1.db use com1_setLink_ack: the device answers
+"ok", and a rejected or unanswered command puts the record into alarm. This needs libcom1
+protocol 2 firmware. Older firmware answers ERR0 and does not execute the set, so flash a
+device before loading the updated database for it. "ok" means the device accepted the command;
+whether the hardware followed is still what the read-back PVs are for.
+
 Alarms
 ------
 The element records (e.g. $(DEVICE):i1:get_interlock) read the array record $(DEVICE):data

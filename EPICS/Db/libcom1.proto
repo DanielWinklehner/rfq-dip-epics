@@ -84,8 +84,9 @@ com1_setLink {
     out "s\$1%d";
 }
 
-# Acknowledged sets: the device answers "ok", or "ERR<n>" which puts the record into alarm.
-# Need libcom1 protocol 2 firmware (older firmware answers ERR0).
+# Acknowledged sets: the device answers "ok", or "ERR<n>" which puts the record into alarm
+# (INVALID/CALC). No answer at all gives INVALID/TIMEOUT.
+# Need libcom1 protocol 2 firmware: older firmware answers ERR0 and does not execute the set.
 com1_setLink_flt_ack {
     extrainput = ignore;
     # S<channel><flt>

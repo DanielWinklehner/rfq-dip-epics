@@ -63,43 +63,47 @@ record(ai, "$(DEVICE):s8:get") {
     field(SCAN, "Passive")
 }
 
+# The set records use acknowledged sets ("S<channel><value>", reply "ok"). A command the box
+# rejects or does not answer puts the record into alarm instead of passing silently.
+# This needs libcom1 protocol 2 firmware on the box: older firmware answers ERR0 and does
+# NOT execute the set. Flash the firmware before loading this database.
 record(bo, "$(DEVICE):s1:set") {
 	field(DESC, "Set s1")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s1) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s1) $(PORT)")
 }
 record(bo, "$(DEVICE):s2:set") {
 	field(DESC, "Set s2")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s2) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s2) $(PORT)")
 }
 record(bo, "$(DEVICE):s3:set") {
 	field(DESC, "Set s3")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s3) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s3) $(PORT)")
 }
 record(bo, "$(DEVICE):s4:set") {
 	field(DESC, "Set s4")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s4) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s4) $(PORT)")
 }
 record(ao, "$(DEVICE):s5:set") {
 	field(DESC, "Set s5")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s5) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s5) $(PORT)")
 }
 record(ao, "$(DEVICE):s6:set") {
 	field(DESC, "Set s6")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s6) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s6) $(PORT)")
 }
 record(ao, "$(DEVICE):s7:set") {
 	field(DESC, "Set s7")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s7) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s7) $(PORT)")
 }
 record(ao, "$(DEVICE):s8:set") {
 	field(DESC, "Set s8")
 	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink(s8) $(PORT)")
+	field(OUT, "@libcom1.proto com1_setLink_ack(s8) $(PORT)")
 }

@@ -10,28 +10,31 @@
 #
 # Author(s): Ryan Yang (ryang2@mit.edu)
 #
+# The set records use acknowledged sets (reply "ok"), which need libcom1 protocol 2 firmware.
+#
 # Changlog:
+# 2026/11/20 - Acknowledged sets
 # 2021/05/23 - Documentation
 # 2021/01/25 - Added conversion from Volts to Raw value
 
 record(bo, "$(DEVICE):ch1:setpoint") {
     field(DESC, "Set I/O pin 5")
     field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_setLink(d1) $(PORT)")
+    field(OUT, "@libcom1.proto com1_setLink_ack(d1) $(PORT)")
 #    field(PRIO,"HIGH")
 }
 
 record(bo, "$(DEVICE):ch2:setpoint") {
     field(DESC, "Set I/O pin 30")
     field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_setLink(d2) $(PORT)")
+    field(OUT, "@libcom1.proto com1_setLink_ack(d2) $(PORT)")
 #    field(PRIO,"HIGH")
 }
 
 record(ao, "$(DEVICE):ch3:setpoint") {
     field(DESC, "Set I/O pin 9")
     field(DTYP, "stream")
-    field(OUT, "@libcom1.proto com1_setLink(a1) $(PORT)")
+    field(OUT, "@libcom1.proto com1_setLink_ack(a1) $(PORT)")
     field(DRVL, "0")
     field(DRVH, "5")
 # This part converts from a scale of 0->5 to a scale of 0->255

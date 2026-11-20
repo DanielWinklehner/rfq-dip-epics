@@ -30,17 +30,23 @@ float a1_get() {
   return sin( freq * millis() );
 }
 
+// Raw PWM value 0..255 on pin 9, see ch3:setpoint in EPICS/Db/libcom1.db
+void a1_set(float setval) {
+  analogWrite(9, (int)(setval));
+}
+
 using mist1::com1::Channel;
 
 // lookup is the variable name,
 // 3 is the size of the array, this must match the number of Channels that are being defined
 // the rest is the channels in the map
-// A channel without a setter (nullptr) is read-only, one without a getter is write-only.
+// Pass nullptr instead of a setter for a read-only channel, or instead of a getter for a
+// write-only one. A set to a read-only channel is answered with ERR7.
 // For many similar channels see mist1::com1::IndexedChannel (used in devices/SolenoidValveBox).
 MakeChannelMap(lookup, 3, ({
     Channel{ 'd', 1, &d1_get, &d1_set },
     Channel{ 'd', 2, &d2_get, &d2_set },
-    Channel{ 'a', 1, &a1_get, nullptr },
+    Channel{ 'a', 1, &a1_get, &a1_set },
   })
 );
 
@@ -88,6 +94,7 @@ void setup() {
   pinMode(50, INPUT);
   pinMode(30, OUTPUT);
   pinMode(40, INPUT);
+  pinMode(9, OUTPUT);
 
   // Enable USART
   Serial.begin(9600);
