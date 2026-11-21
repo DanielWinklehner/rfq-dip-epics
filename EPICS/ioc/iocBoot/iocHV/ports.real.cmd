@@ -4,6 +4,10 @@
 # ports.sim.cmd, st.cmd uses them. Device names under /dev/mist2/ are placeholders until
 # the udev rules exist.
 #
+# "on error break" is needed in every file loaded with iocshLoad: the setting of st.cmd does not
+# reach into this file, so without it a failing line here would not stop the startup.
+on error break
+#
 # Example (19200 baud, 8N1):
 #drvAsynSerialPortConfigure("TDK","/dev/mist2/tdk")
 #asynSetOption("TDK",-1,"baud","19200")

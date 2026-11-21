@@ -4,5 +4,9 @@
 # container sim-hv (emulation/compose.yaml). The port names must equal those in
 # ports.real.cmd, st.cmd uses them.
 #
+# "on error break" is needed in every file loaded with iocshLoad: the setting of st.cmd does not
+# reach into this file, so without it a failing line here would not stop the startup.
+on error break
+#
 # Example:
 #drvAsynIPPortConfigure("TDK","sim-hv:5001")

@@ -29,6 +29,12 @@ BIN="$TOP/bin/$EPICS_HOST_ARCH/mist2"
 [ -f "$BOOT/$IOC/st.cmd" ] || { echo "run-ioc.sh: no IOC '$IOC' ($BOOT/$IOC/st.cmd missing)" >&2; exit 2; }
 [ -x "$BIN" ] || { echo "run-ioc.sh: $BIN not found, build the top first (make -C $TOP)" >&2; exit 2; }
 
+# iocsh keeps its command history in the startup directory, which is read-only in the container.
+if [ -z "${EPICS_IOCSH_HISTFILE:-}" ] && [ ! -w "$BOOT/$IOC" ]; then
+    EPICS_IOCSH_HISTFILE=${TMPDIR:-/tmp}/mist2-$IOC.iocsh_history
+    export EPICS_IOCSH_HISTFILE
+fi
+
 export TOP IOC MIST2_PORTS EPICS_HOST_ARCH
 cd "$BOOT/$IOC"
 exec "$BIN" st.cmd

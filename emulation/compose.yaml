@@ -10,7 +10,6 @@ x-ioc: &ioc
   restart: "no"
   environment:
     MIST2_PORTS: sim
-    EPICS_IOCSH_HISTFILE: /tmp/.iocsh_history   # the startup directory is mounted read-only
   volumes:
     # Edits need only `docker compose restart`, no image build.
     - ../EPICS/Db:/opt/mist2/EPICS/Db:ro

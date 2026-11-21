@@ -7,7 +7,8 @@
 
 ## Any failing command stops the startup and the IOC exits with code 1 (mist2Main.cpp):
 ## an unset MIST2_PORTS, a missing port file or a failing dbLoadRecords never leaves a
-## half-configured IOC running.
+## half-configured IOC running. The setting does not reach into files loaded with iocshLoad,
+## so each port file starts with its own "on error break".
 on error break
 
 epicsEnvSet("MIST2_DB", "$(TOP)/../Db")
