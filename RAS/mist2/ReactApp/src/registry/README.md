@@ -11,6 +11,13 @@ devices), `channels` (per channel a `label` and its roles), `labels` (for device
 `simulators` and `pvs`. Each PV has `type`, `access` (`r`/`w`), `egu`, `desc`, `role` and
 `channel`, or `internal: true`, and `aliases` (other PV names of the same record) if it has any; a written PV has `test` (safe range `[low, high]`), `ack` (the
 device answers the set) and `readback` (PV name, or null); `sim` names the simulator behind a
-StreamDevice record and `fails_with` the simulators whose silence turns the PV INVALID, both as
-`name` or `name:unit` (a fault on the whole simulator covers all its units). `simulators` maps each
-name to `type`, `host`, `port`, `control_port`, `config`, `ioc` and `asyn_port`.
+StreamDevice record. `fails_with` lists the simulators whose **silence** (line up, no answer;
+also garbled replies, except the NT 20 `raw` record) turns the PV INVALID. `fails_closed` lists
+those whose **closed connection** turns it INVALID. It is a superset: I/O Intr records of a
+listen-only port and records that write to a device record (LINK alarm) fail only then. Both are
+written as `name` or `name:unit` (a fault on the whole simulator covers all its units), and both
+are absent when empty. They name only what a client can rely on: a record that nothing processes
+during the fault (run once at start, not polled) keeps its severity and is not listed.
+`simulators` maps each name to `type`, `host`, `port`, `control_port`, `config`, `ioc` and
+`asyn_port`. The rule is in `plan/build.py` (`fault_analysis`), and the per-record statements are
+under `databases: <db>: invalid_on` in `plan/controls.yaml`.

@@ -41,6 +41,11 @@ databases). `python plan/registry.py` needs only PyYAML.
   comments, `info`, `alias`). Anything else in a database is a warning, and so is a file in which
   a plain scan for `record(` finds more records than the parser. `plan/test_build.py` tests it
   (`python3 -m unittest plan/test_build.py`; `plan-check` runs it too).
+- Which records turn INVALID when a device is silent or its connection closed (registry
+  `fails_with`, `fails_closed`) follows from how each record is processed (`fault_analysis` in
+  `build.py`). Where the database cannot tell (a record that writes to a device record, or one
+  disabled with a severity), `databases: <db>: invalid_on` states it, and the check names every
+  such record that lacks the statement.
 - An alias is shown with its record: in the Word document as "(alias: …)" after the description,
   in the registry as `aliases` of the record's PV. It needs no role of its own.
 - The Word document is reproducible (fixed zip dates). The PDFs are not: Graphviz 2.43 with cairo

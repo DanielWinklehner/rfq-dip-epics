@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build import REPO, WRITE_TYPES, Model, loads_of  # noqa: E402
 
 OUT = os.path.join(REPO, "RAS", "mist2", "ReactApp", "src", "registry", "registry.json")
-INPUT_LINKS = re.compile(r"^(INP[A-U]?|DOL\w*)$")
 
 
 class Error(Exception):
@@ -96,22 +95,9 @@ def build(model):
                 sim = sims[(host, port)]["name"] + (":%s" % unit if unit is not None else "")
                 used[sims[(host, port)]["name"]] = sims[(host, port)]
             records[pv["name"]] = dict(pv, owner=owner["id"], sim=sim, direction=direction)
-    # A record turns INVALID when its simulator is silent: a StreamDevice read, or an input link with MS
-    # to such a record (also across devices and IOCs).
-    alias_of = {alias: name for name, r in records.items() for alias in r.get("aliases", [])}
-    fails = {name: {r["sim"]} if r["sim"] and r["direction"] == "in" else set() for name, r in records.items()}
-    changed = True
-    while changed:
-        changed = False
-        for name, r in records.items():
-            for key, link in r["fields"].items():
-                words = link.split()
-                if INPUT_LINKS.match(key) and words and not link.startswith("@") and set(words) & {"MS", "MSS", "MSI"}:
-                    target = words[0].split(".")[0]
-                    target = alias_of.get(target, target)
-                    if target in fails and not fails[target] <= fails[name]:
-                        fails[name] |= fails[target]
-                        changed = True
+    # Which records turn INVALID when a simulator is silent, and when its connection is closed: the
+    # rule of build.py (fault_analysis), with the simulator (and unit) behind each device record.
+    faults = model.faults(lambda pv, port, unit: records[pv["name"]]["sim"])
 
     def entry(owner):
         out_roles, out_channels, pvs = {}, {}, {}
@@ -143,8 +129,10 @@ def build(model):
                     item["readback"] = spec["readback"]
             if r["sim"]:
                 item["sim"] = r["sim"]
-            if fails[pv["name"]]:
-                item["fails_with"] = sorted(fails[pv["name"]])
+            if faults["silent"][pv["name"]]:
+                item["fails_with"] = sorted(faults["silent"][pv["name"]])
+            if faults["closed"][pv["name"]]:
+                item["fails_closed"] = sorted(faults["closed"][pv["name"]])
             pvs[pv["name"]] = item
         # readback: role name -> PV name, looked up in the channel first, then in the device
         for item in pvs.values():

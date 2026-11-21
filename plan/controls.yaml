@@ -898,6 +898,11 @@ global_questions:
 #   channels  roles per channel. <n> stands for the channel number: "s<n>" gives s1, s2, ...
 #   internal  records that are no role: fan-outs, arrays, helper records
 #   unit      macro that holds the unit address on a bus (a simulator with several units)
+#   invalid_on  record: the faults of its device ([silent, closed], [closed] or []) on which it turns
+#             INVALID, for the records whose database does not tell: a record that writes to a
+#             device record through an output link, or that is disabled with a severity (SDIS,
+#             DISS). build.py names every such record that lacks it. Everything else follows from
+#             how the records are processed (build.py, "faults").
 #   macros    macros that every load of this database has (optional)
 #
 # A record that is neither a role nor internal stops build.py and registry.py: add it here.
@@ -928,6 +933,9 @@ databases:
       out_state: read_output_status
       status: "status:read"
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
+    invalid_on:
+      "_poll:gate": [closed]   # starts each monitor cycle by processing voltage:read: LINK alarm when the port is closed
+      OutputIntlk: []          # writes ToggleOutput only when the permit or the request changes
 
   rek.db:
     class: supply
@@ -945,6 +953,9 @@ databases:
       out_state: read_output_status
       status: "status:read"
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
+    invalid_on:
+      "_poll:gate": [closed]   # starts each monitor cycle by processing voltage:read: LINK alarm when the port is closed
+      OutputIntlk: []          # writes ToggleOutput only when the permit or the request changes
 
   au_alloff.db:
     class: command
@@ -1048,3 +1059,7 @@ databases:
       age: "age:get"
       raw: {record: "raw:get", note: "full text in the field VAL$"}
     internal: ["int:raw", "int:speed", "int:current", "int:fresh", "int:stale", "int:refresh"]
+    invalid_on:                # disabled with DISS INVALID once no record came for AGE_LIMIT seconds
+      "speed:get": [silent, closed]
+      "current:get": [silent, closed]
+      "raw:get": [silent, closed]
