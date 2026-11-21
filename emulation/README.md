@@ -1,0 +1,28 @@
+# MIST-2 emulation
+
+Two emulated control computers (Docker containers `ioc-rack` .11 and `ioc-hv` .12 on network
+`mist2ctl`, `172.30.0.0/24`), each running one IOC from `EPICS/ioc`. Run from the repository root:
+
+| Command | What it does |
+|---|---|
+| `make -C emulation build` | Build the images `mist2-ioc:dev` and `mist2-tools:dev` |
+| `make -C emulation up` | Start both IOCs, wait until they are healthy |
+| `make -C emulation down` | Stop and remove containers and network |
+| `make -C emulation restart` | Restart the IOCs (after editing `EPICS/Db` or `EPICS/ioc/iocBoot`) |
+| `make -C emulation ps` / `logs` | Container state / IOC output |
+| `make -C emulation ca-proof` | Channel Access check from the network and from the WSL host |
+| `make -C emulation devtest CASE=<dir>` | Test one device case (path relative to the repository root) |
+| `make -C emulation plan` | `python plan/build.py`, writes `plan/out` |
+| `make -C emulation plan-check` | The same into a temporary directory, fails on `WARNING` |
+| `make -C emulation test` | System tests (`emulation/tests`) |
+
+IOC shell: `docker attach mist2emu-ioc-rack-1` (leave with ctrl-p ctrl-q, not ctrl-c).
+Channel Access clients: `EPICS_CA_AUTO_ADDR_LIST=NO EPICS_CA_ADDR_LIST=172.30.0.255`.
+Another subnet: `export MIST2_SUBNET=172.31.5` before `up`.
+
+On a real Linux computer: `make -C EPICS/ioc` (local paths in `EPICS/ioc/configure/RELEASE.local`),
+then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
+
+Device tests: `emulation/devtest/run.sh <case> [pytest arguments]`. A case directory holds
+`sim.yaml` (or a one-line `sim.cmd`), `ioc.cmd` and `test_*.py`; see the header of
+`devtest/run.sh` and the example in `devtest/example/`. Logs go to `<case>/build/`.
