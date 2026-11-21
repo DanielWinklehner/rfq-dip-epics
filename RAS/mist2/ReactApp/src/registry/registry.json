@@ -128,6 +128,9 @@
      "sim": "tdk",
      "fails_with": [
       "tdk"
+     ],
+     "fails_closed": [
+      "tdk"
      ]
     },
     "TDK:current:setpoint": {
@@ -154,6 +157,9 @@
      "sim": "tdk",
      "fails_with": [
       "tdk"
+     ],
+     "fails_closed": [
+      "tdk"
      ]
     },
     "TDK:power:get": {
@@ -163,6 +169,9 @@
      "desc": "Output power, measured V x I",
      "role": "power",
      "fails_with": [
+      "tdk"
+     ],
+     "fails_closed": [
       "tdk"
      ]
     },
@@ -187,6 +196,9 @@
      "sim": "tdk",
      "fails_with": [
       "tdk"
+     ],
+     "fails_closed": [
+      "tdk"
      ]
     },
     "TDK:mode:get": {
@@ -197,6 +209,9 @@
      "sim": "tdk",
      "fails_with": [
       "tdk"
+     ],
+     "fails_closed": [
+      "tdk"
      ]
     },
     "TDK:fault:get": {
@@ -206,6 +221,9 @@
      "role": "fault",
      "sim": "tdk",
      "fails_with": [
+      "tdk"
+     ],
+     "fails_closed": [
       "tdk"
      ]
     }
@@ -268,6 +286,9 @@
      "sim": "rek:1",
      "fails_with": [
       "rek:1"
+     ],
+     "fails_closed": [
+      "rek:1"
      ]
     },
     "REK-1:voltage:read": {
@@ -278,6 +299,9 @@
      "role": "vread",
      "sim": "rek:1",
      "fails_with": [
+      "rek:1"
+     ],
+     "fails_closed": [
       "rek:1"
      ]
     },
@@ -304,6 +328,9 @@
      "sim": "rek:1",
      "fails_with": [
       "rek:1"
+     ],
+     "fails_closed": [
+      "rek:1"
      ]
     },
     "REK-1:current:read": {
@@ -315,6 +342,9 @@
      "sim": "rek:1",
      "fails_with": [
       "rek:1"
+     ],
+     "fails_closed": [
+      "rek:1"
      ]
     },
     "REK-1:power:read": {
@@ -324,6 +354,9 @@
      "desc": "Read power of REK:1",
      "role": "power",
      "fails_with": [
+      "rek:1"
+     ],
+     "fails_closed": [
       "rek:1"
      ]
     },
@@ -337,7 +370,10 @@
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
-     "internal": true
+     "internal": true,
+     "fails_closed": [
+      "rek:1"
+     ]
     },
     "REK-1:_poll:done": {
      "type": "dfanout",
@@ -365,6 +401,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "REK-1:ToggleOutput": {
@@ -378,10 +417,7 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "rek:1"
-     ]
+     "internal": true
     },
     "REK-1:status:read": {
      "type": "bi",
@@ -390,6 +426,9 @@
      "role": "status",
      "sim": "rek:1",
      "fails_with": [
+      "rek:1"
+     ],
+     "fails_closed": [
       "rek:1"
      ]
     },
@@ -400,6 +439,9 @@
      "role": "out_state",
      "sim": "rek:1",
      "fails_with": [
+      "rek:1"
+     ],
+     "fails_closed": [
       "rek:1"
      ]
     }
@@ -481,6 +523,9 @@
      "sim": "thermocouple",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:int:fanout": {
@@ -497,6 +542,9 @@
      "channel": "t1",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:t2:get": {
@@ -507,6 +555,9 @@
      "role": "value",
      "channel": "t2",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -519,6 +570,9 @@
      "channel": "t3",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:t4:get": {
@@ -529,6 +583,9 @@
      "role": "value",
      "channel": "t4",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -541,6 +598,9 @@
      "channel": "t1",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:j2:get": {
@@ -551,6 +611,9 @@
      "role": "junction",
      "channel": "t2",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -563,6 +626,9 @@
      "channel": "t3",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:j4:get": {
@@ -574,6 +640,9 @@
      "channel": "t4",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:f1:get": {
@@ -583,6 +652,9 @@
      "role": "fault",
      "channel": "t1",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -594,6 +666,9 @@
      "channel": "t2",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:f3:get": {
@@ -603,6 +678,9 @@
      "role": "fault",
      "channel": "t3",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -614,6 +692,9 @@
      "channel": "t4",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:id": {
@@ -623,6 +704,9 @@
      "role": "id",
      "sim": "thermocouple",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     },
@@ -634,6 +718,9 @@
      "sim": "thermocouple",
      "fails_with": [
       "thermocouple"
+     ],
+     "fails_closed": [
+      "thermocouple"
      ]
     },
     "THM:channels": {
@@ -644,6 +731,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "thermocouple",
      "fails_with": [
+      "thermocouple"
+     ],
+     "fails_closed": [
       "thermocouple"
      ]
     }
@@ -707,6 +797,9 @@
      "sim": "mat_opt:1",
      "fails_with": [
       "mat_opt:1"
+     ],
+     "fails_closed": [
+      "mat_opt:1"
      ]
     },
     "AU-20P7-1:voltage:read": {
@@ -717,6 +810,9 @@
      "role": "vread",
      "sim": "mat_opt:1",
      "fails_with": [
+      "mat_opt:1"
+     ],
+     "fails_closed": [
       "mat_opt:1"
      ]
     },
@@ -743,6 +839,9 @@
      "sim": "mat_opt:1",
      "fails_with": [
       "mat_opt:1"
+     ],
+     "fails_closed": [
+      "mat_opt:1"
      ]
     },
     "AU-20P7-1:current:read": {
@@ -754,6 +853,9 @@
      "sim": "mat_opt:1",
      "fails_with": [
       "mat_opt:1"
+     ],
+     "fails_closed": [
+      "mat_opt:1"
      ]
     },
     "AU-20P7-1:power:read": {
@@ -763,6 +865,9 @@
      "desc": "Read power of mat_opt:1",
      "role": "power",
      "fails_with": [
+      "mat_opt:1"
+     ],
+     "fails_closed": [
       "mat_opt:1"
      ]
     },
@@ -776,7 +881,10 @@
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
-     "internal": true
+     "internal": true,
+     "fails_closed": [
+      "mat_opt:1"
+     ]
     },
     "AU-20P7-1:_poll:done": {
      "type": "dfanout",
@@ -804,6 +912,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "AU-20P7-1:ToggleOutput": {
@@ -817,10 +928,7 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "mat_opt:1"
-     ]
+     "internal": true
     },
     "AU-20P7-1:status:read": {
      "type": "bi",
@@ -829,6 +937,9 @@
      "role": "status",
      "sim": "mat_opt:1",
      "fails_with": [
+      "mat_opt:1"
+     ],
+     "fails_closed": [
       "mat_opt:1"
      ]
     },
@@ -839,6 +950,9 @@
      "role": "out_state",
      "sim": "mat_opt:1",
      "fails_with": [
+      "mat_opt:1"
+     ],
+     "fails_closed": [
       "mat_opt:1"
      ]
     }
@@ -901,6 +1015,9 @@
      "sim": "mat_opt:2",
      "fails_with": [
       "mat_opt:2"
+     ],
+     "fails_closed": [
+      "mat_opt:2"
      ]
     },
     "AU-20P7-2:voltage:read": {
@@ -911,6 +1028,9 @@
      "role": "vread",
      "sim": "mat_opt:2",
      "fails_with": [
+      "mat_opt:2"
+     ],
+     "fails_closed": [
       "mat_opt:2"
      ]
     },
@@ -937,6 +1057,9 @@
      "sim": "mat_opt:2",
      "fails_with": [
       "mat_opt:2"
+     ],
+     "fails_closed": [
+      "mat_opt:2"
      ]
     },
     "AU-20P7-2:current:read": {
@@ -948,6 +1071,9 @@
      "sim": "mat_opt:2",
      "fails_with": [
       "mat_opt:2"
+     ],
+     "fails_closed": [
+      "mat_opt:2"
      ]
     },
     "AU-20P7-2:power:read": {
@@ -957,6 +1083,9 @@
      "desc": "Read power of mat_opt:2",
      "role": "power",
      "fails_with": [
+      "mat_opt:2"
+     ],
+     "fails_closed": [
       "mat_opt:2"
      ]
     },
@@ -970,7 +1099,10 @@
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
-     "internal": true
+     "internal": true,
+     "fails_closed": [
+      "mat_opt:2"
+     ]
     },
     "AU-20P7-2:_poll:done": {
      "type": "dfanout",
@@ -998,6 +1130,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "AU-20P7-2:ToggleOutput": {
@@ -1011,10 +1146,7 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "mat_opt:2"
-     ]
+     "internal": true
     },
     "AU-20P7-2:status:read": {
      "type": "bi",
@@ -1023,6 +1155,9 @@
      "role": "status",
      "sim": "mat_opt:2",
      "fails_with": [
+      "mat_opt:2"
+     ],
+     "fails_closed": [
       "mat_opt:2"
      ]
     },
@@ -1033,6 +1168,9 @@
      "role": "out_state",
      "sim": "mat_opt:2",
      "fails_with": [
+      "mat_opt:2"
+     ],
+     "fails_closed": [
       "mat_opt:2"
      ]
     }
@@ -1095,6 +1233,9 @@
      "sim": "mat_co:3",
      "fails_with": [
       "mat_co:3"
+     ],
+     "fails_closed": [
+      "mat_co:3"
      ]
     },
     "AU-20P7-3:voltage:read": {
@@ -1105,6 +1246,9 @@
      "role": "vread",
      "sim": "mat_co:3",
      "fails_with": [
+      "mat_co:3"
+     ],
+     "fails_closed": [
       "mat_co:3"
      ]
     },
@@ -1131,6 +1275,9 @@
      "sim": "mat_co:3",
      "fails_with": [
       "mat_co:3"
+     ],
+     "fails_closed": [
+      "mat_co:3"
      ]
     },
     "AU-20P7-3:current:read": {
@@ -1142,6 +1289,9 @@
      "sim": "mat_co:3",
      "fails_with": [
       "mat_co:3"
+     ],
+     "fails_closed": [
+      "mat_co:3"
      ]
     },
     "AU-20P7-3:power:read": {
@@ -1151,6 +1301,9 @@
      "desc": "Read power of mat_co:3",
      "role": "power",
      "fails_with": [
+      "mat_co:3"
+     ],
+     "fails_closed": [
       "mat_co:3"
      ]
     },
@@ -1164,7 +1317,10 @@
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
-     "internal": true
+     "internal": true,
+     "fails_closed": [
+      "mat_co:3"
+     ]
     },
     "AU-20P7-3:_poll:done": {
      "type": "dfanout",
@@ -1192,6 +1348,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "AU-20P7-3:ToggleOutput": {
@@ -1205,10 +1364,7 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "mat_co:3"
-     ]
+     "internal": true
     },
     "AU-20P7-3:status:read": {
      "type": "bi",
@@ -1217,6 +1373,9 @@
      "role": "status",
      "sim": "mat_co:3",
      "fails_with": [
+      "mat_co:3"
+     ],
+     "fails_closed": [
       "mat_co:3"
      ]
     },
@@ -1227,6 +1386,9 @@
      "role": "out_state",
      "sim": "mat_co:3",
      "fails_with": [
+      "mat_co:3"
+     ],
+     "fails_closed": [
       "mat_co:3"
      ]
     }
@@ -1291,6 +1453,9 @@
      "sim": "mat_co:5",
      "fails_with": [
       "mat_co:5"
+     ],
+     "fails_closed": [
+      "mat_co:5"
      ]
     },
     "AU-20P7-5:voltage:read": {
@@ -1301,6 +1466,9 @@
      "role": "vread",
      "sim": "mat_co:5",
      "fails_with": [
+      "mat_co:5"
+     ],
+     "fails_closed": [
       "mat_co:5"
      ]
     },
@@ -1327,6 +1495,9 @@
      "sim": "mat_co:5",
      "fails_with": [
       "mat_co:5"
+     ],
+     "fails_closed": [
+      "mat_co:5"
      ]
     },
     "AU-20P7-5:current:read": {
@@ -1338,6 +1509,9 @@
      "sim": "mat_co:5",
      "fails_with": [
       "mat_co:5"
+     ],
+     "fails_closed": [
+      "mat_co:5"
      ]
     },
     "AU-20P7-5:power:read": {
@@ -1347,6 +1521,9 @@
      "desc": "Read power of mat_co:5",
      "role": "power",
      "fails_with": [
+      "mat_co:5"
+     ],
+     "fails_closed": [
       "mat_co:5"
      ]
     },
@@ -1360,7 +1537,10 @@
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
-     "internal": true
+     "internal": true,
+     "fails_closed": [
+      "mat_co:5"
+     ]
     },
     "AU-20P7-5:_poll:done": {
      "type": "dfanout",
@@ -1388,6 +1568,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "AU-20P7-5:ToggleOutput": {
@@ -1401,10 +1584,7 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "mat_co:5"
-     ]
+     "internal": true
     },
     "AU-20P7-5:status:read": {
      "type": "bi",
@@ -1413,6 +1593,9 @@
      "role": "status",
      "sim": "mat_co:5",
      "fails_with": [
+      "mat_co:5"
+     ],
+     "fails_closed": [
       "mat_co:5"
      ]
     },
@@ -1423,6 +1606,9 @@
      "role": "out_state",
      "sim": "mat_co:5",
      "fails_with": [
+      "mat_co:5"
+     ],
+     "fails_closed": [
       "mat_co:5"
      ]
     }
@@ -1487,10 +1673,7 @@
      "egu": "V",
      "desc": "Get voltage of mat_co:4",
      "role": "vget",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     },
     "AU-20P7-4:voltage:read": {
      "type": "ai",
@@ -1498,10 +1681,7 @@
      "egu": "V",
      "desc": "Read voltage of mat_co:4",
      "role": "vread",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     },
     "AU-20P7-4:current:setpoint": {
      "type": "ao",
@@ -1523,10 +1703,7 @@
      "egu": "mA",
      "desc": "Get current of mat_co:4",
      "role": "iget",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     },
     "AU-20P7-4:current:read": {
      "type": "ai",
@@ -1534,20 +1711,14 @@
      "egu": "mA",
      "desc": "Read current of mat_co:4",
      "role": "iread",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     },
     "AU-20P7-4:power:read": {
      "type": "calc",
      "access": "r",
      "egu": "W",
      "desc": "Read power of mat_co:4",
-     "role": "power",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "role": "power"
     },
     "AU-20P7-4:_poll:tick": {
      "type": "calcout",
@@ -1587,6 +1758,9 @@
      "internal": true,
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "AU-20P7-4:ToggleOutput": {
@@ -1600,30 +1774,21 @@
      "type": "seq",
      "access": "r",
      "desc": "Request := output state at start",
-     "internal": true,
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "internal": true
     },
     "AU-20P7-4:status:read": {
      "type": "bi",
      "access": "r",
      "desc": "Read status of mat_co:4",
      "role": "status",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     },
     "AU-20P7-4:read_output_status": {
      "type": "bi",
      "access": "r",
      "desc": "Read output status of mat_co:4",
      "role": "out_state",
-     "sim": "mat_co:4",
-     "fails_with": [
-      "mat_co:4"
-     ]
+     "sim": "mat_co:4"
     }
    }
   },
@@ -1756,6 +1921,9 @@
      "sim": "mfc:254",
      "fails_with": [
       "mfc:254"
+     ],
+     "fails_closed": [
+      "mfc:254"
      ]
     },
     "MFC:getSP": {
@@ -1766,6 +1934,9 @@
      "role": "sp",
      "sim": "mfc:254",
      "fails_with": [
+      "mfc:254"
+     ],
+     "fails_closed": [
       "mfc:254"
      ]
     },
@@ -1791,6 +1962,9 @@
      "role": "flow",
      "sim": "mfc:254",
      "fails_with": [
+      "mfc:254"
+     ],
+     "fails_closed": [
       "mfc:254"
      ]
     }
@@ -1852,6 +2026,9 @@
      "sim": "gauges",
      "fails_with": [
       "gauges"
+     ],
+     "fails_closed": [
+      "gauges"
      ]
     },
     "PRESSURE:int:fanout": {
@@ -1868,6 +2045,9 @@
      "channel": "apg",
      "fails_with": [
       "gauges"
+     ],
+     "fails_closed": [
+      "gauges"
      ]
     },
     "PRESSURE:diag_box:getpressure": {
@@ -1879,6 +2059,9 @@
      "channel": "diag_box",
      "fails_with": [
       "gauges"
+     ],
+     "fails_closed": [
+      "gauges"
      ]
     },
     "PRESSURE:id": {
@@ -1888,6 +2071,9 @@
      "role": "id",
      "sim": "gauges",
      "fails_with": [
+      "gauges"
+     ],
+     "fails_closed": [
       "gauges"
      ]
     },
@@ -1899,6 +2085,9 @@
      "sim": "gauges",
      "fails_with": [
       "gauges"
+     ],
+     "fails_closed": [
+      "gauges"
      ]
     },
     "PRESSURE:channels": {
@@ -1909,6 +2098,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "gauges",
      "fails_with": [
+      "gauges"
+     ],
+     "fails_closed": [
       "gauges"
      ]
     }
@@ -1951,6 +2143,9 @@
      "role": "p",
      "sim": "aim",
      "fails_with": [
+      "aim"
+     ],
+     "fails_closed": [
       "aim"
      ]
     },
@@ -2014,6 +2209,9 @@
      "sim": "turbo_opta",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO:id": {
@@ -2023,6 +2221,9 @@
      "role": "id",
      "sim": "turbo_opta",
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     },
@@ -2034,6 +2235,9 @@
      "sim": "turbo_opta",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO:channels": {
@@ -2044,6 +2248,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "turbo_opta",
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     }
@@ -2120,6 +2327,9 @@
      "role": "run_state",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO1:int:relays": {
@@ -2134,6 +2344,9 @@
      "role": "atspeed",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO1:accel:get": {
@@ -2142,6 +2355,9 @@
      "desc": "ACCEL relay of TURBO1",
      "role": "accel",
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     },
@@ -2152,6 +2368,9 @@
      "role": "failure",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO1:int:state": {
@@ -2160,6 +2379,9 @@
      "desc": "State of TURBO1, debounced",
      "internal": true,
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     },
@@ -2170,6 +2392,9 @@
      "role": "state",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO1:int:raw": {
@@ -2178,7 +2403,7 @@
      "desc": "Last record from TURBO1",
      "internal": true,
      "sim": "nt20_1",
-     "fails_with": [
+     "fails_closed": [
       "nt20_1"
      ]
     },
@@ -2187,7 +2412,7 @@
      "access": "r",
      "internal": true,
      "sim": "nt20_1",
-     "fails_with": [
+     "fails_closed": [
       "nt20_1"
      ]
     },
@@ -2196,7 +2421,7 @@
      "access": "r",
      "internal": true,
      "sim": "nt20_1",
-     "fails_with": [
+     "fails_closed": [
       "nt20_1"
      ]
     },
@@ -2232,6 +2457,9 @@
      "note": "full text in the field VAL$",
      "fails_with": [
       "nt20_1"
+     ],
+     "fails_closed": [
+      "nt20_1"
      ]
     },
     "TURBO1:speed:get": {
@@ -2242,6 +2470,9 @@
      "role": "speed",
      "fails_with": [
       "nt20_1"
+     ],
+     "fails_closed": [
+      "nt20_1"
      ]
     },
     "TURBO1:current:get": {
@@ -2251,6 +2482,9 @@
      "desc": "Motor current of TURBO1",
      "role": "current",
      "fails_with": [
+      "nt20_1"
+     ],
+     "fails_closed": [
       "nt20_1"
      ]
     }
@@ -2327,6 +2561,9 @@
      "role": "run_state",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO2:int:relays": {
@@ -2341,6 +2578,9 @@
      "role": "atspeed",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO2:accel:get": {
@@ -2349,6 +2589,9 @@
      "desc": "ACCEL relay of TURBO2",
      "role": "accel",
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     },
@@ -2359,6 +2602,9 @@
      "role": "failure",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO2:int:state": {
@@ -2367,6 +2613,9 @@
      "desc": "State of TURBO2, debounced",
      "internal": true,
      "fails_with": [
+      "turbo_opta"
+     ],
+     "fails_closed": [
       "turbo_opta"
      ]
     },
@@ -2377,6 +2626,9 @@
      "role": "state",
      "fails_with": [
       "turbo_opta"
+     ],
+     "fails_closed": [
+      "turbo_opta"
      ]
     },
     "TURBO2:int:raw": {
@@ -2385,7 +2637,7 @@
      "desc": "Last record from TURBO2",
      "internal": true,
      "sim": "nt20_2",
-     "fails_with": [
+     "fails_closed": [
       "nt20_2"
      ]
     },
@@ -2394,7 +2646,7 @@
      "access": "r",
      "internal": true,
      "sim": "nt20_2",
-     "fails_with": [
+     "fails_closed": [
       "nt20_2"
      ]
     },
@@ -2403,7 +2655,7 @@
      "access": "r",
      "internal": true,
      "sim": "nt20_2",
-     "fails_with": [
+     "fails_closed": [
       "nt20_2"
      ]
     },
@@ -2439,6 +2691,9 @@
      "note": "full text in the field VAL$",
      "fails_with": [
       "nt20_2"
+     ],
+     "fails_closed": [
+      "nt20_2"
      ]
     },
     "TURBO2:speed:get": {
@@ -2449,6 +2704,9 @@
      "role": "speed",
      "fails_with": [
       "nt20_2"
+     ],
+     "fails_closed": [
+      "nt20_2"
      ]
     },
     "TURBO2:current:get": {
@@ -2458,6 +2716,9 @@
      "desc": "Motor current of TURBO2",
      "role": "current",
      "fails_with": [
+      "nt20_2"
+     ],
+     "fails_closed": [
       "nt20_2"
      ]
     }
@@ -2563,6 +2824,9 @@
      "sim": "valvebox",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:int:fanout": {
@@ -2578,6 +2842,9 @@
      "channel": "s1",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:s2:get": {
@@ -2587,6 +2854,9 @@
      "role": "state",
      "channel": "s2",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     },
@@ -2598,6 +2868,9 @@
      "channel": "s3",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:s4:get": {
@@ -2607,6 +2880,9 @@
      "role": "state",
      "channel": "s4",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     },
@@ -2618,6 +2894,9 @@
      "channel": "s5",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:s6:get": {
@@ -2627,6 +2906,9 @@
      "role": "state",
      "channel": "s6",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     },
@@ -2638,6 +2920,9 @@
      "channel": "s7",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:s8:get": {
@@ -2647,6 +2932,9 @@
      "role": "state",
      "channel": "s8",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     },
@@ -2770,6 +3058,9 @@
      "sim": "valvebox",
      "fails_with": [
       "valvebox"
+     ],
+     "fails_closed": [
+      "valvebox"
      ]
     },
     "VALVE:firmware": {
@@ -2779,6 +3070,9 @@
      "role": "firmware",
      "sim": "valvebox",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     },
@@ -2790,6 +3084,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "valvebox",
      "fails_with": [
+      "valvebox"
+     ],
+     "fails_closed": [
       "valvebox"
      ]
     }
@@ -2911,6 +3208,9 @@
      "sim": "sensorbox",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:int:fanout": {
@@ -2927,6 +3227,9 @@
      "channel": "t1",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:t2:gettemp": {
@@ -2937,6 +3240,9 @@
      "role": "value",
      "channel": "t2",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -2949,6 +3255,9 @@
      "channel": "t3",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:t4:gettemp": {
@@ -2959,6 +3268,9 @@
      "role": "value",
      "channel": "t4",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -2971,6 +3283,9 @@
      "channel": "t5",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:t6:gettemp": {
@@ -2981,6 +3296,9 @@
      "role": "value",
      "channel": "t6",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -2993,6 +3311,9 @@
      "channel": "t7",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:f1:getflow": {
@@ -3002,6 +3323,9 @@
      "role": "value",
      "channel": "f1",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -3013,6 +3337,9 @@
      "channel": "f2",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:f3:getflow": {
@@ -3022,6 +3349,9 @@
      "role": "value",
      "channel": "f3",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -3033,6 +3363,9 @@
      "channel": "f4",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:f5:getflow": {
@@ -3042,6 +3375,9 @@
      "role": "value",
      "channel": "f5",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -3053,6 +3389,9 @@
      "sim": "sensorbox",
      "fails_with": [
       "sensorbox"
+     ],
+     "fails_closed": [
+      "sensorbox"
      ]
     },
     "SENSOR:firmware": {
@@ -3062,6 +3401,9 @@
      "role": "firmware",
      "sim": "sensorbox",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     },
@@ -3073,6 +3415,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "sensorbox",
      "fails_with": [
+      "sensorbox"
+     ],
+     "fails_closed": [
       "sensorbox"
      ]
     }
@@ -3135,6 +3480,9 @@
      "sim": "interlockbox",
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "INTLK:int:fanout": {
@@ -3150,6 +3498,9 @@
      "channel": "i1",
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "INTLK:i2:get_interlock": {
@@ -3160,6 +3511,9 @@
      "channel": "i2",
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "interlock_open": {
@@ -3168,6 +3522,9 @@
      "desc": "1 = an interlock door is open",
      "role": "open",
      "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
       "interlockbox"
      ]
     },
@@ -3179,6 +3536,9 @@
      "sim": "interlockbox",
      "fails_with": [
       "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
      ]
     },
     "INTLK:firmware": {
@@ -3188,6 +3548,9 @@
      "role": "firmware",
      "sim": "interlockbox",
      "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
       "interlockbox"
      ]
     },
@@ -3199,6 +3562,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "interlockbox",
      "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
       "interlockbox"
      ]
     }
@@ -3249,6 +3615,9 @@
      "sim": "faradaycup",
      "fails_with": [
       "faradaycup"
+     ],
+     "fails_closed": [
+      "faradaycup"
      ]
     },
     "FC:current:get": {
@@ -3258,6 +3627,9 @@
      "desc": "Faraday cup current",
      "role": "value",
      "fails_with": [
+      "faradaycup"
+     ],
+     "fails_closed": [
       "faradaycup"
      ]
     },
@@ -3269,6 +3641,9 @@
      "sim": "faradaycup",
      "fails_with": [
       "faradaycup"
+     ],
+     "fails_closed": [
+      "faradaycup"
      ]
     },
     "FC:firmware": {
@@ -3278,6 +3653,9 @@
      "role": "firmware",
      "sim": "faradaycup",
      "fails_with": [
+      "faradaycup"
+     ],
+     "fails_closed": [
       "faradaycup"
      ]
     },
@@ -3289,6 +3667,9 @@
      "note": "full text in the field VAL$ (more than 40 characters)",
      "sim": "faradaycup",
      "fails_with": [
+      "faradaycup"
+     ],
+     "fails_closed": [
       "faradaycup"
      ]
     }
