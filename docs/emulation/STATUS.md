@@ -2,8 +2,8 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1, T2, T9 and T14 are merged. The device tasks T3 to T6 are running, one subagent and one
-worktree each.
+T1, T2, T6, T9 and T14 are merged. The device tasks T3, T4 and T5 are running, one subagent
+and one worktree each.
 
 ## Done
 
@@ -30,6 +30,10 @@ worktree each.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T6 merged** (acceptance test run by the lead, 81 tests): `thermocouples.db`,
+  `solenoidbox.db`, `pressure.db`, `sensorbox.db` and `interlockbox.db` carry the lab's names
+  and meanings and keep this branch's acknowledged sets, identity and alarm propagation.
+  New PVs: `THM:j<n>:get` and `THM:f<n>:get`. A faulted thermocouple now reads INVALID.
 - **T9 merged** (acceptance test run by the lead): `RAS/mist2/` is a running application shell
   on RAS V8.1.0 (submodule). `make -C RAS/mist2 dev-up`, then `http://localhost:3000/` in the
   Windows browser. Three containers (nginx, Vite, pvServer), no database: with login disabled
@@ -94,6 +98,17 @@ both IOCs, expected in the week of 2026-11-23.
 | A20 | Emulation subnet `172.30.0.0/24`. Nothing depends on the switch model or the real address plan | Free choice | You, if it collides with a network of yours |
 | A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | udev rules do not exist yet | Work package WP4 |
 | A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
+
+## Open points from the device tasks
+
+| # | Point | Needs |
+|---|---|---|
+| P1 | `THM:channels` is cut after 39 characters: the thermocouple board's list of 16 channels has 47. The limit is in `libcom1.proto` and `libcom1_device.db` (a string record). Fix planned after T3 to T5 are merged | Lead |
+| P2 | Which gauge controller firmware runs in the lab: `IonGaugeController` (Arduino Mega, 8N1) or `IonGaugeController_Teensy`? The lab's `st.cmd` calls it a Teensy and sets even parity. The emulator follows the Mega sketch | You |
+| P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is left empty | You |
+| P4 | The interlock box has two relay channels (`s1`, `s2`) that no database uses. What do they switch? | You |
+| P5 | The door PVs `INTLK:i1:get_interlock` and `i2` are binary records with the states Open and Closed now. The lab's were analog records with the same numbers (1 = closed). A client that reads the number sees no difference, a client that reads the type does | You, if a script depends on it |
+| P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
 
