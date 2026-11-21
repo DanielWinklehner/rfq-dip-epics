@@ -1,7 +1,7 @@
 # G1 design note: emulated IOCs and the new GUI
 
-Status: **waiting for approval (gate G1)**. Nothing below is built yet.
-Decisions that need a yes or no are marked **D1** to **D8** and collected at the end.
+Status: **approved on 2026-11-21 (gate G1)**, D1 to D8 as proposed.
+The decisions are marked **D1** to **D8** and collected at the end.
 
 ## 1. What changed since the prompt was written
 

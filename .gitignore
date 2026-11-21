@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# EPICS build products (the top is EPICS/ioc)
+O.*/
+EPICS/ioc/bin/
+EPICS/ioc/lib/
+EPICS/ioc/dbd/
+EPICS/ioc/db/
+EPICS/ioc/include/
+EPICS/ioc/iocBoot/*/envPaths
+
+# Local build and test output
+build/
+*.log
+.env
+
+# Node
+node_modules/

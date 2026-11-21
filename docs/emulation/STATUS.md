@@ -1,7 +1,7 @@
 # Status
 
-Last update: 2026-11-21. Gate **G1 is open**: the design note [DESIGN.md](DESIGN.md) waits for
-approval. No subagent has been started and no code has been written.
+Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
+Phase A is running: T1, T2, T9 and the layout study, one subagent and one worktree each.
 
 ## Done
 
@@ -19,8 +19,7 @@ approval. No subagent has been started and no code has been written.
 
 ## Open
 
-- G1 decisions D1 to D8 in DESIGN.md.
-- Everything in [PLAN.md](PLAN.md) from T1 on.
+- Everything in [PLAN.md](PLAN.md) from T1 on. Next gate: G2, the GUI layout proposal.
 - The model of the subagents: the Agent tool accepts `opus` but shows no version. The first
   subagent reports its model ID, and work stops if it is not Opus 5.5.
 

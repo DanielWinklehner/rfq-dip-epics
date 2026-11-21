@@ -6,8 +6,8 @@ The design is in [DESIGN.md](DESIGN.md), the current state in [STATUS.md](STATUS
 ## How the work is split
 
 - The lead (this session) plans, writes every brief, runs every acceptance test and integrates.
-- Implementation goes to subagents on Opus 5.5, one git worktree per task under
-  `../rfq-dip-epics-wt/<task>`, each on its own branch `emu/<task>` cut from `emulated-iocs`.
+- Implementation goes to subagents on Opus 5.5, one git worktree per task (created by the
+  Agent tool), each on its own branch `emu/<task>` cut from `emulated-iocs`.
 - **No two tasks own the same file.** Device tasks do not touch `st.cmd`, the port files, the
   simulator configuration or the Compose file. They deliver databases, protocol files, a
   simulator module and a self-contained test. The lead wires them into the shared files.
@@ -18,7 +18,7 @@ The design is in [DESIGN.md](DESIGN.md), the current state in [STATUS.md](STATUS
 | Gate | Content | State |
 |---|---|---|
 | G0 | Startup questions | closed: zip found, `latest.zip` received, the rest on best judgement until the lab files arrive |
-| G1 | Design note | **open**, waiting for approval |
+| G1 | Design note | closed: approved 2026-11-21, D1 to D8 as proposed |
 | G2 | GUI layout proposal | after T9 |
 
 ## Tasks
@@ -33,7 +33,8 @@ The design is in [DESIGN.md](DESIGN.md), the current state in [STATUS.md](STATUS
 | T6 | libcom1 device databases on lab names | `EPICS/Db/thermocouples.db`, `solenoidbox.db`, `pressure.db`, `sensorbox.db`, `interlockbox.db` | T1, T2 | Same pattern. An unacknowledged valve set ends in an alarm |
 | T7 | Integration: both `st.cmd`, port files, simulator configuration | `EPICS/ioc/iocBoot/*/st.cmd`, `ports.*.cmd`, `emulation/sim/config/` | T3 to T6 | Both IOCs start without one database or protocol error (the IOC log is checked by a test) |
 | T8 | System test suite | `emulation/tests/` | T7 | `make test`: every PV read, every set point written and followed, missing acknowledgement gives an alarm, fault injection and recovery per device, update-rate report for the AU chains |
-| T9 | RAS scaffold, pvServer proof, layout options | `RAS/mist2/` | T1 (one PV per IOC is enough) | pvServer reads one PV from each IOC. Two or three wireframes with a recommendation (gate G2) |
+| T9 | RAS scaffold and pvServer proof | `RAS/mist2/`, `.gitmodules` | none for the scaffold, T1 for the proof | The development GUI opens in a browser. pvServer reads one PV from each emulated IOC |
+| T14 | GUI layout options | `docs/emulation/gui/` | none | Two or three wireframes with a recommendation (gate G2) |
 | T10 | Plan and registry | `plan/controls.yaml`, `plan/build.py`, `plan/registry.py`, generated `RAS/mist2/.../registry.json` | T7 | `python plan/build.py` runs without warnings and shows the built PVs as existing. The registry lists every device with its PVs |
 | T11 | GUI: widgets per device class, pages, alarm colors | `RAS/mist2/ReactApp/src/` | G2, T8, T10 | Every device visible, alarm state follows a fault injected in the simulator, no PV name outside the registry |
 | T12 | Plant model (second step) | `emulation/sim/mist2sim/plant/` | T8 | Filament current drives discharge current with a thermal lag. Gas flow and pumps drive the pressures. Simulators unchanged |
@@ -46,11 +47,11 @@ G1 ─► T1 ─┬─► T3 ─┐
       T2 ─┼─► T4 ─┤
           ├─► T5 ─┼─► T7 ─► T8 ─┬─► T10 ─┐
           ├─► T6 ─┘             │        ├─► T11 ─► T13
-          └─► T9 ─► G2 ─────────┴────────┘
+     T9, T14 ─► G2 ─────────────┴────────┘
                                 T12 after T8, independent of the GUI
 ```
 
-T1 and T2 run in parallel. T3 to T6 and T9 run in parallel after them.
+T1, T2, T9 and T14 run in parallel. T3 to T6 run in parallel after T1 and T2.
 
 ## What every brief contains
 
