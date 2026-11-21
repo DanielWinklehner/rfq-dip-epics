@@ -3,8 +3,8 @@
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite), a
-follow-up of T3 on even polling, and a follow-up of T10 on the database parser.
+table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite) and a
+follow-up of T3 on even polling.
 
 ## Done
 
@@ -149,8 +149,8 @@ both IOCs, expected in the week of 2026-11-23.
 | P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
 | P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
 | P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |
-| P22 | The database parser of `plan/build.py` does not see a record that is written on one line, so such a record would be missing from plan and registry without a warning. No database in the repository has one. Follow-up given to T10 | T10 follow-up |
-| P23 | `make -C emulation plan` changes the tracked PDFs and the Word file on every run, because the tools embed the build time | T10 follow-up, optional |
+| P22 | Done: the database parser handles records in any layout, and an independent count of record statements fails the check if the parser misses one | Closed |
+| P23 | `make -C emulation plan` still changes the tracked PDFs on every run: Graphviz embeds the build time and ignores the usual setting for reproducible builds. The Word file is reproducible now. A fix needs one more tool (`qpdf`) in the tools image | Later, if it annoys |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
