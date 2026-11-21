@@ -44,3 +44,13 @@ then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
 Device tests: `emulation/devtest/run.sh <case> [pytest arguments]`. A case directory holds
 `sim.yaml` (or a one-line `sim.cmd`), `ioc.cmd` and `test_*.py`; see the header of
 `devtest/run.sh` and the example in `devtest/example/`. Logs go to `<case>/build/`.
+
+## System tests
+
+`make -C emulation test` runs the system tests of `emulation/tests/` against the full
+emulation: it starts the emulation if it is not running (and stops it again afterwards; a running
+one stays running), saves the IOC and simulator output to `emulation/build/<service>.log`, runs
+pytest in the `tools` container, prints the update-rate table (`emulation/build/update-rate.md`)
+and exits with pytest's exit code. Arguments go to pytest: `make -C emulation test ARGS="-k valve"`.
+The suite takes about 8 minutes and leaves the system as it found it. What it proves, its time
+limits and its expected failures: [tests/README.md](tests/README.md).
