@@ -31,8 +31,14 @@ record(stringin, "$(DEVICE):firmware") {
     field(FLNK, "$(DEVICE):channels")
 }
 
-record(stringin, "$(DEVICE):channels") {
+# lsi, not stringin: a stringin holds 39 characters, the 16 channels of the thermocouple board
+# need 47. Channel Access serves VAL as a 40-character string (cut like before); the full
+# text is the char array of the field VAL with the suffix "$":
+#   caget -S THM:channels.VAL$            pyepics: epics.caget("THM:channels.VAL$", as_string=True)
+# SIZV: see com1_channels in libcom1.proto.
+record(lsi, "$(DEVICE):channels") {
     field(DESC, "Channels in query-all order")
     field(DTYP, "stream")
     field(INP, "@libcom1.proto com1_channels $(PORT)")
+    field(SIZV, "256")
 }
