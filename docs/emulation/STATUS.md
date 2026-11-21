@@ -2,7 +2,7 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1, T2 and T9 are running, one subagent and one worktree each. T14 is merged.
+T1 and T2 are running, one subagent and one worktree each. T9 and T14 are merged.
 
 ## Done
 
@@ -17,6 +17,15 @@ T1, T2 and T9 are running, one subagent and one worktree each. T14 is merged.
   - Matsusada CO series manual rev 0.4 (reply formats, `#AL`, sets are unanswered).
 - Checked on this machine: Docker 29.9.2 and Compose 5.6.1 work without `sudo`, RAS tag
   `V8.1.0` and the example project are reachable.
+
+- **T9 merged** (acceptance test run by the lead): `RAS/mist2/` is a running application shell
+  on RAS V8.1.0 (submodule). `make -C RAS/mist2 dev-up`, then `http://localhost:3000/` in the
+  Windows browser. Three containers (nginx, Vite, pvServer), no database: with login disabled
+  the pvServer does not need MongoDB.
+- **Proven**: a pvServer on the host network reads PVs from IOCs on a Docker bridge network
+  through the subnet broadcast address. Shown with stand-in IOCs on `172.31.0.0/24`. The same
+  check against the emulated IOCs follows when T1 is merged (`RAS/mist2/tools/pv-proof.sh`).
+- **T14 merged**: three layout options with wireframes in `gui/`.
 
 ## Open
 
@@ -70,6 +79,16 @@ both IOCs, expected in the week of 2026-11-23.
 | A20 | Emulation subnet `172.30.0.0/24`. Nothing depends on the switch model or the real address plan | Free choice | You, if it collides with a network of yours |
 | A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | udev rules do not exist yet | Work package WP4 |
 | A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
+
+## Found in RAS V8.1.0
+
+- No RAS component colors severity INVALID. `TextOutput`, `TextInput` and the others handle
+  MINOR and MAJOR only, so an INVALID record shows its last value in plain style. The new GUI
+  needs its own thin wrappers for this. A lost Channel Access connection is handled by RAS.
+- The pvServer sends severity and time stamp but not the alarm status (STAT). The expert pages
+  read `<record>.STAT` as a PV of its own.
+- The boilerplate has no lock file for its Node packages, so the frontend image is not exactly
+  reproducible from one build to the next.
 
 ## Found while reading, not yet acted on
 
