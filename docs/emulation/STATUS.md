@@ -20,8 +20,15 @@ Phase A is running: T1, T2, T9 and the layout study, one subagent and one worktr
 ## Open
 
 - Everything in [PLAN.md](PLAN.md) from T1 on. Next gate: G2, the GUI layout proposal.
-- The model of the subagents: the Agent tool accepts `opus` but shows no version. The first
-  subagent reports its model ID, and work stops if it is not Opus 5.5.
+- Briefs for T3 to T6 are written (`briefs/`). They start when T1 and T2 are merged.
+
+## Subagents
+
+- All subagents report the model ID `claude-opus-5-5`.
+- The Agent tool's own worktree isolation cuts worktrees from `master`, not from the current
+  branch. The first four subagents noticed this at their setup check and stopped without
+  changing anything. The lead now creates each worktree from `emulated-iocs` under
+  `.claude/worktrees/<task>` (ignored by git) and names it in the brief.
 
 ## Decisions taken, with reasons
 
@@ -63,6 +70,14 @@ both IOCs, expected in the week of 2026-11-23.
 | A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
 
 ## Found while reading, not yet acted on
+
+- The lab's `toggle_output` sends `ICN 100` when an AU or REK output is enabled. That sets the
+  current limit to 100 % of full scale, whatever `current:setpoint` holds. T3 keeps the behaviour,
+  makes the percentage a macro and documents it in a test. Whether it is wanted is your call.
+- The lab's and this branch's interlock databases disagree in their comments on which input
+  value means "door closed". T6 settles it from the firmware.
+- New PVs that were not in the G1 note: `IOC-RACK:heartbeat`, `IOC-RACK:mode` and the same for
+  `IOC-HV`. `mode` shows `sim` or `real`, so that the GUI can label the emulator on every page.
 
 - `thermocouples.db` exposes 4 of the board's 16 channels. Junction temperatures and fault
   codes have no PVs (proposal in DESIGN.md).
