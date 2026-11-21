@@ -82,6 +82,19 @@ services:
       mist2ctl:
         ipv4_address: ${MIST2_SUBNET:-172.30.0}.22
 
+  # Plant model: reads the actuators of both simulator containers and drives their process
+  # values through the control ports. Only with the profile `plant` (make -C emulation up-plant),
+  # so that the emulation without the profile behaves as before. See sim/README.md.
+  plant:
+    <<: *sim
+    profiles: ["plant"]
+    hostname: plant
+    depends_on: [sim-rack, sim-hv]
+    command: ["python", "-m", "mist2sim.plant", "--config", "config/plant.yaml"]
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.30
+
   tools:
     profiles: ["tools"]
     image: mist2-tools:dev
