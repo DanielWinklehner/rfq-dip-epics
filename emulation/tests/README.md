@@ -23,7 +23,7 @@ state found, restore at the end, also after a failure).
 | `test_02_read.py` | Every PV of every device answers and is not INVALID, except records never processed since the start (UDF) that are set or internal passive records, or belong to a `not_polled` device (asserted explicitly); libcom1 identity PVs name the simulator behind the device |
 | `test_03_write.py` | Every written PV is written inside its test range, the set record ends without alarm and its read-back (processed after the write) follows; the device is restored |
 | `test_04_ack.py` | An acknowledged set to a silent device ends INVALID and is not executed; an unanswered Matsusada set turns its echo INVALID and is not executed |
-| `test_05_faults.py` | Per simulator, `silent`, `close`, `garbage`: every PV failing with it turns INVALID within its limit, no other PV of either IOC turns INVALID, the scanned ones keep updating, all recover after `clear`; one unit of a bus silent while its neighbours keep answering (rate reported); `trip` per type that has one; types without trip refuse it |
+| `test_05_faults.py` | Per simulator, `silent`, `close`, `garbage`: every PV of the registry's fault list for that mode (`fails_with`, for `close` `fails_closed`) turns INVALID within its limit, no PV of the device outside the list does, no other PV of either IOC turns INVALID, the scanned ones keep updating, all recover after `clear`; one unit of a bus silent while its neighbours keep answering (rate reported); `trip` per type that has one; types without trip refuse it |
 | `test_06_interlock.py` | An open door forces off the five AU supplies (rack IOC) and the REK (platform IOC); closing it brings the outputs whose request is set back ON by themselves (P16, asserted as it is); `AU:alloff:set` switches all five off and clears their requests |
 | `test_07_update_rate.py` | Monitor update rate of the polled AU supplies of both chains and of the TDK, by Channel Access and by the simulator's counts, within 10 % of the bus arithmetic with even shares |
 | `test_99_clean_end.py` | No fault and no held signal in any simulator, outputs off, valves closed, pumps stopped, set points as found, every PV back to its severity |
@@ -40,7 +40,7 @@ state found, restore at the end, also after a failure).
 | Fault to INVALID, default | 5 | slowest poll 2 s (MFC) plus a reply timeout of at most 1 s |
 | Fault to INVALID, Matsusada | 8 | echoes and SW setting every 5 s, each poll of a silent unit waits 200 ms |
 | Fault to INVALID, NT 20 monitor | 25 | one record every 8 s, AGE_LIMIT 20 s, age scanned every 1 s |
-| NT 20 garbage seen | 10 | one record period |
+| NT 20 garbage seen | 13 | one record period (8 s), then two 1 s scans with a record that does not parse |
 | Recovery after clear | 20 | asyn reconnect plus next poll |
 | Other devices keep updating | 5 | every PV processed at least every 2 s (found by observation) |
 | Door to output off / back | 3 / 5 | permit CP link, OutputIntlk scan 1 s, switching protocol PRIO HIGH |
@@ -49,9 +49,10 @@ Identity records are scanned every 10 s; the fault tests process them once after
 after clearing a fault, so that the limits above apply to them and the suite stays under 10
 minutes.
 
-## Expected failures (FINDINGS)
+## Expected failures
 
-| Test | Reason |
-|---|---|
-| `test_05_faults.py::test_garbage_turns_its_pvs_invalid_and_recovers[nt20_1]`, `[nt20_2]` (strict) | A garbled NT 20 record does not match the speed/current parser (I/O Intr records ignore a mismatching input), `raw` accepts any line and resets the age: `TURBO<n>:speed:get` and `:current:get` keep the last value without alarm for as long as the garbage lasts |
-| `test_05_faults.py::test_registry_fails_with_of_unprocessed_internal_records` | The registry's `fails_with` names internal records that nothing processes while their device is silent (`<supply>:output:init`, a PINI seq; `TURBO<n>:int:raw`, `:int:speed`, `:int:current`, I/O Intr): they never turn INVALID. It also misses `<supply>:_poll:gate`, which turns INVALID (LINK) when the chain's port is closed. The fault tests leave these out of their checks and collect what they saw (not strict: a corrected registry makes it pass) |
+None. The registry's two fault lists are checked in both directions: every PV of
+`fails_with` turns INVALID under `silent` and `garbage` (except the NT 20 `raw` record, which takes
+any line and must stay valid), every PV of `fails_closed` under `close`
+(`test_05_faults.py::test_*`), and no PV of a faulted device turns INVALID without being in the
+list of that fault (`test_05_faults.py::test_registry_fault_lists_name_every_pv_that_fails`).

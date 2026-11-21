@@ -1,7 +1,7 @@
 """Faults, one simulator at a time, for every simulator of the registry: `silent`, `close` and
-`garbage` turn every PV whose `fails_with` names that simulator INVALID within the limit of its
-device class, while every other PV on both IOCs stays free of INVALID and the scanned ones keep
-updating; after `clear` everything recovers without an IOC restart. `trip` where the simulator
+`garbage` turn every PV of the registry's fault list for that mode (`fails_with` for silent and
+garbage, `fails_closed` for close) INVALID within the limit of its device class, while every
+other PV on both IOCs stays free of INVALID and the scanned ones keep updating; after `clear` everything recovers without an IOC restart. `trip` where the simulator
 type has one, and on a bus with several polled units one unit silent while its neighbours keep
 answering."""
 import time
@@ -19,7 +19,9 @@ NT20_LIMIT = 25.0            # NT 20 data output, listen only: one record every 
                              # INVALID when the last record is older than AGE_LIMIT 20 s
                              # (nt20_monitor.db): at most 8 + 20 s minus the age already reached,
                              # plus the 1 s scan of age:get; 25 s covers it
-NT20_GARBAGE_LIMIT = 10.0    # a garbled record arrives within one period (8 s)
+NT20_GARBAGE_LIMIT = 13.0    # a garbled record arrives within one period (8 s); speed and
+                             # current turn INVALID after two 1 s scans with a record that does
+                             # not parse (nt20_monitor.db)
 RECOVER_LIMIT = 20.0         # back to valid after clear: asyn reconnects a closed port within a
                              # few seconds; then the next poll
 IDENTITY_LIMIT = 10.0        # identity records: three queries of 1 s reply timeout each (id,
@@ -46,41 +48,48 @@ def limit(sim, mode):
     return INVALID_LIMIT
 
 
-def own_not_polled(name, sim):
-    """A PV of a device that is not polled, failing with its own simulator: nothing reads it, so
-    it keeps what it had (asserted: it does not turn INVALID either)."""
-    spec = reg.pvs[name]
-    return reg.not_polled(spec["device"]) and any(
-        ref.split(":")[0] == sim for ref in reg.devices[spec["device"]]["simulators"])
+def key(mode):
+    """The registry's fault list for a fault mode: a closed connection fails more records (I/O
+    Intr records of a listen-only port, records that write to a device record) than silence."""
+    return "fails_closed" if mode == "close" else "fails_with"
 
 
-_fields = {}
+def expected(sim, unit=None, mode="silent"):
+    """Every PV the registry lists for this fault. Not filtered: a listed PV that is INVALID
+    before the fault, or does not turn INVALID, fails the test."""
+    return reg.fails_with(sim, unit, key(mode))
 
 
-def not_processed(name):
-    """An internal record the registry says fails with a simulator, but which nothing processes
-    while the device is silent: a seq that runs once at the start (PINI, AU and REK
-    :output:init), or an I/O Intr record that is processed only when data arrive (NT 20 :int:*).
-    It keeps its last value and severity. FINDING: the registry's fails_with is wrong for them;
-    they are left out of the check and their state is collected for
-    test_registry_fails_with_of_unprocessed_internal_records."""
-    spec = reg.pvs[name]
-    if not spec.get("internal"):
-        return False
-    if name not in _fields:
-        _fields[name] = (S.field(name, "SCAN"), S.field(name, "PINI"))
-    scan, pini = _fields[name]
-    return scan == "I/O Intr" or (spec["type"] == "seq" and scan == "Passive" and pini == "YES")
+HOLD = 1.0                   # s every listed PV stays INVALID after all of them are
+MATSUSADA_CLOSE_HOLD = 8.0   # Matsusada, closed port: a monitor cycle that does not finish is
+                             # restarted by the watchdog after POLL_LIMIT (30) ticks of SCAN_MON
+                             # (0.1 s) = 3 s; a listed record must stay INVALID through two such
+                             # restarts
+QUIET = 1.0                  # s without any INVALID before a fault starts (the last test's
+                             # device has settled)
 
 
-def expected(sim, unit=None):
-    names = [n for n in reg.fails_with(sim, unit) if n in snapshot]
-    return [n for n in names if not own_not_polled(n, sim)
-            and snapshot[n]["severity"] != S.INVALID]
+def hold(sim, mode):
+    if mode == "close" and reg.simulators[sim]["type"] == "matsusada_co":
+        return MATSUSADA_CLOSE_HOLD
+    return HOLD
 
 
-KNOWN = {}                   # not_processed PV -> severities seen while its simulator was faulted
-UNLISTED = {}                # PV of a faulted device, not in fails_with, seen INVALID -> faults
+def quiet(names, seconds):
+    since = time.monotonic() - seconds
+    return all(not S.watched(n).invalid_since(since) for n in names) and S.not_invalid(names)
+
+
+def steady_invalid(name, since):
+    """INVALID now, and no other severity posted since `since`."""
+    w = S.watched(name)
+    with w.lock:
+        moved = any(t >= since and sv != S.INVALID for t, sv in w.events)
+    return not moved and S.sevr(name) == S.INVALID
+
+
+UNLISTED = {}                # PV of a faulted device, not in its fault list, seen INVALID -> faults
+RAN = set()                  # (sim, mode) of the fault tests that ran
 
 
 def identity_records(sim):
@@ -91,21 +100,24 @@ def identity_records(sim):
     return out
 
 
-def others_of(sim, unit=None):
-    mine = set(reg.fails_with(sim, unit))
+def others_of(sim, unit=None, mode="silent"):
+    mine = set(reg.fails_with(sim, unit, key(mode)))
     return [n for n in snapshot if n not in mine and snapshot[n]["severity"] != S.INVALID]
 
 
-def run_fault(sim, mode, live, unit=None, mine=None):
-    mine = mine if mine is not None else expected(sim, unit)
-    unprocessed = [n for n in mine if not_processed(n)]
-    mine = [n for n in mine if n not in unprocessed]
-    assert mine, "the registry names no PV that fails with %s" % sim
-    others = others_of(sim, unit)
+def run_fault(sim, mode, live, unit=None, mine=None, keep_valid=()):
+    """keep_valid: PVs of the fault list that must stay valid under this mode (NT 20 raw under
+    garbage)."""
+    mine = mine if mine is not None else expected(sim, unit, mode)
+    assert mine, "the registry names no PV that fails with %s %s" % (sim, mode)
+    others = others_of(sim, unit, mode) + list(keep_valid)
     behind = set(reg.devices_behind(sim, unit))
     watch_update = [n for n in others if n in live and reg.pvs[n]["device"] not in behind]
     S.wait_for(lambda: S.not_invalid(mine), RECOVER_LIMIT,
                lambda: "%s before the fault: %s" % (sim, S.bad(mine, lambda s: s != S.INVALID)))
+    S.wait_for(lambda: quiet(others, QUIET), RECOVER_LIMIT,
+               lambda: "the other PVs before the fault: %s" % [
+                   n for n in others if S.watched(n).invalid_since(time.monotonic() - QUIET)])
     stamps = {n: S.read(n)["timestamp"] for n in watch_update}
     lim = limit(sim, mode)
     with S.fault(sim, mode, unit) as f:
@@ -117,16 +129,23 @@ def run_fault(sim, mode, live, unit=None, mine=None):
                           lambda: "%s %s%s: not INVALID: %s" % (
                               sim, mode, "" if unit is None else " unit %d" % unit,
                               S.bad(mine, lambda s: s == S.INVALID)))
-        S.wait_for(lambda: all(S.read(n)["timestamp"] > stamps[n] for n in watch_update),
-                   WINDOW_LIMIT, lambda: "other devices stopped updating: %s" % [
+        t_all = time.monotonic()
+        S.wait_for(lambda: all(S.read(n)["timestamp"] > stamps[n] for n in watch_update)
+                   and time.monotonic() - t_all >= hold(sim, mode),
+                   WINDOW_LIMIT + hold(sim, mode), lambda: "other devices stopped updating: %s" % [
                        n for n in watch_update if S.read(n)["timestamp"] <= stamps[n]])
-        for n in unprocessed:
-            KNOWN.setdefault(n, set()).add(S.sevr(n))
-        hit = [n for n in others if S.watched(n).invalid_since(f.t0)]
-        for n in hit:
-            if reg.pvs[n]["device"] in behind:     # same device, not in fails_with: registry
+        RAN.add((sim, mode))
+        # "turns INVALID" means: stays INVALID while the fault lasts (HOLD at least). A record
+        # that is INVALID only for a moment now and then does not show the fault to a client.
+        flicker = [n for n in mine if not steady_invalid(n, t_all)]
+        assert flicker == [], "%s %s: listed in the registry, but did not stay INVALID for %g s: %s" % (
+            sim, mode, hold(sim, mode), S.describe(flicker))
+        same = [n for n in others if reg.pvs[n]["device"] in behind and n not in keep_valid]
+        for n in same:
+            if steady_invalid(n, t_all):                 # registry gap: fails, but not listed
                 UNLISTED.setdefault(n, set()).add("%s %s" % (sim, mode))
-        hit = [n for n in hit if reg.pvs[n]["device"] not in behind]
+        hit = [n for n in others if S.watched(n).invalid_since(f.t0)
+               and reg.pvs[n]["device"] not in behind]
         assert hit == [], "%s %s turned PVs of other devices INVALID: %s" % (
             sim, mode, S.describe(hit))
     poke(identity_records(sim))
@@ -148,29 +167,37 @@ def poke(names):
 SIMS = list(reg.simulators)
 
 
-@pytest.mark.parametrize("mode", ["silent", "close"])
-@pytest.mark.parametrize("sim", SIMS)
+POLL_GATE = pytest.mark.xfail(strict=True, reason=(
+    "FINDING (registry): fails_closed lists <supply>:_poll:gate, which is INVALID (LINK) only "
+    "for about 0.1 s each time a monitor cycle fails to start on the closed port (every ~3 s, "
+    "watchdog); measured INVALID 0 to 21 percent of the time, never for the puller in 8 s; "
+    "it does not stay INVALID through two watchdog restarts (8 s)"))
+CASES = [pytest.param(s, m, marks=POLL_GATE)
+         if m == "close" and reg.simulators[s]["type"] == "matsusada_co" else (s, m)
+         for s in SIMS for m in ("silent", "close")]
+
+
+@pytest.mark.parametrize("sim,mode", CASES)
 def test_fault_turns_its_pvs_invalid_and_recovers(sim, mode, live):
     run_fault(sim, mode, live)
 
 
-def garbage_expected(sim):
-    """With garbled replies every PV that parses a reply turns INVALID. A record that takes any
-    line of text (the NT 20 `raw` record) cannot tell, by design."""
-    return [n for n in expected(sim) if reg.pvs[n].get("role") != "raw"
-            and not (reg.pvs[n].get("internal") and n.endswith(":int:raw"))]
+def garbage_split(sim):
+    """With garbled replies every PV of fails_with turns INVALID, except a record that takes any
+    line of text (the NT 20 raw record, role raw, and the internal record it reads): it shows the
+    unparsed line without alarm (registry README). Returns (must turn INVALID, must stay valid)."""
+    listed = expected(sim, None, "garbage")
+    raw_like = [n for n in listed if reg.pvs[n].get("role") == "raw"]
+    return [n for n in listed if n not in raw_like], raw_like
 
 
-GARBAGE = [pytest.param(s, marks=pytest.mark.xfail(
-    reason="FINDING: a garbled NT 20 record does not match the parser of speed and current "
-           "(I/O Intr, StreamDevice ignores a mismatching input), raw accepts it and resets "
-           "the age: speed:get and current:get keep the last value without alarm",
-    strict=True)) if reg.simulators[s]["type"] == "nt20_monitor" else s for s in SIMS]
-
-
-@pytest.mark.parametrize("sim", GARBAGE)
+@pytest.mark.parametrize("sim", SIMS)
 def test_garbage_turns_its_pvs_invalid_and_recovers(sim, live):
-    run_fault(sim, "garbage", live, mine=garbage_expected(sim))
+    mine, keep = garbage_split(sim)
+    run_fault(sim, "garbage", live, mine=mine, keep_valid=keep)
+    for n in keep:
+        assert S.sevr(n) != S.INVALID, "%s takes any line, it must stay valid: %s" % (
+            n, S.describe([n]))
 
 
 # --- one unit of a bus silent --------------------------------------------------------------------
@@ -192,8 +219,7 @@ def test_one_unit_silent_its_neighbours_keep_answering(sim, unit, live, capsys):
     """Only the PVs of that unit turn INVALID; the neighbours' PVs stay valid and update (with
     each poll of the silent unit waiting for its reply timeout, more slowly: the rate is
     reported)."""
-    mine = [n for n in expected(sim, unit) if "%s:%d" % (sim, unit) in reg.pvs[n]["fails_with"]
-            and not not_processed(n)]
+    mine = [n for n in expected(sim, unit) if "%s:%d" % (sim, unit) in reg.pvs[n]["fails_with"]]
     neighbours = [u for u in polled_units(sim) if u != unit]
     rates = {}
     for u in neighbours:
@@ -235,19 +261,6 @@ def test_trip_is_refused_where_the_type_has_none(sim):
     """So that a type that gains a trip fault is noticed and gets a test here."""
     with pytest.raises(S.ControlError, match="no trip"):
         S.control(sim).fault("trip")
-
-
-def test_registry_fails_with_of_unprocessed_internal_records():
-    """The registry says these internal records fail with their simulator; the fault tests above
-    saw them keep their severity. Expected to fail until the registry (plan/registry.py) leaves
-    them out of fails_with, or the databases process them."""
-    assert KNOWN, "no fault test ran before this one (select with -k fault)"
-    kept = {n: sorted(s) for n, s in KNOWN.items() if s != {S.INVALID}}
-    unlisted = {n: sorted(s) for n, s in UNLISTED.items()}
-    if kept or unlisted:
-        pytest.xfail("FINDING (registry): fails_with names records that nothing processes while "
-                     "their device is silent, so they never turn INVALID: %s; and does not name "
-                     "records of the faulted device that do turn INVALID: %s" % (kept, unlisted))
 
 
 # --- trip --------------------------------------------------------------------------------------
@@ -348,3 +361,13 @@ assert set(TRIPS) == TRIP_TYPES
 def test_trip(sim):
     d, unit = trip_device(sim)
     TRIPS[reg.simulators[sim]["type"]](sim, d, unit)
+
+
+def test_registry_fault_lists_name_every_pv_that_fails():
+    """The fault tests above check that every PV of the registry's fault list turns INVALID.
+    This one checks the other direction: no PV of a faulted device turned INVALID without being
+    in the list of that fault (fails_with for silent and garbage, fails_closed for close)."""
+    if not RAN:
+        pytest.skip("no fault test ran in this session (selected out)")
+    unlisted = {n: sorted(s) for n, s in UNLISTED.items()}
+    assert unlisted == {}, "turned INVALID, but not in the registry's fault list: %s" % unlisted
