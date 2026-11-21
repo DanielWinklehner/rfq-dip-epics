@@ -3,7 +3,12 @@
 
     python build.py                 # everything into out/
     python build.py --no-docx       # sketches only
-    python build.py --db-dir ../rfq-dip-epics/EPICS/Db    # read the live databases
+    python build.py --db-dir DIR    # read the databases from DIR instead of EPICS/Db
+
+Existing PVs are read from the databases in EPICS/Db, with the macros of the database loads that
+controls.yaml gives each device. Those loads are compared with the dbLoadRecords lines of the
+st.cmd files named by the hosts, and every record of a loaded database must have a role or be
+marked internal (section "databases" of controls.yaml). Every difference is printed as a WARNING.
 
 Needs: Python 3.9+, PyYAML, python-docx, and Graphviz ("dot") on the PATH.
 """
@@ -18,6 +23,7 @@ import sys
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
 
 STATUS = {  # label, fill, border, dashed
     "keep":    ("KEEP",    "#FFFFFF", "#555555", False),
@@ -32,35 +38,106 @@ STATUS_TEXT = {
     "new": "to be added", "later": "phase 2", "tbd": "open, information missing",
 }
 WRITE_TYPES = {"ao", "bo", "longout", "mbbo", "stringout", "aao"}
+FLAGS = {"not_polled": "Not polled", "assumed": "Assumed"}  # device flags, shown by the GUI
 FONT = "Helvetica"
 MONO = "Courier"
 
 
 # ----------------------------------------------------------------------------- model
-def subst(text, macros):
-    for key, value in macros.items():
-        text = text.replace("$(%s)" % key, str(value)).replace("${%s}" % key, str(value))
-    return text
+def expand(text, macros, undefined=None):
+    """EPICS macro expansion: $(NAME), ${NAME}, defaults $(NAME=default), nested defaults."""
+    out, i = [], 0
+    while i < len(text):
+        if text.startswith(("$(", "${"), i):
+            depth, j = 1, i + 2
+            while j < len(text) and depth:
+                depth += {"(": 1, "{": 1, ")": -1, "}": -1}.get(text[j], 0)
+                j += 1
+            name, has_default, default = text[i + 2:j - 1].partition("=")
+            if name in macros:
+                out.append(str(macros[name]))
+            elif has_default:
+                out.append(expand(default, macros, undefined))
+            else:
+                out.append(text[i:j])
+                if undefined is not None:
+                    undefined.add(name)
+            i = j
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
 
 
-def parse_db(path, macros):
-    """Records of an EPICS database as a list of dicts, macros substituted."""
+def record_key(template):
+    """Name of a record in its database without the prefix macro: $(DEV=AU-20P7)-$(UNITNUM):voltage:get -> voltage:get."""
+    return re.sub(r"^(?:\$[({][^)}]*[)}][-:]?)+", "", template)
+
+
+def parse_db(path, macros, undefined=None):
+    """Records of an EPICS database as a list of dicts, macros expanded."""
     with open(path, errors="replace") as handle:
         text = handle.read().replace("\r", "")
     text = re.sub(r"^\s*#.*$", "", text, flags=re.M)
     pvs = []
     for match in re.finditer(r'record\(\s*(\w+)\s*,\s*"([^"]+)"\s*\)\s*\{(.*?)\n\}', text, re.S):
         rtype, name, body = match.groups()
-        if rtype in ("fanout", "dfanout"):
-            continue
-
-        def field(key):
-            found = re.search(r'field\(\s*%s\s*,\s*"([^"]*)"' % key, body)
-            return subst(found.group(1), macros) if found else ""
-
-        pvs.append({"name": subst(name, macros), "type": rtype, "egu": field("EGU"),
-                    "desc": field("DESC"), "scan": field("SCAN"), "state": "existing"})
+        fields = {key: expand(value, macros, undefined)
+                  for key, value in re.findall(r'field\(\s*(\w+)\s*,\s*"([^"]*)"', body)}
+        pvs.append({"name": expand(name, macros, undefined), "key": record_key(name), "type": rtype,
+                    "egu": fields.get("EGU", ""), "desc": fields.get("DESC", ""), "scan": fields.get("SCAN", ""),
+                    "fields": fields, "state": "existing"})
     return pvs
+
+
+def loads_of(entry):
+    """The database loads of a device or host: 'epics' is one {db, macros} or a list of them."""
+    epics = entry.get("epics") or []
+    return epics if isinstance(epics, list) else [epics]
+
+
+def fmt_macros(macros):
+    return ",".join("%s=%s" % item for item in macros.items())
+
+
+def parse_st_cmd(path):
+    """dbLoadRecords lines of a st.cmd: list of (line number, database file name, macros)."""
+    loads = []
+    with open(path, encoding="utf-8") as handle:
+        for number, line in enumerate(handle, 1):
+            found = re.match(r'\s*dbLoadRecords\(\s*"([^"]+)"\s*(?:,\s*"([^"]*)")?\s*\)', line)
+            if found:
+                macros = {}
+                for item in filter(None, (found.group(2) or "").split(",")):
+                    key, _, value = item.partition("=")
+                    macros[key.strip()] = value.strip().strip("'\"")
+                loads.append((number, os.path.basename(found.group(1)), macros))
+    return loads
+
+
+def role_spec(spec):
+    """A role is a record name, or {record, readback, test, ack, note} for a record that is written."""
+    return spec if isinstance(spec, dict) else {"record": spec}
+
+
+def channel_roles(rule, keys):
+    """Channels of a database rule, expanded over the records that exist: {channel: {role: (key, spec)}}."""
+    channels = {}
+    for template, members in (rule.get("channels") or {}).items():
+        numbers = set()
+        for spec in members.values():
+            pattern = re.escape(role_spec(spec)["record"]).replace(re.escape("<n>"), r"(\d+)")
+            for key in keys:
+                found = re.fullmatch(pattern, key)
+                if found:
+                    numbers.add(found.group(1) if found.groups() else "")
+        for n in sorted(numbers, key=lambda n: (len(n), n)):
+            channel = channels.setdefault(template.replace("<n>", n), {})
+            for role, spec in members.items():
+                key = role_spec(spec)["record"].replace("<n>", n)
+                if key in keys:
+                    channel[role] = (key, role_spec(spec))
+    return channels
 
 
 class Model:
@@ -71,32 +148,58 @@ class Model:
         self.devices = self.d["devices"]
         self.hosts = {h["id"]: h for h in self.d["hosts"]}
         self.adapters = {a["id"]: a for a in self.d.get("adapters", [])}
+        self.rules = self.d.get("databases") or {}
         self.by_id = {dev["id"]: dev for dev in self.devices}
         self.warnings = []
-        for dev in self.devices:
-            dev["pvs"] = self._pvs(dev)
+        # Owners of database loads: devices, and hosts for the records of the IOC itself.
+        self.owners = [o for o in self.devices + self.d["hosts"] if loads_of(o)]
+        for owner in self.d["hosts"] + self.devices:
+            owner["pvs"] = self._pvs(owner)
         self._check()
+        self._check_roles()
+        self._check_loads()
 
-    def _db(self, name, macros):
+    def _db(self, name, macros, owner):
         path = os.path.join(self.db_dir, name)
         if not os.path.exists(path):
-            self.warnings.append("database %s not found in %s" % (name, self.db_dir))
+            self.warnings.append("%s: database %s not found in %s" % (owner, name, self.db_dir))
             return []
-        return parse_db(path, macros)
+        undefined = set()
+        pvs = parse_db(path, macros, undefined)
+        for macro in sorted(undefined):
+            self.warnings.append("%s: %s needs macro %s, the load in controls.yaml does not give it" % (owner, name, macro))
+        return pvs
 
-    def _pvs(self, dev):
+    def macros(self, load):
+        """Macros of one load: the database's common macros (databases: <db>: macros), then the device's."""
+        return dict((self.rules.get(load["db"]) or {}).get("macros") or {}, **(load.get("macros") or {}))
+
+    def _pvs(self, owner):
         pvs = []
-        epics = dev.get("epics")
-        if epics:
-            pvs += self._db(epics["db"], epics.get("macros", {}))
-        if dev.get("inherits_pvs_from"):
-            src = self.by_id[dev["inherits_pvs_from"]]
-            for pv in self._db(src["epics"]["db"], src["epics"].get("macros", {})):
-                pvs.append(dict(pv, state="reuse"))
-        if dev.get("libcom1") and epics:
-            for pv in self._db("libcom1_device.db", epics.get("macros", {})):
+        for load in loads_of(owner):
+            rule = self.rules.get(load["db"]) or {}
+            records = self._db(load["db"], self.macros(load), owner["id"])
+            by_key = {pv["key"]: pv for pv in records}
+            for role, spec in (rule.get("roles") or {}).items():
+                if role_spec(spec)["record"] in by_key:
+                    by_key[role_spec(spec)["record"]].update(role=role, spec=role_spec(spec))
+            for channel, members in channel_roles(rule, by_key).items():
+                for role, (key, spec) in members.items():
+                    by_key[key].update(role=role, channel=channel, spec=spec)
+            for key in rule.get("internal") or []:
+                if key in by_key:
+                    by_key[key]["internal"] = True
+            for pv in records:
+                pv.update(db=load["db"], load=load, cls=rule.get("class"))
+            pvs += records
+        if owner.get("inherits_pvs_from"):
+            for pv in self.by_id[owner["inherits_pvs_from"]]["pvs"]:
+                if pv["state"] == "existing":
+                    pvs.append(dict(pv, state="reuse"))
+        if owner.get("libcom1") and loads_of(owner) and "libcom1_device.db" not in [l["db"] for l in loads_of(owner)]:
+            for pv in self._db("libcom1_device.db", loads_of(owner)[0].get("macros", {}), owner["id"]):
                 pvs.append(dict(pv, state="proposed", remark="database exists: libcom1_device.db"))
-        for pv in dev.get("proposed", []):
+        for pv in owner.get("proposed", []):
             pvs.append({"name": pv["name"], "type": pv.get("type", ""), "egu": pv.get("egu", ""),
                         "desc": pv.get("desc", ""), "scan": "", "state": "proposed", "remark": pv.get("remark", "")})
         return pvs
@@ -113,14 +216,128 @@ class Model:
                 self.warnings.append("device %s: unknown host %r" % (dev["id"], dev.get("host")))
             if dev.get("via") and dev["via"] not in self.adapters:
                 self.warnings.append("device %s: unknown adapter %r" % (dev["id"], dev["via"]))
-            for pv in dev["pvs"]:
+            for flag in dev.get("flags") or {}:
+                if flag not in FLAGS:
+                    self.warnings.append("device %s: unknown flag %r (known: %s)" % (dev["id"], flag, ", ".join(FLAGS)))
+        for owner in self.d["hosts"] + self.devices:
+            for pv in owner["pvs"]:
                 if pv["state"] == "existing":
-                    if pv["name"] in seen and seen[pv["name"]] != dev["id"]:
-                        self.warnings.append("PV %s is defined by %s and %s" % (pv["name"], seen[pv["name"]], dev["id"]))
-                    seen[pv["name"]] = dev["id"]
+                    if pv["name"] in seen and seen[pv["name"]] != owner["id"]:
+                        self.warnings.append("PV %s is defined by %s and %s" % (pv["name"], seen[pv["name"]], owner["id"]))
+                    seen[pv["name"]] = owner["id"]
+
+    def _check_roles(self):
+        """Every record of a loaded database has a role or is internal; every rule names a record that exists."""
+        users = {}
+        for owner in self.owners:
+            for load in loads_of(owner):
+                users.setdefault(load["db"], []).append(owner["id"])
+        for db, owners in users.items():
+            path = os.path.join(self.db_dir, db)
+            if not os.path.exists(path):
+                continue
+            who = "%s (loaded by %s)" % (db, ", ".join(sorted(set(owners))))
+            rule = self.rules.get(db)
+            if rule is None:
+                self.warnings.append("%s: no entry under 'databases:' in controls.yaml, so no record has a role" % who)
+                continue
+            keys = [pv["key"] for pv in parse_db(path, {})]
+            named = {}
+            for role, spec in (rule.get("roles") or {}).items():
+                named[role_spec(spec)["record"]] = ("role", role, role_spec(spec))
+            channels = channel_roles(rule, keys)
+            for template in rule.get("channels") or {}:
+                if not any(re.fullmatch(re.escape(template).replace(re.escape("<n>"), r"\d+"), ch) for ch in channels):
+                    self.warnings.append("%s: channel %s in controls.yaml matches no record" % (who, template))
+            for channel, members in channels.items():
+                for role, (key, spec) in members.items():
+                    named[key] = ("role", role, spec)
+            for key in rule.get("internal") or []:
+                named.setdefault(key, ("internal", None, {}))
+            for key in named:
+                if key not in keys:
+                    self.warnings.append("%s: controls.yaml names record %s, which the database does not have" % (who, key))
+            for rec in parse_db(path, {}):
+                kind, role, spec = named.get(rec["key"], (None, None, None))
+                if kind is None:
+                    self.warnings.append("%s: record %s has no role and is not internal. Add it under "
+                                         "'databases: %s' in controls.yaml (roles, channels or internal)" % (who, rec["key"], db))
+                elif kind == "role" and rec["type"] in WRITE_TYPES and ("test" not in spec or "ack" not in spec):
+                    self.warnings.append("%s: record %s is written (role %s) but has no 'test' range or no 'ack' in controls.yaml"
+                                         % (who, rec["key"], role))
+        for owner in self.owners:
+            classes = sorted({pv["cls"] for pv in owner["pvs"] if pv.get("cls")})
+            if len(classes) > 1:
+                self.warnings.append("%s: its databases give more than one widget class: %s" % (owner["id"], ", ".join(classes)))
+            known = {pv.get("channel") for pv in owner["pvs"]} | {pv.get("role") for pv in owner["pvs"]}
+            for label in owner.get("labels") or {}:
+                if label not in known:
+                    self.warnings.append("%s: label for %r, which is no channel and no role of the device" % (owner["id"], label))
+
+    def _check_loads(self):
+        """The loads in controls.yaml against the dbLoadRecords lines of the st.cmd files, in both directions."""
+        started = {}
+        for host in self.d["hosts"]:
+            if host.get("st_cmd"):
+                path = os.path.join(REPO, host["st_cmd"])
+                if not os.path.exists(path):
+                    self.warnings.append("host %s: st.cmd %s not found" % (host["id"], host["st_cmd"]))
+                    continue
+                for number, db, macros in parse_st_cmd(path):
+                    started.setdefault(host["id"], []).append(
+                        {"host": host["id"], "where": "%s line %d" % (host["st_cmd"], number), "db": db, "macros": macros})
+        lines = [s for host_lines in started.values() for s in host_lines]
+        planned = []
+        for owner in self.owners:
+            host = owner["id"] if owner in self.d["hosts"] else owner.get("host")
+            if not (self.hosts.get(host) or {}).get("st_cmd"):
+                self.warnings.append("%s: has database loads, but its host %s names no st_cmd" % (owner["id"], host))
+                continue
+            for load in loads_of(owner):
+                macros = {k: str(v) for k, v in self.macros(load).items()}
+                planned.append({"owner": owner["id"], "host": host, "db": load["db"], "macros": macros})
+        unmatched = []
+        for y in planned:
+            same = [s for s in lines if s["db"] == y["db"] and s["macros"] == y["macros"] and s["host"] == y["host"]]
+            if same:
+                lines.remove(same[0])
+            else:
+                unmatched.append(y)
+        for y in unmatched:
+            def score(s):
+                return (sum(1 for k, v in y["macros"].items() if s["macros"].get(k) == v), s["host"] == y["host"])
+            candidates = sorted([s for s in lines if s["db"] == y["db"]], key=score, reverse=True)
+            if not candidates or (score(candidates[0])[0] == 0 and len(candidates) > 1):
+                self.warnings.append("device %s: controls.yaml loads %s (%s) on %s, but %s has no such dbLoadRecords line"
+                                     % (y["owner"], y["db"], fmt_macros(y["macros"]), y["host"], self.hosts[y["host"]]["st_cmd"]))
+                continue
+            s = candidates[0]
+            lines.remove(s)
+            if s["macros"] != y["macros"]:
+                diff = []
+                for key in sorted(set(y["macros"]) | set(s["macros"])):
+                    if key not in y["macros"]:
+                        diff.append("st.cmd has %s=%s, controls.yaml has not" % (key, s["macros"][key]))
+                    elif key not in s["macros"]:
+                        diff.append("controls.yaml has %s=%s, st.cmd has not" % (key, y["macros"][key]))
+                    elif y["macros"][key] != s["macros"][key]:
+                        diff.append("%s is %s in st.cmd, %s in controls.yaml" % (key, s["macros"][key], y["macros"][key]))
+                self.warnings.append("device %s: macros of %s differ from %s: %s. Fix the device's 'epics' entry in "
+                                     "controls.yaml (or 'databases: %s: macros' for every device that loads it)"
+                                     % (y["owner"], y["db"], s["where"], "; ".join(diff), y["db"]))
+            if s["host"] != y["host"]:
+                self.warnings.append("device %s is on host %s in controls.yaml, but %s (%s) is loaded by %s (host %s)"
+                                     % (y["owner"], y["host"], y["db"], fmt_macros(y["macros"]), s["where"], s["host"]))
+        for s in lines:
+            self.warnings.append("%s: %s (%s) is claimed by no device or host in controls.yaml"
+                                 % (s["where"], s["db"], fmt_macros(s["macros"])))
+
+    def public(self, owner):
+        """The PVs of a device without its internal records."""
+        return [pv for pv in owner["pvs"] if not pv.get("internal")]
 
     def counts(self, dev):
-        existing = sum(1 for pv in dev["pvs"] if pv["state"] in ("existing", "reuse"))
+        existing = sum(1 for pv in self.public(dev) if pv["state"] in ("existing", "reuse"))
         proposed = sum(1 for pv in dev["pvs"] if pv["state"] == "proposed")
         return existing, proposed
 
@@ -257,7 +474,7 @@ def pv_table(dev, m):
             '<TR><TD COLSPAN="3" ALIGN="LEFT" BGCOLOR="%s"><FONT POINT-SIZE="8" COLOR="#444444">%s</FONT></TD></TR>' % (fill, esc(dev.get("protocol", "")))]
     if dev.get("pvs_unknown"):
         rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>existing PVs: not in the repository</I></FONT></TD></TR>')
-    for pv in group_pvs(dev["pvs"]):
+    for pv in group_pvs(m.public(dev)):
         color = {"existing": "#000000", "reuse": "#000000", "proposed": "#1E8449"}[pv["state"]]
         if dev["status"] == "replace":
             color = "#888888"
@@ -268,7 +485,7 @@ def pv_table(dev, m):
                     '<TD><FONT POINT-SIZE="8" COLOR="%s">%s</FONT></TD>'
                     '<TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="%s">%s%s</FONT></TD></TR>'
                     % (MONO, color, prefix, esc(pv["name"]), color, io, color, esc(_short(pv["desc"], 46)), esc(unit)))
-    if not dev["pvs"] and not dev.get("pvs_unknown"):
+    if not m.public(dev) and not dev.get("pvs_unknown"):
         rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>no PVs yet</I></FONT></TD></TR>')
     return ('<<TABLE BORDER="1" COLOR="%s" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3" BGCOLOR="#FFFFFF"%s>%s</TABLE>>'
             % (border, ' STYLE="dashed"' if dashed else "", "".join(rows)))
@@ -553,9 +770,11 @@ def build_docx(m, images, out_path):
                 link = "%s, via %s (%s)" % (link, adapter["name"], adapter.get("link", ""))
             attributes = [["Model", dev.get("model", "")], ["Location", _loc(m, dev["location"])], ["Controlled by", host["name"]],
                           ["Connection", link], ["Protocol / support", dev.get("protocol", "")]]
-            if dev.get("epics"):
-                macros = ", ".join("%s=%s" % item for item in dev["epics"].get("macros", {}).items())
-                attributes.append(["EPICS database", "%s (%s)" % (dev["epics"]["db"], macros)])
+            if loads_of(dev):
+                attributes.append(["EPICS databases", "\n".join("%s (%s)" % (load["db"], fmt_macros(m.macros(load)))
+                                                             for load in loads_of(dev))])
+            for flag, text in (dev.get("flags") or {}).items():
+                attributes.append([FLAGS.get(flag, flag), text])
             attributes.append(["Status", dev["status"]])
             tbl = doc.add_table(rows=0, cols=2)
             tbl.style = "Table Grid"
@@ -574,9 +793,9 @@ def build_docx(m, images, out_path):
 
             if dev.get("pvs_unknown"):
                 para("Existing PVs: not in the repository. They have to come from the running IOC (dbl).", italic=True, size=10)
-            if dev["pvs"]:
+            if m.public(dev):
                 rows = []
-                for pv in dev["pvs"]:
+                for pv in m.public(dev):
                     state = {"existing": "exists", "reuse": "reuse", "proposed": "proposed"}[pv["state"]]
                     if dev["status"] == "replace":
                         state = "goes away"
@@ -667,7 +886,10 @@ def build_docx(m, images, out_path):
 
     doc.add_heading("9  How this document is built", level=1)
     bullets(["controls.yaml holds devices, connections, status, proposed PVs, questions and work packages.",
-             "Existing PVs are read from the EPICS databases in epics_db/ (snapshot of rfq-dip-epics, commit %s)." % _commit(),
+             "Existing PVs are read from the EPICS databases in EPICS/Db, with the macros of the dbLoadRecords lines of the "
+             "two st.cmd files. build.py warns about every difference between those lines and controls.yaml.",
+             "Internal records (fan-outs, arrays, helper records) are not listed. The registry for the GUI and the tests "
+             "(plan/registry.py) lists them with every role.",
              "build.py writes the sketches (SVG, PDF, PNG, drawn by Graphviz) and this document.",
              "Keep the three in one git repository. Every decision is then one small, reviewable change to the YAML file."])
     doc.save(out_path)
@@ -699,16 +921,11 @@ def _change(dev):
     return ", ".join(parts) or (dev.get("notes") or [""])[0]
 
 
-def _commit():
-    path = os.path.join(HERE, "epics_db", "SOURCE_COMMIT")
-    return open(path).read().strip() if os.path.exists(path) else "unknown"
-
-
 # ----------------------------------------------------------------------------- main
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--yaml", default=os.path.join(HERE, "controls.yaml"))
-    parser.add_argument("--db-dir", default=os.path.join(HERE, "epics_db"))
+    parser.add_argument("--db-dir", default=os.path.join(REPO, "EPICS", "Db"))
     parser.add_argument("--out", default=os.path.join(HERE, "out"))
     parser.add_argument("--no-docx", action="store_true")
     args = parser.parse_args()
@@ -727,7 +944,7 @@ def main():
     if not args.no_docx:
         build_docx(m, images, os.path.join(args.out, "MIST-2_Control_System_Plan.docx"))
     devices = len(m.devices)
-    existing = sum(1 for dev in m.devices for pv in dev["pvs"] if pv["state"] == "existing")
+    existing = sum(1 for dev in m.devices for pv in m.public(dev) if pv["state"] == "existing")
     proposed = sum(m.counts(dev)[1] for dev in m.devices)
     print("%d devices, %d existing PVs, %d proposed PVs, %d sketches" % (devices, existing, proposed, len(images)))
     for warning in m.warnings:

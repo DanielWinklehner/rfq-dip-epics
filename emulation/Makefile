@@ -11,7 +11,7 @@ export MIST2_GID := $(shell id -g)
 COMPOSE := docker compose -f $(HERE)/compose.yaml
 TOOLS   := $(COMPOSE) --profile tools run --rm -T tools
 
-.PHONY: build up down restart ps logs ca-proof devtest plan plan-check test
+.PHONY: build up down restart ps logs ca-proof devtest plan plan-check registry test
 
 build:
 	docker build -f $(HERE)/docker/ioc.Dockerfile -t mist2-ioc:dev $(REPO)
@@ -50,6 +50,11 @@ plan-check:
 	if [ $$status -ne 0 ]; then echo "plan-check: FAIL (build.py exit $$status)"; exit 1; fi; \
 	if echo "$$out" | grep -q WARNING; then echo "plan-check: FAIL (warnings)"; exit 1; fi; \
 	echo "plan-check: OK"
+
+# The device registry of the GUI and the tests, generated from plan/controls.yaml, EPICS/Db and the
+# st.cmd files. Fails (and writes nothing) when they disagree.
+registry:
+	$(TOOLS) python plan/registry.py
 
 test:
 	@if [ -d $(REPO)/emulation/tests ]; then \

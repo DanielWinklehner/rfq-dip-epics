@@ -20,3 +20,8 @@ build/
 
 # Node
 node_modules/
+
+# Plan: only the PDFs and the Word document of plan/out are tracked (decision D8)
+plan/out/*
+!plan/out/*.pdf
+!plan/out/*.docx
