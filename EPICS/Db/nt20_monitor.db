@@ -1,0 +1,112 @@
+# nt20_monitor.db - RS-232 data output of one TURBOTRONIK NT 20, listen only (nt20_monitor.proto)
+#
+# The record format is INVENTED until a capture from a real unit exists (see nt20_monitor.proto).
+# raw and age work with any format of one line of text.
+#
+# Macros:
+#   P          PV prefix of the pump (TURBO1, TURBO2)
+#   PORT       asyn port (9600 baud, the IOC never writes to it)
+#   EOL        input line ending as a character code: 10 = LF (default, also takes CR LF), 13 = CR
+#   AGE_LIMIT  seconds without a record after which the PVs are stale, default 20 (8 s period)
+#
+#   dbLoadRecords("db/nt20_monitor.db", "P=TURBO1,PORT=NT20_1")
+#
+# When no record arrived for more than AGE_LIMIT seconds, age:get is in MAJOR alarm and raw:get,
+# speed:get and current:get turn INVALID (they are disabled with DISS INVALID).
+
+# --- input, one record per line ---
+
+record(lsi, "$(P):int:raw") {
+    field(DESC, "Last record from $(P)")
+    field(DTYP, "stream")
+    field(INP, "@nt20_monitor.proto raw($(EOL=10)) $(PORT)")
+    field(SCAN, "I/O Intr")
+    field(SIZV, "256")
+    field(FLNK, "$(P):int:fresh")
+}
+
+record(ai, "$(P):int:speed") {
+    field(DTYP, "stream")
+    field(INP, "@nt20_monitor.proto speed($(EOL=10)) $(PORT)")
+    field(SCAN, "I/O Intr")
+}
+
+record(ai, "$(P):int:current") {
+    field(DTYP, "stream")
+    field(INP, "@nt20_monitor.proto current($(EOL=10)) $(PORT)")
+    field(SCAN, "I/O Intr")
+}
+
+# --- age: a counter that each record resets ---
+
+# int:raw is also processed when the read fails (port closed): reset the age only for a record
+record(calcout, "$(P):int:fresh") {
+    field(DESC, "A record arrived: age = 0")
+    field(INPA, "$(P):int:raw.SEVR NPP")
+    field(CALC, "A<3")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "0")
+    field(OUT, "$(P):age:get.VAL NPP")
+}
+
+record(calc, "$(P):age:get") {
+    field(DESC, "Seconds since the last record")
+    field(SCAN, "1 second")
+    field(INPA, "$(P):age:get.VAL NPP")
+    field(CALC, "A+1")
+    field(EGU, "s")
+    field(PREC, "0")
+    field(HOPR, "60")
+    field(HIGH, "$(AGE_LIMIT=20)")
+    field(HSV, "MAJOR")
+    field(FLNK, "$(P):int:stale")
+}
+
+record(calc, "$(P):int:stale") {
+    field(DESC, "1 when the last record is too old")
+    field(INPA, "$(P):age:get NPP")
+    field(B, "$(AGE_LIMIT=20)")
+    field(CALC, "A>B")
+    field(FLNK, "$(P):int:refresh")
+}
+
+record(fanout, "$(P):int:refresh") {
+    field(SELM, "All")
+    field(LNK0, "$(P):raw:get")
+    field(LNK1, "$(P):speed:get")
+    field(LNK2, "$(P):current:get")
+}
+
+# --- the public records, refreshed every second, INVALID when stale ---
+
+record(lsi, "$(P):raw:get") {
+    field(DESC, "Last record from $(P), unparsed")
+    field(INP, "$(P):int:raw NPP MS")
+    field(SIZV, "256")
+    field(SDIS, "$(P):int:stale NPP")
+    field(DISV, "1")
+    field(DISS, "INVALID")
+}
+
+record(ai, "$(P):speed:get") {
+    field(DESC, "Rotor frequency of $(P)")
+    field(INP, "$(P):int:speed NPP MS")
+    field(EGU, "Hz")
+    field(PREC, "0")
+    field(HOPR, "1500")
+    field(SDIS, "$(P):int:stale NPP")
+    field(DISV, "1")
+    field(DISS, "INVALID")
+}
+
+record(ai, "$(P):current:get") {
+    field(DESC, "Motor current of $(P)")
+    field(INP, "$(P):int:current NPP MS")
+    field(EGU, "A")
+    field(PREC, "2")
+    field(HOPR, "5")
+    field(SDIS, "$(P):int:stale NPP")
+    field(DISV, "1")
+    field(DISS, "INVALID")
+}

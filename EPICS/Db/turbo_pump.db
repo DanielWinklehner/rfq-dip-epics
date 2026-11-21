@@ -1,0 +1,96 @@
+# turbo_pump.db - one TURBOTRONIK NT 20 as seen through the turbo Opta (turbo.db), loaded per pump
+#
+# Macros:
+#   P         PV prefix of the pump (TURBO1, TURBO2)
+#   DEVICE    prefix of the Opta (TURBO), whose array $(DEVICE):data this file reads
+#   PORT      asyn port of the Opta
+#   RELAY     libcom1 channel of the run relay (r1, r2)
+#   RUN, NORMAL, ACCEL, FAILURE   positions of the relay and the three contacts in $(DEVICE):data
+#   DEBOUNCE  array updates a state must last before it shows as "inconsistent", default 3
+#
+# Relays (GA 05.208/8): NORMAL above 80 % of the target speed, ACCEL while accelerating, FAILURE
+# closes on a failure and is OPEN when the controller has no power. A failure is reset by STOP.
+#
+# State, from the run command and the three contacts:
+#   failure                                              -> failure (MAJOR)
+#   run, ACCEL only                                      -> accelerating
+#   run, NORMAL only                                     -> normal
+#   run, neither (no power?) or both                     -> inconsistent (MAJOR)
+#   stop, no ACCEL (NORMAL may still be closed while the pump runs down)  -> stopped
+#   stop, ACCEL                                          -> inconsistent (MAJOR)
+# "inconsistent" shows only after it lasted DEBOUNCE updates: after a start or a stop the contacts
+# follow the relay with a delay.
+
+record(bo, "$(P):start:set") {
+    field(DESC, "Run $(P): 1 run, 0 stop and reset")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink_ack($(RELAY)) $(PORT)")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+}
+
+record(bi, "$(P):start:get") {
+    field(DESC, "Run relay of $(P)")
+    field(INP, "$(DEVICE):data.VAL[$(RUN)] CP MS")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+    field(FLNK, "$(P):int:relays")
+}
+
+record(fanout, "$(P):int:relays") {
+    field(SELM, "All")
+    field(LNK0, "$(P):atspeed:get")
+    field(LNK1, "$(P):accel:get")
+    field(LNK2, "$(P):failure:get")
+    field(LNK3, "$(P):int:state")
+}
+
+record(bi, "$(P):atspeed:get") {
+    field(DESC, "NORMAL relay of $(P)")
+    field(INP, "$(DEVICE):data.VAL[$(NORMAL)] CA MS")
+    field(ZNAM, "no")
+    field(ONAM, "at speed")
+}
+
+record(bi, "$(P):accel:get") {
+    field(DESC, "ACCEL relay of $(P)")
+    field(INP, "$(DEVICE):data.VAL[$(ACCEL)] CA MS")
+    field(ZNAM, "no")
+    field(ONAM, "accelerating")
+}
+
+record(bi, "$(P):failure:get") {
+    field(DESC, "FAILURE relay of $(P)")
+    field(INP, "$(DEVICE):data.VAL[$(FAILURE)] CA MS")
+    field(ZNAM, "ok")
+    field(ONAM, "FAILURE")
+    field(OSV, "MAJOR")
+}
+
+# A run, B normal, C accel, D failure; H raw state, E how long H has been 4, F the shown state
+record(calc, "$(P):int:state") {
+    field(DESC, "State of $(P), debounced")
+    field(INPA, "$(P):start:get NPP MS")
+    field(INPB, "$(P):atspeed:get NPP MS")
+    field(INPC, "$(P):accel:get NPP MS")
+    field(INPD, "$(P):failure:get NPP MS")
+    field(G, "$(DEBOUNCE=3)")
+    field(CALC, "H:=D?3:(A?(C&&!B?1:(B&&!C?2:4)):(C?4:0));E:=(H=4)?E+1:0;F:=(H#4||E>=G)?H:F;F")
+    field(FLNK, "$(P):state:get")
+}
+
+record(mbbi, "$(P):state:get") {
+    field(DESC, "State of $(P)")
+    field(INP, "$(P):int:state NPP MS")
+    field(ZRST, "stopped")
+    field(ZRSV, "NO_ALARM")
+    field(ONST, "accelerating")
+    field(ONSV, "NO_ALARM")
+    field(TWST, "normal")
+    field(TWSV, "NO_ALARM")
+    field(THST, "failure")
+    field(THSV, "MAJOR")
+    field(FRST, "inconsistent")
+    field(FRSV, "MAJOR")
+    field(UNSV, "INVALID")
+}

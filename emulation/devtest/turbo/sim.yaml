@@ -1,0 +1,54 @@
+# The turbo Opta (libcom1 over TCP, channel map of EPICS/Db/turbo.db) and one NT 20 per pump.
+# Each nt20_monitor simulator is wired to the Opta through the Opta's control port, as the real
+# NT 20 is wired to the Opta's relay and inputs: it reads the run relay and writes the three
+# contacts. Ramp times are shortened for the test (ASSUMED values in the simulator defaults).
+- name: turbo_opta
+  type: libcom1
+  port: 5000                  # control port 6000
+  baud: 115200                # TCP: only sets the reply delay of the simulator
+  turnaround_ms: 1
+  in_terminator: "\n"
+  out_terminator: "\n"        # Opta over TCP: LF
+  options:
+    identity: TurboOpta
+    firmware: "placeholder"
+    number_format: g          # %g, Arduino Opta
+    channels:                 # query-all order, see turbo.db
+      - {id: r1, behaviour: relay}
+      - {id: r2, behaviour: relay}
+      - {id: r3, behaviour: relay}
+      - {id: r4, behaviour: relay}
+      - {id: n1, access: r}   # contacts: constant 0 until the NT 20 simulators set them
+      - {id: a1, access: r}
+      - {id: f1, access: r}
+      - {id: n2, access: r}
+      - {id: a2, access: r}
+      - {id: f2, access: r}
+- name: nt20_1
+  type: nt20_monitor
+  port: 5001                  # control port 6001
+  baud: 9600
+  out_terminator: "\r\n"      # ASSUMED line ending
+  options: &pump
+    period_s: 8.0
+    rated_speed_hz: 1200.0
+    ramp_up_s: 20.0            # at least two records arrive while it accelerates
+    run_down_s: 10.0
+    brake_s: 4.0
+    opta_host: 127.0.0.1
+    opta_port: 6000
+    run_signal: r1
+    normal_signal: n1
+    accel_signal: a1
+    failure_signal: f1
+- name: nt20_2
+  type: nt20_monitor
+  port: 5002                  # control port 6002
+  baud: 9600
+  out_terminator: "\r\n"
+  options:
+    <<: *pump
+    run_signal: r2
+    normal_signal: n2
+    accel_signal: a2
+    failure_signal: f2

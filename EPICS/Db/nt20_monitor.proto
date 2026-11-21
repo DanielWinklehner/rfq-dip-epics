@@ -1,0 +1,36 @@
+# nt20_monitor.proto - RS-232 data output of a Leybold TURBOTRONIK NT 20 (listen only)
+#
+# GA 05.208/8: "Interface for data output", 9600 baud, all main internal parameters every 8 s.
+# The IOC never sends on this port.
+#
+# !!! THE RECORD FORMAT BELOW IS INVENTED. Leybold does not publish it. It is shared with the   !!!
+# !!! simulator (emulation/sim/mist2sim/devices/nt20_monitor.py, format_record()) and must be   !!!
+# !!! replaced after a capture from a real unit: edit `speed` and `current` here and that one   !!!
+# !!! function, nothing else.                                                                   !!!
+#
+#   invented:  NT20 f=0833Hz I=1.25A ACC
+#
+# `raw` takes any record that is one line of printable text, whatever the format.
+# Argument $1: the input line ending as a character code, 10 = LF (default in nt20_monitor.db,
+# also takes CR LF: the CR is left over and ignored) or 13 = CR (a unit that ends its lines with
+# CR only). ASSUMED: one record is one line; the real line ending is not known.
+
+raw {
+    InTerminator = $1;
+    in "%[^\r\n]";
+    extrainput = ignore;
+}
+
+# --- format specific (invented) ---
+
+speed {
+    InTerminator = $1;
+    extrainput = ignore;
+    in "NT20 f=%fHz";
+}
+
+current {
+    InTerminator = $1;
+    extrainput = ignore;
+    in "NT20 f=%*fHz I=%fA";
+}
