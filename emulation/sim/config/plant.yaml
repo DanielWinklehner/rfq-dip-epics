@@ -1,10 +1,16 @@
-# The plant model of MIST-2 (python -m mist2sim.plant --config config/plant.yaml).
+# The plant model of MIST-2, phase 1 (python -m mist2sim.plant --config config/plant.yaml).
 #
 # A separate process: it reads the actuators of the simulators and writes the process values
 # back, through their control ports only. See README.md, section "Plant model".
 #
-# NOTHING IN THE SECTION `model` IS A MEASURED PROPERTY OF MIST-2. Known about the machine are
-# only the supply ratings and what plan/controls.yaml says. Every other number is a physical law,
+# The machine (owner, 2026-11-21): ion source with a hairpin filament on the HV platform, HV
+# break, ONE chamber at ground (CF 10" six-way cross) with ONE turbopump (turbopump 1) on its
+# bottom flange. nAIM and APG side by side on the cross. No diagnostic box, no turbopump 2 and
+# no foreline gauge in phase 1 (gauges.p2 and nt20_2 are not used).
+#
+# NOTHING IN THE SECTION `model` IS A MEASURED PROPERTY OF MIST-2 except the working point the
+# owner gave from memory (wp_*, source "owner's working point, 2026-11-21"). The model derives
+# its unknowns from that point (README.md, "Calibration"). Every other number is a physical law,
 # an order-of-magnitude estimate or a free choice, and `source` says which.
 
 rate_hz: 10              # model steps per second
@@ -28,7 +34,6 @@ links:
   mfc:          {host: sim-rack, port: 6013}
   faradaycup:   {host: sim-rack, port: 6030}
   nt20_1:       {host: sim-rack, port: 6032}
-  nt20_2:       {host: sim-rack, port: 6033}
 
 # What the plant reads: model input <- <simulator>.<signal>, times `scale`.
 inputs:
@@ -36,34 +41,31 @@ inputs:
   rek_vset:         {signal: rek.1.vset}                 # V
   rek_iset:         {signal: rek.1.iset}                 # A
   rek_on:           {signal: rek.1.output}
-  gas_flow:         {signal: mfc.254.flow, scale: 0.5}   # % of full scale -> sccm (full scale 50 sccm, rack.yaml)
+  gas_flow:         {signal: mfc.254.flow, scale: 0.05}  # % of full scale -> sccm (5 sccm H2 full scale, rack.yaml)
   foreline_open:    {signal: valvebox.s1}
   shutoff_open:     {signal: valvebox.s2}
-  vent_open:        {signal: valvebox.s3}
+  vent_open:        {signal: valvebox.s3}                # vents the turbopump
   cup_in:           {signal: valvebox.s4}
-  turbo1_speed:     {signal: nt20_1.speed, scale: 8.333333e-4}   # Hz -> fraction of 1200 Hz (rack.yaml)
-  turbo2_speed:     {signal: nt20_2.speed, scale: 8.333333e-4}
+  turbo_speed:      {signal: nt20_1.speed, scale: 8.333333e-4}   # Hz -> fraction of 1200 Hz (rack.yaml)
   source_vset:      {signal: mat_opt.1.vset}             # V, ion source supply AU20P15
   source_iset:      {signal: mat_opt.1.iset}             # A
   source_on:        {signal: mat_opt.1.output}
   puller_voltage:   {signal: mat_opt.2.vout}             # V (magnitude), puller supply AU20N7.5
   puller_on:        {signal: mat_opt.2.output}
 
-# What the plant drives: <simulator>.<signal> <- model output (thermocouples and
-# water_temperatures: one entry per channel of the model parameter tc_base_c / water_base_c).
+# What the plant drives: <simulator>.<signal> <- model output.
 outputs:
   tdk.load_ohm:        filament_resistance
   rek.1.load_ohm:      rek_load
   mat_opt.1.load_ohm:  source_load
-  aim.pressure:        source_pressure       # source ion gauge (nAIM), torr
-  gauges.p2:           diag_pressure         # diagnostic box gauge (AIM on the gauge controller), torr
-  gauges.p1:           foreline_pressure     # foreline gauge (APG), torr
-  faradaycup.c1:       cup_current           # A
-  thermocouple.t1:     thermocouples.t1      # deg C
-  thermocouple.t2:     thermocouples.t2
-  thermocouple.t3:     thermocouples.t3
-  thermocouple.t4:     thermocouples.t4
-  sensorbox.t1:        water_temperatures.t1
+  aim.pressure:        aim_reading               # nAIM on the cross, torr (N2 calibrated)
+  gauges.p1:           apg_reading               # APG on the cross, torr (floor 1e-3)
+  faradaycup.c1:       cup_current               # A
+  thermocouple.t1:     back_plate_temperature    # deg C
+  thermocouple.t2:     feedthrough_temperature
+  thermocouple.t3:     transformer1_temperature
+  thermocouple.t4:     transformer2_temperature
+  sensorbox.t1:        water_temperatures.t1     # stand-in for the cooling water readout
   sensorbox.t2:        water_temperatures.t2
   sensorbox.t3:        water_temperatures.t3
   sensorbox.t4:        water_temperatures.t4
@@ -71,53 +73,66 @@ outputs:
   sensorbox.t6:        water_temperatures.t6
   sensorbox.t7:        water_temperatures.t7
 
-# The model. Every entry: value, unit, source (law / estimate / free choice, and why).
+# The model. Every entry: value, unit, source.
 model:
+  # --- the owner's working point (one point, told from memory) --------------------------------
+  wp_filament_voltage_v:   {value: 8.0, unit: V, source: "owner's working point, 2026-11-21: filament 8 V"}
+  wp_filament_current_a:   {value: 90.0, unit: A, source: "owner's working point, 2026-11-21: filament 90 A"}
+  wp_discharge_voltage_v:  {value: 150.0, unit: V, source: "owner's working point, 2026-11-21: discharge 150 V"}
+  wp_discharge_current_a:  {value: 24.0, unit: A, source: "owner's working point, 2026-11-21: discharge 24 A (the full scale of the REK150-24)"}
+  wp_cross_reading_torr:   {value: 1.0e-5, unit: torr, source: "owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading)"}
+  wp_gas_sccm:             {value: 1.0, unit: sccm, source: "owner's working point, 2026-11-21: MFC about 20 % of 5 sccm H2"}
   # --- 1. filament ----------------------------------------------------------------------------
   filament_tau_s:          {value: 1.0, unit: s, source: "free choice: 'about a second, which matches a thermal filament' (plan/controls.yaml, software.loops)"}
-  filament_r_hot_ohm:      {value: 0.025, unit: ohm, source: "estimate: the hot filament assumed by the TDK simulator (hv.yaml load_ohm)"}
-  filament_t_hot_k:        {value: 2600.0, unit: K, source: "estimate: a usual temperature of an emitting tungsten filament"}
   filament_r_exponent:     {value: 1.2, unit: "1", source: "law (fit): tungsten resistivity rises about as T^1.2 between 300 and 3000 K"}
-  filament_area_cm2:       {value: 13.0, unit: cm2, source: "estimate: chosen so that about 1 kW (200 A) holds the filament at about 2600 K; also the emitting area"}
-  filament_emissivity:     {value: 0.3, unit: "1", source: "law (tabulated): total emissivity of tungsten near 2600 K"}
+  filament_emissivity:     {value: 0.3, unit: "1", source: "law (tabulated): total emissivity of tungsten near 2800 K"}
   room_temperature_k:      {value: 293.0, unit: K, source: "free choice"}
   richardson_a_per_cm2_k2: {value: 60.0, unit: A/(cm2 K2), source: "law (tabulated): Richardson constant of tungsten"}
   work_function_ev:        {value: 4.54, unit: eV, source: "law (tabulated): work function of tungsten"}
   # --- 2. discharge ---------------------------------------------------------------------------
   discharge_v_min_v:       {value: 25.0, unit: V, source: "estimate: no discharge below this voltage (H2 ionisation 15.4 V plus margin)"}
-  discharge_k_a_per_v15:   {value: 0.04, unit: A/V^1.5, source: "estimate: the plasma carries about 20 A at 100 V and 5 sccm, near the REK rating (24 A)"}
   discharge_exponent:      {value: 1.5, unit: "1", source: "law (shape only): space-charge limited current rises as V^1.5 (Child-Langmuir)"}
-  discharge_p_min_torr:    {value: 5.0e-4, unit: torr, source: "estimate: no discharge below this plasma chamber pressure"}
-  discharge_p_half_torr:   {value: 2.0e-3, unit: torr, source: "estimate: the plasma limit is half its maximum at p_min + p_half"}
+  discharge_p_min_torr:    {value: 2.0e-4, unit: torr, source: "estimate: no discharge below this source pressure"}
+  discharge_p_half_torr:   {value: 1.0e-3, unit: torr, source: "estimate: the plasma limit is half its maximum at p_min + p_half"}
   discharge_smooth_n:      {value: 3.0, unit: "1", source: "free choice: sharpness of the transition from emission limit to plasma limit"}
+  plasma_margin:           {value: 2.5, unit: "1", source: "free choice: at the working point the plasma could carry 2.5 times the discharge current, so the point is emission limited, which a loop on the filament current needs"}
   rek_bleed_ohm:           {value: 1.0e+4, unit: ohm, source: "free choice: a bleeder across the REK output, so that its current limit always has a load to act on"}
   # --- 3. gas and vacuum ----------------------------------------------------------------------
   sccm_to_torr_l_s:        {value: 0.01267, unit: torr l/s per sccm, source: "law: definition of the sccm (760 torr, 0 degC)"}
   aperture_conductance_l_s: {value: 8.0, unit: l/s, source: "estimate: molecular flow of H2 through an extraction aperture of about 5 mm"}
-  chamber_volume_l:        {value: 2.0, unit: l, source: "estimate: plasma chamber"}
-  source_volume_l:         {value: 50.0, unit: l, source: "estimate: source vacuum vessel"}
-  diag_volume_l:           {value: 30.0, unit: l, source: "estimate: diagnostic box"}
-  beamline_conductance_l_s: {value: 5.0, unit: l/s, source: "estimate: between source vessel and diagnostic box"}
-  turbo_speed_l_s:         {value: 200.0, unit: l/s, source: "estimate: H2 pumping speed of each turbopump at rated speed (the pump models are not known)"}
+  chamber_volume_l:        {value: 1.0, unit: l, source: "estimate: plasma chamber of the source"}
+  cross_volume_l:          {value: 40.0, unit: l, source: "estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long)"}
+  aim_h2_factor:           {value: 0.46, unit: "1", source: "law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure"}
+  cross_base_reading_torr: {value: 2.0e-6, unit: torr, source: "free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas"}
+  apg_floor_torr:          {value: 1.0e-3, unit: torr, source: "free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that"}
+  apg_ceiling_torr:        {value: 944.06, unit: torr, source: "free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml)"}
   turbo_stopped_fraction:  {value: 0.01, unit: "1", source: "estimate: what a stopped turbopump still pumps (through to the foreline)"}
   turbo_p_limit_torr:      {value: 0.01, unit: torr, source: "estimate: inlet pressure at which a turbopump has lost half its speed"}
-  source_base_torr:        {value: 2.0e-6, unit: torr, source: "free choice: the constant of the aim simulator today (rack.yaml), base pressure with pumps at speed"}
-  diag_base_torr:          {value: 8.0e-7, unit: torr, source: "free choice: the constant of gauges p2 today (rack.yaml)"}
-  foreline_base_torr:      {value: 3.0e-2, unit: torr, source: "free choice: the constant of gauges p1 today (rack.yaml)"}
-  foreline_volume_l:       {value: 2.0, unit: l, source: "estimate: foreline between turbopumps and foreline valve (the gauge is assumed there)"}
+  foreline_base_torr:      {value: 3.0e-2, unit: torr, source: "free choice: the APG simulator's constant before phase 1 (no foreline gauge in the control system yet)"}
+  foreline_volume_l:       {value: 2.0, unit: l, source: "estimate: turbopump outlet, foreline up to the foreline valve"}
   rough_speed_l_s:         {value: 5.0, unit: l/s, source: "estimate: roughing pump (make and model not known)"}
   foreline_outgas_torr_l_s: {value: 1.0e-3, unit: torr l/s, source: "estimate: outgassing of the foreline"}
-  vent_conductance_l_s:    {value: 10.0, unit: l/s, source: "estimate: vent valve into the source vessel"}
+  vent_conductance_l_s:    {value: 1.0, unit: l/s, source: "estimate: vent valve on the side port of the turbopump, into the foreline side"}
+  vent_cross_conductance_l_s: {value: 1.0e-5, unit: l/s, source: "estimate: vent gas reaching the cross back through the turbopump; 'the inflow of N2 is small' (owner)"}
   atmosphere_torr:         {value: 760.0, unit: torr, source: "law"}
   burst_tau_s:             {value: 2.0, unit: s, source: "free choice: decay of a pressure burst set through the plant's control port"}
   # --- 4. extraction --------------------------------------------------------------------------
-  beam_fraction:           {value: 2.0e-4, unit: A/A, source: "estimate: extracted beam current per A of discharge current at saturation (10 A -> 2 mA, within the 15 mA source supply)"}
+  beam_fraction:           {value: 2.0e-4, unit: A/A, source: "estimate: extracted beam current per A of discharge current at saturation (24 A -> 4.8 mA, within the 15 mA source supply)"}
   extraction_v_sat_v:      {value: 8000.0, unit: V, source: "estimate: the beam current rises as 1 - exp(-V / v_sat) with the extraction voltage (source + puller)"}
   source_leak_ohm:         {value: 2.0e+8, unit: ohm, source: "free choice: leakage of the source supply output, 100 uA at 20 kV"}
-  # --- 5. heat --------------------------------------------------------------------------------
-  tc_tau_s:                {value: 20.0, unit: s, source: "free choice: minutes in reality, short so that a desk session sees an effect within a minute"}
-  tc_gain_k_per_w:         {value: 0.01, unit: K/W, source: "estimate: 3 kW of filament and discharge power heat the source plates by 30 K"}
-  tc_base_c:               {value: {t1: 35.0, t2: 41.0, t3: 38.0, t4: 33.0}, unit: degC, source: "free choice: the constants of the thermocouple simulator today (hv.yaml)"}
+  # --- 5. heat (thermocouples on the platform, in channel order t1..t4) -------------------------
+  plate_tau_s:             {value: 20.0, unit: s, source: "free choice: minutes in reality, short so that a desk session sees an effect within a minute"}
+  back_plate_k_per_w:      {value: 0.01, unit: K/W, source: "estimate: t1, back plate, warms with filament + discharge power (about 4.3 kW at the working point -> 43 K)"}
+  back_plate_base_c:       {value: 41.0, unit: degC, source: "free choice: the constant of thermocouple t1 today (hv.yaml)"}
+  feedthrough_k_per_w:     {value: 0.03, unit: K/W, source: "estimate: t2, filament feedthrough, warms with the filament power only (720 W -> 22 K)"}
+  feedthrough_base_c:      {value: 38.0, unit: degC, source: "free choice: the constant of thermocouple t2 today (hv.yaml)"}
+  transformer_tau_s:       {value: 60.0, unit: s, source: "free choice: tens of minutes in reality, short so that a desk session sees an effect"}
+  transformer_rise_k:      {value: 40.0, unit: K, source: "estimate: rise of an isolation transformer at the full rating of the supply it feeds; copper losses go with the square of the load"}
+  transformer1_rated_w:    {value: 2400.0, unit: W, source: "free choice: transformer 1 (t3) feeds the filament supply, rating of the TDK GEN8-300 (8 V x 300 A)"}
+  transformer2_rated_w:    {value: 3600.0, unit: W, source: "free choice: transformer 2 (t4) feeds the discharge supply, rating of the REK150-24 (150 V x 24 A)"}
+  transformer1_base_c:     {value: 35.0, unit: degC, source: "free choice: the constant of thermocouple t3 today (hv.yaml)"}
+  transformer2_base_c:     {value: 33.0, unit: degC, source: "free choice: the constant of thermocouple t4 today (hv.yaml)"}
+  # --- cooling water (sensor box as a stand-in for the future water readout) --------------------
   water_tau_s:             {value: 40.0, unit: s, source: "free choice: minutes in reality, short so that a desk session sees an effect within a minute"}
   water_flow_l_min:        {value: 1.0, unit: l/min, source: "estimate: within 0.25 to 2 l/min per branch (plan/controls.yaml)"}
   water_heat_fraction:     {value: 0.3, unit: "1", source: "estimate: share of the heat power each sensor box channel sees (which sensor sits where is not known)"}
