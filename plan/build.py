@@ -248,6 +248,128 @@ def channel_roles(rule, keys):
     return channels
 
 
+# ----------------------------------------------------------------------------- faults
+# Which records turn INVALID when a device stops answering. A record can change its severity only
+# when it is processed, so the rule first finds what keeps being processed during the fault, then
+# lets severity flow from the device records along input links with MS:
+#   processed  periodic SCAN, or reached from such a record by a forward link (FLNK, fanout), an
+#              output link that processes (PP, or a write to .PROC) or a CP/CPP input link.
+#              I/O Intr device records are processed only when something arrives: never while
+#              the device is silent, once with an error when the connection is closed.
+#              PINI only (once at the start) and Passive with nothing behind it: not processed.
+#   INVALID    a processed StreamDevice record that reads (INP); a processed record with an MS
+#              input link to a record that is INVALID. Device records that only write (OUT) fail
+#              only when written, which the registry's 'ack' covers.
+# Two things the database does not tell, so controls.yaml states them per record
+# (databases: <db>: invalid_on: {record: [silent, closed]}), and the check fails without it:
+#   - a processed record with an output link that processes a StreamDevice record: it gets a LINK
+#     alarm when that record fails at once (closed port), but only if it writes during the fault
+#     (calcout OOPT and the like). Stated without "closed", it does not write during a fault, so
+#     its output link processes nothing then;
+#   - a processed record that is disabled with a severity (SDIS and DISS): when it is disabled
+#     depends on its logic.
+FAULTS = ("silent", "closed")
+NO_SEVERITY = ("", "NO_ALARM")
+
+
+def links(rec):
+    """(kind, field, target record, target field, modifiers) of every database link of a record."""
+    out = []
+    for key, value in rec["fields"].items():
+        words = value.split()
+        if not words or value.startswith("@") or re.fullmatch(r"[-+0-9.eE]+", words[0]):
+            continue
+        if re.fullmatch(r"INP[A-U]?|DOL\w*", key):
+            kind = "in"
+        elif key == "SDIS":
+            kind = "sdis"
+        elif key == "FLNK" or (rec["type"] == "fanout" and key.startswith("LNK")):
+            kind = "fwd"
+        elif re.fullmatch(r"OUT[A-P]?", key) or (rec["type"] in ("seq", "sseq") and key.startswith("LNK")):
+            kind = "out"
+        else:
+            continue
+        target, _, field = words[0].partition(".")
+        out.append((kind, key, target, field, set(words[1:])))
+    return out
+
+
+def is_stream(rec, direction=None):
+    """A StreamDevice record; with direction "INP" one that reads."""
+    return rec["fields"].get("DTYP") == "stream" and (direction is None or direction in rec["fields"])
+
+
+def fault_analysis(records, statements):
+    """records: {name: rec} with 'fields', 'type' and 'source' (the device behind a StreamDevice
+    record, any hashable, or None). statements: {name: [faults]} from controls.yaml.
+    Returns ({fault: {name: set of sources}}, names that need a statement, names stated needlessly)."""
+    alias_of = {alias: name for name, rec in records.items() for alias in rec.get("aliases", [])}
+
+    def links_of(rec):
+        return [(k, f, alias_of.get(t, t), tf, m) for k, f, t, tf, m in links(rec)]
+
+    edges = {name: set() for name in records}           # source -> records it processes
+    for name, rec in records.items():
+        for kind, key, target, field, mods in links_of(rec):
+            if target not in records:
+                continue
+            if kind == "out" and is_stream(records[target]) and "closed" not in statements.get(name, ["closed"]):
+                continue   # stated not to turn INVALID on a closed port: it does not write during a fault
+            if kind == "fwd" or (kind == "out" and ("PP" in mods or field == "PROC")):
+                edges[name].add(target)
+            elif kind == "in" and mods & {"CP", "CPP"}:
+                edges[target].add(name)
+    undecided = set()
+    for name, rec in records.items():
+        if any(kind == "out" and ("PP" in mods or field == "PROC") and target in records and is_stream(records[target])
+               for kind, key, target, field, mods in links_of(rec)):
+            undecided.add(name)
+        if rec["fields"].get("SDIS") and rec["fields"].get("DISS", "") not in NO_SEVERITY:
+            undecided.add(name)
+
+    def static(name, seen):
+        """Every device behind a record: its own, through input links, and the device records it writes."""
+        if name in seen:
+            return set()
+        seen.add(name)
+        rec, found = records[name], set()
+        if rec["fields"].get("DTYP") == "stream" and rec.get("source") is not None:
+            found.add(rec["source"])
+        for kind, key, target, field, mods in links_of(rec):
+            if target in records and (kind in ("in", "sdis") or (kind == "out" and is_stream(records[target]))):
+                found |= static(target, seen)
+        return found
+
+    result, processed_any = {}, set()
+    for fault in FAULTS:
+        seeds = [n for n, r in records.items() if r["fields"].get("SCAN", "Passive") not in ("Passive", "I/O Intr", "Event")
+                 or (fault == "closed" and r["fields"].get("SCAN") == "I/O Intr" and is_stream(r, "INP"))]
+        processed, todo = set(seeds), list(seeds)
+        while todo:
+            for target in edges[todo.pop()]:
+                if target not in processed:
+                    processed.add(target)
+                    todo.append(target)
+        processed_any |= processed
+        inv = {n: set() for n in records}
+        for name in processed:
+            if is_stream(records[name], "INP") and records[name].get("source") is not None:
+                inv[name].add(records[name]["source"])
+            if fault in statements.get(name, []):
+                inv[name] |= static(name, set())
+        changed = True
+        while changed:
+            changed = False
+            for name in processed:
+                for kind, key, target, field, mods in links_of(records[name]):
+                    if kind == "in" and target in inv and mods & {"MS", "MSS", "MSI"} and not inv[target] <= inv[name]:
+                        inv[name] |= inv[target]
+                        changed = True
+        result[fault] = inv
+    undecided &= processed_any
+    return result, sorted(n for n in undecided if n not in statements), sorted(n for n in statements if n not in undecided)
+
+
 class Model:
     def __init__(self, path, db_dir):
         with open(path, encoding="utf-8") as handle:
@@ -266,7 +388,49 @@ class Model:
         self._check()
         self._check_roles()
         self._check_loads()
+        self.faults(lambda pv, port, unit: (port, unit))   # only for its warnings here
         self.warnings = list(dict.fromkeys(self.warnings))   # the same problem once, even if several devices load the file
+
+    def faults(self, source):
+        """fault_analysis over every loaded record of both IOCs. source(pv, asyn port, unit) names the
+        device behind a StreamDevice record. Missing or needless statements become warnings."""
+        records, statements, where = {}, {}, {}
+        for owner in self.owners:
+            for pv in owner["pvs"]:
+                if pv["state"] != "existing":
+                    continue
+                rule = self.rules.get(pv["db"]) or {}
+                port = unit = None
+                if pv["fields"].get("DTYP") == "stream":
+                    port = (pv["fields"].get("INP") or pv["fields"].get("OUT") or "").split()[-1]
+                    unit = self.macros(pv["load"]).get(rule.get("unit")) if rule.get("unit") else None
+                records[pv["name"]] = dict(pv, owner=owner["id"], source=source(pv, port, unit) if port else None)
+                where[pv["name"]] = (pv["db"], pv["key"], owner["id"])
+                stated = (rule.get("invalid_on") or {}).get(pv["key"])
+                if stated is not None:
+                    statements[pv["name"]] = stated
+                    for fault in stated:
+                        if fault not in FAULTS:
+                            self.warnings.append("%s: invalid_on of record %s names %r; known: %s"
+                                                 % (pv["db"], pv["key"], fault, ", ".join(FAULTS)))
+        result, missing, needless = fault_analysis(records, statements)
+        grouped = {}
+        for name in missing:
+            db, key, owner = where[name]
+            grouped.setdefault((db, key), (records[name], []))[1].append(owner)
+        for (db, key), (rec, owners) in grouped.items():
+            why = ("it is disabled with severity %s" % rec["fields"]["DISS"] if rec["fields"].get("DISS", "") not in NO_SEVERITY
+                   else "it writes to a StreamDevice record through an output link")
+            self.warnings.append("%s (loaded by %s): the rule cannot tell whether record %s turns INVALID when its device "
+                                 "stops answering (%s). State it under 'databases: %s: invalid_on' in controls.yaml: "
+                                 "%s: [silent, closed], [closed] or []" % (db, ", ".join(sorted(set(owners))), key, why, db, key))
+        stated_somewhere = {where[n][:2] for n in statements if n not in needless}
+        for name in needless:
+            db, key, owner = where[name]
+            if (db, key) not in stated_somewhere:
+                self.warnings.append("%s: controls.yaml states invalid_on for record %s, but the rule decides it from the "
+                                     "database: remove it" % (db, key))
+        return result
 
     def _db(self, name, macros, owner):
         path = os.path.join(self.db_dir, name)

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build import REPO, DbError, parse_db, simple_record_names  # noqa: E402
+from build import REPO, DbError, fault_analysis, parse_db, simple_record_names  # noqa: E402
 
 
 def parse(text, macros=None):
@@ -89,6 +89,78 @@ class ParseDb(unittest.TestCase):
         # file makes it disagree with the parser: the guard must fail and name the record.
         with self.assertRaisesRegex(DbError, "scan finds 2 record statements, the parser 1. Missed: b"):
             parse('record(ai, "a") { field(DESC, "copy of record(ai, b)") }\n')
+
+
+def faults(text, statements=None):
+    """fault_analysis over an inline database; the device behind a StreamDevice record is its port."""
+    records = {}
+    for rec in parse(text):
+        link = rec["fields"].get("INP") or rec["fields"].get("OUT") or ""
+        records[rec["name"]] = dict(rec, source=link.split()[-1] if rec["fields"].get("DTYP") == "stream" else None)
+    result, missing, needless = fault_analysis(records, statements or {})
+    return ({n: (sorted(result["silent"][n]), sorted(result["closed"][n])) for n in records}, missing, needless)
+
+
+DEV = 'field(DTYP, "stream") field(INP, "@x.proto get P1")'
+BOTH, CLOSED, NONE = (["P1"], ["P1"]), ([], ["P1"]), ([], [])
+
+
+class FaultRule(unittest.TestCase):
+    def test_scanned_device_record(self):
+        got, missing, _ = faults('record(ai, "a") { %s field(SCAN, "1 second") }' % DEV)
+        self.assertEqual((got["a"], missing), (BOTH, []))
+
+    def test_forward_link_and_MS(self):
+        got, _, _ = faults('record(ai, "a") { %s field(SCAN, "1 second") field(FLNK, "b") }\n'
+                           'record(calc, "b") { field(INPA, "a NPP MS") field(FLNK, "c") }\n'
+                           'record(calc, "c") { field(INPA, "a NPP") }' % DEV)
+        self.assertEqual((got["b"], got["c"]), (BOTH, NONE))      # without MS no severity
+
+    def test_once_at_start_is_not_processed(self):
+        got, _, _ = faults('record(ai, "a") { %s field(SCAN, "1 second") }\n'
+                           'record(seq, "init") { field(PINI, "YES") field(DOL1, "a NPP MS") field(LNK1, "x PP") }' % DEV)
+        self.assertEqual(got["init"], NONE)
+
+    def test_passive_device_record_nothing_processes(self):
+        got, _, _ = faults('record(ai, "a") { %s field(PINI, "YES") }' % DEV)
+        self.assertEqual(got["a"], NONE)
+
+    def test_io_intr_only_when_closed(self):
+        got, _, _ = faults('record(ai, "raw") { %s field(SCAN, "I/O Intr") }\n'
+                           'record(ai, "pub") { field(INP, "raw NPP MS") field(SCAN, "1 second") }' % DEV)
+        self.assertEqual((got["raw"], got["pub"]), (CLOSED, CLOSED))
+
+    def test_cp_input_link_processes(self):
+        got, _, _ = faults('record(aai, "data") { %s field(SCAN, ".5 second") }\n'
+                           'record(bi, "b") { field(INP, "data.VAL[0] CP MS") }' % DEV.replace("get P1", "all P1"))
+        self.assertEqual(got["b"], BOTH)
+
+    WRITER = ('record(calcout, "tick") { field(SCAN, ".1 second") field(OOPT, "When Non-zero") '
+              'field(OUT, "rd.PROC PP") }\nrecord(ai, "rd") { %s }' % DEV)
+
+    def test_writer_to_a_device_record_needs_a_statement(self):
+        _, missing, _ = faults(self.WRITER)
+        self.assertEqual(missing, ["tick"])
+
+    def test_writer_stated_closed_processes_its_target(self):
+        got, missing, _ = faults(self.WRITER, {"tick": ["closed"]})
+        self.assertEqual((got["tick"], got["rd"], missing), (CLOSED, BOTH, []))
+
+    def test_writer_stated_never_processes_nothing(self):
+        got, _, _ = faults(self.WRITER, {"tick": []})
+        self.assertEqual((got["tick"], got["rd"]), (NONE, NONE))
+
+    def test_disabled_with_severity_needs_a_statement(self):
+        text = ('record(ai, "raw") { %s field(SCAN, "I/O Intr") }\n'
+                'record(ai, "pub") { field(INP, "raw NPP MS") field(SCAN, "1 second") '
+                'field(SDIS, "stale NPP") field(DISS, "INVALID") }\nrecord(calc, "stale") { }' % DEV)
+        self.assertEqual(faults(text)[1], ["pub"])
+        got, missing, _ = faults(text, {"pub": ["silent", "closed"]})
+        self.assertEqual((got["pub"], missing), (BOTH, []))
+
+    def test_needless_statement(self):
+        _, _, needless = faults('record(ai, "a") { %s field(SCAN, "1 second") }' % DEV, {"a": ["silent"]})
+        self.assertEqual(needless, ["a"])
 
 
 class EveryDatabase(unittest.TestCase):
