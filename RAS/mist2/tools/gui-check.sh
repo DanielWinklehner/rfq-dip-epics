@@ -35,7 +35,9 @@ step() { echo; echo "== $*"; }
 result() { if [ "$1" -ne 0 ]; then failed=1; fi; }
 
 ca() {
-    "${emulation[@]}" --profile tools run --rm -T tools python3 RAS/mist2/tools/gui_check_ca.py "$@" 2>/dev/null
+    # Compose reports the container it creates on stderr; errors pass through.
+    "${emulation[@]}" --profile tools run --rm -T tools python3 RAS/mist2/tools/gui_check_ca.py "$@" \
+        2> >(grep -v "Container mist2emu-tools-run" >&2)
 }
 
 faults=""

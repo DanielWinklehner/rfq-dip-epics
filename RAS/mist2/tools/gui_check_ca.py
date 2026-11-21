@@ -49,12 +49,12 @@ def read(path):
             result[name] = {"connected": False}
             continue
         number = pv.get(use_monitor=False, timeout=2)
-        array = hasattr(number, "__len__") and not isinstance(number, str)
+        array = infos[name]["type"] in ("aai", "waveform")
         result[name] = {
             "connected": True,
             "text": pv.get(as_string=True, use_monitor=False, timeout=2),
             "number": number if isinstance(number, (int, float)) else None,
-            "array": [float(x) for x in number] if array else None,
+            "array": [float(x) for x in (number if hasattr(number, "__len__") else [number])] if array else None,
             "long": infos[name]["type"] in ("lsi", "lso"),
             "severity": pv.severity,
         }
