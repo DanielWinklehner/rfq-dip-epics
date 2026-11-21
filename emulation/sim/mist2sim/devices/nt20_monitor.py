@@ -19,7 +19,9 @@ the simulator reads the run relay (`run_signal`) and writes the three contacts (
 Without it, `run` is a signal like any other (set it on the control port).
 
 Signals: run (0/1, input), speed (Hz), current (A), normal, accel, failure (0/1 contacts).
-Fault "trip": FAILURE closes and the pump brakes; it stays failed until run goes to 0 (STOP).
+Fault "trip": FAILURE closes and the pump brakes; it stays failed until run goes to 0 (STOP),
+which also ends the fault. ASSUMED: the reset acts on the level, not on an edge, so a trip while
+the pump is stopped is reset at once. "clear" on the control port does not reset a failure.
 """
 
 import asyncio
