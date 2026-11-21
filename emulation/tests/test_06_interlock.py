@@ -1,9 +1,11 @@
 """Across the two IOCs: an open interlock door (old interlock box, rack IOC) forces off the
-outputs of every supply gated by the permit: the high-voltage supplies on the rack IOC and the
-filament discharge supply on the platform IOC (through a Channel Access link). When the door
-closes, the outputs whose request is still set come back ON by themselves: the lab's behaviour
-of 2023, kept on purpose and open for the owner (P16). It is asserted as it is, so that a later
-change is noticed. "All HV off" switches all five AU supplies off and clears their requests."""
+outputs of every supply gated by the permit, the AU supplies on the rack IOC and the filament
+discharge supply on the platform IOC (through a Channel Access link), and clears their requests.
+The permit latches (owner's decision, 2026-11-21): a request made while the door is open is
+cleared at once, and when the door closes nothing switches on by itself; the operator switches on
+again, and that works. "All HV off" switches all AU supplies off and clears their requests."""
+import time
+
 import pytest
 
 import system as S
@@ -15,19 +17,13 @@ INTERLOCK_SIM = reg.devices[ILK]["simulators"][0]
 DOOR = sorted(reg.devices[ILK]["channels"])[0]          # i1: a door switch, signal of the same name
 SWITCH_LIMIT = 3.0     # permit -> output: OutputIntlk follows the permit by a CP link (and scans
                        # every 1 s); the switching protocol is sent at once (PRIO HIGH)
-RETURN_LIMIT = 5.0     # the door closed again: the same chain back
+SETTLED = 2            # processings of each gate record after the door closed, before the
+                       # outputs are checked to have stayed off (it scans every 1 s)
 
 
 def gated():
-    """Devices whose output the permit gates: those with an internal record failing with the
-    interlock box (OutputIntlk), and an output request."""
-    out = []
-    for d, dev in reg.devices.items():
-        if reg.has_role(d, "out_cmd") and any(
-                s.get("internal") and INTERLOCK_SIM in s.get("fails_with", [])
-                for s in dev["pvs"].values()):
-            out.append(d)
-    return out
+    """Devices whose output the permit gates: an output request and a gate record."""
+    return [d for d in reg.devices if reg.has_role(d, "out_cmd") and reg.gate_record(d)]
 
 
 GATED = gated()
@@ -39,8 +35,7 @@ ALLOFF_SUPPLIES = [d for d in reg.devices if d != ALLOFF_DEV and any(
 
 
 def output_on(device):
-    """The supply's real output (simulator signal <unit>.output: lens 3 is not polled, so its
-    status PV cannot show it)."""
+    """The supply's real output: simulator signal <unit>.output."""
     sim, unit = reg.devices[device]["simulators"][0].split(":")
     return S.sim_value(sim, "%s.output" % unit) == 1.0
 
@@ -49,11 +44,29 @@ def outputs(devices):
     return {d: output_on(d) for d in devices}
 
 
+def requests(devices):
+    return {d: S.get(reg.role(d, "out_cmd")) for d in devices}
+
+
+def switch_all_on(devices):
+    for d in devices:
+        S.put(reg.role(d, "out_cmd"), 1)
+    S.wait_for(lambda: all(outputs(devices).values()), SWITCH_LIMIT,
+               lambda: "outputs on: %s" % outputs(devices))
+
+
+def gates_processed(since, times):
+    """Every gate record processed `times` times after `since` (wall clock): its time stamp
+    is at least times-1 scan periods (1 s) past since."""
+    return all(S.read(reg.gate_record(d))["timestamp"] > since + times - 1 for d in GATED)
+
+
 @pytest.fixture
 def everything_off():
     yield
     if (INTERLOCK_SIM, DOOR) in S.forced:
         S.sim_release(INTERLOCK_SIM, DOOR)
+    S.wait_for(lambda: S.get(PERMIT) == 0, SWITCH_LIMIT, lambda: S.describe([PERMIT]))
     for d in GATED:
         S.put(reg.role(d, "out_cmd"), 0)
     S.wait_for(lambda: not any(outputs(GATED).values()), SWITCH_LIMIT,
@@ -61,39 +74,42 @@ def everything_off():
 
 
 def test_registry_has_the_gated_supplies():
-    assert len(GATED) == 6, GATED              # five AU supplies, the REK
+    assert len(GATED) == 5, GATED              # four AU supplies, the REK
     assert {reg.devices[d]["ioc"] for d in GATED} == set(reg.iocs)   # both IOCs
-    assert len(ALLOFF_SUPPLIES) == 5, ALLOFF_SUPPLIES
+    assert len(ALLOFF_SUPPLIES) == 4, ALLOFF_SUPPLIES
 
 
-def test_open_door_forces_outputs_off_and_closing_brings_them_back(everything_off):
-    for d in GATED:
-        S.put(reg.role(d, "out_cmd"), 1)
-    S.wait_for(lambda: all(outputs(GATED).values()), SWITCH_LIMIT,
-               lambda: "all gated outputs on: %s" % outputs(GATED))
+def test_open_door_switches_off_and_latches(everything_off):
+    switch_all_on(GATED)
     S.sim_set(INTERLOCK_SIM, DOOR, 0)                     # door open
     S.wait_for(lambda: S.get(PERMIT) == 1, SWITCH_LIMIT, lambda: S.describe([PERMIT]))
     S.wait_for(lambda: not any(outputs(GATED).values()), SWITCH_LIMIT,
                lambda: "outputs forced off by the open door: %s" % outputs(GATED))
+    S.wait_for(lambda: not any(requests(GATED).values()), SWITCH_LIMIT,
+               lambda: "requests cleared by the open door: %s" % requests(GATED))
     for d in GATED:
-        assert S.get(reg.role(d, "out_cmd")) == 1, "%s: the request stays set" % d
-        if reg.has_role(d, "status") and not reg.not_polled(d):
-            S.wait_for(lambda: S.get(reg.role(d, "status")) == 0, SWITCH_LIMIT,
-                       lambda: S.describe([reg.role(d, "status")]))
+        st = reg.role(d, "status")
+        S.wait_for(lambda: S.get(st) == 0, SWITCH_LIMIT, lambda: S.describe([st]))
+    # a request while the door is open is cleared at once and switches nothing
+    for d in GATED:
+        S.put(reg.role(d, "out_cmd"), 1)
+    S.wait_for(lambda: not any(requests(GATED).values()), SWITCH_LIMIT,
+               lambda: "requests made while the door is open, cleared: %s" % requests(GATED))
+    assert not any(outputs(GATED).values()), outputs(GATED)
     S.sim_set(INTERLOCK_SIM, DOOR, 1)                     # door closed
     S.sim_release(INTERLOCK_SIM, DOOR)
     S.wait_for(lambda: S.get(PERMIT) == 0, SWITCH_LIMIT, lambda: S.describe([PERMIT]))
-    # P16, kept on purpose: nobody switches anything, the outputs come back
-    S.wait_for(lambda: all(outputs(GATED).values()), RETURN_LIMIT,
-               lambda: "outputs back ON by themselves after the door closed (P16): %s"
-               % outputs(GATED))
+    closed = time.time()
+    S.wait_for(lambda: gates_processed(closed, SETTLED), SWITCH_LIMIT + SETTLED,
+               lambda: "gate records processed after the door closed: %s" % S.describe(
+                   [reg.gate_record(d) for d in GATED]))
+    assert not any(outputs(GATED).values()), "an output came back by itself: %s" % outputs(GATED)
+    assert not any(requests(GATED).values()), requests(GATED)
+    switch_all_on(GATED)                                  # the operator switches on again
 
 
-def test_all_hv_off_switches_all_five_off_and_clears_the_requests(everything_off):
-    for d in ALLOFF_SUPPLIES:
-        S.put(reg.role(d, "out_cmd"), 1)
-    S.wait_for(lambda: all(outputs(ALLOFF_SUPPLIES).values()), SWITCH_LIMIT,
-               lambda: "all AU outputs on: %s" % outputs(ALLOFF_SUPPLIES))
+def test_all_hv_off_switches_all_off_and_clears_the_requests(everything_off):
+    switch_all_on(ALLOFF_SUPPLIES)
     S.put(ALLOFF, 1)
     S.wait_for(lambda: not any(outputs(ALLOFF_SUPPLIES).values()), SWITCH_LIMIT,
                lambda: "every AU output off: %s" % outputs(ALLOFF_SUPPLIES))

@@ -3,6 +3,7 @@ registry is connected and served by the IOC the registry names, and each simulat
 settings of the real serial port it stands in for."""
 import re
 import socket
+from datetime import datetime
 
 import pytest
 
@@ -16,7 +17,7 @@ IOCS = list(reg.iocs)
 # configuration, links, iocsh commands. Echoed st.cmd lines and comments are not checked.
 CONFIG_ERROR = re.compile(r"error|can't open|cannot|not found|undefined|no such|illegal|invalid"
                           r"|failed|unknown|syntax|bad |parse|link|warning|missing|duplicate"
-                          r"|not allowed|abort", re.I)
+                          r"|not allowed|abort|could not connect|not connected|autoconnect", re.I)
 ECHO = re.compile(r"^\s*(#|on error|epicsEnvSet|dbLoad|iocshLoad|drvAsyn|asynSetOption"
                   r"|mist2_register|iocInit)")
 INIT_DONE = "iocRun: All initialization complete"
@@ -68,6 +69,39 @@ def test_ioc_log_after_start_has_only_traffic_messages(ioc):
         errors.append(l)
     assert errors == [], "%d lines of %s are not traffic messages:\n%s" % (
         len(errors), ioc, "\n".join(errors[:30]))
+
+
+def first_fault_time():
+    """Wall clock of the first fault injected into any simulator (sim logs), or None."""
+    first = None
+    for host in sorted({s["host"] for s in reg.simulators.values()}):
+        for l in S.log_lines(host):
+            m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d),(\d+) \S+ INFO fault (?!.*cleared)", l)
+            if m:
+                t = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp() + \
+                    int(m.group(2)) / 1000.0
+                first = t if first is None else min(first, t)
+                break
+    return first
+
+
+def stamp(line):
+    m = re.match(r"(\d{4}/\d\d/\d\d \d\d:\d\d:\d\d)\.(\d+) ", line)
+    if not m:
+        return None
+    return datetime.strptime(m.group(1), "%Y/%m/%d %H:%M:%S").timestamp() + float("0." + m.group(2))
+
+
+@pytest.mark.parametrize("ioc", IOCS)
+def test_ioc_reaches_every_device_at_start(ioc):
+    """Until the first fault a test injects, an IOC has nothing to complain about: no traffic
+    message at all, in particular no "autoConnect could not connect" or "port ... not connected"
+    (a device that was not reachable when the IOC started)."""
+    _, run = ioc_log(ioc)
+    first = first_fault_time()
+    early = [l for l in run if stamp(l) is not None and (first is None or stamp(l) < first)]
+    assert early == [], "%s before the first fault (%s):\n%s" % (
+        ioc, first and datetime.fromtimestamp(first), "\n".join(early[:20]))
 
 
 @pytest.mark.parametrize("ioc", IOCS)

@@ -60,9 +60,6 @@ class Registry:
     def heartbeats(self):
         return {iid: i["roles"]["heartbeat"] for iid, i in self.iocs.items()}
 
-    def not_polled(self, device):
-        return "not_polled" in self.devices.get(device, {}).get("flags", {})
-
     def writes(self):
         """Written PVs an operator uses (not internal), in registry order."""
         return [n for n, s in self.pvs.items() if s["access"] == "w" and not s.get("internal")]
@@ -112,6 +109,15 @@ class Registry:
             ref = sims[0]
         name, _, unit = ref.partition(":")
         return name, (int(unit) if unit else None)
+
+    def gate_record(self, device):
+        """The internal record of a supply that the interlock box's silence fails: the permit
+        gate (OutputIntlk). None for a device without one."""
+        ilk = [n for n, d in self.devices.items() if d["class"] == "interlock"]
+        sims = {s for d in ilk for s in self.devices[d]["simulators"]}
+        found = [n for n, s in self.devices[device]["pvs"].items()
+                 if s.get("internal") and sims & set(s.get("fails_with", []))]
+        return found[0] if len(found) == 1 else None
 
     def ioc_address(self, ioc):
         return socket.gethostbyname(self.iocs[ioc]["container"])

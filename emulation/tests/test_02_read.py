@@ -1,7 +1,7 @@
 """Read: every PV of every device answers and is not INVALID. The exceptions are asserted, not
 skipped: a record that has never been processed since the IOC started (alarm status UDF), which
-is allowed only for a set record or an internal record that nothing scans, and for every record of
-a device the registry flags `not_polled`. The identity PVs of the libcom1 boards name the
+is allowed only for a set record or an internal record that nothing scans. Aliases answer with the
+value of their record, spare channels are read and valid. The identity PVs of the libcom1 boards name the
 simulator that the registry puts behind them (the wiring of ports and simulators)."""
 import pytest
 
@@ -17,8 +17,6 @@ def exception_reason(name, d):
     spec = reg.pvs[name]
     if d["status"] != S.UDF:
         return None                       # INVALID for a reason other than "never processed"
-    if reg.not_polled(spec["device"]):
-        return "device not polled (%s)" % reg.devices[spec["device"]]["flags"]["not_polled"]
     if (spec["access"] == "w" or spec.get("internal")) and S.field(name, "SCAN") == "Passive":
         return "set or internal record, not scanned, not written since the IOC started"
     return None
@@ -56,19 +54,26 @@ def test_every_pv_reads_and_is_not_invalid(device):
         print("\n".join(["%s, INVALID (UDF) as allowed:" % device] + excused))
 
 
-def test_not_polled_device_records_are_never_read():
-    """A device flagged not_polled: its monitor and status records are never processed, so they
-    stay INVALID with status UDF; everything an operator writes, and the echoes read after a
-    write, may be valid. Asserted for each such device of the registry."""
-    devices = [d for d in reg.devices if reg.not_polled(d)]
-    assert devices, "the registry flags no device not_polled (lens 3 was): update this test"
-    for device in devices:
-        for name, spec in reg.devices[device]["pvs"].items():
-            if spec["access"] == "r" and spec.get("role") in ("vread", "iread", "power", "status"):
-                d = S.read(name)
-                assert (d["severity"], d["status"]) == (S.INVALID, S.UDF), \
-                    "%s of a device that is not polled: %s" % (name, S.describe([name]))
-                assert S.field(name, "SCAN") in ("Passive", "Event", "I/O Intr")
+def test_every_alias_answers_with_the_value_of_its_pv():
+    """An alias (AU and REK current:setpoint, the lab's name of current:limit) is served by the
+    same IOC and shows the record's value and severity."""
+    aliases = [(n, a) for n, spec in reg.pvs.items() for a in spec.get("aliases", [])]
+    assert aliases, "the registry lists no alias"
+    for name, alias in aliases:
+        assert S.connected(alias), "alias %s of %s is not served" % (alias, name)
+        assert S.field(alias, "NAME") == name
+        a, d = S.read(alias), S.read(name)
+        assert (a["value"], a["severity"]) == (d["value"], d["severity"]), (alias, a, name, d)
+
+
+def test_spare_channels_are_read_and_valid():
+    """A channel the registry marks spare (not connected) is still polled with its board: its
+    PVs answer and are valid."""
+    spare = [pv for d in reg.devices.values() for ch in (d.get("channels") or {}).values()
+             if ch.get("spare") for pv in ch["roles"].values()]
+    assert spare, "the registry marks no channel spare"
+    bad = [n for n in spare if S.sevr(n) == S.INVALID and S.stat(n) != S.UDF]
+    assert bad == [], S.describe(bad)
 
 
 IDENTITY = [d for d in reg.devices if reg.has_role(d, "id")]

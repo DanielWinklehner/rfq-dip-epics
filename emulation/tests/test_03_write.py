@@ -128,3 +128,27 @@ def test_write_and_read_back(name):
                      "%s back to %r" % (rb, target))
     S.wait_for(lambda: baseline_ok(device_pvs(device)), RECOVER_LIMIT,
                lambda: "%s after the test: %s" % (device, S.describe(device_pvs(device))))
+
+
+LIMITED = [d for d in reg.devices if reg.has_role(d, "ilimit")]
+
+
+@pytest.mark.parametrize("device", LIMITED)
+def test_switching_on_sends_the_current_limit(device):
+    """The supply forgot its limit (power cycle, emulated in the simulator); switching on sends
+    the saved limit: afterwards the limit the supply reports equals current:limit."""
+    sim, unit = reg.devices[device]["simulators"][0].split(":")
+    limit, reported, cmd, state = (reg.role(device, r)
+                                   for r in ("ilimit", "ilimit_get", "out_cmd", "out_state"))
+    tol = tolerance(limit)
+    S.sim_set(sim, "%s.iset" % unit, 0.0)
+    S.sim_release(sim, "%s.iset" % unit)
+    try:
+        t_on = time.time()
+        S.put(cmd, 1)
+        S.wait_fresh(reported, t_on, lambda v: abs(v - S.get(limit)) <= tol, ECHO_LIMIT,
+                     "%s reports the limit %r after switching on" % (reported, S.get(limit)))
+        S.wait_for(lambda: S.get(state) == 1, ECHO_LIMIT, lambda: S.describe([state]))
+    finally:
+        S.put(cmd, 0)
+        S.wait_for(lambda: S.get(state) == 0, ECHO_LIMIT, lambda: S.describe([state]))

@@ -167,14 +167,7 @@ def poke(names):
 SIMS = list(reg.simulators)
 
 
-POLL_GATE = pytest.mark.xfail(strict=True, reason=(
-    "FINDING (registry): fails_closed lists <supply>:_poll:gate, which is INVALID (LINK) only "
-    "for about 0.1 s each time a monitor cycle fails to start on the closed port (every ~3 s, "
-    "watchdog); measured INVALID 0 to 21 percent of the time, never for the puller in 8 s; "
-    "it does not stay INVALID through two watchdog restarts (8 s)"))
-CASES = [pytest.param(s, m, marks=POLL_GATE)
-         if m == "close" and reg.simulators[s]["type"] == "matsusada_co" else (s, m)
-         for s in SIMS for m in ("silent", "close")]
+CASES = [(s, m) for s in SIMS for m in ("silent", "close")]
 
 
 @pytest.mark.parametrize("sim,mode", CASES)
@@ -203,12 +196,7 @@ def test_garbage_turns_its_pvs_invalid_and_recovers(sim, live):
 # --- one unit of a bus silent --------------------------------------------------------------------
 
 def polled_units(sim):
-    out = []
-    for u in reg.units(sim):
-        devices = reg.devices_behind(sim, u)
-        if devices and not any(reg.not_polled(d) for d in devices):
-            out.append(u)
-    return out
+    return [u for u in reg.units(sim) if reg.devices_behind(sim, u)]
 
 
 UNITS = [(s, u) for s in SIMS if len(polled_units(s)) >= 2 for u in polled_units(s)]
@@ -272,7 +260,7 @@ def trip_device(sim):
     """The first polled device behind the simulator, and its unit."""
     for u in (reg.units(sim) or [None]):
         for d in reg.devices_behind(sim, u):
-            if not reg.not_polled(d) and reg.devices[d]["class"] != "command":
+            if reg.devices[d]["class"] != "command":
                 return d, u
     raise AssertionError("no polled device behind %s" % sim)
 

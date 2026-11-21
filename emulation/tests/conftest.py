@@ -12,6 +12,7 @@ from system import reg
 snapshot = {}
 held_at_start = {}     # simulator -> signals held from outside when the suite started
 SETTLED = 15          # seconds after an IOC start
+FIRST_CONTACT = 30    # s: probe every 1 s, then GRACE 5 s; 30 s covers a supply answering late
 
 
 def pytest_configure(config):
@@ -55,6 +56,12 @@ def system():
     for ioc, hb in reg.heartbeats().items():
         S.wait_for(lambda: S.connected(hb) and S.get(hb) >= SETTLED, 90,
                    "%s (%s) answers and has run for %d s" % (ioc, hb, SETTLED))
+    # First contact: a supply's permit gate acts GRACE s after the supply first answered; until
+    # then a request is overwritten by the supply's own state (matsusada_au20p7.db)
+    gates = [g for g in (reg.gate_record(d) for d in reg.devices) if g]
+    S.wait_for(lambda: all(S.field(g, "DISA") == "0" for g in gates), FIRST_CONTACT,
+               lambda: "permit gates enabled after the first contact: %s" % {
+                   g: S.field(g, "DISA") for g in gates})
     S.watch(list(reg.pvs))
     for name in reg.pvs:
         if S.connected(name):
