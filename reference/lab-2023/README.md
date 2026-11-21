@@ -1,7 +1,7 @@
 # Lab snapshot of 2023 (`latest.zip`)
 
-Unchanged copy of `latest.zip` (files dated February 2022 to June 2023): the databases, protocol
-files, `st.cmd` and GUI pages of the rack IOC as they were in the lab at that time.
+Copy of `latest.zip` (files dated February 2022 to June 2023, content unchanged, line endings
+normalized by git): the databases, protocol files, `st.cmd` and GUI pages of the rack IOC as they were in the lab at that time.
 
 **Read-only reference. Nothing here is loaded by an IOC or built into the GUI.**
 
