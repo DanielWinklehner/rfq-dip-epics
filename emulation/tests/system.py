@@ -77,11 +77,13 @@ class Registry:
                     units.add(int(unit))
         return sorted(units)
 
-    def fails_with(self, sim, unit=None):
-        """PVs whose `fails_with` covers a fault on the whole simulator (unit None) or one unit."""
+    def fails_with(self, sim, unit=None, key="fails_with"):
+        """PVs whose fault list covers a fault on the whole simulator (unit None) or one unit.
+        key "fails_with": the simulator's silence (and garbled replies) turns them INVALID;
+        "fails_closed": a closed connection does (a superset)."""
         out = []
         for n, s in self.pvs.items():
-            for ref in s.get("fails_with", []):
+            for ref in s.get(key, []):
                 name, _, u = ref.partition(":")
                 if name == sim and (unit is None or u == "" or int(u) == unit):
                     out.append(n)

@@ -52,5 +52,5 @@ emulation: it starts the emulation if it is not running (and stops it again afte
 one stays running), saves the IOC and simulator output to `emulation/build/<service>.log`, runs
 pytest in the `tools` container, prints the update-rate table (`emulation/build/update-rate.md`)
 and exits with pytest's exit code. Arguments go to pytest: `make -C emulation test ARGS="-k valve"`.
-The suite takes about 8 minutes and leaves the system as it found it. What it proves, its time
+The suite takes about 9 minutes and leaves the system as it found it. What it proves, its time
 limits and its expected failures: [tests/README.md](tests/README.md).
