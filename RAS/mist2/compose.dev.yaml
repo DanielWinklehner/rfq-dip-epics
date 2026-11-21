@@ -1,0 +1,73 @@
+# MIST-2 RAS development stack. Start and stop it with the Makefile
+# (make dev-up / dev-down / dev-logs). All settings come from .env.
+# Every service uses the host network of WSL2, as RAS does upstream, so this
+# project creates no Docker network.
+name: mist2ras
+
+services:
+  # ---- Base images: built, never started (profile "build") -----------------
+  epicsbase:
+    image: mist2ras-epicsbase
+    profiles: ["build"]
+    build:
+      context: ./
+      dockerfile: docker/epicsBase/Dockerfile
+  node_cache:
+    image: mist2ras-node-cache
+    profiles: ["build"]
+    build:
+      context: ./
+      dockerfile: docker/node_cache/Dockerfile
+
+  # ---- Running services ------------------------------------------------------
+  # pvServer: Channel Access client (pyepics) and Socket.IO server for the browser.
+  pvserver:
+    image: mist2ras-pvserver
+    build:
+      context: ./
+      dockerfile: docker/pvserver/Dockerfile
+      additional_contexts:
+        epicsbase: "service:epicsbase"
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      # From .env. Listed here so that a value in the shell environment wins,
+      # which tools/pv-proof.sh uses to point pvServer at another subnet.
+      - EPICS_CA_AUTO_ADDR_LIST=${EPICS_CA_AUTO_ADDR_LIST:?set in .env}
+      - EPICS_CA_ADDR_LIST=${EPICS_CA_ADDR_LIST:?set in .env}
+
+  # Vite development server with our ReactApp/src and the RAS sources mounted.
+  frontend:
+    image: mist2ras-frontend-dev
+    build:
+      context: ./
+      dockerfile: docker/frontendserverDev/Dockerfile
+      additional_contexts:
+        node_cache: "service:node_cache"
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      - NODE_OPTIONS=--max_old_space_size=4096
+    command: ["pnpm", "run", "dev", "--host", "127.0.0.1",
+              "--port", "${RAS_VITE_PORT:?set in .env}", "--strictPort"]
+    volumes:
+      - ./ReactApp/package.json:/ReactApp/package.json:ro
+      - ./ReactApp/src:/ReactApp/src:ro
+      - ./ReactApp/public:/ReactApp/public:ro
+      - ./ReactApp/vite.config.js:/ReactApp/vite.config.js:ro
+      - ./ReactApp/index.html:/ReactApp/index.html:ro
+      - ./submodules/React-Automation-Studio/ReactApp/src:/ReactApp/React-Automation-Studio:ro
+
+  # nginx: one origin for the page (Vite) and the pvServer Socket.IO connection.
+  nginx:
+    image: nginx:1.27.0
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    depends_on:
+      - pvserver
+      - frontend
+    volumes:
+      - ./nginx/mist2.dev.conf.template:/etc/nginx/templates/default.conf.template:ro

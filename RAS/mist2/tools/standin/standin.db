@@ -1,0 +1,13 @@
+# Stand-in for the test records of the emulated IOCs (DESIGN.md section 2).
+# Used only by tools/pv-proof.sh, never by the GUI.
+record(calc, "$(P):heartbeat") {
+    field(DESC, "Counts up once per second")
+    field(SCAN, "1 second")
+    field(CALC, "A+1")
+    field(INPA, "$(P):heartbeat NPP")
+}
+record(stringin, "$(P):mode") {
+    field(DESC, "Stand-in IOC")
+    field(VAL,  "sim")
+    field(PINI, "YES")
+}

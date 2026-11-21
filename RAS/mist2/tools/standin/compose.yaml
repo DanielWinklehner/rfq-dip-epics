@@ -1,0 +1,32 @@
+# Two stand-in soft IOCs on their own bridge network, the same situation as the
+# emulated IOCs of emulation/ (rack IOC at .11, platform IOC at .12), on a
+# subnet chosen by tools/pv-proof.sh (STANDIN_PREFIX, e.g. 172.31.0).
+# The image is the EPICS base image that the RAS stack builds.
+name: mist2ras-standin
+
+services:
+  ioc-rack:
+    image: mist2ras-epicsbase
+    command: ["/epics/base/bin/linux-x86_64/softIoc", "-S",
+              "-m", "P=IOC-RACK", "-d", "/standin/standin.db"]
+    volumes:
+      - ./standin.db:/standin/standin.db:ro
+    networks:
+      standin:
+        ipv4_address: ${STANDIN_PREFIX:?}.11
+  ioc-hv:
+    image: mist2ras-epicsbase
+    command: ["/epics/base/bin/linux-x86_64/softIoc", "-S",
+              "-m", "P=IOC-HV", "-d", "/standin/standin.db"]
+    volumes:
+      - ./standin.db:/standin/standin.db:ro
+    networks:
+      standin:
+        ipv4_address: ${STANDIN_PREFIX:?}.12
+
+networks:
+  standin:
+    name: mist2ras-standin
+    ipam:
+      config:
+        - subnet: ${STANDIN_PREFIX:?}.0/24

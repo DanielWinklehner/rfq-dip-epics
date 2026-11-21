@@ -1,0 +1,41 @@
+# nginx for the MIST-2 development stack. The nginx image renders this template
+# with the variables from .env into /etc/nginx/conf.d/default.conf (it replaces
+# the image's default server on port 80). Derived from
+# submodules/React-Automation-Studio/nginx/nginx.dev.conf without the style
+# guide server and without https.
+
+upstream pvserver {
+    server 127.0.0.1:${pvServerPort};
+}
+
+server {
+    listen ${RAS_HTTP_PORT};
+
+    # The page and its JavaScript: the Vite development server.
+    location / {
+        proxy_pass http://127.0.0.1:${RAS_VITE_PORT};
+        proxy_connect_timeout       300;
+        proxy_send_timeout          300;
+        proxy_read_timeout          300;
+        send_timeout                300;
+    }
+    # Vite hot module replacement (vite.config.js: server.hmr.path = "ws").
+    location /ws {
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://127.0.0.1:${RAS_VITE_PORT};
+    }
+    # pvServer: REST (login) and the Socket.IO connection that carries the PVs.
+    location /api {
+        proxy_pass http://pvserver/api;
+    }
+    location /socket.io {
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://pvserver/socket.io;
+    }
+}
