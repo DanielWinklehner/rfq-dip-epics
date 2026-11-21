@@ -56,9 +56,8 @@ plan-check:
 registry:
 	$(TOOLS) python plan/registry.py
 
+# System tests (emulation/tests/README.md). Starts the emulation if it is not running and stops it
+# again afterwards; the container logs of the run are in emulation/build/. ARGS go to pytest:
+#   make -C emulation test ARGS="-k valve"      make -C emulation test ARGS="-m slow"
 test:
-	@if [ -d $(REPO)/emulation/tests ]; then \
-		$(TOOLS) python -m pytest -p no:cacheprovider emulation/tests; \
-	else \
-		echo "emulation/tests does not exist yet: the system tests are not there yet"; \
-	fi
+	@$(HERE)/tests/run.sh $(ARGS)
