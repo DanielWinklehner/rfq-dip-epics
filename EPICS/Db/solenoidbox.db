@@ -1,4 +1,20 @@
+# solenoidbox.db - solenoid valve box in the rack (AVR/devices/SolenoidValveBox)
+#
 # Author: Philip Weigel
+#
+# Macros: DEVICE (PV prefix, VALVE in the lab), PORT (asyn port, AVR12 in the lab).
+# Load libcom1_device.db with the same macros for the identity records.
+#
+# Eight relays, channels s1..s8 in this order. A channel reads 1 when its relay is energised
+# (output pin pulled LOW) and 0 when released. A set energises the relay for exactly 1 and
+# releases it for any other value (set_solenoid() in the sketch). Power-on state: all released.
+#
+# In the lab (RAS/Devices.js, 2023) the channels were labelled s1 "Foreline Valve", s2 "MFC
+# Shutoff Valve", s3 "Vent Valve", s4 "Faraday Cup". That is how this box is plumbed, not a
+# property of the box type, so the descriptions below stay generic.
+#
+# The element records read the array through CA links with MS: when the box stops answering,
+# :data goes INVALID and so does every read-back.
 
 record(aai, "$(DEVICE):data") {
     field(DESC, "All solenoid statuses")
@@ -14,96 +30,114 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):s1:get")
     field(LNK1, "$(DEVICE):s2:get")
-	field(LNK2, "$(DEVICE):s3:get")
-	field(LNK3, "$(DEVICE):s4:get")
-	field(LNK4, "$(DEVICE):s5:get")
-	field(LNK5, "$(DEVICE):s6:get")
-	field(LNK6, "$(DEVICE):s7:get")
-	field(LNK7, "$(DEVICE):s8:get")
+    field(LNK2, "$(DEVICE):s3:get")
+    field(LNK3, "$(DEVICE):s4:get")
+    field(LNK4, "$(DEVICE):s5:get")
+    field(LNK5, "$(DEVICE):s6:get")
+    field(LNK6, "$(DEVICE):s7:get")
+    field(LNK7, "$(DEVICE):s8:get")
 }
 
+# Read-back: 1 = relay energised, 0 = released
 record(ai, "$(DEVICE):s1:get") {
-    field(DESC, "Get s1 status")
+    field(DESC, "Valve s1 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s2:get") {
-    field(DESC, "Get s2 status")
+    field(DESC, "Valve s2 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s3:get") {
-    field(DESC, "Get s3 status")
+    field(DESC, "Valve s3 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s4:get") {
-    field(DESC, "Get s4 status")
+    field(DESC, "Valve s4 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s5:get") {
-    field(DESC, "Get s5 status")
+    field(DESC, "Valve s5 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[4] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s6:get") {
-    field(DESC, "Get s6 status")
+    field(DESC, "Valve s6 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[5] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s7:get") {
-    field(DESC, "Get s7 status")
+    field(DESC, "Valve s7 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[6] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 record(ai, "$(DEVICE):s8:get") {
-    field(DESC, "Get s8 status")
+    field(DESC, "Valve s8 relay state, 1 = energised")
     field(INP, "$(DEVICE):data.VAL[7] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "0")
 }
 
 # The set records use acknowledged sets ("S<channel><value>", reply "ok"). A command the box
 # rejects or does not answer puts the record into alarm instead of passing silently.
 # This needs libcom1 protocol 2 firmware on the box: older firmware answers ERR0 and does
 # NOT execute the set. Flash the firmware before loading this database.
+# s1..s4 are bo and s5..s8 ao, as in the lab's database: 1 energises, anything else releases.
 record(bo, "$(DEVICE):s1:set") {
-	field(DESC, "Set s1")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s1) $(PORT)")
+    field(DESC, "Set valve s1 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s1) $(PORT)")
 }
 record(bo, "$(DEVICE):s2:set") {
-	field(DESC, "Set s2")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s2) $(PORT)")
+    field(DESC, "Set valve s2 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s2) $(PORT)")
 }
 record(bo, "$(DEVICE):s3:set") {
-	field(DESC, "Set s3")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s3) $(PORT)")
+    field(DESC, "Set valve s3 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s3) $(PORT)")
 }
 record(bo, "$(DEVICE):s4:set") {
-	field(DESC, "Set s4")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s4) $(PORT)")
+    field(DESC, "Set valve s4 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s4) $(PORT)")
 }
 record(ao, "$(DEVICE):s5:set") {
-	field(DESC, "Set s5")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s5) $(PORT)")
+    field(DESC, "Set valve s5 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s5) $(PORT)")
 }
 record(ao, "$(DEVICE):s6:set") {
-	field(DESC, "Set s6")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s6) $(PORT)")
+    field(DESC, "Set valve s6 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s6) $(PORT)")
 }
 record(ao, "$(DEVICE):s7:set") {
-	field(DESC, "Set s7")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s7) $(PORT)")
+    field(DESC, "Set valve s7 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s7) $(PORT)")
 }
 record(ao, "$(DEVICE):s8:set") {
-	field(DESC, "Set s8")
-	field(DTYP, "stream")
-	field(OUT, "@libcom1.proto com1_setLink_ack(s8) $(PORT)")
+    field(DESC, "Set valve s8 relay, 1 = energise")
+    field(DTYP, "stream")
+    field(PINI, "NO")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s8) $(PORT)")
 }

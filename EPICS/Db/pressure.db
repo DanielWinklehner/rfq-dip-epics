@@ -1,4 +1,19 @@
+# pressure.db - gauge controller in the rack (AVR/devices/IonGaugeController)
+#
 # Author: Philip Weigel
+#
+# Macros: DEVICE (PV prefix, PRESSURE in the lab), PORT (asyn port, AVR6 in the lab).
+# Load libcom1_device.db with the same macros for the identity records.
+#
+# Two channels, in this order, both in torr (the sketch converts the gauge voltages to torr):
+#   p1  gauge 1, a Pirani gauge ("APG" on the display), 1e-3 to 944 torr
+#   p2  gauge 2, an ion gauge ("AIM" on the display), 7.5e-9 to 7.5e-3 torr
+# The lab's names call p2 the diagnostic box pressure.
+# The sketch keeps sending the last pressure after a gauge was switched off at the box
+# (gauge<n>_torr is not reset), so a value here does not prove that the gauge is on.
+#
+# The element records read the array through CA links with MS: when the controller stops
+# answering, :data goes INVALID and so do both pressures.
 
 record(aai, "$(DEVICE):data") {
     field(DESC, "All pressures")
@@ -20,10 +35,14 @@ record(ai, "$(DEVICE):apg:getpressure") {
     field(DESC, "Get APG Pressure")
     field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "Torr")
+    field(PREC, "2")
 }
 
 record(ai, "$(DEVICE):diag_box:getpressure") {
     field(DESC, "Get Diagnostic Box Pressure")
     field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "Torr")
+    field(PREC, "2")
 }

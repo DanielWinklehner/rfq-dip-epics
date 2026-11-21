@@ -1,4 +1,25 @@
+# sensorbox.db - sensor box in the rack: temperatures and water flows (AVR/devices/SensorBox)
+#
 # Author: Philip Weigel
+#
+# Macros: DEVICE (PV prefix, SENSOR in the lab), PORT (asyn port, AVR10 in the lab).
+# Load libcom1_device.db with the same macros for the identity records.
+#
+# Twelve channels, in this order:
+#   t1..t7  MAX31856 type K thermocouples, degrees Celsius (readThermocouple(CELSIUS)),
+#           read by the box every 0.5 s. A faulted thermocouple reads as the library's error
+#           value (10000 open, 10001 voltage, 10002 no chip), so HIHI = 9999 makes it INVALID.
+#   f1..f5  water flow meters: pulses counted for 0.5 s, multiplied by 0.06. The sketch's
+#           comments contradict each other on the unit (litres per hour, or 1000 pulses per
+#           litre and 60 s per minute, which would need 0.12 for litres per minute), so EGU is
+#           left empty until the flow meters' K factor is known.
+#
+# In the lab (RAS/Devices.js, 2023) the flows were labelled f2 "Turbo pump", f3 "Front
+# Plate", f4 "Faraday Cup 1", f1 and f5 "N/A". That is how this box is plumbed, not a property
+# of the box type, so the descriptions below stay generic.
+#
+# The element records read the array through CA links with MS: when the box stops answering,
+# :data goes INVALID and so does every value record.
 
 record(aai, "$(DEVICE):data") {
     field(DESC, "All temps and flows from sensor box")
@@ -14,86 +35,119 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):t1:gettemp")
     field(LNK1, "$(DEVICE):t2:gettemp")
-	field(LNK2, "$(DEVICE):t3:gettemp")
-	field(LNK3, "$(DEVICE):t4:gettemp")
-	field(LNK4, "$(DEVICE):t5:gettemp")
-	field(LNK5, "$(DEVICE):t6:gettemp")
-	field(LNK6, "$(DEVICE):t7:gettemp")
-	field(LNK7, "$(DEVICE):f1:getflow")
-	field(LNK8, "$(DEVICE):f2:getflow")
-	field(LNK9, "$(DEVICE):f3:getflow")
-	field(LNKA, "$(DEVICE):f4:getflow")
-	field(LNKB, "$(DEVICE):f5:getflow")
+    field(LNK2, "$(DEVICE):t3:gettemp")
+    field(LNK3, "$(DEVICE):t4:gettemp")
+    field(LNK4, "$(DEVICE):t5:gettemp")
+    field(LNK5, "$(DEVICE):t6:gettemp")
+    field(LNK6, "$(DEVICE):t7:gettemp")
+    field(LNK7, "$(DEVICE):f1:getflow")
+    field(LNK8, "$(DEVICE):f2:getflow")
+    field(LNK9, "$(DEVICE):f3:getflow")
+    field(LNKA, "$(DEVICE):f4:getflow")
+    field(LNKB, "$(DEVICE):f5:getflow")
 }
 
 record(ai, "$(DEVICE):t1:gettemp") {
     field(DESC, "Get t1 temperature")
     field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t2:gettemp") {
     field(DESC, "Get t2 temperature")
     field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t3:gettemp") {
     field(DESC, "Get t3 temperature")
     field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t4:gettemp") {
     field(DESC, "Get t4 temperature")
     field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t5:gettemp") {
     field(DESC, "Get t5 temperature")
     field(INP, "$(DEVICE):data.VAL[4] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t6:gettemp") {
     field(DESC, "Get t6 temperature")
     field(INP, "$(DEVICE):data.VAL[5] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):t7:gettemp") {
     field(DESC, "Get t7 temperature")
     field(INP, "$(DEVICE):data.VAL[6] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 
 record(ai, "$(DEVICE):f1:getflow") {
     field(DESC, "Get f1 flow")
     field(INP, "$(DEVICE):data.VAL[7] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "2")
 }
 
 record(ai, "$(DEVICE):f2:getflow") {
     field(DESC, "Get f2 flow")
     field(INP, "$(DEVICE):data.VAL[8] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "2")
 }
 
 record(ai, "$(DEVICE):f3:getflow") {
     field(DESC, "Get f3 flow")
     field(INP, "$(DEVICE):data.VAL[9] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "2")
 }
 
 record(ai, "$(DEVICE):f4:getflow") {
     field(DESC, "Get f4 flow")
     field(INP, "$(DEVICE):data.VAL[10] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "2")
 }
 
 record(ai, "$(DEVICE):f5:getflow") {
     field(DESC, "Get f5 flow")
     field(INP, "$(DEVICE):data.VAL[11] CA MS")
     field(SCAN, "Passive")
+    field(PREC, "2")
 }
