@@ -56,6 +56,14 @@ It exits 0. Against five simulators and one real IOC it covers:
 - the identity PVs;
 - the IOC log contains no database, protocol or link error.
 
+# Notes from the tasks that are already merged
+- **Harness**: `emulation/devtest/run.sh <case-directory> [pytest arguments]`. The case directory holds `sim.yaml` (a YAML LIST of simulator entries), `ioc.cmd` and `test_*.py`. `ioc.cmd` may use `$(SIM_HOST)`, `$(MIST2_DB)` and `$(CASE_DIR)`. The harness loads `ioc_info.db` with `P=DEVTEST` and waits for `DEVTEST:heartbeat`. An error in `ioc.cmd` stops the IOC, and the harness then prints the log tails and exits 99. Logs are in `<case-directory>/build/`. Do not run the same case directory twice at the same time.
+- **Simulator core**: `emulation/sim/README.md` is the reference. Tests reach the control port with `mist2sim.control.ControlClient`. `get` returns values without noise. A silent unit does not execute what it is sent.
+- **Startup files**: an error inside a file loaded with `iocshLoad` does not stop the IOC unless that file starts with `on error break`. The harness adds the line for `ioc.cmd`.
+- **Temporary files**: make your own directory with `mktemp -d`. Do not use a shared scratch directory: other engineers write there at the same time.
+- **Docker**: three other engineers run their own test cases on this Docker daemon at the same time. Touch only containers and networks of your own runs. Do not rebuild the images unless a file under `EPICS/ioc` or `emulation/docker` changed, and you must not change those.
+- **Load**: the unit-test suite contains timing tests with real sockets. If one fails once while the machine is busy and passes when repeated, say so in your report and do not loosen it.
+
 # Rules
 - Do not invent facts. The firmware and the lab's files decide. What they do not say goes into your report as an open point.
 - Keep it small. No new PV names beyond those listed above.

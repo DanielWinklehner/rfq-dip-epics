@@ -6,14 +6,35 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
+
+import yaml
 
 SIM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, SIM_DIR)
 
 from mist2sim.control import ControlClient  # noqa: E402
 
-PORT, CONTROL = 5012, 6012
+PORT, CONTROL = 0, 0  # set in main(): two free ports, so that parallel runs do not collide
+
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def config_with_free_ports():
+    """examples/valvebox.yaml with its two ports replaced by free ones, as a temporary file."""
+    global PORT, CONTROL
+    with open(os.path.join(SIM_DIR, "examples", "valvebox.yaml")) as handle:
+        entries = yaml.safe_load(handle)
+    PORT, CONTROL = free_port(), free_port()
+    entries[0]["port"], entries[0]["control_port"] = PORT, CONTROL
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as handle:
+        yaml.safe_dump(entries, handle)
+    return handle.name
 
 
 def connect(port, timeout=10.0):
@@ -47,7 +68,8 @@ class Line:
 
 
 def main():
-    proc = subprocess.Popen([sys.executable, "-m", "mist2sim", "--config", "examples/valvebox.yaml"],
+    config = config_with_free_ports()
+    proc = subprocess.Popen([sys.executable, "-m", "mist2sim", "--config", config],
                             cwd=SIM_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     checks = 0
     try:
@@ -79,6 +101,7 @@ def main():
                                                    stats["bytes_in"], stats["bytes_out"],
                                                    stats["busy_s"] * 1000))
     finally:
+        os.unlink(config)
         proc.send_signal(signal.SIGTERM)
         try:
             out, _ = proc.communicate(timeout=5)
