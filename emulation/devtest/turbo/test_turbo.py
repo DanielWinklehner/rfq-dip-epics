@@ -15,7 +15,7 @@ OPTA, NT20 = 6000, {1: 6001, 2: 6002}       # control ports
 STOPPED, ACCELERATING, NORMAL, FAILURE, INCONSISTENT = range(5)
 RELAY_PVS = ["start:get", "atspeed:get", "accel:get", "failure:get", "state:get"]
 MONITOR_PVS = ["raw:get", "speed:get", "current:get"]
-RATED = 1200.0
+RATED = 600.0
 
 ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invalid|failed|unknown"
                    r"|syntax|bad ", re.I)

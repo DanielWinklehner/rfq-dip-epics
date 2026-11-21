@@ -31,7 +31,7 @@
   out_terminator: "\r\n"      # ASSUMED line ending
   options: &pump
     period_s: 8.0
-    rated_speed_hz: 1200.0
+    rated_speed_hz: 600.0     # TURBOVAC 1000 C: 36,000 rpm, as in config/rack.yaml
     ramp_up_s: 20.0            # at least two records arrive while it accelerates
     run_down_s: 10.0
     brake_s: 4.0
