@@ -13,7 +13,7 @@
   turnaround_ms: 5            # ASSUMED: response time is not in the manual
   options:
     address: 6
-    load_ohm: 0.025           # ASSUMED: hot filament
+    load_ohm: 0.089           # hot hairpin filament: 8 V at 90 A (owner, 2026-11-21)
 
 # --- Matsusada REK150-24, filament discharge, own RS-485 line (asyn port REK) --------------------
 - name: rek
@@ -42,10 +42,10 @@
     out_buffer: 512
     in_buffer: 128
     channels:
-      - {id: t1, access: rw, behaviour: analog, value: 35.0, noise: 0.05, step: 0.0078125}
-      - {id: t2, access: rw, behaviour: analog, value: 41.0, noise: 0.05, step: 0.0078125}   # back plate
-      - {id: t3, access: rw, behaviour: analog, value: 38.0, noise: 0.05, step: 0.0078125}   # magnet plate
-      - {id: t4, access: rw, behaviour: analog, value: 33.0, noise: 0.05, step: 0.0078125}
+      - {id: t1, access: rw, behaviour: analog, value: 41.0, noise: 0.05, step: 0.0078125}   # back plate
+      - {id: t2, access: rw, behaviour: analog, value: 38.0, noise: 0.05, step: 0.0078125}   # filament feedthrough
+      - {id: t3, access: rw, behaviour: analog, value: 35.0, noise: 0.05, step: 0.0078125}   # isolation transformer 1
+      - {id: t4, access: rw, behaviour: analog, value: 33.0, noise: 0.05, step: 0.0078125}   # isolation transformer 2
       - {id: j1, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
       - {id: j2, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
       - {id: j3, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}

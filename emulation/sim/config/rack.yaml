@@ -145,8 +145,8 @@
   turnaround_ms: 5            # ASSUMED, not in the MKS supplement
   options:
     units:
-      # ASSUMED: full scale and gas of the unit in the lab
-      - {address: 254, full_scale: 50.0, flow_units: SCCM, gas: H2, tau_s: 1.0}
+      # 5 sccm full scale, calibrated for hydrogen (owner, 2026-11-21)
+      - {address: 254, full_scale: 5.0, flow_units: SCCM, gas: H2, tau_s: 1.0}
 
 # --- Faraday cup readout, Arduino Opta, libcom1 over TCP (asyn port FC) -------------------------
 # ASSUMED in full: the firmware is not known. One channel with the cup current in A.

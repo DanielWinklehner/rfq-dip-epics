@@ -5,7 +5,8 @@ Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md]
 ([gui/LAYOUT.md](gui/LAYOUT.md), section "Decision").
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
 table is loaded by the two emulated IOCs (T7 done)**. T8 (system test suite) and T12 (plant model) are merged as well. Running: a follow-up of T8
-that adapts the suite to the corrected registry. Next: the GUI pages (T11) and the plant model on the one-chamber arrangement.
+that adapts the suite to the corrected registry. Running after the owner's answers: the GUI (T11), a second rework of the Matsusada databases,
+and the plant model on the real arrangement and working point.
 
 ## Done
 
@@ -98,6 +99,32 @@ that adapts the suite to the corrected registry. Next: the GUI pages (T11) and t
 - Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
 - Briefs for T8 (system tests) and T10 (plan and registry) are written. T10 starts when T3 is
   merged, T8 after T10, because the tests take their PV names from the registry.
+
+## Answers of the owner, 2026-11-21
+
+Given one by one after G2. They overrule the assumptions and open points below where they touch
+them. "Work" says what each answer changes and who does it.
+
+| # | Question | Answer | Work |
+|---|---|---|---|
+| 1 | Where the gauges sit | nAIM and APG side by side on a side flange of the six-way cross. The AIM of the homemade controller goes to the second six-way behind the dipole in phase 2. The foreline has a gauge that is not in the control system yet and should be added. A pressure measurement on the gas injection is wanted too | Plan: done, two new planned gauges. GUI synoptic, plant model |
+| 2 | Valve channels, vent valve | 1 foreline, 2 MFC shutoff, 3 vent, 4 Faraday cup, 5 to 8 unused. The vent valve vents the turbopump through its side port, and the cross only a little | Plan: done. Plant model |
+| 3 | Turbopump 2 until it exists | Keep its records, hide it in the GUI | Plan flag: done. GUI |
+| 4 | Thermocouples | 1 back plate, 2 filament feedthrough, 3 isolation transformer 1, 4 isolation transformer 2 | Plan labels and simulator: done |
+| 5 | Cooling water | The Opta flow readout replaces the sensor box | Sensor box stays as a stand-in, flagged as assumed: done |
+| 6 | Confirmation dialogs | Only before opening the vent valve. HV is interlocked anyway | GUI |
+| 7 | Theme | Dark | GUI |
+| 8 | Login | None, everyone may operate and open expert views | GUI |
+| 9 | Outputs after the interlock closes again | Latch: stay off, switch on again by hand | Matsusada databases (closes P16) |
+| 10 | Current limit of AU and REK | A PV of its own, not a set point. Limits are read from a defaults file at start, can be changed from the GUI, and the change is saved to that file | Matsusada databases, IOC image, GUI (closes P17) |
+| 11 | Remote mode (REN) | Only at IOC start and on switching, as in the lab | Matsusada databases (closes P19) |
+| 12 | AU supplies | Four, not five: 1 source and 2 puller on USB-OPT, 3 lens 1 and 4 lens 2 on CO-U32. Lens 3 is grounded mechanically and has no supply on the chain | Matsusada startup lines, simulator, plan, tests (closes A2, A3) |
+| 13 | Gauge controller board | Teensy | Simulator and real port file (closes P2) |
+| 14 | nAIM unit | torr | None (closes P8) |
+| 15 | Turbopump | RS-232 port fitted, pump model not known | Plan note: done. Rated speed stays assumed |
+| 16 | Mass flow controller | 5 sccm full scale, hydrogen | Simulator: done. Plant model |
+| 17 | Old interlock box | In use, its two relays switch nothing | Plan note: done (closes P4, A18 for this box) |
+| 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross, MFC at about 20 % of 5 sccm | TDK simulator load: done. Plant model |
 
 ## Not verified
 

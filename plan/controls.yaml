@@ -146,6 +146,7 @@ devices:
     epics: {db: tdk.db, macros: {PORT: TDK, DEVICE: TDK, ADR: "6"}}
     status: keep
     notes:
+      - "Typical operating point (owner, 2026-11-21): 8 V and 90 A on the filament, 150 V and 24 A on the discharge, about 1e-5 torr in the six-way cross, mass flow controller at about 20 % of 5 sccm."
       - "The filament is a hairpin filament (owner, 2026-11-21)."
       - "Sets are already acknowledged (the supply answers OK). A missing or negative answer now ends in an alarm on the set record."
       - "Power, mode and fault register, proposed in revision 0.6, exist now: TDK:power:get, TDK:mode:get, TDK:fault:get."
@@ -208,8 +209,9 @@ devices:
       - {db: libcom1_device.db, macros: {PORT: thermo, DEVICE: THM}}
     status: modify
     libcom1: true
-    labels: {t1: "Temp Sensor 1", t2: "Back Plate Temp", t3: "Magnet Plate Temp", t4: "Temp Sensor 4"}
+    labels: {t1: "Back Plate", t2: "Filament Feedthrough", t3: "Iso Trafo 1", t4: "Iso Trafo 2"}
     notes:
+      - "Channel names (owner, 2026-11-21): 1 back plate, 2 filament feedthrough, 3 isolation transformer 1, 4 isolation transformer 2."
       - "The board sends 16 channels. t1 to t4 (degC), the cold junctions j1 to j4 and the fault codes f1 to f4 have PVs, the junction fault codes a1 to a4 do not. A faulted thermocouple reads INVALID."
       - "Labels t1 to t4 are those of the lab GUI of 2023 (RAS/Devices.js)."
       - "Assumed (A9): 19200 baud as in the firmware; the repository's and the lab's st.cmd say 9600."
@@ -338,6 +340,7 @@ devices:
     epics: {db: mfc.db, macros: {PORT: MFC, DEVICE: MFC, ADDR: "254"}}
     status: keep
     notes:
+      - "Full scale 5 sccm, calibrated for hydrogen, which is the gas in use. Typical set point about 20 % (owner, 2026-11-21)."
       - "Works as it is, no change planned."
       - "The Ethernet port of the unit is for setup only, not for control."
       - "mfc.db and mfc.proto are now in the repository: the lab's draft of 2023 (set point only, commented out in its st.cmd), completed from the MKS RS-485 supplement 1046411-001 Rev. A. Sets are acknowledged. The set point is in percent of full scale, MFC:getFlow in flow units (sccm)."
@@ -358,8 +361,9 @@ devices:
       - {db: pressure.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
       - {db: libcom1_device.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
     status: replace
-    labels: {apg: "APG Pressure", diag_box: "Diagnostic Box Pressure"}
+    labels: {apg: "APG, six-way cross", diag_box: "AIM, second six-way (phase 2)"}
     notes:
+      - "Arrangement (owner, 2026-11-21): the APG sits next to the nAIM on a side flange of the six-way cross. The AIM of this controller goes to the second six-way cross behind the dipole magnet in phase 2, so the channel diag_box measures nothing in phase 1. The board is a Teensy (sketch AVR/devices/IonGaugeController_Teensy)."
       - "To be replaced by an off-the-shelf controller."
       - "Two channels in torr: p1 the Pirani gauge (APG, PRESSURE:apg:getpressure), p2 the ion gauge (AIM, PRESSURE:diag_box:getpressure, the diagnostic box in the lab's names). Labels from the lab GUI of 2023."
       - "The firmware keeps sending the last pressure after a gauge was switched off at the box, so a pressure value does not prove that the gauge is on (P6)."
@@ -393,6 +397,38 @@ devices:
       - "Which gauges stay: only the APG and the AIM, or more heads at IBA (how many channels)?"
       - "With Leybold NT 20 converters on the pumps, A1 is the recommendation. Agreed?"
 
+  - id: gauge_foreline
+    name: "Foreline gauge"
+    model: "tbd (a gauge is on the foreline today, not read by the control system)"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "tbd"
+    protocol: "tbd"
+    status: new
+    proposed:
+      - {name: "PRESSURE:foreline:getpressure", type: ai, egu: torr, desc: "Foreline pressure"}
+    notes:
+      - "Wanted by the owner (2026-11-21): the foreline pressure comes from a gauge that is not in the control system yet and should be added eventually."
+    questions:
+      - "Make and model of the foreline gauge, and how can it be read (analog output, serial)?"
+
+  - id: gauge_gas
+    name: "Gas injection pressure"
+    model: "tbd"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "tbd"
+    protocol: "tbd"
+    status: new
+    proposed:
+      - {name: "PRESSURE:gas:getpressure", type: ai, egu: torr, desc: "Pressure in the gas injection system"}
+    notes:
+      - "Wanted by the owner (2026-11-21): a pressure measurement on the gas injection system."
+    questions:
+      - "Which gauge, and where on the gas line (before or behind the mass flow controller)?"
+
   - id: naim
     name: "Ion gauge (digital)"
     model: "Edwards nAIM"
@@ -403,8 +439,9 @@ devices:
     protocol: "StreamDevice, aim.proto, 9600 baud"
     epics: {db: aim.db, macros: {PORT: AIM, DEVICE: AIM}}
     status: keep
-    labels: {p: "nAIM-S Ion Gauge Source Pressure"}
+    labels: {p: "nAIM, six-way cross"}
     notes:
+      - "On a side flange of the six-way cross, next to the APG. The gauge is set to torr (owner, 2026-11-21)."
       - "AIM:enable now waits for the gauge's answer, so a rejected or unanswered command raises an alarm."
       - "Assumed (A15): the gauge answers !C752 as in the Edwards manual, and the pressure is in torr as in the lab's database."
     questions:
@@ -452,6 +489,7 @@ devices:
     status: new
     flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
     notes:
+      - "The RS-232 data port is fitted. The TURBOVAC model is not known yet (owner, 2026-11-21)."
       - "On the bottom flange of the CF 10 inch six-way cross (owner, 2026-11-21)."
       - "Assumed (A16): the RS-232 port is fitted. Assumed (A17, P14): the record format is invented until a capture from a unit exists. TURBO1:raw:get and TURBO1:age:get work with any one-line format."
 
@@ -507,6 +545,7 @@ devices:
     libcom1: true
     labels: {s1: "Foreline Valve", s2: "MFC Shutoff Valve", s3: "Vent Valve", s4: "Faraday Cup"}
     notes:
+      - "Channels (owner, 2026-11-21): 1 foreline valve, 2 MFC shutoff valve, 3 vent valve, 4 Faraday cup actuator, 5 to 8 unused. The vent valve vents the turbopump through the vent port on its side, and through it the six-way cross a little: the nitrogen inflow is small."
       - "Stays in service until the additional Optas have arrived (a few weeks). Flash the protocol 2 firmware anyway, so that sets are acknowledged in the meantime."
     questions:
       - "The device list says 4 x solenoid valve controller, st.cmd loads one box with 8 channels. Four boxes, or four valves on one box? (The emulation assumes one box with 8 channels, A14.)"
@@ -554,10 +593,12 @@ devices:
     epics:
       - {db: sensorbox.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
       - {db: libcom1_device.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
+    flags: {assumed: "Stand-in: the cooling water is read by an Arduino Opta whose firmware and channels are not known yet"}
     status: tbd
     libcom1: true
     labels: {f1: "N/A", f2: "Turbo pump", f3: "Front Plate", f4: "Faraday Cup 1", f5: "N/A"}
     notes:
+      - "Replaced by the flow meter readout on an Arduino Opta (owner, 2026-11-21). The emulation keeps the sensor box as a stand-in for the cooling water until the Opta's firmware and channels are known."
       - "Seven temperatures t1 to t7 (degC) and five water flows f1 to f5. Flow labels from the lab GUI of 2023."
       - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
     questions:
@@ -578,6 +619,7 @@ devices:
     status: replace
     labels: {i1: "HV Door Lower", i2: "HV Door Upper"}
     notes:
+      - "Still in the system in phase 1. Its two relay outputs switch nothing (owner, 2026-11-21)."
       - "Two interlock inputs, the HV cage doors (1 = door closed; labels from the lab GUI of 2023). The summary PV interlock_open (formerly interlock_status) has no device prefix. It is the output permit of the AU supplies and the REK."
       - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
     questions:

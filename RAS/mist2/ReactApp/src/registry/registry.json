@@ -463,7 +463,7 @@
    },
    "channels": {
     "t1": {
-     "label": "Temp Sensor 1",
+     "label": "Back Plate",
      "roles": {
       "value": "THM:t1:get",
       "junction": "THM:j1:get",
@@ -471,7 +471,7 @@
      }
     },
     "t2": {
-     "label": "Back Plate Temp",
+     "label": "Filament Feedthrough",
      "roles": {
       "value": "THM:t2:get",
       "junction": "THM:j2:get",
@@ -479,7 +479,7 @@
      }
     },
     "t3": {
-     "label": "Magnet Plate Temp",
+     "label": "Iso Trafo 1",
      "roles": {
       "value": "THM:t3:get",
       "junction": "THM:j3:get",
@@ -487,7 +487,7 @@
      }
     },
     "t4": {
-     "label": "Temp Sensor 4",
+     "label": "Iso Trafo 2",
      "roles": {
       "value": "THM:t4:get",
       "junction": "THM:j4:get",
@@ -1986,13 +1986,13 @@
    },
    "channels": {
     "apg": {
-     "label": "APG Pressure",
+     "label": "APG, six-way cross",
      "roles": {
       "p": "PRESSURE:apg:getpressure"
      }
     },
     "diag_box": {
-     "label": "Diagnostic Box Pressure",
+     "label": "AIM, second six-way (phase 2)",
      "roles": {
       "p": "PRESSURE:diag_box:getpressure"
      }
@@ -2120,7 +2120,7 @@
     "enable": "AIM:enable"
    },
    "labels": {
-    "p": "nAIM-S Ion Gauge Source Pressure"
+    "p": "nAIM, six-way cross"
    },
    "simulators": [
     "aim"
@@ -3145,7 +3145,9 @@
    "page": "Cooling and interlocks",
    "ioc": "ioc_rack",
    "status": "tbd",
-   "flags": {},
+   "flags": {
+    "assumed": "Stand-in: the cooling water is read by an Arduino Opta whose firmware and channels are not known yet"
+   },
    "roles": {
     "id": "SENSOR:id",
     "firmware": "SENSOR:firmware",
