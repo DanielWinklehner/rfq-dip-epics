@@ -88,8 +88,8 @@ def main(argv=None):
 
     print("PLANT MODEL STEP RESPONSES (%s)" % os.path.relpath(args.config))
     print()
-    print("The model is calibrated to ONE working point the owner gave from memory (2026-11-21).")
-    print("The point itself is reproduced; every slope, gain and time constant below is a property")
+    print("Filament and discharge are calibrated to ONE working point the owner gave from memory")
+    print("(2026-11-21) and reproduce it; every slope, gain and time constant below is a property")
     print("of the MODEL, not measured on MIST-2. Tune a loop on them to test it in the emulation;")
     print("on the machine, measure the step responses again.")
     print()
@@ -101,15 +101,37 @@ def main(argv=None):
     print("   discharge  %4.0f V at %5.1f A   ->  %5.1f V, %5.2f A (REK limit %g A = its full scale)" % (
         p["wp_discharge_voltage_v"], p["wp_discharge_current_a"], o["discharge_voltage"],
         o["rek_current"], wp["rek_iset"]))
-    print("   cross      %.1e torr at %.1f sccm ->  nAIM %.2e torr (true H2 %.2e), APG %.0e (its floor)" % (
-        p["wp_cross_reading_torr"], p["wp_gas_sccm"], o["aim_reading"], o["cross_pressure"],
-        o["apg_reading"]))
     print("Derived: hot filament %.4f ohm, %.0f K, area %.1f cm2 (a tungsten wire of %.2f mm x %.1f cm),"
           % (d["filament_r_hot_ohm"], d["filament_t_hot_k"], d["filament_area_cm2"],
              d["wire_diameter_mm"], d["wire_length_cm"]))
-    print("   emission %.1f A, plasma limit %.0f A at 150 V, pumping speed %.0f l/s for H2,"
-          % (d["emission_a"], d["plasma_limit_a"], d["turbo_speed_l_s"]))
-    print("   plasma chamber %.1e torr." % d["chamber_wp_torr"])
+    print("   emission %.1f A, plasma limit %.0f A at 150 V, plasma chamber %.1e torr."
+          % (d["emission_a"], d["plasma_limit_a"], d["chamber_wp_torr"]))
+    print()
+    lo, hi = p["wp_cross_reading_low_torr"], p["wp_cross_reading_high_torr"]
+    pred = d["aim_wp_reading_torr"]
+    print("Pressure in the cross at the working point: PREDICTED from the pump's data, not calibrated")
+    print("   pumping speed %.0f l/s N2 (data sheet TURBOVAC 1000 C, 250 ISO-K; the owner thinks it"
+          % p["turbo_speed_n2_l_s"])
+    print("   is that pump) x %.3f (H2/N2, estimate) = %.0f l/s H2"
+          % (p["turbo_h2_n2_ratio"], d["turbo_speed_l_s"]))
+    print("   %.1f sccm H2 -> true pressure %.2e torr -> nAIM reading %.2e torr (x %.2f for H2);"
+          % (p["wp_gas_sccm"], d["cross_wp_torr"], pred, p["aim_h2_factor"]))
+    print("   the model in operation: nAIM %.2e torr, APG %.0e (its floor)"
+          % (o["aim_reading"], o["apg_reading"]))
+    if lo <= pred <= hi:
+        verdict = "INSIDE the range"
+    elif pred < lo:
+        verdict = "BELOW the range, a factor %.1f under its low end" % (lo / pred)
+    else:
+        verdict = "ABOVE the range, a factor %.1f over its high end" % (pred / hi)
+    print("   owner's range %.0e to %.0e torr: the prediction is %s." % (lo, hi, verdict))
+    if not lo <= pred <= hi:
+        print("   Possible reasons, none chosen: the gauge's calibration for hydrogen (without the")
+        print("   H2 factor the reading would be %.1e torr); the gauge on a side flange away from the"
+              % d["cross_wp_torr"])
+        print("   pump; a conductance between pump and chamber (flange, valve, screen) that lowers the")
+        print("   effective speed; the remembered flow (20 % of 5 sccm); a different pump or speed;")
+        print("   the base pressure (a free choice, %.0e torr reading)." % p["cross_base_reading_torr"])
     print()
 
     print("1. Filament current step %+g A -> discharge current (REK current limit at %g A)" % (
