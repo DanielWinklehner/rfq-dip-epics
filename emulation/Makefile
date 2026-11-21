@@ -21,7 +21,7 @@ up:
 	$(COMPOSE) up -d --wait
 
 down:
-	$(COMPOSE) --profile tools down --remove-orphans
+	$(COMPOSE) --profile tools --profile plant down --remove-orphans
 
 restart:
 	$(COMPOSE) restart

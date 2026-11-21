@@ -3,7 +3,7 @@
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite).
+table is loaded by the two emulated IOCs (T7 done)**. T12 (plant model) is merged as well. Running: T8 (system test suite).
 
 ## Done
 
@@ -30,6 +30,13 @@ table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test s
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T12 merged** (run by the lead: 122 unit tests including the plant with the real simulators
+  in-process, and the step-response tool; the check on the full emulation is still to do):
+  `python -m mist2sim.plant`, started with `make -C emulation up-plant`. Without that, the
+  emulation behaves as before. `emulation/sim/tools/plant_step_response.py` prints gain, dead
+  time and time constant of the model for loop tuning. Every parameter in
+  `emulation/sim/config/plant.yaml` says whether it is a physical law, an estimate or a free
+  choice. Nothing in it is measured on MIST-2.
 - **T10 merged** (checked by the lead, including three negative checks): `plan/controls.yaml`
   is revision 0.7 and describes what was built. `make -C emulation plan-check` now compares the
   plan with the databases and both `st.cmd` files and fails on any difference. The device
