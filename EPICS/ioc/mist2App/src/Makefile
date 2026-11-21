@@ -14,10 +14,12 @@ mist2_DBD += asyn.dbd
 mist2_DBD += drvAsynIPPort.dbd
 mist2_DBD += drvAsynSerialPort.dbd
 mist2_DBD += stream.dbd
+mist2_DBD += asSupport.dbd
 
 mist2_SRCS += mist2_registerRecordDeviceDriver.cpp
 mist2_SRCS_DEFAULT += mist2Main.cpp
 
+mist2_LIBS += autosave
 mist2_LIBS += stream
 mist2_LIBS += asyn
 mist2_LIBS += $(EPICS_BASE_IOC_LIBS)

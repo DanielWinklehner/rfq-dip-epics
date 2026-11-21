@@ -23,11 +23,33 @@ services:
     init: true
     command: ["sh", "-c", "${DEVTEST_SIM:?}"]
 
+  # The IOC runs in a loop, so that a test can restart it: a new content of the file
+  # build/ioc-restart of the case (written by the test container) stops the IOC process and
+  # starts it again in the same container (its /tmp is kept). An IOC that exits by itself ends
+  # the container, as before.
   ioc:
     image: mist2-ioc:dev
     init: true
-    entrypoint: ["/opt/mist2/EPICS/ioc/bin/linux-x86_64/mist2"]
-    command: ["/devtest/st.cmd"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        trigger=/case/build/ioc-restart
+        trap 'kill $$pid 2>/dev/null; exit 0' TERM INT
+        while true; do
+          seen=$$(cat $$trigger 2>/dev/null)
+          /opt/mist2/EPICS/ioc/bin/linux-x86_64/mist2 /devtest/st.cmd &
+          pid=$$!
+          while kill -0 $$pid 2>/dev/null; do
+            sleep 0.2
+            if [ "$$(cat $$trigger 2>/dev/null)" != "$$seen" ]; then
+              kill $$pid; wait $$pid
+              echo "devtest: IOC restarted on request"
+              continue 2
+            fi
+          done
+          wait $$pid
+          exit $$?
+        done
     working_dir: /tmp
     environment:
       TOP: /opt/mist2/EPICS/ioc

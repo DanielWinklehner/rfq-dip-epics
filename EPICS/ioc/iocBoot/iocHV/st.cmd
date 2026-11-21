@@ -29,11 +29,24 @@ dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-HV")
 dbLoadRecords("$(MIST2_DB)/tdk.db",            "PORT=TDK,DEVICE=TDK,ADR=6")
 
 # Filament discharge: Matsusada REK150-24, unit 1. For the REK150-55 add IFS=55.
-# PERMIT (default interlock_open) is a PV of the rack IOC, read over Channel Access.
+# PERMIT (default interlock_open) is a PV of the rack IOC, read over Channel Access. Losing it
+# switches the output off and clears the request (latch).
 dbLoadRecords("$(MIST2_DB)/rek.db",            "PORT=REK,UNITNUM=1")
 
 # Thermocouple board (libcom1)
 dbLoadRecords("$(MIST2_DB)/thermocouples.db",  "PORT=thermo,DEVICE=THM")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=thermo,DEVICE=THM")
+
+## Limits (the current limits of the HV supplies): autosave. At the start the defaults file of
+## this IOC is restored, then the file saved at run time in $(MIST2_SAVE)/$(IOC), which
+## overrides it (missing at the first start: the defaults apply). Every PV of a record with
+## info(autosaveFields, ...) is saved within 5 s of a change. run-ioc.sh creates the directory.
+set_savefile_path("$(MIST2_SAVE)/$(IOC)")
+set_requestfile_path("$(MIST2_SAVE)/$(IOC)")
+save_restoreSet_DatedBackupFiles(0)
+set_pass0_restoreFile("$(TOP)/iocBoot/$(IOC)/limits.defaults")
+set_pass0_restoreFile("limits.sav")
+afterIocRunning("makeAutosaveFileFromDbInfo $(MIST2_SAVE)/$(IOC)/limits.req autosaveFields")
+afterIocRunning("create_monitor_set limits.req 5")
 
 iocInit
