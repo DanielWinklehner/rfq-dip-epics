@@ -1,0 +1,9 @@
+# Local settings, created from env.template by `make`. Never commit it.
+.env
+
+# Node and build output
+node_modules/
+ReactApp/node_modules/
+ReactApp/dist/
+ReactApp/package-lock.json
+ReactApp/pnpm-lock.yaml
