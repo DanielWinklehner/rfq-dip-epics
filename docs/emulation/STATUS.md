@@ -30,6 +30,9 @@ wiring the merged devices into the two IOCs (T7).
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T7 done as far as the merged devices go** (by the lead): both IOCs load every device except
+  the Matsusada supplies. `make -C emulation up` starts two IOCs and two simulator containers.
+  Both IOC logs are free of errors and a PV of every device was read.
 - **T5 merged** (acceptance run by the lead: 9 MFC, 6 Faraday cup, 9 turbopump tests):
   `mfc.db`, `faradaycup.db`, `turbo.db`, `turbo_pump.db`, `nt20_monitor.db` with their protocol
   files and simulators. The MKS RS-485 supplement (1046411-001 Rev. A) was found, so the MFC
@@ -57,7 +60,8 @@ wiring the merged devices into the two IOCs (T7).
 
 - G2: choice of the GUI layout, and the questions about the machine in gui/LAYOUT.md section 6.
 - Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
-- Briefs for T3 to T6 are written (`briefs/`). They start when T1 and T2 are merged.
+- Briefs for T8 (system tests) and T10 (plan and registry) are written. T10 starts when T3 is
+  merged, T8 after T10, because the tests take their PV names from the registry.
 
 ## Subagents
 
