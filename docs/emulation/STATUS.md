@@ -117,7 +117,7 @@ both IOCs, expected in the week of 2026-11-23.
 
 | # | Point | Needs |
 |---|---|---|
-| P1 | `THM:channels` is cut after 39 characters: the thermocouple board's list of 16 channels has 47. The limit is in `libcom1.proto` and `libcom1_device.db` (a string record). Fix planned after T3 to T5 are merged | Lead |
+| P1 | Done: `<DEVICE>:channels` is a long-string record with up to 255 characters. A client reads the whole text from the field `VAL$` (`caget -S THM:channels.VAL$`). A plain read of `THM:channels` still ends after 39 characters, which is a limit of Channel Access strings. `id` and `firmware` are still limited to 39 characters, and no device comes near that | Closed |
 | P2 | Which gauge controller firmware runs in the lab: `IonGaugeController` (Arduino Mega, 8N1) or `IonGaugeController_Teensy`? The lab's `st.cmd` calls it a Teensy and sets even parity. The emulator follows the Mega sketch | You |
 | P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is left empty | You |
 | P4 | The interlock box has two relay channels (`s1`, `s2`) that no database uses. What do they switch? | You |
