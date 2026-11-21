@@ -40,20 +40,21 @@
     units: torr               # ASSUMED: the unit configured in the gauge (the lab's database says torr)
     pressure: 2.0e-6
 
-# --- Gauge controller for APG and AIM, Arduino Mega, libcom1 (asyn port AVR6) -------------------
-# AVR/devices/IonGaugeController: channels p1 (APG, foreline) and p2 (AIM, diagnostic box)
+# --- Gauge controller for APG and AIM, Teensy, libcom1 (asyn port AVR6) -------------------------
+# AVR/devices/IonGaugeController_Teensy (owner, 2026-11-21: the board is a Teensy).
+# Channels p1 (APG, on the six-way cross) and p2 (AIM: second six-way cross, phase 2)
 - name: gauges
   type: libcom1
   port: 5006
   baud: 115200
-  bits_per_char: 10           # 8N1 as in the sketch (the lab's st.cmd says even parity)
+  bits_per_char: 10           # USB serial of the Teensy: only sets the reply delay here
   turnaround_ms: 1            # ASSUMED
   in_terminator: "\n"
   out_terminator: "\r\n"      # Serial.println
   options:
-    identity: IonGaugeController
+    identity: IonGaugeController_Teensy
     firmware: "Nov 21 2026"   # the sketch reports __DATE__
-    number_format: avr
+    number_format: g          # Teensy (ARM): snprintf %g, not the AVR format
     out_buffer: 128
     in_buffer: 128
     channels:

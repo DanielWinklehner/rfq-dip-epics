@@ -40,11 +40,11 @@ asynSetOption("AIM",-1,"stop","1")
 asynSetOption("AIM",-1,"clocal","Y")
 asynSetOption("AIM",-1,"crtscts","N")
 
-# Gauge controller for APG and AIM, Arduino, libcom1
+# Gauge controller for APG and AIM, Teensy, libcom1. Even parity as in the lab's st.cmd of 2023.
 drvAsynSerialPortConfigure("AVR6","/dev/mist2/gauges")
 asynSetOption("AVR6",-1,"baud","115200")
 asynSetOption("AVR6",-1,"bits","8")
-asynSetOption("AVR6",-1,"parity","none")
+asynSetOption("AVR6",-1,"parity","even")
 asynSetOption("AVR6",-1,"stop","1")
 asynSetOption("AVR6",-1,"clocal","Y")
 asynSetOption("AVR6",-1,"crtscts","N")
