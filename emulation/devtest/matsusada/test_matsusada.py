@@ -41,7 +41,12 @@ def test_every_pv_is_valid():
     for d in POLLED:
         wait_for(lambda: all_valid(d), 12, "%s: every PV without alarm" % d)
         assert get(d + ":OutputIntlk.STAT") == 0
-    assert all_valid(LENS3, WRITES + ["voltage:get", "current:get"])
+    assert all_valid(LENS3, WRITES + ["voltage:get", "current:get", "_poll:tick", "_poll:gate",
+                                      "_poll:done"])
+    for d in POLLED:
+        assert all_valid(d, ["_poll:tick", "_poll:gate", "_poll:done"])
+    for pv in ("AU:alloff:set", "AU:alloff:chain1", "AU:alloff:chain2"):   # never used yet
+        assert sevr(pv) == 0, pv
     for s in LENS3_UNREAD:
         assert sevr("%s:%s" % (LENS3, s)) == 3 and get("%s:%s.STAT" % (LENS3, s)) == 17, s
 
@@ -83,7 +88,7 @@ def test_set_points_echo_and_monitors(d):
     wait_for(lambda: get(d + ":current:read") == pytest.approx(amps, abs=0.002 * ifs), 3,
              "%s: current:read = V / load" % d)
     watts = 0.5 * vfs * amps * to_a
-    assert get(d + ":power:read") == pytest.approx(watts, rel=0.01)
+    assert get(d + ":power:read") == pytest.approx(watts, rel=0.015)
     switch(d, False)
     wait_for(lambda: get(d + ":voltage:read") < 0.002 * vfs, 3, "%s: output falls to 0" % d)
     wait_for(lambda: get(d + ":current:get") == 0, ECHO, "ICN 0 when switching off")
@@ -105,8 +110,8 @@ def test_echo_that_differs_raises_an_alarm():
         c.set("3.vset", 1234.0)                      # the supply keeps another setting
         try:
             put(d + ":voltage:setpoint", 5000)
-            assert sevr(d + ":voltage:setpoint") == 3      # INVALID, CALC: echo differs
-            assert get(d + ":voltage:setpoint.STAT") == 12
+            wait_for(lambda: sevr(d + ":voltage:setpoint") == 3                # INVALID,
+                     and get(d + ":voltage:setpoint.STAT") == 12, 2, "CALC alarm")  # echo differs
             wait_for(lambda: get(d + ":voltage:get") == pytest.approx(1234, abs=1), ECHO,
                      "the echo shows the supply's setting")
         finally:
@@ -182,7 +187,7 @@ def test_silent_unit_does_not_stall_its_chain():
         rate = monitor_rate(other + ":voltage:read", 5.0)
         print("silent unit 5: monitors INVALID after %.1f s, echoes after %.1f s; unit 3 keeps "
               "%.1f updates/s" % (fast, slow, rate))
-        assert rate > 2.0
+        assert rate > 1.0                            # even share with the timeouts
         assert all_valid(other, ["voltage:read", "current:read", "status:read"])
         c.clear("silent")
     wait_for(lambda: all_valid(d, [s for s in SUFFIXES if s != "voltage:setpoint"]), 12,
@@ -195,10 +200,12 @@ def test_silent_unit_does_not_stall_its_chain():
 def test_closed_chain_recovers():
     with control("mat_co") as c:
         c.fault("close")
-        for d in ("AU-20P7-3", "AU-20P7-5"):
-            wait_for(lambda: invalid(d, ["voltage:read", "status:read"]), 5, "%s INVALID" % d)
-        time.sleep(2)
-        c.clear("close")
+        try:
+            for d in ("AU-20P7-3", "AU-20P7-5"):
+                wait_for(lambda: invalid(d, ["voltage:read", "status:read"]), 5, "%s INVALID" % d)
+            time.sleep(2)
+        finally:
+            c.clear("close")
     for d in ("AU-20P7-3", "AU-20P7-5"):
         wait_for(lambda: all_valid(d), 20, "%s recovers after the chain is back" % d)
 

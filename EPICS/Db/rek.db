@@ -4,7 +4,7 @@
 #   DEV (REK), VFS (150) V, IFS (24) A (55 for the REK150-55), EGUI (A), PDIV (1): power in W,
 #   PROTO (rek.proto). Other macros and defaults as in matsusada_au20p7.db: UNITNUM, PORT, POL,
 #   VDRVL, VDRVH, PERMIT (interlock_open), ICN_ON (100), SCAN_MON (.1 second),
-#   SCAN_GET (5 second), SCAN_STS (1 second), GRACE (5).
+#   SCAN_GET (5 second), SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
 # Keep both files in step: the record part is matsusada_au20p7.db with these defaults.
 #
 # Author: Philip Weigel; reworked for MIST-2 in 2026 (current in A, not mA; power in W).
@@ -40,11 +40,11 @@ record(ai, "$(DEV=REK)-$(UNITNUM):voltage:read") {
     field(DESC, "Read voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) read_voltage($(UNITNUM)) $(PORT)")
-    field(SCAN, "$(SCAN_MON=.1 second)")
     field(EGU,  "V")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
     field(ASLO, "$(POL=)$(VFS=150)")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):current:read")
 }
 
 record(ao, "$(DEV=REK)-$(UNITNUM):current:setpoint") {
@@ -78,7 +78,6 @@ record(ai, "$(DEV=REK)-$(UNITNUM):current:read") {
     field(DESC, "Read current of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) read_current($(UNITNUM)) $(PORT)")
-    field(SCAN, "$(SCAN_MON=.1 second)")
     field(EGU,  "$(EGUI=A)")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
@@ -93,6 +92,52 @@ record(calc, "$(DEV=REK)-$(UNITNUM):power:read") {
     field(CALC, "A*B/$(PDIV=1)")
     field(PREC, "3")
     field(EGU,  "W")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):_poll:done")
+}
+
+# --- fast polling (internal records, _poll) ---------------------------------------------------
+# The monitors are read as one cycle: voltage:read -> current:read -> power:read -> _poll:done.
+# A new cycle starts when the last one is done AND a tick of SCAN_MON has come since the last
+# start (the tick is remembered, not lost while the cycle runs). So each supply has at most one
+# monitor request waiting for the line: when the line is full, the supplies of a chain take
+# turns and share it evenly; when it is not, every supply is read once per SCAN_MON. Nothing
+# about the other supplies of the chain needs to be known.
+# Watchdog: if a cycle has not finished after POLL_LIMIT ticks, the next tick starts a new one
+# (and _poll:tick shows MINOR while it is late), so a lost forward link cannot stop the polling.
+
+# Every SCAN_MON: due := 1. VAL counts the ticks the current cycle has been running.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_poll:tick") {
+    field(DESC, "Monitor tick (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SCAN, "$(SCAN_MON=.1 second)")
+    field(INPA, "$(DEV=REK)-$(UNITNUM):_poll:gate.C NPP")
+    field(CALC, "E:=A?E+1:0;E")
+    field(OOPT, "Every Time")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "1")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):_poll:gate.A PP")
+    field(HIGH, "$(POLL_LIMIT=30)")
+    field(HSV,  "MINOR")
+}
+
+# A = due, C = cycle running, D = ticks it has been running. Starts a cycle when due and idle
+# (or late), and then clears due and sets running.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_poll:gate") {
+    field(DESC, "Starts a monitor cycle (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPD, "$(DEV=REK)-$(UNITNUM):_poll:tick.E NPP")
+    field(CALC, "K:=A&&(!C||D>$(POLL_LIMIT=30));A:=K?0:A;C:=K?1:C;K")
+    field(OOPT, "When Non-zero")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):voltage:read.PROC PP")
+}
+
+# End of a cycle: running := 0, and the gate looks whether the next one is due.
+record(dfanout, "$(DEV=REK)-$(UNITNUM):_poll:done") {
+    field(DESC, "End of a monitor cycle (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(DEV=REK)-$(UNITNUM):_poll:tick.E NPP")
+    field(OUTB, "$(DEV=REK)-$(UNITNUM):_poll:gate.C PP")
 }
 
 # --- output ------------------------------------------------------------------------------------
