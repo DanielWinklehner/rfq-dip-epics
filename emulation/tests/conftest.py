@@ -85,12 +85,14 @@ def live():
     test can watch "keep updating". Found by observation, so a database change of a scan rate
     does not need a test change."""
     names = [n for n in reg.pvs if n in snapshot]
-    t0 = {n: S.read(n)["timestamp"] for n in names}
+    last = {n: S.read(n)["timestamp"] for n in names}
+    count = {n: 0 for n in names}
     end = time.monotonic() + 2.5
-    advanced = set()
-    while time.monotonic() < end:
+    while time.monotonic() < end:          # advanced twice: processed at least every ~1.2 s
         for n in names:
-            if n not in advanced and S.read(n)["timestamp"] > t0[n]:
-                advanced.add(n)
+            t = S.read(n)["timestamp"]
+            if t > last[n]:
+                last[n], count[n] = t, count[n] + 1
         time.sleep(0.2)
+    advanced = {n for n in names if count[n] >= 2}
     return advanced
