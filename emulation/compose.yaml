@@ -1,0 +1,80 @@
+# MIST-2 emulation: two control computers, each one IOC with its own address.
+# Use through the Makefile (make -C emulation up), see README.md.
+name: mist2emu
+
+x-ioc: &ioc
+  image: mist2-ioc:dev
+  init: true            # signals reach the IOC (docker stop), zombie reaping
+  stdin_open: true      # docker attach gives the IOC shell (detach: ctrl-p ctrl-q)
+  tty: true
+  restart: "no"
+  environment:
+    MIST2_PORTS: sim
+  volumes:
+    # Edits need only `docker compose restart`, no image build.
+    - ../EPICS/Db:/opt/mist2/EPICS/Db:ro
+    - ../EPICS/ioc/iocBoot:/opt/mist2/EPICS/ioc/iocBoot:ro
+
+services:
+  ioc-rack:
+    <<: *ioc
+    hostname: ioc-rack
+    command: ["iocRack", "sim"]
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.11
+    healthcheck:
+      test: ["CMD", "env", "EPICS_CA_AUTO_ADDR_LIST=NO", "EPICS_CA_ADDR_LIST=127.0.0.1",
+             "caget", "-w", "2", "IOC-RACK:heartbeat"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 1s
+      retries: 3
+
+  ioc-hv:
+    <<: *ioc
+    hostname: ioc-hv
+    command: ["iocHV", "sim"]
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.12
+    healthcheck:
+      test: ["CMD", "env", "EPICS_CA_AUTO_ADDR_LIST=NO", "EPICS_CA_ADDR_LIST=127.0.0.1",
+             "caget", "-w", "2", "IOC-HV:heartbeat"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 1s
+      retries: 3
+
+  # Reserved for the simulators the lead adds later: sim-rack .21, sim-hv .22, plant .30.
+
+  tools:
+    profiles: ["tools"]
+    image: mist2-tools:dev
+    user: "${MIST2_UID:-1000}:${MIST2_GID:-1000}"   # files written into /repo belong to the host user
+    working_dir: /repo
+    entrypoint: []
+    command: ["bash"]
+    environment:
+      HOME: /tmp
+      PYTHONPATH: /repo/emulation/sim
+      PYTHONDONTWRITEBYTECODE: "1"
+      EPICS_CA_AUTO_ADDR_LIST: "NO"
+      EPICS_CA_ADDR_LIST: ${MIST2_SUBNET:-172.30.0}.255
+    volumes:
+      - ..:/repo
+    networks:
+      - mist2ctl
+
+networks:
+  mist2ctl:
+    name: mist2ctl
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${MIST2_SUBNET:-172.30.0}.0/24
+          # Containers without a fixed address get one from the upper half, so .1 to .127
+          # stay free for fixed addresses (IOCs .11 .12, simulators .21 .22 .30).
+          ip_range: ${MIST2_SUBNET:-172.30.0}.128/25

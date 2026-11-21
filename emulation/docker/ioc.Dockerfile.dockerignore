@@ -1,0 +1,12 @@
+# Only the EPICS tree goes into the IOC image, without local build products.
+*
+!EPICS
+EPICS/ioc/bin
+EPICS/ioc/lib
+EPICS/ioc/dbd
+EPICS/ioc/db
+EPICS/ioc/include
+EPICS/ioc/configure/RELEASE.local
+EPICS/ioc/configure/O.*
+EPICS/ioc/mist2App/src/O.*
+EPICS/ioc/iocBoot/*/envPaths

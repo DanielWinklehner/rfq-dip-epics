@@ -1,0 +1,51 @@
+# Device test harness: one simulator, one IOC, one pytest container on a network of their own.
+# Started by run.sh only, which sets the project name and the variables below.
+#   DEVTEST_REPO   the worktree run.sh belongs to      DEVTEST_CASE  the case directory
+#   DEVTEST_SIM    the simulator command                MIST2_UID/GID the calling user
+# No fixed subnet: Docker assigns one, so parallel runs do not collide.
+
+x-tools: &tools
+  image: mist2-tools:dev
+  user: "${MIST2_UID:-1000}:${MIST2_GID:-1000}"
+  working_dir: /case
+  volumes:
+    - ${DEVTEST_REPO:?}:/repo
+    - ${DEVTEST_CASE:?}:/case
+  environment: &tools-env
+    HOME: /tmp
+    PYTHONPATH: /repo/emulation/sim
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+
+services:
+  sim:
+    <<: *tools
+    init: true
+    command: ["sh", "-c", "${DEVTEST_SIM:?}"]
+
+  ioc:
+    image: mist2-ioc:dev
+    init: true
+    entrypoint: ["/opt/mist2/EPICS/ioc/bin/linux-x86_64/mist2"]
+    command: ["/devtest/st.cmd"]
+    working_dir: /tmp
+    environment:
+      TOP: /opt/mist2/EPICS/ioc
+      MIST2_PORTS: sim
+      CASE_DIR: /case
+      SIM_HOST: sim
+    volumes:
+      - ${DEVTEST_REPO:?}/EPICS/Db:/opt/mist2/EPICS/Db:ro
+      - ${DEVTEST_REPO:?}/emulation/devtest/st.cmd:/devtest/st.cmd:ro
+      - ${DEVTEST_CASE:?}:/case:ro
+
+  test:
+    <<: *tools
+    profiles: ["test"]
+    environment:
+      <<: *tools-env
+      SIM_HOST: sim
+      IOC_HOST: ioc
+      DEVTEST_BUILD: /case/build
+      EPICS_CA_AUTO_ADDR_LIST: "NO"
+      EPICS_CA_ADDR_LIST: ioc
