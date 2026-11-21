@@ -198,6 +198,24 @@ def parse_db(path, macros, undefined=None):
     return records
 
 
+STATE_FIELDS = ("ZRST", "ONST", "TWST", "THST", "FRST", "FVST", "SXST", "SVST",
+                "EIST", "NIST", "TEST", "ELST", "TVST", "TTST", "FTST", "FFST")
+
+
+def db_states(rec):
+    """State words of a binary or multi-bit record, index = value (bi/bo: ZNAM, ONAM; mbbi/mbbo:
+    ZRST to FFST up to the last one defined), or None."""
+    fields = rec["fields"]
+    if rec["type"] in ("bi", "bo") and (fields.get("ZNAM") or fields.get("ONAM")):
+        return [fields.get("ZNAM", ""), fields.get("ONAM", "")]
+    if rec["type"] in ("mbbi", "mbbo"):
+        words = [fields.get(f, "") for f in STATE_FIELDS]
+        while words and not words[-1]:
+            words.pop()
+        return words or None
+    return None
+
+
 def loads_of(entry):
     """The database loads of a device or host: 'epics' is one {db, macros} or a list of them."""
     epics = entry.get("epics") or []
@@ -260,14 +278,18 @@ def channel_roles(rule, keys):
 #   INVALID    a processed StreamDevice record that reads (INP); a processed record with an MS
 #              input link to a record that is INVALID. Device records that only write (OUT) fail
 #              only when written, which the registry's 'ack' covers.
-# Two things the database does not tell, so controls.yaml states them per record
-# (databases: <db>: invalid_on: {record: [silent, closed]}), and the check fails without it:
+# Three things the database does not tell, so controls.yaml states them per record
+# (databases: <db>: invalid_on: {record: [silent, closed]}), and the check fails without it.
+# The statement replaces what the record's own device does to it (in the running state, after
+# the IOC has started); severity that reaches it through MS input links is still added:
 #   - a processed record with an output link that processes a StreamDevice record: it gets a LINK
 #     alarm when that record fails at once (closed port), but only if it writes during the fault
 #     (calcout OOPT and the like). Stated without "closed", it does not write during a fault, so
 #     its output link processes nothing then;
 #   - a processed record that is disabled with a severity (SDIS and DISS): when it is disabled
-#     depends on its logic.
+#     depends on its logic;
+#   - a record that another record disables at run time (an output link to its DISA field), such
+#     as a first-contact probe that stops once the device has answered.
 FAULTS = ("silent", "closed")
 NO_SEVERITY = ("", "NO_ALARM")
 
@@ -326,6 +348,9 @@ def fault_analysis(records, statements):
             undecided.add(name)
         if rec["fields"].get("SDIS") and rec["fields"].get("DISS", "") not in NO_SEVERITY:
             undecided.add(name)
+        for kind, key, target, field, mods in links_of(rec):
+            if kind == "out" and field == "DISA" and target in records:
+                undecided.add(target)
 
     def static(name, seen):
         """Every device behind a record: its own, through input links, and the device records it writes."""
@@ -353,10 +378,11 @@ def fault_analysis(records, statements):
         processed_any |= processed
         inv = {n: set() for n in records}
         for name in processed:
-            if is_stream(records[name], "INP") and records[name].get("source") is not None:
+            if name in statements:
+                if fault in statements[name]:
+                    inv[name] |= static(name, set())
+            elif is_stream(records[name], "INP") and records[name].get("source") is not None:
                 inv[name].add(records[name]["source"])
-            if fault in statements.get(name, []):
-                inv[name] |= static(name, set())
         changed = True
         while changed:
             changed = False
@@ -419,8 +445,14 @@ class Model:
             db, key, owner = where[name]
             grouped.setdefault((db, key), (records[name], []))[1].append(owner)
         for (db, key), (rec, owners) in grouped.items():
-            why = ("it is disabled with severity %s" % rec["fields"]["DISS"] if rec["fields"].get("DISS", "") not in NO_SEVERITY
-                   else "it writes to a StreamDevice record through an output link")
+            disablers = sorted(r["key"] for r in records.values() if any(
+                k == "out" and f == "DISA" and t == rec["name"] for k, _, t, f, _ in links(r)))
+            if rec["fields"].get("DISS", "") not in NO_SEVERITY:
+                why = "it is disabled with severity %s" % rec["fields"]["DISS"]
+            elif disablers:
+                why = "%s disables it at run time" % ", ".join(disablers)
+            else:
+                why = "it writes to a StreamDevice record through an output link"
             self.warnings.append("%s (loaded by %s): the rule cannot tell whether record %s turns INVALID when its device "
                                  "stops answering (%s). State it under 'databases: %s: invalid_on' in controls.yaml: "
                                  "%s: [silent, closed], [closed] or []" % (db, ", ".join(sorted(set(owners))), key, why, db, key))
@@ -552,9 +584,26 @@ class Model:
             if len(classes) > 1:
                 self.warnings.append("%s: its databases give more than one widget class: %s" % (owner["id"], ", ".join(classes)))
             known = {pv.get("channel") for pv in owner["pvs"]} | {pv.get("role") for pv in owner["pvs"]}
-            for label in owner.get("labels") or {}:
-                if label not in known:
-                    self.warnings.append("%s: label for %r, which is no channel and no role of the device" % (owner["id"], label))
+            for key in ("labels", "states", "confirm"):
+                for name in owner.get(key) or {}:
+                    if name not in known:
+                        self.warnings.append("%s: %s for %r, which is no channel and no role of the device" % (owner["id"], key, name))
+            channels = {pv.get("channel") for pv in owner["pvs"]} - {None}
+            for name in owner.get("spare") or []:
+                if name not in channels:
+                    self.warnings.append("%s: spare %r is no channel of the device" % (owner["id"], name))
+                elif name in (owner.get("labels") or {}):
+                    self.warnings.append("%s: channel %r is spare and has a label" % (owner["id"], name))
+            for name, words in (owner.get("states") or {}).items():
+                if not (isinstance(words, list) and all(isinstance(w, str) for w in words)):
+                    self.warnings.append("%s: states of %r must be a list of words (index = value)" % (owner["id"], name))
+            for name, ask in (owner.get("confirm") or {}).items():
+                written = [pv for pv in owner["pvs"] if name in (pv.get("channel"), pv.get("role")) and pv["type"] in WRITE_TYPES
+                           and not pv.get("internal")]
+                if not isinstance(ask, dict) or set(ask) != {"value", "text"}:
+                    self.warnings.append("%s: confirm of %r needs exactly 'value' and 'text'" % (owner["id"], name))
+                elif not written:
+                    self.warnings.append("%s: confirm of %r, which has no written PV" % (owner["id"], name))
 
     def _check_loads(self):
         """The loads in controls.yaml against the dbLoadRecords lines of the st.cmd files, in both directions."""
@@ -709,7 +758,8 @@ def overview_dot(m):
     for dev in m.devices:
         src = dev.get("via") or dev["host"]
         style = ', style=dashed' if dev["status"] in ("later", "tbd", "new") else ""
-        out.append('  %s -> %s [label="%s"%s];' % (src, dev["id"], edge_label(dev.get("link", "")), style))
+        if dev.get("link") != "none":   # hardware without a connection to the control system
+            out.append('  %s -> %s [label="%s"%s];' % (src, dev["id"], edge_label(dev.get("link", "")), style))
     out.append("  " + legend_node(False))
     out.append("  { rank=same; lan; legend; }")
     out.append("}")
@@ -768,7 +818,8 @@ def pv_table(dev, m):
                     '<TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="%s">%s%s</FONT></TD></TR>'
                     % (MONO, color, prefix, esc(pv["name"]), color, io, color, esc(_short(pv["desc"], 46)), esc(unit)))
     if not m.public(dev) and not dev.get("pvs_unknown"):
-        rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>no PVs yet</I></FONT></TD></TR>')
+        rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>%s</I></FONT></TD></TR>'
+                    % ("no EPICS records: not connected" if dev.get("link") == "none" else "no PVs yet"))
     return ('<<TABLE BORDER="1" COLOR="%s" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3" BGCOLOR="#FFFFFF"%s>%s</TABLE>>'
             % (border, ' STYLE="dashed"' if dashed else "", "".join(rows)))
 
@@ -792,7 +843,8 @@ def subsystem_dot(m, sub):
         out.append('  %s -> %s [label="%s"];' % (adapter["host"], aid, edge_label(adapter.get("link", ""))))
     for dev in devs:
         out.append('  %s [shape=plain, label=%s];' % (dev["id"], pv_table(dev, m)))
-        out.append('  %s -> %s [label="%s"];' % (dev.get("via") or dev["host"], dev["id"], edge_label(dev.get("link", ""))))
+        if dev.get("link") != "none":
+            out.append('  %s -> %s [label="%s"];' % (dev.get("via") or dev["host"], dev["id"], edge_label(dev.get("link", ""))))
     out.append("  " + legend_node(True))
     out.append("  { rank=same; %s; legend; }" % used_hosts[0])
     out.append("}")
@@ -1087,7 +1139,8 @@ def build_docx(m, images, out_path):
                     rows.append([pv["name"], pv["type"], "W" if pv["type"] in WRITE_TYPES else "R", pv["egu"], description, state])
                 table(["PV", "Record", "R/W", "Unit", "Description", "State"], rows, [5.6, 1.5, 1.0, 1.2, 5.9, 1.8], status_col=5, mono_col=0)
             elif not dev.get("pvs_unknown"):
-                para("No PVs yet.", italic=True, size=10)
+                para("No EPICS records: not connected to the control system." if dev.get("link") == "none" else "No PVs yet.",
+                     italic=True, size=10)
             if dev.get("options"):
                 para("Options", size=10, label=True)
                 table(["Option", "What it is", "Interface", "Comment"],

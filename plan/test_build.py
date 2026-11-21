@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build import REPO, DbError, fault_analysis, parse_db, simple_record_names  # noqa: E402
+from build import REPO, DbError, db_states, fault_analysis, parse_db, simple_record_names  # noqa: E402
 
 
 def parse(text, macros=None):
@@ -158,9 +158,38 @@ class FaultRule(unittest.TestCase):
         got, missing, _ = faults(text, {"pub": ["silent", "closed"]})
         self.assertEqual((got["pub"], missing), (BOTH, []))
 
+    PROBE = ('record(bi, "probe") { %s field(SCAN, "1 second") field(FLNK, "init") }\n'
+             'record(seq, "init") { field(DO1, "1") field(LNK1, "probe.DISA NPP") }' % DEV)
+
+    def test_disabled_at_run_time_needs_a_statement(self):
+        self.assertEqual(faults(self.PROBE)[1], ["probe"])
+
+    def test_statement_replaces_the_own_device(self):
+        got, missing, _ = faults(self.PROBE, {"probe": []})
+        self.assertEqual((got["probe"], missing), (NONE, []))
+
+    def test_statement_keeps_severity_through_MS(self):
+        text = ('record(calc, "permit") { %s field(SCAN, "1 second") }\n'
+                'record(calcout, "gate") { field(INPA, "permit CP MS") field(SCAN, "1 second") }\n'
+                'record(seq, "init") { field(DO1, "1") field(LNK1, "gate.DISA NPP") }' % DEV.replace("ai", "x"))
+        got, missing, _ = faults(text, {"gate": []})
+        self.assertEqual((got["gate"], missing), (BOTH, []))
+
     def test_needless_statement(self):
         _, _, needless = faults('record(ai, "a") { %s field(SCAN, "1 second") }' % DEV, {"a": ["silent"]})
         self.assertEqual(needless, ["a"])
+
+
+class States(unittest.TestCase):
+    def test_binary_and_multi_bit_words(self):
+        recs = {r["name"]: r for r in parse(
+            'record(bi, "b") { field(ZNAM, "OFF") field(ONAM, "ON") }\n'
+            'record(mbbi, "m") { field(ZRST, "OFF") field(ONST, "ON") field(THST, "ON, LOCAL") }\n'
+            'record(ai, "a") { }\nrecord(bo, "plain") { }')}
+        self.assertEqual(db_states(recs["b"]), ["OFF", "ON"])
+        self.assertEqual(db_states(recs["m"]), ["OFF", "ON", "", "ON, LOCAL"])
+        self.assertIsNone(db_states(recs["a"]))
+        self.assertIsNone(db_states(recs["plain"]))
 
 
 class EveryDatabase(unittest.TestCase):
