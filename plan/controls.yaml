@@ -23,14 +23,15 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.8"
-  date: "2026-11-21"
+  revision: "0.9"
+  date: "2026-11-22"
   author: "D. Winklehner"
   basis:
     - "Device list 'MIST-2 Devices Comm Protocols' (docx)"
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.9: the Matsusada rework (four AU supplies, current limit with autosave, latching permit, remote/local status) and the owner's answers of 2026-11-21 (docs/emulation/STATUS.md)"
     - "Revision 0.7: the databases in EPICS/Db and the two st.cmd files of branch emulated-iocs (PV names of the lab's IOC of 2023), the design note docs/emulation/DESIGN.md (G1, approved 2026-11-21) and the assumptions A1 to A22 and open points in docs/emulation/STATUS.md"
 
 phases:
@@ -73,6 +74,7 @@ hosts:
     notes:
       - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4."
       - "EPICS/ioc/iocBoot/iocRack/st.cmd is the same file for the emulation and for this computer. The asyn ports come from ports.sim.cmd or ports.real.cmd. The Linux device names in ports.real.cmd are placeholders until the udev rules exist (assumption A21)."
+      - "Saved limits: the IOC image has autosave R5-11 next to EPICS base, asyn and StreamDevice. Both st.cmd files restore the current limits of the HV supplies at the start from iocBoot/<ioc>/limits.defaults, then from limits.sav (which wins), and save every change within 5 s. The saved files live in $MIST2_SAVE/<ioc> on a real computer (default ~/.local/state/mist2/<ioc>) and in the Docker volume mist2emu-save in the emulation."
     questions:
       - "Which COM ports does the running IOC use? Please send st.cmd and the output of dbl."
   - id: ioc_hv
@@ -87,6 +89,7 @@ hosts:
     epics: {db: ioc_info.db, macros: {P: IOC-HV}}
     notes:
       - "Assumed (A22): it runs the same EPICS top as the rack IOC (EPICS/ioc, st.cmd in iocBoot/iocHV)."
+      - "Saved limits as on the rack IOC (autosave, iocBoot/iocHV/limits.defaults, then limits.sav): the current limit of the REK."
     questions:
       - "Operating system of the mini PC? Please send its st.cmd and dbl output as well."
   - id: emit_pc
@@ -167,7 +170,8 @@ devices:
     notes:
       - "Replaced by the REK150-55."
       - "Assumed (A7): unit 1 on its own port, 9600 baud, as in the repository's st.cmd."
-      - "The output follows the permit interlock_open of the rack IOC, read over Channel Access (macro PERMIT). Assumed (A19): this gate of the lab's 2023 database is still wanted."
+      - "The output follows the permit interlock_open of the rack IOC, read over Channel Access (macro PERMIT), and latches (owner, 2026-11-21): see the ion source supply for the behaviour, which is the same in rek.db."
+      - "Current limit REK-1:current:limit (alias current:setpoint, the lab's name), restored by autosave. Default in EPICS/ioc/iocBoot/iocHV/limits.defaults: 24 A, the full scale, not a limit for operation (to be set by the owner)."
 
   - id: fil_dis_new
     name: "Filament discharge supply (new)"
@@ -213,10 +217,7 @@ devices:
     notes:
       - "Channel names (owner, 2026-11-21): 1 back plate, 2 filament feedthrough, 3 isolation transformer 1, 4 isolation transformer 2."
       - "The board sends 16 channels. t1 to t4 (degC), the cold junctions j1 to j4 and the fault codes f1 to f4 have PVs, the junction fault codes a1 to a4 do not. A faulted thermocouple reads INVALID."
-      - "Labels t1 to t4 are those of the lab GUI of 2023 (RAS/Devices.js)."
       - "Assumed (A9): 19200 baud as in the firmware; the repository's and the lab's st.cmd say 9600."
-    questions:
-      - "What do t1 and t4 measure? The lab GUI names only t2 (back plate) and t3 (magnet plate)."
 
   # ------------------------------------------------------------------ high voltage
   - id: au_src
@@ -226,7 +227,7 @@ devices:
     location: rack
     host: ioc_rack
     via: usb_opt
-    link: "optical fiber (chain assignment is a proposal)"
+    link: "optical fiber (USB-OPT chain)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
     epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", IFS: "15"}}
     status: modify
@@ -238,14 +239,14 @@ devices:
       - "Fix 2, built: two chains on two asyn ports (mat_opt behind the USB-OPT, mat_co behind the CO-U32), polled in parallel. Put the supplies that need the fastest read-back on the short chain."
       - "Fix 3, built: the set records have PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
       - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible). The turnaround time of the real adapters is not known: the simulator assumes 5 ms (A6)."
-      - "Proposal for the split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first. The lenses stay on the CO-U32. The emulation is built that way (assumed, A3)."
+      - "The split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first, lenses 1 and 2 on the CO-U32. Confirmed by the owner (2026-11-21)."
       - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. matsusada_au20p7.db now takes the full scale as macros (VFS, IFS), and st.cmd sets IFS=15 for this unit. Assumed (A4): the same 16-bit set and 12-bit monitor scaling as the P7.5; the lab's local fix has not been seen."
-      - "Unit 1, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files)."
-      - "For all AU supplies and the REK: the output follows the permit interlock_open (macro PERMIT), as in the lab's database of 2023 (assumed still wanted, A19). A set-point write in the first 5 s after an IOC start is not sent to the supply, because the databases first take over the supply's own settings (P20)."
-      - "The PV prefix AU-20P7-<n> is wrong for this unit (it is a P15) and for the negative ones. Another reason to name PVs by function: source, puller, lens 1 to 3."
-    questions:
-      - "All AU supplies and the REK: switching an output on sends ICN 100, which sets the current limit to 100 % of full scale whatever current:setpoint holds (the lab's sequence, kept, macro ICN_ON). Is that wanted (P17)?"
-      - "All AU supplies and the REK: they are put into remote mode (REN) with every status poll, so that a supply that was switched off and on comes back by itself. The front panel then cannot take local control while the IOC runs; the lab sent REN only at start and on switching. Keep it (P19)?"
+      - "Unit 1 (owner, 2026-11-21; also the lab's st.cmd of 2023)."
+      - "For all four AU supplies and the REK (owner, 2026-11-21): the current is a LIMIT, not a set point. current:limit (alias current:setpoint, the lab's name) is restored at the IOC start by autosave, first from EPICS/ioc/iocBoot/<ioc>/limits.defaults, then from the file saved at run time (limits.sav), which wins. A change from the GUI is saved within 5 s. The limit is sent at the first contact, on every write and with every switch-on, and again every 5 s while it is not applied. The defaults are the full scales, not limits for operation: the owner sets the real ones."
+      - "For all AU supplies and the REK: switching on sends REN, the saved current limit, RST and SW1; switching off REN, RST and SW0. REN is sent only at the first contact and on switching (owner, 2026-11-21: as in the lab), so the front panel can take local control; status:read then shows OFF, LOCAL or ON, LOCAL (MINOR)."
+      - "For all AU supplies and the REK: the output follows the permit interlock_open (macro PERMIT) and latches (owner, 2026-11-21). Losing the permit switches the output off and clears the request (SetToggleOutput goes to 0); nothing switches on by itself when the permit returns, and a request made while the permit is lost is cleared at once."
+      - "For all AU supplies and the REK: until the first contact with a supply after the IOC start, the voltage set point is in simulation mode (a write is not sent) and takes over the supply's setting at the first contact; the output state is taken over too, and the permit acts 5 s (GRACE) after the first contact. A supply that cannot be reached at the start is taken over when it answers."
+      - "The PV prefix AU-20P7-<n> is wrong for this unit (it is a P15) and for the negative ones. Another reason to name PVs by function: source, puller, lens 1 and 2."
 
   - id: au_puller
     name: "Puller"
@@ -254,14 +255,14 @@ devices:
     location: rack
     host: ioc_rack
     via: usb_opt
-    link: "optical fiber (chain assignment is a proposal)"
+    link: "optical fiber (USB-OPT chain)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
     epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "2"}}
     status: modify
     change: "Second optical chain, database into the repository"
     notes:
       - "Arrangement (owner, 2026-11-21): the source is followed by a conical high-voltage break and a CF 10 inch six-way cross at ground potential. The extraction system with the puller and lenses 1 to 3 sits in the upstream flange of the cross."
-      - "Unit 2 and the PV names AU-20P7-2:*, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files)."
+      - "Unit 2 and the PV names AU-20P7-2:* (owner, 2026-11-21; also the lab's st.cmd of 2023)."
       - "The PVs show positive numbers, as the lab's database does (decision D3, assumption A5). The macro POL=- would show the sign."
 
   - id: au_lens1
@@ -277,7 +278,7 @@ devices:
     status: modify
     change: "Slimmer polling"
     notes:
-      - "Unit 3, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files). The repository's older st.cmd called unit 2 'Einzel Lens'; in the 2023 file unit 2 is the puller."
+      - "Unit 3 (owner, 2026-11-21; also the lab's st.cmd of 2023). The repository's older st.cmd called unit 2 'Einzel Lens'; in the 2023 file unit 2 is the puller."
 
   - id: au_lens2
     name: "Lens 2"
@@ -288,32 +289,24 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "5"}}
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "4"}}
     status: modify
     change: "Slimmer polling, database into the repository"
-    flags: {assumed: "Unit 5 is a guess (A2): the lab's st.cmd of 2023 loads units 1 to 4 only"}
     notes:
-      - "Assumed (A2): unit 5, so the PV names are AU-20P7-5:*. The lab's st.cmd of 2023 loads units 1 to 4 only."
+      - "Unit 4, so the PV names are AU-20P7-4:* (owner, 2026-11-21). Revision 0.8 had lens 2 as an assumed unit 5 and unit 4 as lens 3."
       - "The PVs show positive numbers, as the lab's database does (decision D3, assumption A5). The macro POL=- would show the sign."
 
   - id: au_lens3
-    name: "Lens 3 (not in use)"
-    model: "Matsusada AU20P7.5 (+20 kV, 7.5 mA) with CO-HV"
+    name: "Lens 3 (grounded)"
+    model: "Electrode grounded mechanically; the fifth supply, a Matsusada AU20P7.5, is not on the chain"
     subsystem: hv
     location: rack
     host: ioc_rack
-    via: co_u32
-    link: "optical fiber"
-    protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "4", SCAN_MON: Passive, SCAN_GET: Passive, SCAN_STS: Passive}}
-    status: tbd
-    flags: {not_polled: "Installed but not in use: its records are loaded with scanning off"}
+    link: "none"
+    protocol: "none"
+    status: keep
     notes:
-      - "The latest extraction system has no lens 3 (electrode grounded). Do not poll this supply while it is unused: every polled supply slows its chain."
-      - "Built that way: its records are loaded with scanning off (Passive), nothing polls it. Unit 4, from the lab's st.cmd of 2023 (A2)."
-    questions:
-      - "Keep the lens 3 supply connected as a spare, or take it off the chain?"
-      - "Unit numbers of all five supplies: 1 to 4 are from the lab's st.cmd of 2023, 5 (lens 2) is a guess (A2). Please confirm them from the front panels or the lab files."
+      - "Owner, 2026-11-21: the lens 3 electrode is grounded mechanically, and the fifth AU supply is not on the optical chain. Hardware only, no EPICS records: nothing loads or polls it."
 
   - id: hv_alloff
     name: "All HV off"
@@ -323,10 +316,10 @@ devices:
     host: ioc_rack
     link: "both optical chains"
     protocol: "StreamDevice, matsusada_co_ctrl.proto (multiple command #AL)"
-    epics: {db: au_alloff.db, macros: {PORT1: mat_opt, PORT2: mat_co, R1: "AU-20P7-1:SetToggleOutput", R2: "AU-20P7-2:SetToggleOutput", R3: "AU-20P7-3:SetToggleOutput", R4: "AU-20P7-5:SetToggleOutput", R5: "AU-20P7-4:SetToggleOutput"}}
+    epics: {db: au_alloff.db, macros: {PORT1: mat_opt, PORT2: mat_co, R1: "AU-20P7-1:SetToggleOutput", R2: "AU-20P7-2:SetToggleOutput", R3: "AU-20P7-3:SetToggleOutput", R4: "AU-20P7-4:SetToggleOutput"}}
     status: new
     notes:
-      - "Proposed in revision 0.6 under the ion source supply, built as AU:alloff:set: sends #AL SW0 on both chains and clears the output request of every supply listed in R1 to R5, so that one write of 1 switches a supply on again."
+      - "Proposed in revision 0.6 under the ion source supply, built as AU:alloff:set: sends #AL SW0 on both chains and clears the output request of the four supplies listed in R1 to R4, so that one write of 1 switches a supply on again."
 
   # ------------------------------------------------------------------ vacuum and gas
   - id: mfc
@@ -443,9 +436,10 @@ devices:
     notes:
       - "On a side flange of the six-way cross, next to the APG. The gauge is set to torr (owner, 2026-11-21)."
       - "AIM:enable now waits for the gauge's answer, so a rejected or unanswered command raises an alarm."
-      - "Assumed (A15): the gauge answers !C752 as in the Edwards manual, and the pressure is in torr as in the lab's database."
+      - "Assumed (A15): the gauge answers !C752 as in the Edwards manual."
+      - "The owner believes the nAIM is calibrated for N2 (2026-11-21; not checked on the gauge). Then with hydrogen the true pressure is roughly twice the reading, because an ionisation gauge calibrated for nitrogen reads hydrogen at about 0.4 to 0.5 of the true pressure."
     questions:
-      - "The nAIM instruction manual was not found. Please check on the gauge the protocol taken from INFICON's description (?V752 answered by pressure and a 4-digit status word, !C752 answered by *C752 0) (P7), and the pressure unit configured in the gauge (P8)."
+      - "The nAIM instruction manual was not found. Please check on the gauge the protocol taken from INFICON's description (?V752 answered by pressure and a 4-digit status word, !C752 answered by *C752 0) (P7)."
       - "AIM:getpressure is INVALID while the gauge is off or striking (P9). Is another display preferred?"
 
   - id: turbo
@@ -545,12 +539,14 @@ devices:
     status: replace
     libcom1: true
     labels: {s1: "Foreline Valve", s2: "MFC Shutoff Valve", s3: "Vent Valve", s4: "Faraday Cup"}
+    states: {s1: [closed, open], s2: [closed, open], s3: [closed, open], s4: [out, in]}
+    spare: [s5, s6, s7, s8]
+    confirm:
+      s3: {value: 1, text: "Open the vent valve? It vents the turbopump through its side port, and the cross a little."}
     notes:
       - "Channels (owner, 2026-11-21): 1 foreline valve, 2 MFC shutoff valve, 3 vent valve, 4 Faraday cup actuator, 5 to 8 unused. The vent valve vents the turbopump through the vent port on its side, and through it the six-way cross a little: the nitrogen inflow is small."
       - "Stays in service until the additional Optas have arrived (a few weeks). Flash the protocol 2 firmware anyway, so that sets are acknowledged in the meantime."
-    questions:
-      - "The device list says 4 x solenoid valve controller, st.cmd loads one box with 8 channels. Four boxes, or four valves on one box? (The emulation assumes one box with 8 channels, A14.)"
-      - "Which valve is on which channel? The database only says s1 to s8. The lab GUI of 2023 labels s1 foreline valve, s2 MFC shutoff valve, s3 vent valve and s4 Faraday cup (taken over as labels, assumption A14). Are s5 to s8 connected?"
+      - "Words: 0 = closed, 1 = open for the valves s1 to s3; 0 = out, 1 = in for the Faraday cup actuator s4. Opening the vent valve asks for confirmation (owner, 2026-11-21: the only confirmation dialog)."
 
   - id: valves_opta
     name: "Solenoid valve controller (Opta)"
@@ -597,13 +593,13 @@ devices:
     flags: {assumed: "Stand-in: the cooling water is read by an Arduino Opta whose firmware and channels are not known yet"}
     status: tbd
     libcom1: true
-    labels: {f1: "N/A", f2: "Turbo pump", f3: "Front Plate", f4: "Faraday Cup 1", f5: "N/A"}
+    labels: {f2: "Turbo pump", f3: "Front Plate", f4: "Faraday Cup 1"}
+    spare: [f1, f5]
     notes:
       - "Replaced by the flow meter readout on an Arduino Opta (owner, 2026-11-21). The emulation keeps the sensor box as a stand-in for the cooling water until the Opta's firmware and channels are known."
-      - "Seven temperatures t1 to t7 (degC) and five water flows f1 to f5. Flow labels from the lab GUI of 2023."
-      - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
+      - "Seven temperatures t1 to t7 (degC) and five water flows f1 to f5. Flow labels from the lab GUI of 2023, where f1 and f5 are not connected ('N/A')."
     questions:
-      - "The sensor box is in st.cmd but not in the device list. Still in use, or replaced by the Opta flow readout?"
+      - "Names of the temperatures t1 to t7? No source in the repository names them."
       - "Unit of the water flows? The firmware multiplies the pulses of 0.5 s by 0.06, which fits litres per hour by one of its comments and not litres per minute by the other. The unit field is left empty (P3)."
 
   - id: ilk_old
@@ -619,12 +615,11 @@ devices:
       - {db: libcom1_device.db, macros: {PORT: AVR11, DEVICE: INTLK}}
     status: replace
     labels: {i1: "HV Door Lower", i2: "HV Door Upper"}
+    states: {open: [closed, open]}
     notes:
       - "Still in the system in phase 1. Its two relay outputs switch nothing (owner, 2026-11-21)."
-      - "Two interlock inputs, the HV cage doors (1 = door closed; labels from the lab GUI of 2023). The summary PV interlock_open (formerly interlock_status) has no device prefix. It is the output permit of the AU supplies and the REK."
-      - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
+      - "Two interlock inputs, the HV cage doors (1 = door closed; labels from the lab GUI of 2023). The summary PV interlock_open (formerly interlock_status) has no device prefix: 0 = both doors closed, non-zero = open. It is the output permit of the AU supplies and the REK, which latch: an opened door switches them off, and they stay off until the operator switches them on again."
     questions:
-      - "The box has two relay channels (s1, s2) that no database uses. What do they switch (P4)?"
       - "The door PVs INTLK:i1:get_interlock and i2 are now binary records (Open, Closed); the lab's were analog records with the same numbers. Does a script read their type (P5)?"
 
   - id: ilk_new
@@ -777,7 +772,6 @@ interlock:
     - "Communication timeout in the device firmware (libcom1 set_comm_timeout) is an extra, not an interlock."
   questions:
     - "What are the two inputs of the existing interlock box, and what do they switch? (The lab GUI of 2023 calls them HV door lower and upper; in software they form interlock_open, the output permit of the AU supplies and the REK.)"
-    - "Outputs come back on by themselves: when the interlock opens, the AU and REK outputs are forced off but the request stays set, so they switch on again when it closes. That is the lab's database of 2023, kept. The rules below say a trip latches; one record more would clear the request on permit loss. Which one (P16)?"
     - "Full list of interlock signals for MIST-2 at IBA, and what each one must switch off."
     - "Does IBA require a certified safety controller or safety relays for the personnel functions, and who signs it off?"
     - "PLC for layer B: Arduino Opta (in hand, no SIL rating), or an industrial PLC that IBA already supports?"
@@ -973,41 +967,55 @@ databases:
     class: supply
     unit: UNITNUM
     roles:
-      vset: {record: "voltage:setpoint", readback: vget, test: [0, 100], ack: false}
+      vset: {record: "voltage:setpoint", readback: vget, test: [0, 100], ack: false,
+             note: "until the first contact with the supply after an IOC start a write is not sent (simulation mode); then the set point takes over the supply's setting"}
       vget: "voltage:get"
       vread: "voltage:read"
-      iset: {record: "current:setpoint", readback: iget, test: [0, 0.5], ack: false}
-      iget: "current:get"
+      ilimit: {record: "current:limit", readback: ilimit_get, test: [1, 7.5], ack: false,
+               note: "the current LIMIT (alias current:setpoint, the lab's name). Restored at the start by autosave and sent at the first contact, on every write, with every switch-on, and every 5 s while not applied. A write is also saved (limits.sav, within 5 s): a test reads the value first and writes it back. Test range in mA, within the full scale of every AU (7.5 or 15 mA)"}
+      ilimit_get: "current:get"
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0"}
       out_state: read_output_status
-      status: "status:read"
-    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
-    invalid_on:
-      "_poll:gate": [closed]   # starts each monitor cycle by processing voltage:read: LINK alarm when the port is closed
-      OutputIntlk: []          # writes ToggleOutput only when the permit or the request changes
+      status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
+    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
+               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch",
+               "_out:switch", "_out:limit", "_out:remote"]
+    invalid_on:                # the running state, after the first contact
+      "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)
+      "output:init": []        # runs only on a valid answer of the probe
+      "_init:vcopy": []        # runs only after a valid voltage echo
+      OutputIntlk: []          # its own device does not matter, only the permit (through MS)
+      "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
 
   rek.db:
     class: supply
     unit: UNITNUM
     roles:
-      vset: {record: "voltage:setpoint", readback: vget, test: [0, 10], ack: false}
+      vset: {record: "voltage:setpoint", readback: vget, test: [0, 10], ack: false,
+             note: "until the first contact with the supply after an IOC start a write is not sent (simulation mode); then the set point takes over the supply's setting"}
       vget: "voltage:get"
       vread: "voltage:read"
-      iset: {record: "current:setpoint", readback: iget, test: [0, 1], ack: false}
-      iget: "current:get"
+      ilimit: {record: "current:limit", readback: ilimit_get, test: [1, 24], ack: false,
+               note: "the current LIMIT (alias current:setpoint, the lab's name). Restored at the start by autosave and sent at the first contact, on every write, with every switch-on, and every 5 s while not applied. A write is also saved (limits.sav, within 5 s): a test reads the value first and writes it back. Test range in A, within the full scale (24 A)"}
+      ilimit_get: "current:get"
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0"}
       out_state: read_output_status
-      status: "status:read"
-    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
-    invalid_on:
-      "_poll:gate": [closed]   # starts each monitor cycle by processing voltage:read: LINK alarm when the port is closed
-      OutputIntlk: []          # writes ToggleOutput only when the permit or the request changes
+      status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
+    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
+               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch",
+               "_out:switch", "_out:limit", "_out:remote"]
+    invalid_on:                # the running state, after the first contact
+      "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)
+      "output:init": []        # runs only on a valid answer of the probe
+      "_init:vcopy": []        # runs only after a valid voltage echo
+      OutputIntlk: []          # its own device does not matter, only the permit (through MS)
+      "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
 
   au_alloff.db:
     class: command
