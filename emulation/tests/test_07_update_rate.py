@@ -48,15 +48,21 @@ _protocols = {}
 def protocols(path):
     """{name: [out string, ...]} of a StreamDevice protocol file (exception handlers skipped)."""
     if path not in _protocols:
-        text = re.sub(r"#[^\n]*", "", Path(path).read_text())
+        text = Path(path).read_text()
+        strings = []                         # string literals out of the way of the braces
+
+        def keep(m):
+            strings.append(m.group(1))
+            return '"%d"' % (len(strings) - 1)
+        lines = []
+        for line in text.splitlines():   # a comment starts with # outside a string
+            line = re.sub(r'"((?:[^"\\]|\\.)*)"', keep, line)
+            lines.append(line.split("#", 1)[0])
+        text = "\n".join(lines)
+        text = re.sub(r"@\w+\s*\{[^{}]*\}", "", text)          # exception handlers
         out = {}
-        for m in re.finditer(r"(\w+)\s*\{", text):
-            depth, i = 1, m.end()
-            while depth:
-                depth += {"{": 1, "}": -1}.get(text[i], 0)
-                i += 1
-            body = re.sub(r"@\w+\s*\{[^{}]*\}", "", text[m.end():i - 1])
-            out[m.group(1)] = re.findall(r'\bout\s+"((?:[^"\\]|\\.)*)"', body)
+        for m in re.finditer(r"(\w+)\s*\{([^{}]*)\}", text):
+            out[m.group(1)] = [strings[int(i)] for i in re.findall(r'\bout\s+"(\d+)"', m.group(2))]
         _protocols[path] = out
     return _protocols[path]
 
@@ -72,9 +78,9 @@ def expand(fmt, args):
 
 def commands(record):
     """The requests a StreamDevice record sends: [str]."""
-    link = S.field(record, "INP") if reg.pvs[record]["type"] in ("ai", "bi", "mbbi", "longin",
-                                                                  "stringin", "lsi", "aai") \
-        else S.field(record, "OUT")
+    fld = "INP" if reg.pvs[record]["type"] in ("ai", "bi", "mbbi", "longin", "stringin", "lsi",
+                                                "aai") else "OUT"
+    link = S.field(record, fld + "$")           # the whole link (a plain string ends at 40)
     m = re.match(r"@(\S+)\s+(\w+)(?:\(([^)]*)\))?\s+\S+", link)
     assert m, "%s: not a StreamDevice link: %r" % (record, link)
     proto = S.REPO / "EPICS" / "Db" / m.group(1)
@@ -251,7 +257,6 @@ def au_chains():
 def test_au_monitor_rate_matches_the_bus_arithmetic(sim, capsys):
     devices = au_chains()[sim]
     case_rows = run_case("AU chain %s" % sim, sim, devices)
-    S.report(OUT.read_text(), capsys)
     check(case_rows)
 
 
@@ -267,10 +272,12 @@ def tdk_on():
     yield d
     for n in (cmd, vset, iset):
         S.put(n, before[n])
+    S.wait_for(lambda: S.get(reg.role(d, "out_state")) == before[cmd], 5, "TDK output back")
 
 
 def test_filament_heating_rate_matches_the_line_arithmetic(tdk_on, capsys):
-    """Output on at the end of the test ranges, so that the replies have their full length."""
+    """Output on at the end of the test ranges, so that the replies have their full length.
+    Runs last in this module and prints the whole table."""
     sim = reg.devices[tdk_on]["simulators"][0]
     case_rows = run_case("filament heating", sim, [tdk_on])
     S.report(OUT.read_text(), capsys)

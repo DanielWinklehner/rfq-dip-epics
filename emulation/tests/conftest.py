@@ -10,6 +10,7 @@ from system import reg
 # Records whose value or alarm the suite changes only through their own tests; the snapshot keeps
 # what they were, and the clean-up writes them back.
 snapshot = {}
+held_at_start = {}     # simulator -> signals held from outside when the suite started
 SETTLED = 15          # seconds after an IOC start
 
 
@@ -59,8 +60,9 @@ def system():
         if S.connected(name):
             d = S.read(name)
             snapshot[name] = dict(value=d["value"], severity=d["severity"], status=d["status"])
-    for sim in reg.simulators:
-        S.control(sim).info()           # every simulator answers before anything starts
+    for sim in reg.simulators:          # every simulator answers before anything starts
+        signals = S.control(sim).get()["signals"]
+        held_at_start[sim] = {n for n, s in signals.items() if s.get("external")}
     yield
     problems = S.clear_everything()
     try:
