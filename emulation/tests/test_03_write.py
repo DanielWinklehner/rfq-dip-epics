@@ -43,9 +43,13 @@ def is_switch(name):
     return spec["type"] in ("bo", "mbbo") or (spec.get("role") == "cmd" and "channel" in spec)
 
 
-def write_values(name):
+def write_values(name, cap=None):
+    """Two values inside the test range (below `cap`, the largest value the device can reach
+    now, where one is known)."""
     spec = reg.pvs[name]
     lo, hi = spec["test"]
+    if cap is not None:
+        hi = min(hi, cap)
     if is_switch(name):
         target = write_target(name)
         if spec.get("readback") is None:
@@ -72,6 +76,9 @@ class OutputOn:
         self.device = spec["device"]
         rb = spec.get("readback")
         self.needed = rb is not None and reg.pvs[rb].get("role") in MEASURED
+        self.readback = rb
+        self.name = name
+        self.cap = None
         other = {"vset": "iset", "iset": "vset"}.get(spec.get("role"))
         self.other = reg.role(self.device, other) if self.needed and other else None
 
@@ -80,9 +87,18 @@ class OutputOn:
             return self
         if self.other:
             S.put(self.other, reg.pvs[self.other]["test"][1])
+        if self.other and reg.pvs[self.readback]["role"] == "iread":
+            S.put(self.name, reg.pvs[self.name]["test"][1])     # constant voltage first
         S.put(reg.role(self.device, "out_cmd"), 1)
         state = reg.role(self.device, "out_state")
         S.wait_for(lambda: S.get(state) == 1, ECHO_LIMIT, lambda: "output on: %s" % S.describe([state]))
+        self.cap = None
+        if self.other and reg.pvs[self.readback]["role"] == "iread":
+            # constant current needs a current below what the voltage at the end of its range
+            # drives through the load: measure that (constant voltage now) and stay below it
+            rb = self.readback
+            S.wait_fresh(rb, time.time() + 1, lambda v: True, FOLLOW_LIMIT, "settled")
+            self.cap = 0.9 * S.get(rb)
         return self
 
     def __exit__(self, *exc):
@@ -108,8 +124,8 @@ def test_write_and_read_back(name):
     limit = FOLLOW_LIMIT if measured else ECHO_LIMIT
     tol = tolerance(name)
     try:
-        with OutputOn(name):
-            for value in write_values(name):
+        with OutputOn(name) as out:
+            for value in write_values(name, out.cap):
                 t_put = time.time()
                 S.put(name, value)
                 assert S.sevr(name) == S.NO_ALARM, "after writing %r: %s" % (value, S.describe([name]))

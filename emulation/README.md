@@ -70,4 +70,8 @@ one stays running), saves the IOC and simulator output to `emulation/build/<serv
 pytest in the `tools` container, prints the update-rate table (`emulation/build/update-rate.md`)
 and exits with pytest's exit code. Arguments go to pytest: `make -C emulation test ARGS="-k valve"`.
 The suite takes about 9 minutes and leaves the system as it found it. What it proves, its time
-limits and its expected failures: [tests/README.md](tests/README.md).
+limits and its expected failures: [tests/README.md](tests/README.md). The current limits it
+writes are written back to exactly what they were, so `limits.sav` is the same after a run.
+
+When several people share the machine, run it under the common lock and leave the emulation down:
+`flock /tmp/mist2emu.lock sh -c 'make -C emulation down; make -C emulation test; rc=$?; make -C emulation down; exit $rc'`.

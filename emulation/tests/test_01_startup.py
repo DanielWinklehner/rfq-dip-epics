@@ -37,6 +37,10 @@ TRAFFIC = re.compile(
     r"|Timeout after reading \d+ bytes? .*|Async read timeout.*"
     r"|.*still busy.*|Read error.*|Write error.*|.*Connection reset by peer.*"
     r"|.*Broken pipe.*|.*Connection refused.*)")
+# autosave starts after iocInit (st.cmd): the request file of the current limits and the restore,
+# which must find every PV of the saved file ("N of N")
+AUTOSAVE = re.compile(r"^(afterIocRunning: (makeAutosaveFileFromDbInfo|create_monitor_set) \S+"
+                      r"|\S+\.sav: (\d+) of \3 PV's connected$)")
 CONTINUATION = re.compile(r"^\s+\S")      # StreamDevice prints the offending input on the next lines
 
 
@@ -62,6 +66,8 @@ def test_ioc_log_after_start_has_only_traffic_messages(ioc):
     _, run = ioc_log(ioc)
     errors, previous = [], None
     for l in run:
+        if AUTOSAVE.match(l):
+            continue
         if TRAFFIC.match(l) or (CONTINUATION.match(l) and previous == "traffic"):
             previous = "traffic"
             continue
@@ -161,7 +167,16 @@ def real_port_settings():
     return out
 
 
-@pytest.mark.parametrize("sim", list(reg.simulators))
+LINE_FINDING = {"gauges": "FINDING: ports.real.cmd opens AVR6 (the Teensy) with 8 bits, even "
+                          "parity, 1 stop (11 bits per character), the simulator times 10 bits "
+                          "(rack.yaml: 'USB serial of the Teensy: only sets the reply delay'); "
+                          "one of the two files is wrong, or the real port should say that the "
+                          "setting has no effect on a USB serial"}
+
+
+@pytest.mark.parametrize("sim", [pytest.param(s, marks=pytest.mark.xfail(strict=True,
+                                                                          reason=LINE_FINDING[s]))
+                                 if s in LINE_FINDING else s for s in reg.simulators])
 def test_simulator_line_matches_the_real_port(sim):
     """The simulator's baud rate and bits per character are those of the serial port the real
     IOC opens (ports.real.cmd): the reply timing, and so every rate this suite measures, depends
