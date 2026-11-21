@@ -2,7 +2,7 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1, T2, T6, T9 and T14 are merged. The device tasks T3, T4 and T5 are running, one subagent
+T1, T2, T4, T6, T9 and T14 are merged. The device tasks T3 and T5 are running, one subagent
 and one worktree each.
 
 ## Done
@@ -30,6 +30,11 @@ and one worktree each.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T4 merged** (acceptance run by the lead: 13 TDK tests, 11 nAIM tests): `tdk.db` and
+  `aim.db` on the lab's names. New PVs: `TDK:power:get`, `TDK:mode:get`, `TDK:fault:get`.
+  All three TDK sets and the nAIM enable are acknowledged, and a missing or negative answer
+  ends in an alarm. The TDK recovers by itself after a power cycle (1.4 s in the test).
+  TDK update rate: predicted 10.0 Hz, measured 9.6 Hz by Channel Access.
 - **T6 merged** (acceptance test run by the lead, 81 tests): `thermocouples.db`,
   `solenoidbox.db`, `pressure.db`, `sensorbox.db` and `interlockbox.db` carry the lab's names
   and meanings and keep this branch's acknowledged sets, identity and alarm propagation.
@@ -108,6 +113,10 @@ both IOCs, expected in the week of 2026-11-23.
 | P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is left empty | You |
 | P4 | The interlock box has two relay channels (`s1`, `s2`) that no database uses. What do they switch? | You |
 | P5 | The door PVs `INTLK:i1:get_interlock` and `i2` are binary records with the states Open and Closed now. The lab's were analog records with the same numbers (1 = closed). A client that reads the number sees no difference, a client that reads the type does | You, if a script depends on it |
+| P7 | The nAIM instruction manual was not found. Its protocol (`?V752` answered by pressure and a 4-digit hexadecimal status word, `!C752` answered by `*C752 0`) is taken from INFICON's description of the "Edwards nAIM protocol" (tira83e1-e) and from the Edwards TIC manual for the message structure. To be checked on the gauge | You, with the gauge |
+| P8 | The nAIM reports in the unit configured in the gauge (status bits 4 and 5). The lab's database says torr and nothing checks it | You, with the gauge |
+| P9 | `AIM:getpressure` is INVALID while the gauge is off or striking, by decision of T4 from the status word. It keeps the number the gauge sent | Tell me if you prefer another display |
+| P10 | After a TDK power cycle the supply comes back with its output off (safe start), while `TDK:status:setpoint` still shows ON until it is written again. `TDK:status:get` shows the truth | GUI and loop design |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
