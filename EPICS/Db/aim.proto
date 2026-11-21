@@ -1,13 +1,34 @@
-# Author: Philip Weigel
+# aim.proto - Edwards nAIM cold cathode gauge over RS-232 (database: aim.db)
+#
+# The nAIM instruction manual was not available. Sources:
+#   Edwards D397-30-880 Issue H (TIC serial communications): message structure, replies
+#     "=V<obj> <data>" and "*C<obj> <code>" (code 0 = OK), CR at the end, 500 ms timeout (1.4)
+#   INFICON tira83e1-e (2019-07), 3.2 "Edwards nAIM Protocol": "?V752" -> "=V752 <p>;<status>"
+#     with 4 hex digits of status bits, "!C752 0|1" switches the cold cathode, "*C752 0" = done
+#
+# Status bits: 0 gauge error, 1 cold cathode on, 3 command lock, 4-5 pressure unit, 6 EEPROM
+# error, 8 striking, 15 exposure threshold. get_pressure accepts a reading only with bit 1 set
+# and bits 0, 6 and 8 clear; any other state ends in INVALID/CALC. The pressure unit (bits 4-5)
+# is not checked: aim.db assumes torr.
+#
+# Author of the first version: Philip Weigel. 2026-11: status bits, acknowledged enable.
 
 Terminator = CR;
+ReplyTimeout = 500;
+ReadTimeout = 100;
 
 get_pressure {
-	out "?V752";
-	in "=V752 %e;%*d";
+    out "?V752";
+    # digits of the status word, most significant first:
+    #   bits 15-12: any   bits 11-8: bit 8 (striking) clear   bits 7-4: bit 6 (EEPROM) clear
+    #   bits 3-0: bit 1 (on) set and bit 0 (error) clear
+    in "=V752 %g;%*1[0-9A-Fa-f]%*1[02468ACEace]%*1[0-389ABab]%*1[26AEae]";
+    # A well-formed reply with a bad state: no error message in the log, the record still
+    # ends in INVALID/CALC. A malformed reply fails here as well and is logged.
+    @mismatch { in "=V752 %*g;%*4x"; }
 }
 
 enable {
-	out "!C752";
-	in "!%d";
+    out "!C752 %{0|1}";
+    in "*C752 0";
 }

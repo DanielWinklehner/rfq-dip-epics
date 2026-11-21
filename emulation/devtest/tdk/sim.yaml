@@ -1,0 +1,9 @@
+# TDK-Lambda GENESYS GEN8-300 at address 6, 19200 baud as in the lab's 2023 st.cmd
+- name: tdk
+  type: tdk_genesys
+  port: 5001                  # control port 6001
+  baud: 19200
+  turnaround_ms: 5            # response time of the supply: not in the manual, assumed
+  options:
+    address: 6
+    load_ohm: 0.025           # hot filament
