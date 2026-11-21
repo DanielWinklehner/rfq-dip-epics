@@ -47,7 +47,7 @@ are run from the repository root.
 | `make -C emulation up` | Starts four containers and waits until both IOCs answer |
 | `make -C emulation ca-proof` | Checks that both IOCs are reachable and that their logs have no error |
 | `make -C emulation down` | Stops and removes everything, the plant model included |
-| `make -C emulation restart` | Restarts the IOCs after an edit in `EPICS/Db` or `EPICS/ioc/iocBoot` |
+| `make -C emulation restart` | Restarts the IOCs after an edit in `EPICS/Db` or `EPICS/ioc/iocBoot`. The simulators keep running, as the devices do when a control computer restarts. After a change of a simulator: `down`, then `up` |
 | `make -C emulation logs` | Output of both IOCs |
 
 | Container | Address | Role |

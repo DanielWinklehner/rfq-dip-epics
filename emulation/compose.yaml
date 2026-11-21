@@ -12,7 +12,7 @@ x-ioc: &ioc
     MIST2_PORTS: sim
     MIST2_SAVE: /var/lib/mist2/save
   volumes:
-    # Edits need only `docker compose restart`, no image build.
+    # Edits need only `make -C emulation restart`, no image build.
     - ../EPICS/Db:/opt/mist2/EPICS/Db:ro
     - ../EPICS/ioc/iocBoot:/opt/mist2/EPICS/ioc/iocBoot:ro
     # Files the IOCs write at run time (autosave: the limits), one subdirectory per IOC, in the
@@ -33,11 +33,21 @@ x-sim: &sim
   volumes:
     - ..:/repo:ro
 
+# Healthy when every simulator of the container listens (the ready file). The IOCs wait for that:
+# an IOC that finds a port closed at its start tries it again only 20 s later (asyn).
+x-sim-ready: &sim-ready
+  test: ["CMD", "test", "-f", "/tmp/mist2sim.ready"]
+  interval: 30s
+  timeout: 2s
+  start_period: 20s
+  start_interval: 200ms
+  retries: 2
+
 services:
   ioc-rack:
     <<: *ioc
     hostname: ioc-rack
-    depends_on: [sim-rack]
+    depends_on: {sim-rack: {condition: service_healthy}}
     command: ["iocRack", "sim"]
     networks:
       mist2ctl:
@@ -54,7 +64,7 @@ services:
   ioc-hv:
     <<: *ioc
     hostname: ioc-hv
-    depends_on: [sim-hv]
+    depends_on: {sim-hv: {condition: service_healthy}}
     command: ["iocHV", "sim"]
     networks:
       mist2ctl:
@@ -73,7 +83,8 @@ services:
   sim-rack:
     <<: *sim
     hostname: sim-rack
-    command: ["python", "-m", "mist2sim", "--config", "config/rack.yaml"]
+    healthcheck: *sim-ready
+    command: ["sh", "-c", "rm -f /tmp/mist2sim.ready; exec python -m mist2sim --config config/rack.yaml --ready-file /tmp/mist2sim.ready"]
     networks:
       mist2ctl:
         ipv4_address: ${MIST2_SUBNET:-172.30.0}.21
@@ -81,7 +92,8 @@ services:
   sim-hv:
     <<: *sim
     hostname: sim-hv
-    command: ["python", "-m", "mist2sim", "--config", "config/hv.yaml"]
+    healthcheck: *sim-ready
+    command: ["sh", "-c", "rm -f /tmp/mist2sim.ready; exec python -m mist2sim --config config/hv.yaml --ready-file /tmp/mist2sim.ready"]
     networks:
       mist2ctl:
         ipv4_address: ${MIST2_SUBNET:-172.30.0}.22
@@ -93,7 +105,7 @@ services:
     <<: *sim
     profiles: ["plant"]
     hostname: plant
-    depends_on: [sim-rack, sim-hv]
+    depends_on: {sim-rack: {condition: service_healthy}, sim-hv: {condition: service_healthy}}
     command: ["python", "-m", "mist2sim.plant", "--config", "config/plant.yaml"]
     networks:
       mist2ctl:

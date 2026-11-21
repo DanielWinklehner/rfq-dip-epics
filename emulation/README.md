@@ -8,7 +8,7 @@ Two emulated control computers (Docker containers `ioc-rack` .11 and `ioc-hv` .1
 | `make -C emulation build` | Build the images `mist2-ioc:dev` and `mist2-tools:dev` |
 | `make -C emulation up` | Start both IOCs, wait until they are healthy |
 | `make -C emulation down` | Stop and remove containers and network |
-| `make -C emulation restart` | Restart the IOCs (after editing `EPICS/Db` or `EPICS/ioc/iocBoot`) |
+| `make -C emulation restart` | Restart the IOCs (after editing `EPICS/Db` or `EPICS/ioc/iocBoot`). The simulators keep running and keep their state. After a change of a simulator or its configuration: `down`, then `up` |
 | `make -C emulation ps` / `logs` | Container state / IOC output |
 | `make -C emulation ca-proof` | Channel Access check from the network and from the WSL host |
 | `make -C emulation devtest CASE=<dir>` | Test one device case (path relative to the repository root) |

@@ -1,12 +1,16 @@
 """Running simulators: in the foreground (python -m mist2sim) or in a background thread (tests)."""
 
 import asyncio
+import os
 import signal
 import threading
 
 
-async def serve(sims, host="0.0.0.0", stop_event=None):
-    """Start all simulators and run until stop_event is set (or SIGTERM / SIGINT)."""
+async def serve(sims, host="0.0.0.0", stop_event=None, ready_file=None):
+    """Start all simulators and run until stop_event is set (or SIGTERM / SIGINT).
+
+    ready_file: created when every simulator listens, removed at the end. A health check waits
+    for it, so that a client is not started before its ports are open."""
     stop_event = stop_event or asyncio.Event()
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGTERM, signal.SIGINT):
@@ -19,8 +23,13 @@ async def serve(sims, host="0.0.0.0", stop_event=None):
         for sim in sims:
             await sim.start(host)
             started.append(sim)
+        if ready_file:
+            with open(ready_file, "w") as f:
+                f.write("%d simulators listening\n" % len(started))
         await stop_event.wait()
     finally:
+        if ready_file and os.path.exists(ready_file):
+            os.unlink(ready_file)
         for sim in started:
             await sim.stop()
 
