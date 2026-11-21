@@ -3,7 +3,8 @@
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. T12 (plant model) is merged as well. Running: T8 (system test suite).
+table is loaded by the two emulated IOCs (T7 done)**. T8 (system test suite) and T12 (plant model) are merged as well. Running: a follow-up of T8
+that adapts the suite to the corrected registry. Waiting: the GUI pages (T11), for G2.
 
 ## Done
 
@@ -30,6 +31,16 @@ table is loaded by the two emulated IOCs (T7 done)**. T12 (plant model) is merge
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T8 merged** (run twice by the lead from nothing: 214 passed, 3 expected failures, both
+  runs alike, about 7 min 40 s each, nothing left running): `make -C emulation test`.
+  The three expected failures were two findings, both fixed and merged since:
+  an NT 20 record that does not parse now turns speed and current INVALID, and the registry
+  now has two fault lists (`fails_with` for a silent device, `fails_closed` for a closed
+  connection) that follow from how each record is processed.
+- **Update rate, measured by the suite in the lead's runs**: all four polled AU supplies 9.0 to
+  9.1 Hz against a predicted 9.65 Hz (94 %), TDK 9.99 Hz against 10.0 Hz.
+- **`docs/emulation/README.md`** is written: start, stop, test, faults, plant, GUI, the step to
+  the real computers.
 - **T12 merged** (run by the lead: 122 unit tests including the plant with the real simulators
   in-process, and the step-response tool; the check on the full emulation is still to do):
   `python -m mist2sim.plant`, started with `make -C emulation up-plant`. Without that, the
@@ -80,6 +91,18 @@ table is loaded by the two emulated IOCs (T7 done)**. T12 (plant model) is merge
 - Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
 - Briefs for T8 (system tests) and T10 (plan and registry) are written. T10 starts when T3 is
   merged, T8 after T10, because the tests take their PV names from the registry.
+
+## Not verified
+
+- The steps of `docs/emulation/README.md` on a fresh WSL2 installation: Docker was already
+  installed on the machine used.
+- Anything against real hardware, including `ports.real.cmd` and `run-ioc.sh ... real` on a real
+  Linux computer.
+- The GUI in a browser on Windows: checked with `curl` and with a script that reads the PVs
+  through the GUI's server.
+- The plant model on the full emulation (unit tests with the real simulators pass).
+- The branch is local. Nothing is pushed, so the `git clone` step of the README works only
+  after a push.
 
 ## Subagents
 
