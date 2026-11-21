@@ -11,16 +11,6 @@
 
 # Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
 # setting after the first contact; a write before that is not sent.
-# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
-# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
-# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
-# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
-# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
 record(ao, "$(DEV=REK)-$(UNITNUM):voltage:setpoint") {
     field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")

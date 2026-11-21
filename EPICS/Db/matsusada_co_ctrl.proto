@@ -7,8 +7,9 @@
 # compared with what was sent (%=): a supply that does not execute the set, or does not
 # answer, turns the set-point record INVALID (CALC or TIMEOUT).
 # The set points have no @init: StreamDevice 2.8.26 converts a LONG input of an ao record with
-# ASLO only, not ESLO (devaoStream.c, readData). After an IOC start the :setpoint records start
-# at 0 as in the lab; the :get records show the supply's settings.
+# ASLO only, not ESLO (devaoStream.c, readData). The database does it instead: at the first
+# contact the voltage set point takes over the setting the supply reports (:voltage:get), and
+# the saved current limit is sent.
 #
 # Argument $1 is the unit number (the UNIT switch of the CO-HV).
 #
