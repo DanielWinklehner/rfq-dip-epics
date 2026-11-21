@@ -126,10 +126,17 @@ com1_firmware {
 
 # Channel list, e.g. "i1,i2,s1,s2". Compare it with what the database expects: the array
 # from read_all_array is positional, so a reordered channel map silently shifts every PV.
+# Read into an lsi record (SIZV 256 in libcom1_device.db), everything after "CH=" up to the
+# CR of Serial.println (or the end of the line over TCP). Width 255 = SIZV - 1. Why that is
+# enough: SerialDevice only compiles with an output buffer of at least 14 bytes per channel
+# (min_out_buffer_size), and the list takes 3 bytes per channel ("c<d>,", the channel number
+# is one digit), so a full list is always shorter than 3/14 of the output buffer. 255
+# characters cover 85 channels, an output buffer of about 1200 bytes; the largest in AVR/ is
+# 512 (Thermocouple: 16 channels, 47 characters).
 com1_channels {
     extrainput = ignore;
     out "I";
-    in "oID=%*[^;];FW=%*[^;];PROTO=%*d;CH=%39[0-9a-zA-Z,]";
+    in "oID=%*[^;];FW=%*[^;];PROTO=%*d;CH=%255[^\r]";
 }
 
 

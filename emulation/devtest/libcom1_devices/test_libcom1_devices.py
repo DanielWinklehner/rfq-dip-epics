@@ -290,9 +290,27 @@ def test_identity(board):
                lambda: none_in_alarm(["%s:id" % p, "%s:firmware" % p, "%s:channels" % p]), 15)
     assert read("%s:id" % p, as_string=True)["value"] == b["identity"]
     assert read("%s:firmware" % p, as_string=True)["value"] == FIRMWARE
-    # com1_channels reads at most 39 characters (%39[...] into a stringin, libcom1.proto):
-    # the 16 channels of the thermocouple board (47 characters) arrive cut after "a1,"
+    # :channels is an lsi: the full list is VAL$ (char array), VAL itself is cut at 39
+    # characters for plain string clients (the thermocouple board's list has 47)
+    assert epics.caget("%s:channels.VAL$" % p, as_string=True, timeout=3) == b["channels"]
     assert read("%s:channels" % p, as_string=True)["value"] == b["channels"][:39]
+
+
+def test_channels_invalid_when_silent():
+    """The identity records still turn INVALID when the board stops answering (10 s scan)."""
+    with control("thermocouple") as c:
+        c.fault("silent")
+    try:
+        # up to 10 s until the next identity scan, then three queries of 1 s timeout each,
+        # queued behind the timing-out polls of :data
+        wait_until("THM:channels INVALID", lambda: severity("THM:channels") == INVALID or
+                   severity("THM:channels"), 25)
+        assert pv("THM:channels").get_ctrlvars() is not None
+    finally:
+        with control("thermocouple") as c:
+            c.clear()
+    wait_until("THM:channels recovers", lambda: severity("THM:channels") == NO_ALARM, 15)
+    assert epics.caget("THM:channels.VAL$", as_string=True, timeout=3) == BOARDS["thermocouple"]["channels"]
 
 
 # --- IOC log -----------------------------------------------------------------------------------
@@ -305,9 +323,10 @@ RUNTIME = re.compile(r"^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d\.\d+ ")
 # The only run-time messages allowed: what the deliberate faults of this test produce on the
 # five ports (no reply, a garbled or rejected reply, a dropped or refused connection)
 FAULT_MESSAGE = re.compile(
-    r"^\S+ \S+ (?:(?:AVR6|AVR10|AVR11|AVR12|thermo) \S+: "
-    r"(?:No reply within \d+ ms|Input \"|mismatch after \d+ bytes|got \"|device \S+ 0 disconnected)"
-    r"|cbLow \S+ lockRequest: (?:port \S+ not connected|status returned to normal))")
+    r"^\S+ \S+ (?:(?:AVR6|AVR10|AVR11|AVR12|thermo) (?:\S+: )?"
+    r"(?:No reply within \d+ ms|Input \"|mismatch after \d+ bytes|got \"|device \S+ 0 disconnected"
+    r"|No match for \"|connectCallback\(\w+\) called unexpectedly)"
+    r"|(?:cbLow|scan-[0-9.]+) \S+ lockRequest: (?:port \S+ not connected|status returned to normal))")
 
 
 def test_ioc_log_has_no_database_protocol_or_link_error():
