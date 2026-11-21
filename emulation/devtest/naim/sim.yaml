@@ -1,0 +1,9 @@
+# Edwards nAIM, RS-232 at 9600 baud as in the lab's 2023 st.cmd, non-addressed mode
+- name: aim
+  type: edwards_naim
+  port: 5002                  # control port 6002
+  baud: 9600
+  turnaround_ms: 10           # response time: not documented, assumed
+  options:
+    units: torr
+    pressure: 1.0e-6

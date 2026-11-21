@@ -1,16 +1,32 @@
-# Author: Philip Weigel
+# aim.db - Edwards nAIM cold cathode gauge (protocol: aim.proto)
+#
+# Macros:
+#   DEVICE  PV prefix (the lab: AIM)
+#   PORT    asyn port
+#   SCAN    scan of the pressure, default "1 second" (the lab polled at 10 Hz)
+#
+# PV names of the lab's 2023 file IOC.aim.db are kept. getpressure is INVALID while the gauge is
+# off, striking or reports an error (status bits of the reply, see aim.proto). enable waits for
+# the acknowledgement: a rejected or unanswered command puts it into INVALID alarm.
+# The unit is the data unit configured in the gauge; the lab's file says torr (not checked).
+#
+# Author of the first version: Philip Weigel.
 
-record(ai, "$(DEVICE):pressure:get") {
-    field(DESC, "Get pressure of $(PORT):$(DEVICE)")
+record(ai, "$(DEVICE):getpressure") {
+    field(DESC, "Pressure, cold cathode gauge")
     field(DTYP, "stream")
-    field(INP, "@aim.proto get_pressure $(PORT)")
-    field(SCAN, ".1 second")
+    field(INP,  "@aim.proto get_pressure $(PORT)")
+    field(SCAN, "$(SCAN=1 second)")
     field(EGU,  "torr")
+    field(PREC, "2")
+    field(LOPR, "1e-10")
+    field(HOPR, "1e-2")
 }
 
-
 record(bo, "$(DEVICE):enable") {
-	field(DESC, "Enable/Disable $(DEVICE)")
-	field(DTYP, "stream")
-	field(OUT, "@aim.proto enable $(PORT)")
+    field(DESC, "Cold cathode off/on")
+    field(DTYP, "stream")
+    field(OUT,  "@aim.proto enable $(PORT)")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
 }
