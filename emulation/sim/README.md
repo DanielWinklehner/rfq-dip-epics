@@ -186,7 +186,19 @@ parameters (`model`, each with value, unit and source). A simulator that is not 
 away is tried again every `retry_s`; the model keeps running on its last known values and the
 status line names it. On SIGTERM or SIGINT the plant releases every signal it has taken.
 Loop design numbers: `python3 tools/plant_step_response.py` (gain, dead time, time constant at
-three working points; properties of the model, not of MIST-2).
+the working point and two points below; properties of the model, not of MIST-2).
+
+### The machine (phase 1, owner 2026-11-21)
+
+Ion source with a hairpin filament on the high-voltage platform, a conical high-voltage break,
+then ONE chamber at ground: a CF 10" six-way cross (extraction in its upstream flange, Faraday
+cup from the top). ONE turbopump (turbopump 1) on the bottom flange. The nAIM and the APG sit
+side by side on a side flange, so both measure the cross. Not in phase 1, and not used by the
+plant: turbopump 2 (`nt20_2` keeps running as a simulator), the second gauge channel `gauges.p2`
+(an AIM for phase 2), a diagnostic box. The foreline has no gauge in the control system yet: its
+pressure is a model state, `foreline_pressure` on the plant's control port. Thermocouples t1..t4:
+back plate, filament feedthrough, isolation transformer 1, isolation transformer 2. The sensor
+box stands in for the future cooling water readout.
 
 ### Signals
 
@@ -194,14 +206,53 @@ three working points; properties of the model, not of MIST-2).
 |---|---|
 | `tdk.mc` filament current | `tdk.load_ohm` filament resistance R(T) |
 | `rek.1.vset`, `rek.1.iset`, `rek.1.output` | `rek.1.load_ohm` = V / I of the discharge operating point |
-| `mfc.254.flow` (% of 50 sccm) | `aim.pressure` source vessel (torr) |
-| `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent, `s4` Faraday cup | `gauges.p2` diagnostic box, `gauges.p1` foreline (torr) |
-| `nt20_1.speed` (source), `nt20_2.speed` (diagnostic box), / 1200 Hz | `faradaycup.c1` cup current (A) |
+| `mfc.254.flow` (% of 5 sccm H2) | `aim.pressure` nAIM reading of the cross (torr) |
+| `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent (turbopump), `s4` Faraday cup | `gauges.p1` APG reading of the cross (torr) |
+| `nt20_1.speed` / 1200 Hz | `faradaycup.c1` cup current (A) |
 | `mat_opt.1.vset`, `.iset`, `.output` (ion source supply) | `mat_opt.1.load_ohm` = V / I of the source supply |
 | `mat_opt.2.vout`, `.output` (puller supply) | `thermocouple.t1`..`t4`, `sensorbox.t1`..`t7` (degC) |
 
-Model inputs, in this order in `config/plant.yaml`: `filament_current`, `rek_vset`, `rek_iset`, `rek_on`, `gas_flow`, `shutoff_open`, `foreline_open`, `vent_open`, `cup_in`, `turbo1_speed`, `turbo2_speed`, `source_vset`, `source_iset`, `source_on`, `puller_voltage`, `puller_on`.
-A missing one is 0 (off, closed, stopped).
+Model inputs, in this order in `config/plant.yaml`: `filament_current`, `rek_vset`, `rek_iset`,
+`rek_on`, `gas_flow`, `shutoff_open`, `foreline_open`, `vent_open`, `cup_in`, `turbo_speed`,
+`source_vset`, `source_iset`, `source_on`, `puller_voltage`, `puller_on`. A missing one is 0
+(off, closed, stopped).
+
+### Calibration: the owner's working point
+
+"Typical operating point: 8 V, 90 A on the filament, 150 V, 24 A on the discharge, pressure in the
+6-way around 1e-5 Torr, MFC flow around 20 % open (at 5 SCCM max)." These six numbers are the
+parameters `wp_*`. At construction the model derives from them (`PlantModel.derived`, also
+`info` on the plant's control port, and printed by the step response tool):
+
+| Derived | Value | How |
+|---|---|---|
+| hot filament resistance | 0.0889 ohm | 8 V / 90 A (the TDK simulator's load is 0.089 ohm) |
+| filament power | 720 W | 8 V x 90 A |
+| plasma limit at the point | 60 A | `plasma_margin` x 24 A: the point is emission limited |
+| emission at the point | 24.5 A | 24 A = smooth minimum of emission and plasma limit |
+| filament temperature | 2820 K | Richardson emission x area = 24.5 A, with the area that 720 W holds at T by radiation |
+| filament area | 6.7 cm2 | as a check: a tungsten hairpin of 1.36 mm x 15.6 cm has 0.089 ohm hot |
+| true H2 pressure in the cross | 2.2e-5 torr | nAIM reading / `aim_h2_factor` |
+| pumping speed for H2 | 730 l/s | 1 sccm / (true pressure - true base pressure) |
+| plasma constant k | 0.073 A/V^1.5 | plasma limit at 150 V and the chamber pressure at 1 sccm |
+
+What the point implies:
+
+- **The REK is at its current limit.** 24 A is the full scale of the REK150-24. With the limit at
+  24 A, the model sits at the edge of constant current: more filament current cannot raise the
+  discharge current, the voltage falls instead (149.2 V at the point). A discharge current loop
+  through the filament current only acts downward here; it needs a set point below 24 A or a
+  supply with more current (REK150-55). The model does not hide this.
+- **The pumping speed is large.** 1 sccm at 1e-5 torr would need 1270 l/s for hydrogen. Two
+  things in the model bring it down, and both are stated as assumptions: the nAIM is calibrated
+  for N2 and reads hydrogen at about 0.46 of the true pressure (a tabulated gas correction of
+  ionisation gauges, not measured on this gauge), and the base reading of 2e-6 torr is residual
+  gas. That leaves 730 l/s for H2: plausible for a turbopump on a DN 200 / CF 10" flange, but the
+  pump model is not known (answer 15). If the real pump is smaller, either the pressure or the
+  flow of the point is lower than remembered; correct `wp_*` or `aim_h2_factor` then.
+- **It is one point.** The slopes around it (discharge current per filament current, per sccm)
+  follow from Richardson's law, Stefan-Boltzmann and the free choices; they are properties of the
+  model. `tools/plant_step_response.py` says so in its output.
 
 ### Equations (model.py, in this order every step)
 
@@ -211,12 +262,14 @@ Filament     P_f   = I_f^2 R(T)                    R(T) = R_hot (T / T_hot)^r_ex
              dT/dt = (T_eq - T) / filament_tau                     (thermal lag)
              I_e   = emission_factor  A_G T^2 exp(-W / kT)  A      Richardson-Dushman
 Gas          Q     = gas_flow (only with the shutoff valve open) + burst        [sccm]
-             V_ch dp_ch/dt  = Q - C_ap (p_ch - p_src)                         plasma chamber
-             V_src dp_src/dt = Q + Q0_src + C_vent (p_atm - p_src) - S1 p_src - C_beam (p_src - p_diag)
-             V_diag dp_diag/dt = Q0_diag + C_beam (p_src - p_diag) - S2 p_diag
-             V_fl dp_fl/dt  = S1 p_src + S2 p_diag + Q_fl - S_rough (p_fl - p_ult)   S_rough = 0 with the foreline valve closed
-             S_i   = S_turbo (f_stop + (1 - f_stop) speed_i / rated) / (1 + p / p_lim)
-             Q0_*, p_ult: chosen so that the pumped, gas-free plant reads today's constants
+             V_ch dp_ch/dt   = Q - C_ap (p_ch - p_x)                         plasma chamber
+             V_x dp_x/dt     = Q + Q0 + C_vx p_fl - (S + C_vx) p_x           cross
+             V_fl dp_fl/dt   = S p_x + Q_fl + C_vent (p_atm - p_fl) - S_rough (p_fl - p_ult)
+                               C_vent only with the vent valve open (it vents the turbopump),
+                               S_rough = 0 with the foreline valve closed
+             S     = S_turbo (f_stop + (1 - f_stop) speed / rated) / (1 + p_x / p_lim)
+             nAIM  = aim_h2_factor p_x          APG = p_x within [apg_floor, apg_ceiling]
+             Q0, p_ult: chosen so that the pumped, gas-free plant reads today's constants
 Discharge    I_plasma(V) = k (V - V_min)^1.5 (p_ch - p_min) / (p_ch - p_min + p_half)   0 below V_min or p_min
              I_dis(V)    = (I_e^-n + I_plasma^-n)^(-1/n)            emission limit, smooth min, plasma limit
              REK on the load I_dis(V) + V / R_bleed: CV at vset if that draws <= iset, else CC at the V
@@ -225,24 +278,32 @@ Discharge    I_plasma(V) = k (V - V_min)^1.5 (p_ch - p_min) / (p_ch - p_min + p_
 Extraction   I_beam = beam_fraction I_dis (1 - exp(-(V_src + V_puller) / V_sat))  only with both on
              source supply on the load I_beam(V) + V / R_leak, same CV/CC rule; R = V / I written
              cup current = I_beam with the cup in (valve s4), else 0
-Heat         P_h = P_f + V_dis I_dis
-             thermocouple_i = base_i + tc_gain P_h lagged by tc_tau
-             water_i        = base_i + water_fraction P_h / (rho c_p flow) lagged by water_tau
+Heat         t1 back plate        = base + back_plate_k   (P_f + P_dis)           lag plate_tau
+             t2 filament feedthr. = base + feedthrough_k  P_f                     lag plate_tau
+             t3 transformer 1     = base + rise (P_TDK / 2400 W)^2                lag transformer_tau
+             t4 transformer 2     = base + rise (P_REK / 3600 W)^2                lag transformer_tau
+             sensor box t1..t7    = base + water_fraction (P_f + P_dis) / (rho c_p flow)   lag water_tau
 ```
 
-All lags are integrated exactly for a constant input over one step, so any `dt` is stable. The
-time constants of the heat are minutes on a real source; the defaults (20 s and 40 s) are
-chosen so that a desk session sees an effect within a minute. Change them in `config/plant.yaml`.
+The thermocouple relations, chosen: the back plate faces the plasma and the filament, so it
+warms with both powers; the feedthrough carries the filament current and conducts heat from the
+filament, so it warms with the filament power only; each isolation transformer warms with the
+power it carries (copper losses, square of the load), transformer 1 feeding the TDK and
+transformer 2 the REK (which transformer feeds which supply is a free choice). All lags are
+integrated exactly for a constant input over one step, so any `dt` is stable. The time
+constants of the heat are minutes on a real source; the defaults (20 s, 40 s, 60 s) are chosen
+so that a desk session sees an effect within a minute. Change them in `config/plant.yaml`.
 
 ### Disturbances: the plant's control port (6090, JSON lines as on a simulator)
 
 ```
 {"cmd": "get"}                                     model state, inputs, links
-{"cmd": "get", "signal": "filament_temperature"}   one value (also emission, discharge_current,
-                                                   source_pressure, beam_current, ...)
+{"cmd": "get", "signal": "foreline_pressure"}      one value (also filament_temperature, emission,
+                                                   discharge_current, cross_pressure, beam_current, ...)
+{"cmd": "info"}                                    signal names and the calibration (derived)
 {"cmd": "set", "signal": "emission_factor", "value": 0.8}          emission -20 % at once
 {"cmd": "set", "signal": "emission_drift_per_min", "value": -0.05} emission falls 5 %/min
-{"cmd": "set", "signal": "pressure_burst_sccm", "value": 20}       extra gas, decays (burst_tau_s)
+{"cmd": "set", "signal": "pressure_burst_sccm", "value": 2}        extra gas, decays (burst_tau_s)
 {"cmd": "release", "signal": "emission_factor"}                    back to neutral
 ```
 
@@ -251,58 +312,70 @@ chosen so that a desk session sees an effect within a minute. Change them in `co
 ### Not modelled
 
 Space charge and plasma physics beyond the two limits; the arc and filament burn-out at high
-pressure; the cusp magnets; filament evaporation and ageing (only as `emission_drift_per_min`);
-gas consumption by the discharge; outgassing that rises with temperature; turbopump stall from
-a high foreline pressure; viscous flow while venting; the roughing pump (always running); the
-cooling water flows (the sensor box flows are not read); the lens supplies and puller current;
-beam transport (every extracted ion reaches the cup); the MFC seeing its shutoff valve closed (it
-reports its own flow); the cold-junction channels j1..j4 of the thermocouple board; gauge
-heads switched off (the nAIM simulator still decides what it reports when off).
+pressure; the cusp magnets; heating of the filament by the discharge; filament evaporation and
+ageing (only as `emission_drift_per_min`); gas consumption by the discharge; outgassing that
+rises with temperature; the gas dependence of the APG (Pirani); turbopump stall from a high
+foreline pressure, and the run-down of the turbopump when it is vented (the NT 20 simulator
+decides its speed); the roughing pump (always running); the cooling water flows; the lens
+supplies and the puller current; beam transport (every extracted ion reaches the cup); the MFC
+seeing its shutoff valve closed (it reports its own flow); the cold-junction channels j1..j4;
+gauge heads switched off (the nAIM simulator still decides what it reports when off).
 
 ### Parameters (config/plant.yaml, section model)
 
 | Parameter | Default | Unit | Source |
 |---|---|---|---|
+| `wp_filament_voltage_v` | 8 | V | owner's working point, 2026-11-21: filament 8 V |
+| `wp_filament_current_a` | 90 | A | owner's working point, 2026-11-21: filament 90 A |
+| `wp_discharge_voltage_v` | 150 | V | owner's working point, 2026-11-21: discharge 150 V |
+| `wp_discharge_current_a` | 24 | A | owner's working point, 2026-11-21: discharge 24 A (the full scale of the REK150-24) |
+| `wp_cross_reading_torr` | 1e-05 | torr | owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading) |
+| `wp_gas_sccm` | 1 | sccm | owner's working point, 2026-11-21: MFC about 20 % of 5 sccm H2 |
 | `filament_tau_s` | 1 | s | free choice: 'about a second, which matches a thermal filament' (plan/controls.yaml, software.loops) |
-| `filament_r_hot_ohm` | 0.025 | ohm | estimate: the hot filament assumed by the TDK simulator (hv.yaml load_ohm) |
-| `filament_t_hot_k` | 2600 | K | estimate: a usual temperature of an emitting tungsten filament |
 | `filament_r_exponent` | 1.2 | 1 | law (fit): tungsten resistivity rises about as T^1.2 between 300 and 3000 K |
-| `filament_area_cm2` | 13 | cm2 | estimate: chosen so that about 1 kW (200 A) holds the filament at about 2600 K; also the emitting area |
-| `filament_emissivity` | 0.3 | 1 | law (tabulated): total emissivity of tungsten near 2600 K |
+| `filament_emissivity` | 0.3 | 1 | law (tabulated): total emissivity of tungsten near 2800 K |
 | `room_temperature_k` | 293 | K | free choice |
 | `richardson_a_per_cm2_k2` | 60 | A/(cm2 K2) | law (tabulated): Richardson constant of tungsten |
 | `work_function_ev` | 4.54 | eV | law (tabulated): work function of tungsten |
 | `discharge_v_min_v` | 25 | V | estimate: no discharge below this voltage (H2 ionisation 15.4 V plus margin) |
-| `discharge_k_a_per_v15` | 0.04 | A/V^1.5 | estimate: the plasma carries about 20 A at 100 V and 5 sccm, near the REK rating (24 A) |
 | `discharge_exponent` | 1.5 | 1 | law (shape only): space-charge limited current rises as V^1.5 (Child-Langmuir) |
-| `discharge_p_min_torr` | 0.0005 | torr | estimate: no discharge below this plasma chamber pressure |
-| `discharge_p_half_torr` | 0.002 | torr | estimate: the plasma limit is half its maximum at p_min + p_half |
+| `discharge_p_min_torr` | 0.0002 | torr | estimate: no discharge below this source pressure |
+| `discharge_p_half_torr` | 0.001 | torr | estimate: the plasma limit is half its maximum at p_min + p_half |
 | `discharge_smooth_n` | 3 | 1 | free choice: sharpness of the transition from emission limit to plasma limit |
+| `plasma_margin` | 2.5 | 1 | free choice: at the working point the plasma could carry 2.5 times the discharge current, so the point is emission limited, which a loop on the filament current needs |
 | `rek_bleed_ohm` | 10000 | ohm | free choice: a bleeder across the REK output, so that its current limit always has a load to act on |
 | `sccm_to_torr_l_s` | 0.01267 | torr l/s per sccm | law: definition of the sccm (760 torr, 0 degC) |
 | `aperture_conductance_l_s` | 8 | l/s | estimate: molecular flow of H2 through an extraction aperture of about 5 mm |
-| `chamber_volume_l` | 2 | l | estimate: plasma chamber |
-| `source_volume_l` | 50 | l | estimate: source vacuum vessel |
-| `diag_volume_l` | 30 | l | estimate: diagnostic box |
-| `beamline_conductance_l_s` | 5 | l/s | estimate: between source vessel and diagnostic box |
-| `turbo_speed_l_s` | 200 | l/s | estimate: H2 pumping speed of each turbopump at rated speed (the pump models are not known) |
+| `chamber_volume_l` | 1 | l | estimate: plasma chamber of the source |
+| `cross_volume_l` | 40 | l | estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long) |
+| `aim_h2_factor` | 0.46 | 1 | law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure |
+| `cross_base_reading_torr` | 2e-06 | torr | free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas |
+| `apg_floor_torr` | 0.001 | torr | free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that |
+| `apg_ceiling_torr` | 944.06 | torr | free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml) |
 | `turbo_stopped_fraction` | 0.01 | 1 | estimate: what a stopped turbopump still pumps (through to the foreline) |
 | `turbo_p_limit_torr` | 0.01 | torr | estimate: inlet pressure at which a turbopump has lost half its speed |
-| `source_base_torr` | 2e-06 | torr | free choice: the constant of the aim simulator today (rack.yaml), base pressure with pumps at speed |
-| `diag_base_torr` | 8e-07 | torr | free choice: the constant of gauges p2 today (rack.yaml) |
-| `foreline_base_torr` | 0.03 | torr | free choice: the constant of gauges p1 today (rack.yaml) |
-| `foreline_volume_l` | 2 | l | estimate: foreline between turbopumps and foreline valve (the gauge is assumed there) |
+| `foreline_base_torr` | 0.03 | torr | free choice: the APG simulator's constant before phase 1 (no foreline gauge in the control system yet) |
+| `foreline_volume_l` | 2 | l | estimate: turbopump outlet, foreline up to the foreline valve |
 | `rough_speed_l_s` | 5 | l/s | estimate: roughing pump (make and model not known) |
 | `foreline_outgas_torr_l_s` | 0.001 | torr l/s | estimate: outgassing of the foreline |
-| `vent_conductance_l_s` | 10 | l/s | estimate: vent valve into the source vessel |
+| `vent_conductance_l_s` | 1 | l/s | estimate: vent valve on the side port of the turbopump, into the foreline side |
+| `vent_cross_conductance_l_s` | 1e-05 | l/s | estimate: vent gas reaching the cross back through the turbopump; 'the inflow of N2 is small' (owner) |
 | `atmosphere_torr` | 760 | torr | law |
 | `burst_tau_s` | 2 | s | free choice: decay of a pressure burst set through the plant's control port |
-| `beam_fraction` | 0.0002 | A/A | estimate: extracted beam current per A of discharge current at saturation (10 A -> 2 mA, within the 15 mA source supply) |
+| `beam_fraction` | 0.0002 | A/A | estimate: extracted beam current per A of discharge current at saturation (24 A -> 4.8 mA, within the 15 mA source supply) |
 | `extraction_v_sat_v` | 8000 | V | estimate: the beam current rises as 1 - exp(-V / v_sat) with the extraction voltage (source + puller) |
 | `source_leak_ohm` | 2e+08 | ohm | free choice: leakage of the source supply output, 100 uA at 20 kV |
-| `tc_tau_s` | 20 | s | free choice: minutes in reality, short so that a desk session sees an effect within a minute |
-| `tc_gain_k_per_w` | 0.01 | K/W | estimate: 3 kW of filament and discharge power heat the source plates by 30 K |
-| `tc_base_c` | t1 35, t2 41, t3 38, t4 33 | degC | free choice: the constants of the thermocouple simulator today (hv.yaml) |
+| `plate_tau_s` | 20 | s | free choice: minutes in reality, short so that a desk session sees an effect within a minute |
+| `back_plate_k_per_w` | 0.01 | K/W | estimate: t1, back plate, warms with filament + discharge power (about 4.3 kW at the working point -> 43 K) |
+| `back_plate_base_c` | 41 | degC | free choice: the constant of thermocouple t1 today (hv.yaml) |
+| `feedthrough_k_per_w` | 0.03 | K/W | estimate: t2, filament feedthrough, warms with the filament power only (720 W -> 22 K) |
+| `feedthrough_base_c` | 38 | degC | free choice: the constant of thermocouple t2 today (hv.yaml) |
+| `transformer_tau_s` | 60 | s | free choice: tens of minutes in reality, short so that a desk session sees an effect |
+| `transformer_rise_k` | 40 | K | estimate: rise of an isolation transformer at the full rating of the supply it feeds; copper losses go with the square of the load |
+| `transformer1_rated_w` | 2400 | W | free choice: transformer 1 (t3) feeds the filament supply, rating of the TDK GEN8-300 (8 V x 300 A) |
+| `transformer2_rated_w` | 3600 | W | free choice: transformer 2 (t4) feeds the discharge supply, rating of the REK150-24 (150 V x 24 A) |
+| `transformer1_base_c` | 35 | degC | free choice: the constant of thermocouple t3 today (hv.yaml) |
+| `transformer2_base_c` | 33 | degC | free choice: the constant of thermocouple t4 today (hv.yaml) |
 | `water_tau_s` | 40 | s | free choice: minutes in reality, short so that a desk session sees an effect within a minute |
 | `water_flow_l_min` | 1 | l/min | estimate: within 0.25 to 2 l/min per branch (plan/controls.yaml) |
 | `water_heat_fraction` | 0.3 | 1 | estimate: share of the heat power each sensor box channel sees (which sensor sits where is not known) |

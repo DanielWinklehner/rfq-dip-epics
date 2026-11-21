@@ -126,6 +126,19 @@ them. "Work" says what each answer changes and who does it.
 | 17 | Old interlock box | In use, its two relays switch nothing | Plan note: done (closes P4, A18 for this box) |
 | 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross, MFC at about 20 % of 5 sccm | TDK simulator load: done. Plant model |
 
+## What the working point implies (from the plant model, for you to check)
+
+- **The discharge supply is at its limit.** 24 A is the full scale of the REK150-24. At the
+  working point the model sits at the edge of constant-current operation, so a discharge current
+  loop through the filament current can only act downward there (model: gain 3.6 A/A for a step
+  down, 0.007 A/A for a step up). Either the loop runs at a set point below 24 A, or it waits
+  for the REK150-55.
+- **The pumping speed is large.** 1 sccm of hydrogen at a reading of 1e-5 torr means about
+  1270 l/s for hydrogen, or about 730 l/s if the nAIM is calibrated for nitrogen and reads
+  hydrogen at 0.46 of its true pressure. Which TURBOVAC is on the cross is not known. If the
+  pump is smaller, the remembered flow or pressure is off.
+- The model's filament: 720 W, 2820 K, 6.7 cm2 of tungsten (a wire of about 1.4 mm by 16 cm).
+
 ## Not verified
 
 - The steps of `docs/emulation/README.md` on a fresh WSL2 installation: Docker was already
