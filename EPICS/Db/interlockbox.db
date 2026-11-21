@@ -1,8 +1,24 @@
+# interlockbox.db - old interlock box in the rack: two door switches (AVR/devices/InterlockBox)
+#
 # Author: Philip Weigel
 #
-# The element records read the array through CA links. "MS" makes them inherit its alarm
-# severity: when the device stops answering, :data goes INVALID and so do the interlock PVs,
-# instead of silently showing the last value they received.
+# Macros: DEVICE (PV prefix, INTLK in the lab), PORT (asyn port, AVR11 in the lab).
+# Load libcom1_device.db with the same macros for the identity records.
+#
+# Four channels, in this order: i1, i2 (door switches), s1, s2 (two solenoid relays of the box,
+# not used by this database). A door switch reads digitalRead() of its input pin, and the
+# sketch treats the interlock as CLOSED only when both inputs are HIGH:
+#   1 = door closed, 0 = door open
+# The lab's database of 2023 says the same ("0 = open, 1 = closed") and computes
+# interlock_open = 1 unless both doors are closed. (The previous version of this file had the
+# states the wrong way round: ZNAM "Closed" for 0.)
+#
+# interlock_open carries no $(DEVICE) prefix: that is its name in the lab, and the output
+# permits of the power supplies read it.
+#
+# The element records read the array through CA links with MS: when the box stops answering,
+# :data goes INVALID and so do the door PVs and interlock_open, instead of silently showing the
+# last value they received. The value of interlock_open is then the last one computed.
 
 record(aai, "$(DEVICE):data") {
     field(DESC, "All interlocks")
@@ -19,42 +35,36 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(SELM, "All")
     field(LNK0, "$(DEVICE):i1:get_interlock")
     field(LNK1, "$(DEVICE):i2:get_interlock")
-    # interlock_status is Passive and nothing else processes it: without this link it
-    # never updated after the IOC started
-    field(LNK2, "interlock_status")
-    field(PINI, "YES")
+    # interlock_open is processed here, after both door records, at the rate of :data
+    field(LNK2, "interlock_open")
 }
 
 record(bi, "$(DEVICE):i1:get_interlock") {
-    field(DESC, "Get interlock 1 status")
+    field(DESC, "Get interlock 1 status, 1 = closed")
     field(INP, "$(DEVICE):data.VAL[0] CA MS")
-    field(ZNAM, "Closed")
-    field(ONAM, "Open")
-    field(OSV, "MAJOR")  # Severity of a one-value error
-    field(SCAN, "Passive") 
-    field(PINI, "YES")
-    field(SIMM, "NO")
-    field(SVAL, 0)
+    field(ZNAM, "Open")
+    field(ONAM, "Closed")
+    field(ZSV, "MAJOR")
+    field(SCAN, "Passive")
 }
 
 record(bi, "$(DEVICE):i2:get_interlock") {
-    field(DESC, "Get interlock 2 status")
+    field(DESC, "Get interlock 2 status, 1 = closed")
     field(INP, "$(DEVICE):data.VAL[1] CA MS")
-    field(ZNAM, "Closed")
-    field(ONAM, "Open")
-    field(OSV, "MAJOR")  #Severity of a one-value error
+    field(ZNAM, "Open")
+    field(ONAM, "Closed")
+    field(ZSV, "MAJOR")
     field(SCAN, "Passive")
-    field(PINI, "YES")
-    field(SIMM, "NO")
-    field(SVAL, 0)
 }
 
-# Might want to look at DOL for some of the power supplies for 'continuous control'
-# https://epics.anl.gov/base/R7-0/6-docs/boRecord.html
-record(calc, "interlock_status") {
-    field(DESC, "Status of the interlocks")
+# Recall for the ternary operator that it works as, condition ? valIfTrue : valIfFalse
+# Formerly called 'interlock_status'
+record(calc, "interlock_open") {
+    field(DESC, "1 = an interlock door is open")
     field(INPA, "$(DEVICE):i1:get_interlock.VAL NPP MS")
     field(INPB, "$(DEVICE):i2:get_interlock.VAL NPP MS")
-    field(CALC, "A||B ? 1 : 0")  # 1 if A or B, 0 otherwise
+    field(CALC, "(A&&B) ? 0 : 1")  # 0 if A and B (doors closed), 1 otherwise
     field(SCAN, "Passive")
+    field(HIGH, "1")
+    field(HSV, "MAJOR")
 }
