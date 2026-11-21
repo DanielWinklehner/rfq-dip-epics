@@ -6,7 +6,10 @@ with the repository at /repo. Every name comes from the registry.
     read OUT.json               value, severity and connection of every PV
     fault SIM[:UNIT] ...        make simulators (or one unit) silent
     clear SIM[:UNIT] ...        clear their faults
+    set SIM SIGNAL VALUE        hold a simulator signal (an interlock door)
+    release SIM SIGNAL          give it back to the simulator
     wait PV VALUE [SECONDS]     until PV reads VALUE (as a string), exit 1 if not
+    hold PV VALUE SECONDS       PV reads VALUE all that time, exit 1 if not
     compare A.json B.json GUI.json
                                 check the GUI's values against two reads that
                                 bracket it in time; prints one line per failure
@@ -84,14 +87,42 @@ def clear(specs):
         print(f"cleared: {spec}")
 
 
+def signal(name, sig, value=None):
+    client, _ = control(name)
+    with client:
+        if value is None:
+            client.release(sig)
+            print(f"released: {name} {sig}")
+        else:
+            client.set(sig, float(value))
+            print(f"set: {name} {sig} = {value}")
+
+
+def same(seen, value):
+    a, b = first_number(seen), first_number(value)
+    return seen == value or (a is not None and b is not None and abs(a - b) < 1e-6)
+
+
+def hold(name, value, seconds):
+    pv = epics.PV(field_name(name, all_pvs()[name]), form="ctrl")
+    deadline = time.time() + float(seconds)
+    while time.time() < deadline:
+        seen = pv.get(as_string=True, use_monitor=False, timeout=2)
+        if not same(seen, value):
+            print(f"FAIL {name} = {seen!r}, expected to stay {value!r} for {seconds} s")
+            return 1
+        time.sleep(0.3)
+    print(f"PASS {name} stayed {value} for {seconds} s")
+    return 0
+
+
 def wait(name, value, seconds=15):
     pv = epics.PV(field_name(name, all_pvs()[name]), form="ctrl")
     deadline = time.time() + float(seconds)
     seen = None
     while time.time() < deadline:
         seen = pv.get(as_string=True, use_monitor=False, timeout=2)
-        if seen == value or (first_number(seen) is not None and first_number(value) is not None
-                             and abs(first_number(seen) - first_number(value)) < 1e-6):
+        if same(seen, value):
             print(f"PASS {name} = {value}")
             return 0
         time.sleep(0.3)
@@ -165,8 +196,14 @@ def main():
         fault(args)
     elif command == "clear":
         clear(args)
+    elif command == "set":
+        signal(*args)
+    elif command == "release":
+        signal(*args)
     elif command == "wait":
         return wait(*args)
+    elif command == "hold":
+        return hold(*args)
     elif command == "compare":
         return compare(*args)
     else:

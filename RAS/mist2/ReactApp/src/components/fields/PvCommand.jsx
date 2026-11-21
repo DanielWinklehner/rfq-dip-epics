@@ -12,7 +12,6 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmColors, alarmState, alarmWord, marker } from "../../alarm/severity";
-import stateText from "./stateText";
 
 const PvCommandComponent = (props) => {
   const theme = useTheme();
@@ -42,7 +41,7 @@ const PvCommandComponent = (props) => {
       >
         {[0, 1].map((value) => (
           <ToggleButton key={value} value={value}>
-            {stateText(value, props.enumStrs)}
+            {props.enumStrs?.[value] ?? value}
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
@@ -59,7 +58,7 @@ const PvCommandComponent = (props) => {
               setAsked(null);
             }}
           >
-            {stateText(asked, props.enumStrs)}
+            {props.enumStrs?.[asked] ?? asked}
           </Button>
         </DialogActions>
       </Dialog>
@@ -67,8 +66,9 @@ const PvCommandComponent = (props) => {
   );
 };
 
-// A binary request (output, valve, pump, gauge): one button per state, the
-// state strings from the record. `confirm` = { value, text } asks first.
+// A binary request (output, valve, pump, gauge): one button per state, named
+// by the registry's words (custom_selection_strings). `confirm` = { value,
+// text } from the registry asks first.
 const PvCommand = (props) => <Widget {...props} component={PvCommandComponent} />;
 
 export default PvCommand;

@@ -4,7 +4,7 @@ import { useWorstAlarm } from "../alarm/AlarmStore";
 import { alarmColors, marker } from "../alarm/severity";
 import Command from "../components/devices/Command";
 import { flagTitles } from "../components/Flags";
-import { alarmPvs, channelLabel, devices, isPolled } from "../registry";
+import { alarmPvs, channelLabel, devices } from "../registry";
 import { openDeviceWindow } from "../windows";
 import tagRows from "./tagRows";
 import TagRow, { rowHeight } from "./TagRow";
@@ -31,7 +31,6 @@ const Tag = ({ id, channel, x, y, w }) => {
     <g
       onClick={() => openDeviceWindow(id, channel)}
       style={{ cursor: "pointer" }}
-      opacity={isPolled(id) ? 1 : 0.5}
       data-device={id}
       data-channel={channel}
       data-alarm={state}
@@ -54,7 +53,7 @@ const Tag = ({ id, channel, x, y, w }) => {
       </text>
       {flags.length > 0 && (
         <text x={x + w - 7} y={y + 15} fontSize={10} textAnchor="end" fill={theme.palette.info.main}>
-          {flags.map((flag) => (flag === "assumed" ? "assumed" : "not polled")).join(" · ")}
+          {flags.join(" · ")}
         </text>
       )}
       {tagRows(id, channel).map((row, index) => (

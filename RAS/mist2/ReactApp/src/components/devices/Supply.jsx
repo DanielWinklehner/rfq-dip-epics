@@ -1,19 +1,29 @@
 import React from "react";
+import Stack from "@mui/material/Stack";
 import RoleGrid from "./RoleGrid";
 
-// Pairs side by side: a set point with its echo, the read-backs, the output
-// request with the output state (STATUS.md P10, P17). A current that is a
-// limit (ilimit) and one that is a set point (iset) are told apart by role.
-const rows = [
+// What the operator works with: set points beside their echo (the TDK's
+// current is a set point), the read-backs, the output request beside the
+// output state, power and the remote/local status.
+const operation = [
   ["vset", "vget"],
-  ["iset", "iget"],
-  ["ilimit", "ilimit_get"],
+  ["iset", null],
   ["vread", "iread"],
   ["out_cmd", "out_state"],
   ["power", "status"],
   ["mode", "fault"],
 ];
 
-const Supply = ({ id }) => <RoleGrid id={id} rows={rows} />;
+// A setting below that: the current limit of a Matsusada supply beside the
+// limit the supply reports. The IOC saves every change and sends it with every
+// switch-on (STATUS.md, owner's answer 10).
+const settings = [["ilimit", "ilimit_get"]];
+
+const Supply = ({ id }) => (
+  <Stack spacing={2}>
+    <RoleGrid id={id} rows={operation} />
+    <RoleGrid id={id} rows={settings} title="Setting, saved by the IOC" />
+  </Stack>
+);
 
 export default Supply;

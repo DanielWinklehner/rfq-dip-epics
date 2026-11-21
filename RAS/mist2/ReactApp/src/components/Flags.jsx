@@ -7,7 +7,6 @@ import { devices } from "../registry";
 // show it (brief, requirement 8).
 export const flagTitles = {
   assumed: "Runs on assumptions",
-  not_polled: "Installed, not polled",
   not_installed: "Not installed",
 };
 

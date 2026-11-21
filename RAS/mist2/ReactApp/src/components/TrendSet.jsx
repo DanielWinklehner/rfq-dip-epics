@@ -4,7 +4,8 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import GraphY from "React-Automation-Studio/components/BaseComponents/GraphY";
 import { channelLabel, deviceOfPv, devices, pvInfo } from "../registry";
-import { exponentRoles, roleWord } from "../roles";
+import { roleWord } from "../roles";
+import { spansDecades } from "./fields/format";
 
 // What a trend line is called: the device, and the channel if it has one.
 export const pvLegend = (name) => {
@@ -14,8 +15,8 @@ export const pvLegend = (name) => {
 };
 
 // Time-stamped trends of some read-backs, updated on monitors: one graph per
-// role and unit (units compared without case: torr and Torr are one), pressures
-// on a log scale. `size` is the grid width of a graph.
+// role and unit (units compared without case: torr and Torr are one), units
+// that span decades on a log scale. `size` is the grid width of a graph.
 const TrendSet = ({ pvs, size = { xs: 12, lg: 6 }, height = 260 }) => {
   const groups = Object.values(
     Object.groupBy(pvs, (name) => `${pvInfo(name).role}|${(pvInfo(name).egu ?? "").toLowerCase()}`)
@@ -38,8 +39,8 @@ const TrendSet = ({ pvs, size = { xs: 12, lg: 6 }, height = 260 }) => {
                 xAxisTitle=""
                 yAxisTitle=""
                 maxLength={3000}
-                yScaleLog10={exponentRoles.includes(role)}
-                yTickFormat={exponentRoles.includes(role) ? ".1e" : undefined}
+                yScaleLog10={spansDecades(egu)}
+                yTickFormat={spansDecades(egu) ? ".1e" : undefined}
                 height={`${height}px`}
               />
             </Paper>

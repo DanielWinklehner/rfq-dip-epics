@@ -12,7 +12,9 @@
 #      unchanged, and back after the fault is cleared
 #   4  a stopped IOC: its PVs "no connection", the banner says so, and back
 #   5  a set point typed in arrives, the vent valve opens through the
-#      confirmation dialog, an output switches on without one, ALL HV OFF works
+#      confirmation dialog, an output switches on without one, an open door
+#      switches it off and clears the request (the switch shows it), closing the
+#      door brings nothing back, switching on again works, ALL HV OFF works
 #   6  no PV name or PV prefix of the registry in the application sources
 # Screenshots go to tools/screenshots/. Exit code 1 on any failure.
 set -uo pipefail
@@ -42,11 +44,14 @@ ca() {
 
 faults=""
 ioc_container=""
+ilk_sim=""
+door=""
 # Work files inside the repository, which the tools container sees at /repo.
 work=$(mktemp -d "$here/tools/.work.XXXXXX")
 cwork=/repo/RAS/mist2/tools/$(basename "$work")
 cleanup() {
     [ -n "$faults" ] && ca clear $faults >/dev/null 2>&1
+    [ -n "$ilk_sim" ] && ca release "$ilk_sim" "$door" >/dev/null 2>&1
     [ -n "$ioc_container" ] && docker start "$ioc_container" >/dev/null 2>&1
     rm -rf "$work"
 }
@@ -130,6 +135,22 @@ browser command valves s3 cmd 0 nodialog; result $?
 ca wait "$vent" 0 15; result $?
 state=$(python3 -c "import json; print(json.load(open('$registry'))['devices']['au_src']['roles']['out_state'])")
 request=$(python3 -c "import json; print(json.load(open('$registry'))['devices']['au_src']['roles']['out_cmd'])")
+browser command au_src - out_cmd 1 nodialog; result $?
+ca wait "$state" ON 15; result $?
+
+step "5b: the permit latches"
+read -r ilk_sim door permit < <(python3 -c "
+import json; d = json.load(open('$registry'))['devices']['ilk_old']
+print(d['simulators'][0], sorted(d['channels'])[0], d['roles']['open'])")
+ca set "$ilk_sim" "$door" 0; result $?
+ca wait "$permit" 1 10; result $?
+ca wait "$state" OFF 10; result $?
+ca wait "$request" DISABLED 10; result $?
+browser shows au_src out_cmd 0; result $?
+ca release "$ilk_sim" "$door"; result $?
+ca wait "$permit" 0 10; result $?
+ca hold "$state" OFF 8; result $?
+ca hold "$request" DISABLED 1; result $?
 browser command au_src - out_cmd 1 nodialog; result $?
 ca wait "$state" ON 15; result $?
 browser alloff; result $?

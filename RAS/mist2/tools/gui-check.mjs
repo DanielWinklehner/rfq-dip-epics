@@ -14,6 +14,8 @@
 //   command <id> <channel|-> <role> <value> <dialog|nodialog>
 //                        press a request button; the confirmation must (not) appear
 //   alloff               press ALL HV OFF in the app bar
+//   shows <id> <role> <value>
+//                        the request buttons of a role show that value pressed
 // Prints PASS/FAIL lines; exit code 1 on any FAIL.
 import fs from "node:fs";
 import { chromium } from "playwright";
@@ -329,6 +331,18 @@ const phases = {
       await page.getByRole("dialog").getByRole("button").last().click();
     }
     await page.waitForTimeout(1000);
+    await page.close();
+  },
+
+  async shows() {
+    const [id, role, value] = args;
+    const page = await openDevice(id);
+    await settle(page);
+    const word = devices[id].pvs[devices[id].roles[role]].states[Number(value)];
+    const group = page.locator(`[data-part="Controls"] [data-pv="${devices[id].roles[role]}"]`);
+    const pressed = await group.locator('[aria-pressed="true"]').innerText();
+    check(pressed === word, `${id} ${role}: the switch shows ${pressed}, expected ${word}`);
+    await shot(page, `latch-${id}-request-${word.toLowerCase()}`, false);
     await page.close();
   },
 

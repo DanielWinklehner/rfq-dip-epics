@@ -6,7 +6,7 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/EpicsPV";
 import { alarmColors, alarmState, marker } from "../alarm/severity";
-import { channelLabel, channelsOf, devices, installedDevices, iocs, rolesOf } from "../registry";
+import { channelLabel, connectedChannels, devices, installedDevices, iocs, rolesOf, wordsOf } from "../registry";
 import PvLamp from "./fields/PvLamp";
 import RoleField from "./RoleField";
 
@@ -68,8 +68,13 @@ const InterlockSummary = () =>
     .map((id) => (
       <Stack key={id} direction="row" spacing={2} alignItems="center">
         <RoleField id={id} role="open" />
-        {channelsOf(id).map((channel) => (
-          <PvLamp key={channel} pv={rolesOf(id, channel).state} label={channelLabel(id, channel) ?? channel} />
+        {connectedChannels(id).map((channel) => (
+          <PvLamp
+            key={channel}
+            pv={rolesOf(id, channel).state}
+            label={channelLabel(id, channel) ?? channel}
+            custom_selection_strings={wordsOf(id, channel, "state")}
+          />
         ))}
       </Stack>
     ));

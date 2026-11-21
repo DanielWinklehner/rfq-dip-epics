@@ -38,11 +38,9 @@ export const statusName = (value) => (/^\d+$/.test(String(value)) ? statusNames[
 export const marker = (state) => markers[state];
 export const alarmWord = (state) => words[state];
 
-// The text a value field shows: the value with its unit and marker, or the
-// word that replaces it when the value cannot be trusted.
-export const displayText = (state, value, units) =>
-  words[state] ??
-  [value, units, markers[state]].filter((part) => part !== "" && part != null).join(" ");
+// The text a value field shows: the value text with the marker, or the word
+// that replaces it when the value cannot be trusted.
+export const displayText = (state, text) => words[state] ?? [text, markers[state]].filter(Boolean).join(" ");
 
 // Colours of a state: fill, stroke (border or outline), text, dashed outline.
 export const alarmColors = (theme, state) => {

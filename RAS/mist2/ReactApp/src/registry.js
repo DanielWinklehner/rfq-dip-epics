@@ -21,7 +21,6 @@ const owners = Object.fromEntries(
 export const deviceOfPv = (name) => owners[name];
 
 const isInstalled = (id) => !devices[id].flags.not_installed;
-export const isPolled = (id) => !devices[id].flags.not_polled;
 
 // Installed devices in registry order, optionally of one page.
 export const installedDevices = (page) =>
@@ -44,22 +43,28 @@ export const rolesOf = (id, channel) =>
 
 export const channelsOf = (id) => Object.keys(devices[id].channels ?? {});
 
+// A spare channel is not connected: it is shown only in the device window.
+export const isSpare = (id, channel) => Boolean(devices[id].channels[channel].spare);
+export const connectedChannels = (id) => channelsOf(id).filter((channel) => !isSpare(id, channel));
+
 export const channelLabel = (id, channel) => devices[id].channels[channel].label;
+
+// The words of a role's values (index = value): those of the channel, else
+// the device's words for the role, else the record's own state strings.
+export const wordsOf = (id, channel, role) =>
+  (channel ? devices[id].channels[channel].states : devices[id].states?.[role]) ??
+  pvInfo(rolesOf(id, channel)[role]).states;
 
 // The label of a device-level role, if the registry has one.
 export const roleLabel = (id, role) => devices[id].labels?.[role];
 
 // The records whose severity says whether a device, or one channel of it, is
-// healthy: every read PV that is not internal. A device that is not polled
-// has records nobody processes, so it has none.
+// healthy: every read PV that is not internal and not of a spare channel.
 export const alarmPvs = (id, channel) => {
-  if (!isPolled(id)) return [];
-  const names = channel
-    ? Object.values(rolesOf(id, channel))
-    : Object.keys(devices[id].pvs);
+  const names = channel ? Object.values(rolesOf(id, channel)) : Object.keys(devices[id].pvs);
   return names.filter((name) => {
     const info = pvInfo(name);
-    return info.access === "r" && !info.internal;
+    return info.access === "r" && !info.internal && !(info.channel && isSpare(id, info.channel));
   });
 };
 
