@@ -96,7 +96,7 @@ def test_output_switch():
     put("status:setpoint", 0)
     wait_for(lambda: get("status:get"), lambda s: s == 0)
     wait_for(lambda: get("current:read"), lambda i: i < 0.5)
-    assert get("mode:get") == 0
+    wait_for(lambda: get("mode:get"), lambda m: m == 0)   # polled once a second, on its own
     put("status:setpoint", 1)
     wait_for(lambda: get("status:get"), lambda s: s == 1)
     put("status:setpoint", 0)
