@@ -2,11 +2,12 @@
 """Step responses of the plant MODEL, for tuning the first control loop (discharge current
 through the filament heating current, plan/controls.yaml software.loops).
 
-    python3 emulation/sim/tools/plant_step_response.py [--config plant.yaml] [--step 1.0]
+    python3 emulation/sim/tools/plant_step_response.py [--config plant.yaml] [--step 0.5]
 
-Runs the pure model (mist2sim.plant.model), no simulator, no socket. Prints, at three working
-points, the steady-state gain, dead time and time constant of the discharge current after a step
-of the filament current, and the same for a gas flow step on the source pressure.
+Runs the pure model (mist2sim.plant.model), no simulator, no socket. Prints the calibration
+from the owner's working point, then the steady-state gain, dead time and time constant of the
+discharge current after a step of the filament current at the working point and at two points
+below it, and the same for a gas flow step on the cross pressure.
 """
 
 import argparse
@@ -19,34 +20,30 @@ sys.path.insert(0, SIM)
 
 from mist2sim.core import load_config  # noqa: E402
 from mist2sim.devices.tdk_genesys import TdkGenesys  # noqa: E402
-from mist2sim.plant.model import PlantModel, idle_inputs, load_params  # noqa: E402
+from mist2sim.plant.model import PlantModel, load_params, working_point_inputs  # noqa: E402
 
 DT = 0.005
-BASE = dict(idle_inputs(), rek_vset=100.0, rek_iset=24.0, rek_on=1, gas_flow=5.0,
-            shutoff_open=1, foreline_open=1, turbo1_speed=1, turbo2_speed=1)
-TARGETS_A = (5.0, 10.0, 15.0)      # discharge currents of the three working points
+BELOW_A = (18.0, 12.0)      # discharge currents of the two points below the working point
 
 
 def steady(m, inputs, seconds=40.0):
     return m.settle(m.initial_state(), inputs, seconds, dt=0.05)
 
 
-def filament_current_for(m, target):
+def filament_current_for(m, base, target):
     """Filament current at which the discharge settles at `target` A (bisection)."""
     lo, hi = 0.0, 300.0
     for _ in range(40):
         mid = 0.5 * (lo + hi)
-        if steady(m, dict(BASE, filament_current=mid))[1]["discharge_current"] < target:
+        if steady(m, dict(base, filament_current=mid))[1]["discharge_current"] < target:
             lo = mid
         else:
             hi = mid
     return 0.5 * (lo + hi)
 
 
-def step_response(m, state, inputs, key, seconds):
-    """Apply `inputs` from `state`; return (times, values of out[key]) and the final value."""
-    ts, ys = [], []
-    t = 0.0
+def response(m, state, inputs, key, seconds):
+    ts, ys, t = [], [], 0.0
     for _ in range(int(round(seconds / DT))):
         state, out = m.step(state, inputs, DT)
         t += DT
@@ -56,10 +53,11 @@ def step_response(m, state, inputs, key, seconds):
 
 
 def first_order_fit(ts, ys, y0):
-    """Gain, dead time and time constant by the two-point method (28.3 % and 63.2 % of the
+    """Change, dead time and time constant by the two-point method (28.3 % and 63.2 % of the
     final change, Smith): tau = 1.5 (t63 - t28), dead time = t63 - tau."""
-    y_end = ys[-1]
-    dy = y_end - y0
+    dy = ys[-1] - y0
+    if abs(dy) < 1e-12 * max(1.0, abs(y0)):
+        return 0.0, float("nan"), float("nan")
 
     def crossing(frac):
         level = y0 + frac * dy
@@ -70,75 +68,100 @@ def first_order_fit(ts, ys, y0):
 
     t28, t63 = crossing(0.283), crossing(0.632)
     tau = 1.5 * (t63 - t28)
-    return dy, max(0.0, t63 - tau), tau, t63
+    return dy, max(0.0, t63 - tau), tau
+
+
+def fmt(x, spec):
+    return "-" if isinstance(x, float) and math.isnan(x) else spec % x
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--config", default=os.path.join(SIM, "config", "plant.yaml"))
-    ap.add_argument("--step", type=float, default=1.0, help="filament current step, A")
-    ap.add_argument("--gas-step", type=float, default=1.0, help="gas flow step, sccm")
+    ap.add_argument("--step", type=float, default=0.5, help="filament current step, A")
+    ap.add_argument("--gas-step", type=float, default=0.2, help="gas flow step, sccm")
     args = ap.parse_args(argv)
-    params = load_params(args.config)
-    m = PlantModel(params)
+    p = load_params(args.config)
+    m = PlantModel(p)
+    d = m.derived
+    wp = working_point_inputs(p)
 
     print("PLANT MODEL STEP RESPONSES (%s)" % os.path.relpath(args.config))
     print()
-    print("Every number below is a property of the MODEL, computed from the parameters in the")
-    print("configuration file. None of them is measured on MIST-2. Tune a loop on them to test it")
-    print("in the emulation; on the machine, measure the step responses again.")
+    print("The model is calibrated to ONE working point the owner gave from memory (2026-11-21).")
+    print("The point itself is reproduced; every slope, gain and time constant below is a property")
+    print("of the MODEL, not measured on MIST-2. Tune a loop on them to test it in the emulation;")
+    print("on the machine, measure the step responses again.")
     print()
-    print("Working point: discharge supply %.0f V (limit %.0f A), gas %.1f sccm into the source,"
-          % (BASE["rek_vset"], BASE["rek_iset"], BASE["gas_flow"]))
-    print("both turbopumps at speed, extraction off. Model parameter filament_tau_s = %g s."
-          % params["filament_tau_s"])
+    _, o = m.settle(m.initial_state(), wp, 60.0, dt=0.02)
+    print("Working point (owner -> model):")
+    print("   filament   %4.1f V at %5.1f A   ->  %5.2f V, %5.0f W, T %4.0f K" % (
+        p["wp_filament_voltage_v"], p["wp_filament_current_a"], o["filament_voltage"],
+        o["filament_power"], o["filament_temperature"]))
+    print("   discharge  %4.0f V at %5.1f A   ->  %5.1f V, %5.2f A (REK limit %g A = its full scale)" % (
+        p["wp_discharge_voltage_v"], p["wp_discharge_current_a"], o["discharge_voltage"],
+        o["rek_current"], wp["rek_iset"]))
+    print("   cross      %.1e torr at %.1f sccm ->  nAIM %.2e torr (true H2 %.2e), APG %.0e (its floor)" % (
+        p["wp_cross_reading_torr"], p["wp_gas_sccm"], o["aim_reading"], o["cross_pressure"],
+        o["apg_reading"]))
+    print("Derived: hot filament %.4f ohm, %.0f K, area %.1f cm2 (a tungsten wire of %.2f mm x %.1f cm),"
+          % (d["filament_r_hot_ohm"], d["filament_t_hot_k"], d["filament_area_cm2"],
+             d["wire_diameter_mm"], d["wire_length_cm"]))
+    print("   emission %.1f A, plasma limit %.0f A at 150 V, pumping speed %.0f l/s for H2,"
+          % (d["emission_a"], d["plasma_limit_a"], d["turbo_speed_l_s"]))
+    print("   plasma chamber %.1e torr." % d["chamber_wp_torr"])
     print()
 
-    print("1. Filament current step +%g A -> discharge current (REK current)" % args.step)
+    print("1. Filament current step %+g A -> discharge current (REK current limit at %g A)" % (
+        args.step, wp["rek_iset"]))
     print()
-    print("   %-9s %-9s %-9s %-10s %-12s %-9s %-9s" % ("I_dis", "I_fil", "T_fil", "regime",
-                                                       "gain", "dead", "tau"))
-    print("   %-9s %-9s %-9s %-10s %-12s %-9s %-9s" % ("A", "A", "K", "", "A/A", "s", "s"))
-    for target in TARGETS_A:
-        i_fil = filament_current_for(m, target)
-        inputs = dict(BASE, filament_current=i_fil)
+    print("   %-12s %-9s %-9s %-7s %-9s %-10s %-8s %-8s" % (
+        "point", "I_dis", "I_fil", "T_fil", "step", "gain", "dead", "tau"))
+    print("   %-12s %-9s %-9s %-7s %-9s %-10s %-8s %-8s" % ("", "A", "A", "K", "A", "A/A", "s", "s"))
+    rows = [("working pt", p["wp_filament_current_a"], (-args.step, +args.step))]
+    for target in BELOW_A:
+        rows.append(("below", filament_current_for(m, wp, target), (+args.step,)))
+    for name, i_fil, steps in rows:
+        inputs = dict(wp, filament_current=i_fil)
         state, before = steady(m, inputs)
-        ts, ys = step_response(m, state, dict(inputs, filament_current=i_fil + args.step),
-                               "discharge_current", 15.0)
-        dy, dead, tau, _ = first_order_fit(ts, ys, before["discharge_current"])
-        regime = "emission" if before["discharge_current"] > 0.9 * before["emission"] else "mixed"
-        print("   %-9.2f %-9.1f %-9.0f %-10s %-12.3f %-9.3f %-9.2f" % (
-            before["discharge_current"], i_fil, before["filament_temperature"], regime,
-            dy / args.step, dead, tau))
+        for step in steps:
+            ts, ys = response(m, state, dict(inputs, filament_current=i_fil + step),
+                              "discharge_current", 15.0)
+            dy, dead, tau = first_order_fit(ts, ys, before["discharge_current"])
+            print("   %-12s %-9.2f %-9.2f %-7.0f %-9s %-10.3f %-8s %-8s" % (
+                name, before["discharge_current"], i_fil, before["filament_temperature"],
+                "%+g" % step, dy / step, fmt(dead, "%.3f"), fmt(tau, "%.2f")))
     print()
-    print("   regime: emission = the discharge carries what the filament emits (dI_dis/dI_fil")
-    print("   steep), mixed = the plasma limit (voltage, pressure) takes over and the gain falls.")
-    print("   The gain rises steeply with the working point: Richardson's law is exponential in T.")
-    print("   tau is longer than filament_tau_s because the filament resistance rises with T at")
-    print("   constant current (model: tau / (1 - %g / 4) = %.2f s for small steps)."
-          % (params["filament_r_exponent"], params["filament_tau_s"] / (1 - params["filament_r_exponent"] / 4)))
+    print("   At the working point the REK is at its current limit (24 A, the full scale of the")
+    print("   REK150-24): a step up cannot raise the current, the supply goes into constant current")
+    print("   and its voltage falls. A discharge current loop around this point only acts downward;")
+    print("   it needs a set point below 24 A or a larger supply (REK150-55, plan/controls.yaml).")
+    print("   Below the limit the discharge is emission limited and the gain rises steeply with the")
+    print("   working point (Richardson's law). tau is longer than filament_tau_s = %g s because the"
+          % p["filament_tau_s"])
+    print("   filament resistance rises with T at constant current (model: tau / (1 - %g / 4) = %.2f s)."
+          % (p["filament_r_exponent"], p["filament_tau_s"] / (1 - p["filament_r_exponent"] / 4)))
     print()
 
-    print("2. Gas flow step +%g sccm -> source pressure (aim gauge) and discharge current" % args.gas_step)
+    print("2. Gas flow step %+g sccm -> cross pressure (nAIM reading) and discharge current" % args.gas_step)
     print()
-    i_fil = filament_current_for(m, TARGETS_A[1])
     print("   %-9s %-14s %-9s %-9s %-16s" % ("gas", "gain", "dead", "tau", "discharge gain"))
     print("   %-9s %-14s %-9s %-9s %-16s" % ("sccm", "torr/sccm", "s", "s", "A/sccm"))
-    for gas in (2.0, 5.0, 10.0):
-        inputs = dict(BASE, filament_current=i_fil, gas_flow=gas)
+    below = filament_current_for(m, wp, BELOW_A[0])
+    for gas in (0.5, 1.0, 2.0):
+        inputs = dict(wp, filament_current=below, gas_flow=gas)
         state, before = steady(m, inputs)
         stepped = dict(inputs, gas_flow=gas + args.gas_step)
-        ts, ys = step_response(m, state, stepped, "source_pressure", 10.0)
-        dy, dead, tau, _ = first_order_fit(ts, ys, before["source_pressure"])
+        ts, ys = response(m, state, stepped, "aim_reading", 5.0)
+        dy, dead, tau = first_order_fit(ts, ys, before["aim_reading"])
         _, after = m.settle(state, stepped, 30.0, dt=0.05)
-        print("   %-9.1f %-14.3e %-9.3f %-9.2f %-16.3f" % (
-            gas, dy / args.gas_step, dead, tau,
+        print("   %-9.2f %-14.3e %-9s %-9s %-16.3f" % (
+            gas, dy / args.gas_step, fmt(dead, "%.3f"), fmt(tau, "%.3f"),
             (after["discharge_current"] - before["discharge_current"]) / args.gas_step))
     print()
-    print("   at filament current %.1f A. The source pressure lags by the source vessel"
-          % i_fil)
-    print("   (source_volume_l / pumping speed); the plasma chamber pressure, which sets the")
-    print("   discharge, lags it by chamber_volume_l / aperture_conductance_l_s more.")
+    print("   at filament current %.2f A (discharge %.0f A). The cross pressure lags by" % (below, BELOW_A[0]))
+    print("   cross_volume_l / pumping speed; the plasma chamber, which sets the discharge, lags by")
+    print("   chamber_volume_l / aperture_conductance_l_s.")
     print()
 
     tdk_tau = TdkGenesys.OPTIONS["tau_s"]
