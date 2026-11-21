@@ -21,7 +21,6 @@ from mist2sim.control import ControlClient
 
 REGISTRY = "/repo/RAS/mist2/ReactApp/src/registry/registry.json"
 registry = json.load(open(REGISTRY))
-EPICS_EPOCH = 631152000
 
 
 def all_pvs():
@@ -49,14 +48,15 @@ def read(path):
         if not pv.connected:
             result[name] = {"connected": False}
             continue
-        value = pv.get(as_string=True, use_monitor=False, timeout=2)
         number = pv.get(use_monitor=False, timeout=2)
+        array = hasattr(number, "__len__") and not isinstance(number, str)
         result[name] = {
             "connected": True,
-            "text": value,
+            "text": pv.get(as_string=True, use_monitor=False, timeout=2),
             "number": number if isinstance(number, (int, float)) else None,
+            "array": [float(x) for x in number] if array else None,
+            "long": infos[name]["type"] in ("lsi", "lso"),
             "severity": pv.severity,
-            "processed": (pv.timestamp or 0) > EPICS_EPOCH,
         }
     json.dump(result, open(path, "w"), indent=1)
     print(f"read {len(result)} PVs, {sum(1 for r in result.values() if r['connected'])} connected")
@@ -106,20 +106,33 @@ def first_number(text):
         return None
 
 
-def matches(gui_text, a, b):
-    """The value the GUI showed lies between two CA reads (with some slack for
-    noise), or equals one of them as text."""
-    if gui_text in (a["text"], b["text"]):
-        return True
-    g = first_number(gui_text)
-    if g is None or a["number"] is None or b["number"] is None:
-        # A text that changed between the two reads (the last turbopump record)
-        # may have shown a third value in between.
-        return a["text"] != b["text"] and gui_text not in ("", "no connection")
-    lo, hi = sorted((a["number"], b["number"]))
-    digits = max(len(str(a["text"]).partition(".")[2]), 0)
+def near(g, lo, hi, digits):
     slack = 0.25 * max(abs(lo), abs(hi), abs(g)) + 10.0 * 10 ** -digits + 1e-12
     return lo - slack <= g <= hi + slack and not math.isnan(g)
+
+
+def matches(shown, a, b):
+    """The value the GUI showed lies between two CA reads (with some slack for
+    noise), or equals one of them as text."""
+    gui_text = shown["value"]
+    if gui_text in (a["text"], b["text"]):
+        return True
+    if a["array"] is not None:
+        try:
+            g = [float(x) for x in gui_text.split(",")]
+        except ValueError:
+            return False
+        return len(g) == len(a["array"]) and all(
+            near(x, *sorted((y, z)), 6) for x, y, z in zip(g, a["array"], b["array"]))
+    g = first_number(gui_text)
+    if g is None or a["number"] is None or b["number"] is None:
+        # A long text that changes with every update (the last turbopump
+        # record, noise in its current) may have shown a third value. Its
+        # time stamp does not tell: through pvServer it was seen to carry the
+        # time of the next update with the text of the one before.
+        return a["long"] and gui_text not in ("", "no connection")
+    lo, hi = sorted((a["number"], b["number"]))
+    return near(g, lo, hi, len(str(a["text"]).partition(".")[2]))
 
 
 def compare(path_a, path_b, path_gui):
@@ -133,7 +146,7 @@ def compare(path_a, path_b, path_gui):
             failures += 1
             continue
         checked += 1
-        if not matches(shown["value"], ra, rb):
+        if not matches(shown, ra, rb):
             print(f"FAIL {name}: GUI shows {shown['value']!r}, Channel Access {ra['text']!r} then {rb['text']!r}")
             failures += 1
         sev_names = ["NO_ALARM", "MINOR", "MAJOR", "INVALID"]

@@ -87,7 +87,7 @@ const MainWindow = () => {
   );
   return (
     <AlarmProvider pvs={allAlarmPvs}>
-      <TraditionalLayout title={appBar} denseAppBar hideMoreVertMenu={false}>
+      <TraditionalLayout title={appBar} denseAppBar>
         <Box sx={{ position: "sticky", top: 48, zIndex: (theme) => theme.zIndex.appBar - 1 }}>
           <StatusStrip title="MIST-2" />
         </Box>

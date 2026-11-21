@@ -31,7 +31,7 @@ const IocChip = ({ ioc, onMode }) => {
   const silent = now - lastBeat > beatTimeout;
   const state = beat.initialized && silent ? "major" : alarmState(beat.initialized, beat.severity);
   const colors = alarmColors(theme, state);
-  const beatText = !beat.initialized ? "no connection" : silent ? "heartbeat lost" : `♥ ${beat.value}`;
+  const beatText = !beat.initialized ? "no connection" : silent ? "heartbeat lost" : `♥ ${Number(beat.value)}`;
   return (
     <Chip
       size="small"

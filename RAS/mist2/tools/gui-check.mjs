@@ -34,9 +34,10 @@ const pass = (message) => console.log(`PASS ${message}`);
 const check = (ok, message) => (ok ? pass(message) : fail(message));
 
 // Console errors and warnings of the GUI. Allowed: the Google sign-in script
-// that RAS loads from the internet (no network in the lab), and Vite's notice
-// that it re-bundled a dependency (development server only).
-const allowed = [/accounts\.google\.com/, /Outdated Optimize Dep/];
+// that RAS loads from the internet (no network in the lab), Vite's notice
+// that it re-bundled a dependency (development server only), and Chromium's
+// note that the host's networks changed (Docker networks of other test runs).
+const allowed = [/accounts\.google\.com/, /Outdated Optimize Dep/, /net::ERR_NETWORK_CHANGED/];
 const problems = [];
 const watch = (page) => {
   page.on("console", (message) => {
@@ -271,7 +272,10 @@ const phases = {
 
   async iocdown() {
     const [ioc] = args;
-    const changed = new Set(installed.filter((id) => devices[id].ioc === ioc).flatMap(expected));
+    const changed = new Set([
+      ...Object.values(registry.iocs[ioc].roles),
+      ...installed.filter((id) => devices[id].ioc === ioc).flatMap(expected),
+    ]);
     await comparePages(`${ioc} stopped`, changed, "disconnected", async (page, tab) => {
       if (tab === "overview") {
         const banner = await page.locator("[data-banner]").innerText();

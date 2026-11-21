@@ -20,7 +20,7 @@ const owners = Object.fromEntries(
 );
 export const deviceOfPv = (name) => owners[name];
 
-export const isInstalled = (id) => !devices[id].flags.not_installed;
+const isInstalled = (id) => !devices[id].flags.not_installed;
 export const isPolled = (id) => !devices[id].flags.not_polled;
 
 // Installed devices in registry order, optionally of one page.
@@ -37,7 +37,6 @@ export const subsystemPages = [...new Set(installedDevices().map((id) => devices
 const textTypes = ["bi", "bo", "mbbi", "mbbo", "stringin", "stringout", "lsi", "lso"];
 export const isText = (name) => textTypes.includes(pvInfo(name).type);
 export const isLongString = (name) => ["lsi", "lso"].includes(pvInfo(name).type);
-export const isWritable = (name) => pvInfo(name).access === "w";
 
 // Roles of a device, or of one of its channels: { role: PV name }.
 export const rolesOf = (id, channel) =>

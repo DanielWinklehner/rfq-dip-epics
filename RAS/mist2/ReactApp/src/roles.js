@@ -49,7 +49,7 @@ export const roleText = (id, role) => roleLabel(id, role) ?? roleWord(role);
 
 // Read-back roles that are drawn as a trend: on the subsystem pages, in the
 // device windows and in the choice of the Trends page.
-export const trendRoles = ["vread", "iread", "value", "p", "speed", "current", "flow"];
+const trendRoles = ["vread", "iread", "value", "p", "speed", "current", "flow"];
 
 // The trend PVs of a device (all its channels) or of one channel.
 export const trendPvs = (id, channel) =>

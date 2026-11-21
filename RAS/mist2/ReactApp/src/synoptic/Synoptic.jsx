@@ -28,18 +28,18 @@ const Synoptic = ({ page, height }) => {
       {elements.map(({ device, channel, symbol, anchor, tag }, index) => {
         const from = symbol ? [symbol.x, symbol.y] : anchor;
         return (
-        <g key={index}>
-          {from && tag && (
-            <polyline
-              points={[from, nearest(from, tag, tagHeight(device, channel))].join(" ")}
-              stroke={theme.palette.text.disabled}
-              strokeDasharray="2 3"
-              fill="none"
-            />
-          )}
-          {symbol && <Symbol id={device} channel={channel} {...symbol} />}
-          {tag && <Tag id={device} channel={channel} {...tag} />}
-        </g>
+          <g key={index}>
+            {from && tag && (
+              <polyline
+                points={[from, nearest(from, tag, tagHeight(device, channel))].join(" ")}
+                stroke={theme.palette.text.disabled}
+                strokeDasharray="2 3"
+                fill="none"
+              />
+            )}
+            {symbol && <Symbol id={device} channel={channel} {...symbol} />}
+            {tag && <Tag id={device} channel={channel} {...tag} />}
+          </g>
         );
       })}
     </svg>
