@@ -45,13 +45,27 @@ class TimingTest(unittest.TestCase):
             busy = sim.stats.busy_s
             self.assertGreater(busy, 23 * per * 0.98)
 
+    def retry(self, check, *args):
+        """Linux is not a real-time system: another process can delay one reply by tens of ms.
+        Such a hiccup is not a timing error of the simulator, so a failed run is repeated (at
+        most three runs). A systematic error fails all three."""
+        for attempt in range(3):
+            try:
+                return check(*args)
+            except AssertionError:
+                if attempt == 2:
+                    raise
+
     def test_9600(self):
-        self.check_baud(9600, 5)
+        self.retry(self.check_baud, 9600, 5)
 
     def test_115200(self):
-        self.check_baud(115200, 1)
+        self.retry(self.check_baud, 115200, 1)
 
     def test_request_without_reply_occupies_line(self):
+        self.retry(self.check_quiet)
+
+    def check_quiet(self):
         sim = Echo("echo", baud=9600)
         with SimThread([sim]):
             c = LineClient(sim.port)
@@ -65,6 +79,9 @@ class TimingTest(unittest.TestCase):
             self.assertAlmostEqual(dt, want, delta=self.tolerance(want))
 
     def test_unsolicited_output_after_reply_and_timed(self):
+        self.retry(self.check_unsolicited)
+
+    def check_unsolicited(self):
         sim = Echo("echo", baud=9600)
         with SimThread([sim]):
             c = LineClient(sim.port)

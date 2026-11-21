@@ -66,11 +66,11 @@ class Signal:
         now = self.clock.now()
         dt = now - self._t
         self._t = now
-        if self.external or dt <= 0 or self._value == self._target:
+        if self.external or self._value == self._target:
             return
         if self.tau <= 0:
             self._value = self._target
-        else:
+        elif dt > 0:
             self._value = self._target + (self._value - self._target) * math.exp(-dt / self.tau)
 
     @property

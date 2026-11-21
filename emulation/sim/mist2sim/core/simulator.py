@@ -380,8 +380,7 @@ class Simulator:
 
     async def stop(self):
         for server in self._servers:
-            server.close()
-            await server.wait_closed()
+            server.close()                # stop accepting
         self._drop_connection()
         tasks = self._tasks + list(self.handlers)
         for task in tasks:
@@ -391,6 +390,8 @@ class Simulator:
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
+        for server in self._servers:      # since 3.12 this waits for open connections
+            await server.wait_closed()
         self._tasks, self._servers = [], []
         self.handlers.clear()
 

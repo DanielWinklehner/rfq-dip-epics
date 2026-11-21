@@ -1,5 +1,6 @@
 """Test devices and a small line client shared by the tests."""
 
+import logging
 import os
 import socket
 import sys
@@ -8,6 +9,8 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from mist2sim.core import ALL, Simulator, register  # noqa: E402
+
+logging.getLogger("mist2sim").setLevel(logging.CRITICAL)   # tests check logs with assertLogs
 
 
 @register("test_echo")
