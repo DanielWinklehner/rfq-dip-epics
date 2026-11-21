@@ -1,44 +1,79 @@
-# Author: Philip Weigel
+# tdk.proto - TDK-Lambda GENESYS power supply over RS-232 (database: tdk.db)
+#
+# Source: TDK-Lambda GENESYS GEN 2.4kW User Manual IA669-04-01 Rev.D, chapter 7.
+#   7.5.3  every message ends with CR
+#   7.5.6  every command is acknowledged with "OK", an error with "Cnn" or "Ennn" (7.6):
+#          "OK" is the expected input, so an error reply ends in INVALID/CALC on the set record
+#          and no reply in INVALID/TIMEOUT
+#   7.5    "ADR n" must return "OK" before any other command is accepted
+#
+# Argument \$1 of the entries that address the supply: the RS-232 address (tdk.db macro ADR).
+#
+# Recovery: a supply that was switched off and on is unaddressed and does not answer at all
+# (it does not tell the IOC, and the serial port stays open). get_status, polled once a second,
+# sends "ADR" again whenever its query gets no reply. The next poll after the supply is back
+# finds it addressed. While the supply is really silent, this costs one extra timeout a second.
+#
+# Author of the first version: Philip Weigel. 2026-11: acknowledged sets, mode, fault register,
+# address as argument, re-addressing after a power cycle, initial read-back of the set points.
 
 Terminator = CR;
+# 7.5.2 recommends 100 ms between addressing and the next command on a multi-supply bus;
+# on a single supply the reply comes within a few ms. Not in the manual: assumed.
+ReplyTimeout = 300;
+ReadTimeout = 100;
 
+# --- addressing ---------------------------------------------------------------------------------
+address {
+    out "ADR \$1";
+    in "OK";
+}
+
+# --- set points: acknowledged, read back at IOC start (@init) -------------------------------------
 set_voltage {
-	out "PV %f";
-	in "OK";
+    out "PV %.3f";
+    in "OK";
+    @init { address; out "PV?"; in "%f"; }
 }
 
 set_current {
-	out "PC %f";
-	in "OK";
-}
-
-read_voltage {
-	out "MV?";
-	in "%f";
-}
-
-read_current {
-	out "MC?";
-	in "%f";
+    out "PC %.2f";
+    in "OK";
+    @init { address; out "PC?"; in "%f"; }
 }
 
 set_status {
-	out "OUT %d";
-	in "OK";
+    out "OUT %{OFF|ON}";
+    in "OK";
+    @init { address; out "OUT?"; in "%{OFF|ON}"; }
 }
 
-start {
-	out "ADR 6";
-	in "OK";
+# --- measurements -----------------------------------------------------------------------------
+read_voltage {
+    out "MV?";
+    in "%f";
 }
 
+read_current {
+    out "MC?";
+    in "%f";
+}
 
+# --- state, once a second ------------------------------------------------------------------------
 get_status {
-	out "OUT?";
-	in "%{OFF|ON}";
-	
-	@init {
-		start;
-	}
+    out "OUT?";
+    in "%{OFF|ON}";
+    @replytimeout { address; }
 }
 
+# MODE?: "OFF" (output off), "CV" or "CC" (7.7.5, command 24)
+get_mode {
+    out "MODE?";
+    in "%{OFF|CV|CC}";
+}
+
+# FLT?: Fault Condition Register, 2 hex digits (7.7.7, Table 7-7)
+get_fault {
+    out "FLT?";
+    in "%2x";
+}

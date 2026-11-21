@@ -1,62 +1,117 @@
-# Author: Philip Weigel
+# tdk.db - TDK-Lambda GENESYS GEN8-300 filament heating supply (protocol: tdk.proto)
+#
+# Macros:
+#   DEVICE     PV prefix (the lab: TDK)
+#   PORT       asyn port
+#   ADR        RS-232 address of the supply, default 6 (the factory setting)
+#   VMAX       voltage rating and drive limit in V, default 8
+#   IMAX       current rating and drive limit in A, default 300
+#   PMAX       display range of the power in W, default 2400 (VMAX x IMAX)
+#   SCAN_FAST  scan of the voltage and current read-back, default ".1 second"
+#
+# PV names of the lab's 2023 file (voltage, current and status set point and read-back) are
+# kept. New: power:get, mode:get, fault:get. Every set waits for the "OK" of the supply: an
+# error reply or no reply puts the set record into INVALID alarm. The set points are read
+# from the supply at IOC start. Output state, mode and fault register are polled once a
+# second; that poll also re-addresses a supply that was switched off and on (tdk.proto).
+#
+# Author of the first version: Philip Weigel.
 
-record(ao, "$(DEVICE):voltage:set") {
-    field(DESC, "Set voltage of $(PORT):$(DEVICE)")
+record(ao, "$(DEVICE):voltage:setpoint") {
+    field(DESC, "Voltage set point")
     field(DTYP, "stream")
-    field(OUT, "@tdk.proto set_voltage $(PORT)")
-    field(DRVL, "0")
-    field(DRVH, "8.4")
+    field(OUT,  "@tdk.proto set_voltage($(ADR=6)) $(PORT)")
     field(EGU,  "V")
-    #field(LINR, "SLOPE")
-    #field(ESLO, "1")
-    #field(EOFF, "0")
+    field(PREC, "3")
+    field(DRVL, "0")
+    field(DRVH, "$(VMAX=8)")
+    field(LOPR, "0")
+    field(HOPR, "$(VMAX=8)")
 }
 
-record(ai, "$(DEVICE):voltage:get") {
-    field(DESC, "Get voltage of $(PORT):$(DEVICE)")
+record(ai, "$(DEVICE):voltage:read") {
+    field(DESC, "Measured output voltage")
     field(DTYP, "stream")
-    field(INP, "@tdk.proto read_voltage $(PORT)")
-    field(SCAN, ".1 second")
+    field(INP,  "@tdk.proto read_voltage $(PORT)")
+    field(SCAN, "$(SCAN_FAST=.1 second)")
     field(EGU,  "V")
-    #field(LINR, "SLOPE")
-    #field(ASLO, "2")
-    #field(EOFF, "0")
+    field(PREC, "3")
+    field(LOPR, "0")
+    field(HOPR, "$(VMAX=8)")
 }
 
-record(ao, "$(DEVICE):current:set") {
-    field(DESC, "Set voltage of $(PORT):$(DEVICE)")
+record(ao, "$(DEVICE):current:setpoint") {
+    field(DESC, "Current set point")
     field(DTYP, "stream")
-    field(OUT, "@tdk.proto set_current $(PORT)")
-    field(DRVL, "0")
-    field(DRVH, "300")
+    field(OUT,  "@tdk.proto set_current($(ADR=6)) $(PORT)")
     field(EGU,  "A")
-    #field(LINR, "SLOPE")
-    #field(ESLO, "1")
-    #field(EOFF, "0")
+    field(PREC, "2")
+    field(DRVL, "0")
+    field(DRVH, "$(IMAX=300)")
+    field(LOPR, "0")
+    field(HOPR, "$(IMAX=300)")
 }
 
-record(ai, "$(DEVICE):current:get") {
-    field(DESC, "Get current of $(PORT):$(DEVICE)")
+record(ai, "$(DEVICE):current:read") {
+    field(DESC, "Measured output current")
     field(DTYP, "stream")
-    field(INP, "@tdk.proto read_current $(PORT)")
-    field(SCAN, ".1 second")
-    #field(EGU,  "A")
-    #field(LINR, "SLOPE")
-    #field(EOFF, "0")
+    field(INP,  "@tdk.proto read_current $(PORT)")
+    field(SCAN, "$(SCAN_FAST=.1 second)")
+    field(EGU,  "A")
+    field(PREC, "2")
+    field(LOPR, "0")
+    field(HOPR, "$(IMAX=300)")
+    field(FLNK, "$(DEVICE):power:get")
 }
 
-record(bo, "$(DEVICE):status:set") {
-    field(DESC, "Set status")
-    field(DTYP, "stream")
-    field(OUT, "@tdk.proto set_status $(PORT)")
+record(calc, "$(DEVICE):power:get") {
+    field(DESC, "Output power, measured V x I")
+    field(INPA, "$(DEVICE):voltage:read NPP MS")
+    field(INPB, "$(DEVICE):current:read NPP MS")
+    field(CALC, "A*B")
+    field(EGU,  "W")
+    field(PREC, "1")
+    field(LOPR, "0")
+    field(HOPR, "$(PMAX=2400)")
 }
 
-record(bi, "$(DEVICE):status:get") {
-    field(DESC, "Set status")
+record(bo, "$(DEVICE):status:setpoint") {
+    field(DESC, "Output on/off")
     field(DTYP, "stream")
-    field(INP, "@tdk.proto get_status $(PORT)")
-    field(SCAN, ".1 second")
+    field(OUT,  "@tdk.proto set_status($(ADR=6)) $(PORT)")
     field(ZNAM, "OFF")
     field(ONAM, "ON")
 }
 
+record(bi, "$(DEVICE):status:get") {
+    field(DESC, "Output state")
+    field(DTYP, "stream")
+    field(INP,  "@tdk.proto get_status($(ADR=6)) $(PORT)")
+    field(SCAN, "1 second")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+}
+
+record(mbbi, "$(DEVICE):mode:get") {
+    field(DESC, "Operation mode")
+    field(DTYP, "stream")
+    field(INP,  "@tdk.proto get_mode $(PORT)")
+    field(SCAN, "1 second")
+    field(ZRST, "OFF")
+    field(ONST, "CV")
+    field(TWST, "CC")
+}
+
+# Fault Condition Register (manual Table 7-7): bit 1 AC fail, 2 over temperature, 3 foldback,
+# 4 over voltage, 5 rear panel shut-off, 6 front panel output off, 7 rear panel enable open.
+# Bit 0 is always 0, so any value above 0 is a fault.
+record(longin, "$(DEVICE):fault:get") {
+    field(DESC, "Fault register FLT? (hex bits)")
+    field(DTYP, "stream")
+    field(INP,  "@tdk.proto get_fault $(PORT)")
+    field(SCAN, "1 second")
+    field(LOPR, "0")
+    field(HOPR, "255")
+    field(HIHI, "1")
+    field(HHSV, "MAJOR")
+}
