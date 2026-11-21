@@ -1,0 +1,10 @@
+# ioc.cmd of the turbo case: the Opta for both pumps, and one listen-only port per NT 20
+drvAsynIPPortConfigure("TURBO", "$(SIM_HOST):5000")
+dbLoadRecords("$(MIST2_DB)/turbo.db", "PORT=TURBO,DEVICE=TURBO")
+dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=TURBO,DEVICE=TURBO")
+dbLoadRecords("$(MIST2_DB)/turbo_pump.db", "P=TURBO1,DEVICE=TURBO,PORT=TURBO,RELAY=r1,RUN=0,NORMAL=4,ACCEL=5,FAILURE=6")
+dbLoadRecords("$(MIST2_DB)/turbo_pump.db", "P=TURBO2,DEVICE=TURBO,PORT=TURBO,RELAY=r2,RUN=1,NORMAL=7,ACCEL=8,FAILURE=9")
+drvAsynIPPortConfigure("NT20_1", "$(SIM_HOST):5001")
+dbLoadRecords("$(MIST2_DB)/nt20_monitor.db", "P=TURBO1,PORT=NT20_1")
+drvAsynIPPortConfigure("NT20_2", "$(SIM_HOST):5002")
+dbLoadRecords("$(MIST2_DB)/nt20_monitor.db", "P=TURBO2,PORT=NT20_2")

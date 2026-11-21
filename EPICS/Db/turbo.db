@@ -1,0 +1,34 @@
+# turbo.db - the Arduino Opta that serves both TURBOTRONIK NT 20 controllers (libcom1 over TCP)
+#
+# The firmware does not exist yet: this channel map is its specification (query-all order).
+# Identity "TurboOpta".
+#
+#   index  channel  access  meaning
+#     0     r1       rw     relay: run pump 1 (closed = run, open = stop and failure reset)
+#     1     r2       rw     relay: run pump 2
+#     2     r3       rw     spare relay (could switch HEATING)
+#     3     r4       rw     spare relay
+#     4     n1       r      pump 1 NORMAL contact (speed above 80 % of the target speed)
+#     5     a1       r      pump 1 ACCEL contact
+#     6     f1       r      pump 1 FAILURE contact (open when the controller has no power)
+#     7     n2       r      pump 2 NORMAL
+#     8     a2       r      pump 2 ACCEL
+#     9     f2       r      pump 2 FAILURE
+#
+# Macros: DEVICE (TURBO), PORT, SCAN (poll period, default ".5 second")
+#
+#   dbLoadRecords("db/turbo.db",          "PORT=TURBO,DEVICE=TURBO")
+#   dbLoadRecords("db/libcom1_device.db", "PORT=TURBO,DEVICE=TURBO")
+#   dbLoadRecords("db/turbo_pump.db", "P=TURBO1,DEVICE=TURBO,PORT=TURBO,RELAY=r1,RUN=0,NORMAL=4,ACCEL=5,FAILURE=6")
+#   dbLoadRecords("db/turbo_pump.db", "P=TURBO2,DEVICE=TURBO,PORT=TURBO,RELAY=r2,RUN=1,NORMAL=7,ACCEL=8,FAILURE=9")
+#
+# The per-pump records (turbo_pump.db) follow this array through CP links.
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "Relays and contacts of both turbopumps")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, "$(SCAN=.5 second)")
+    field(NELM, "10")
+    field(FTVL, "DOUBLE")
+}

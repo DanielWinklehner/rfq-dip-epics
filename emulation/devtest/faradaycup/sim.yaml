@@ -1,0 +1,16 @@
+# Faraday cup Opta. PLACEHOLDER: firmware unknown, ASSUMED libcom1 over TCP (like
+# AVR/libcom1/examples/EthernetExample) with one channel, the cup current in A.
+# The channel c1 is a signal: a plant model drives it with {"cmd": "set", "signal": "c1", ...}.
+- name: faradaycup
+  type: libcom1
+  port: 5000                  # control port 6000
+  baud: 115200                # TCP: only sets the reply delay of the simulator
+  turnaround_ms: 1
+  in_terminator: "\n"
+  out_terminator: "\n"        # Opta over TCP: LF
+  options:
+    identity: FaradayCupOpta
+    firmware: "placeholder"
+    number_format: g          # %g, Arduino Opta
+    channels:
+      - {id: c1, access: r, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}

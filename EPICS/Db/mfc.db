@@ -1,0 +1,70 @@
+# mfc.db - MKS G-series mass flow controller (GV50A), RS-485, protocol in mfc.proto
+#
+# Macros:
+#   DEVICE     PV prefix (the lab uses MFC)
+#   PORT       asyn port (9600 baud, 8N1)
+#   ADDR       3-digit RS-485 address, default 254 (the initial address of a unit)
+#   FLOW_SCAN  scan of the measured flow, default ".5 second"
+#   SCAN       scan of the set point and wink read-backs, default "2 second"
+#   FLOW_EGU   unit of the measured flow, default sccm (the device reports SCCM or SLM)
+#
+#   dbLoadRecords("db/mfc.db", "PORT=MFC,DEVICE=MFC")
+#
+# Bus time at 9600 baud: one query and its reply are about 30 characters, 31 ms.
+#
+# The set records are acknowledged: a NAK or no answer puts them into alarm.
+#
+# Author: Philip Weigel (2023 draft), completed in 2026
+
+record(bo, "$(DEVICE):setWink") {
+    field(DESC, "Enable/Disable winking $(DEVICE)")
+    field(DTYP, "stream")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+    field(OUT, "@mfc.proto setWink($(ADDR=254)) $(PORT)")
+    field(FLNK, "$(DEVICE):getWink")
+}
+
+record(bi, "$(DEVICE):getWink") {
+    field(DESC, "Get the state of winking $(DEVICE)")
+    field(DTYP, "stream")
+    field(SCAN, "$(SCAN=2 second)")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+    field(INP, "@mfc.proto getWink($(ADDR=254)) $(PORT)")
+}
+
+record(ai, "$(DEVICE):getSP") {
+    field(DESC, "Get the percent set point of $(DEVICE)")
+    field(DTYP, "stream")
+    field(SCAN, "$(SCAN=2 second)")
+    field(INP, "@mfc.proto getSP($(ADDR=254)) $(PORT)")
+    field(EGU, "%")
+    field(PREC, "2")
+    field(HOPR, "100")
+    field(LOPR, "-20")
+}
+
+record(ao, "$(DEVICE):setSP") {
+    field(DESC, "Set the percent set point of $(DEVICE)")
+    field(DTYP, "stream")
+    field(OUT, "@mfc.proto setSP($(ADDR=254)) $(PORT)")
+    field(EGU, "%")
+    field(PREC, "2")
+    field(DRVH, "100")   # drive high limit of 100% (the device accepts up to 140 %)
+    field(DRVL, "-20")   # drive low limit of -20%
+    field(HOPR, "100")
+    field(LOPR, "-20")
+    field(FLNK, "$(DEVICE):getSP")
+}
+
+# new
+record(ai, "$(DEVICE):getFlow") {
+    field(DESC, "Measured flow of $(DEVICE)")
+    field(DTYP, "stream")
+    field(SCAN, "$(FLOW_SCAN=.5 second)")
+    field(INP, "@mfc.proto getFlow($(ADDR=254)) $(PORT)")
+    field(EGU, "$(FLOW_EGU=sccm)")
+    field(PREC, "2")
+    field(LOPR, "0")
+}

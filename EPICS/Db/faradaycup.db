@@ -1,0 +1,31 @@
+# faradaycup.db - Faraday cup readout, Arduino Opta, libcom1 over TCP
+#
+# PLACEHOLDER until the firmware exists. ASSUMED (decision of the lead): the Opta speaks libcom1
+# like AVR/libcom1/examples/EthernetExample and serves one channel with the cup current in A.
+#
+# Macros:
+#   DEVICE  PV prefix (FC)
+#   PORT    asyn port (drvAsynIPPortConfigure)
+#   CH      position of the current in the query-all order, default 0
+#   NELM    number of channels of the Opta, default 1
+#   SCAN    poll period, default ".5 second"
+#
+#   dbLoadRecords("db/faradaycup.db",     "PORT=FC,DEVICE=FC")
+#   dbLoadRecords("db/libcom1_device.db", "PORT=FC,DEVICE=FC")
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All channels of the Faraday cup Opta")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, "$(SCAN=.5 second)")
+    field(NELM, "$(NELM=1)")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):current:get")
+}
+
+record(ai, "$(DEVICE):current:get") {
+    field(DESC, "Faraday cup current")
+    field(INP, "$(DEVICE):data.VAL[$(CH=0)] CA MS")
+    field(EGU, "A")
+    field(PREC, "9")
+}
