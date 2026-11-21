@@ -489,6 +489,7 @@ devices:
     status: new
     flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
     notes:
+      - "The pump is a big one, probably a TURBOVAC 1000 C with a DN 250 ISO-K flange (owner, 2026-11-21, from memory: to be read off the pump)."
       - "The RS-232 data port is fitted. The TURBOVAC model is not known yet (owner, 2026-11-21)."
       - "On the bottom flange of the CF 10 inch six-way cross (owner, 2026-11-21)."
       - "Assumed (A16): the RS-232 port is fitted. Assumed (A17, P14): the record format is invented until a capture from a unit exists. TURBO1:raw:get and TURBO1:age:get work with any one-line format."

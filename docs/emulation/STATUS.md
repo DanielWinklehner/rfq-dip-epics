@@ -121,10 +121,10 @@ them. "Work" says what each answer changes and who does it.
 | 12 | AU supplies | Four, not five: 1 source and 2 puller on USB-OPT, 3 lens 1 and 4 lens 2 on CO-U32. Lens 3 is grounded mechanically and has no supply on the chain | Matsusada startup lines, simulator, plan, tests (closes A2, A3) |
 | 13 | Gauge controller board | Teensy | Simulator and real port file (closes P2) |
 | 14 | nAIM unit | torr | None (closes P8) |
-| 15 | Turbopump | RS-232 port fitted, pump model not known | Plan note: done. Rated speed stays assumed |
+| 15 | Turbopump | RS-232 port fitted. Added later the same day: "a big one", probably a TURBOVAC 1000 C with a DN 250 ISO-K flange | Plan note: done. Simulator rated speed and plant pumping speed from the pump's data sheet |
 | 16 | Mass flow controller | 5 sccm full scale, hydrogen | Simulator: done. Plant model |
 | 17 | Old interlock box | In use, its two relays switch nothing | Plan note: done (closes P4, A18 for this box) |
-| 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross, MFC at about 20 % of 5 sccm | TDK simulator load: done. Plant model |
+| 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross (added later: it may have been nearer 5e-5 torr), MFC at about 20 % of 5 sccm | TDK simulator load: done. Plant model |
 
 ## What the working point implies (from the plant model, for you to check)
 
