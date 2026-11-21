@@ -15,7 +15,7 @@ Settings, including all Channel Access settings, are in `RAS/mist2/.env`
 |---|---|---|
 | `nginx` | tcp 3000 (all interfaces) | the URL the browser opens; routes `/socket.io` and `/api` to pvServer, everything else to Vite |
 | `frontend` | tcp 3001 (127.0.0.1 only) | Vite development server, serves `ReactApp/src` and the RAS sources with hot reload |
-| `pvserver` | tcp 9001 (all interfaces), udp 5065 (CA repeater) | Channel Access client, Socket.IO server for the browser |
+| `pvserver` | tcp 9001 (all interfaces); Channel Access on ephemeral ports | Channel Access client, Socket.IO server for the browser |
 
 `tools/pv-proof.sh` proves that pvServer delivers the test PVs of both IOCs,
 `tools/pv-proof.sh --help` explains it. Where the code comes from and what was

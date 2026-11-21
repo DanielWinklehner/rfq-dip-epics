@@ -24,9 +24,5 @@ for entry in "tcp $RAS_HTTP_PORT nginx (browser URL)" \
         echo "check-ports: $proto/$port free ($what)"
     fi
 done
-# pvServer's Channel Access client starts a CA repeater on udp/5065 unless one
-# runs already. A repeater that runs already is shared, so this is no conflict.
-if ss -Hlun "sport = :5065" | grep -q .; then
-    echo "check-ports: udp/5065 in use (a CA repeater runs already, it will be shared)"
-fi
+# pvServer's Channel Access client uses ephemeral UDP and TCP ports only.
 exit $taken
