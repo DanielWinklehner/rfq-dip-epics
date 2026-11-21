@@ -11,13 +11,19 @@
 #   later    phase 2 (dipole scan, emittance scanners)
 #   tbd      not decided, or not enough information yet
 #
-# Existing PVs are read from the EPICS databases in epics_db/ (snapshot of rfq-dip-epics).
+# Existing PVs are read from the EPICS databases in EPICS/Db, with the macros given under "epics"
+# (one database load, or a list of them). build.py compares these loads with the dbLoadRecords
+# lines of the st.cmd files named by the hosts and warns about every difference.
 # Only PVs that do not exist yet are listed here, under "proposed".
+#
+# The section "databases" at the end gives every record of a database a role (what the GUI and
+# the tests ask for) or marks it internal. plan/registry.py writes the registry for the GUI and
+# the tests from this file, the databases and the st.cmd files.
 
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.6"
+  revision: "0.7"
   date: "2026-11-21"
   author: "D. Winklehner"
   basis:
@@ -25,6 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.7: the databases in EPICS/Db and the two st.cmd files of branch emulated-iocs (PV names of the lab's IOC of 2023), the design note docs/emulation/DESIGN.md (G1, approved 2026-11-21) and the assumptions A1 to A22 and open points in docs/emulation/STATUS.md"
 
 phases:
   - id: 1
@@ -61,8 +68,11 @@ hosts:
     uplink: "Fiber to the new switch"
     status: modify
     change: "Move from Windows to Linux"
+    st_cmd: EPICS/ioc/iocBoot/iocRack/st.cmd
+    epics: {db: ioc_info.db, macros: {P: IOC-RACK}}
     notes:
       - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4."
+      - "EPICS/ioc/iocBoot/iocRack/st.cmd is the same file for the emulation and for this computer. The asyn ports come from ports.sim.cmd or ports.real.cmd. The Linux device names in ports.real.cmd are placeholders until the udev rules exist (assumption A21)."
     questions:
       - "Which COM ports does the running IOC use? Please send st.cmd and the output of dbl."
   - id: ioc_hv
@@ -73,6 +83,10 @@ hosts:
     os: "?"
     uplink: "Fiber to the new switch (the only link that crosses to the platform)"
     status: keep
+    st_cmd: EPICS/ioc/iocBoot/iocHV/st.cmd
+    epics: {db: ioc_info.db, macros: {P: IOC-HV}}
+    notes:
+      - "Assumed (A22): it runs the same EPICS top as the rack IOC (EPICS/ioc, st.cmd in iocBoot/iocHV)."
     questions:
       - "Operating system of the mini PC? Please send its st.cmd and dbl output as well."
   - id: emit_pc
@@ -111,11 +125,12 @@ adapters:
     status: later
 
 subsystems:
-  - {id: source, name: "Plasma generator (HV platform)", phase: 1}
-  - {id: hv, name: "Extraction and beam optics high voltage", phase: 1}
-  - {id: vacuum, name: "Vacuum and gas", phase: 1}
-  - {id: cooling, name: "Cooling and interlocks", phase: 1}
-  - {id: diag, name: "Beam diagnostics", phase: 1}
+  # page: the GUI page of the devices of this subsystem (docs/emulation/gui/LAYOUT.md 1.5)
+  - {id: source, name: "Plasma generator (HV platform)", phase: 1, page: "Plasma generator"}
+  - {id: hv, name: "Extraction and beam optics high voltage", phase: 1, page: "Extraction"}
+  - {id: vacuum, name: "Vacuum and gas", phase: 1, page: "Vacuum and gas"}
+  - {id: cooling, name: "Cooling and interlocks", phase: 1, page: "Cooling and interlocks"}
+  - {id: diag, name: "Beam diagnostics", phase: 1, page: "Diagnostics"}
   - {id: scan, name: "Dipole scan and emittance scanners", phase: 2}
 
 devices:
@@ -128,14 +143,14 @@ devices:
     host: ioc_hv
     link: "USB (RS-232/485 also available)"
     protocol: "StreamDevice, tdk.proto, 19200 baud"
-    epics: {db: tdk.db, macros: {DEVICE: tdk, PORT: TDK}}
+    epics: {db: tdk.db, macros: {PORT: TDK, DEVICE: TDK, ADR: "6"}}
     status: keep
-    proposed:
-      - {name: "tdk:power:get", type: calc, egu: W, desc: "Output power (V x I)"}
-      - {name: "tdk:mode:get", type: mbbi, desc: "CV / CC / off (MODE?)"}
-      - {name: "tdk:fault:get", type: longin, desc: "Fault register (FLT?)"}
     notes:
-      - "Sets are already acknowledged (the supply answers OK)."
+      - "Sets are already acknowledged (the supply answers OK). A missing or negative answer now ends in an alarm on the set record."
+      - "Power, mode and fault register, proposed in revision 0.6, exist now: TDK:power:get, TDK:mode:get, TDK:fault:get."
+      - "Assumed (A8): address 6 and 19200 baud, from tdk.proto and the repository's st.cmd."
+    questions:
+      - "After a power cycle the supply comes back with its output off, while TDK:status:setpoint still shows ON until it is written again; TDK:status:get shows the truth (P10). Is that acceptable for the GUI and the discharge loop?"
 
   - id: fil_dis_old
     name: "Filament discharge supply (old)"
@@ -145,10 +160,12 @@ devices:
     host: ioc_hv
     link: "RS-485 to USB adapter"
     protocol: "StreamDevice, rek.proto (Matsusada CO protocol), 9600 baud"
-    epics: {db: rek.db, macros: {UNITNUM: "1", PORT: REK}}
+    epics: {db: rek.db, macros: {PORT: REK, UNITNUM: "1"}}
     status: replace
     notes:
       - "Replaced by the REK150-55."
+      - "Assumed (A7): unit 1 on its own port, 9600 baud, as in the repository's st.cmd."
+      - "The output follows the permit interlock_open of the rack IOC, read over Channel Access (macro PERMIT). Assumed (A19): this gate of the lab's 2023 database is still wanted."
 
   - id: fil_dis_new
     name: "Filament discharge supply (new)"
@@ -161,8 +178,8 @@ devices:
     status: new
     inherits_pvs_from: fil_dis_old
     proposed:
-      - {name: "REK-1:mode:read", type: mbbi, desc: "CV / CC mode"}
-      - {name: "REK-1:alarm:read", type: longin, desc: "Alarm / cutoff cause"}
+      - {name: "REK-1:mode:read", type: mbbi, desc: "CV / CC mode", remark: "not built: the CO command set has no command for it, STS reports only output on/off and remote/local (DESIGN.md 3)"}
+      - {name: "REK-1:alarm:read", type: longin, desc: "Alarm / cutoff cause", remark: "not built: the CO command set has no command for it (DESIGN.md 3)"}
     options:
       - {name: "CO-MET4-25", text: "RS-485 adapter (25-pin D-sub)", interface: "RS-485", note: "Probably what the REK150-24 uses today. Then nothing changes but the supply."}
       - {name: "CO-MET2-9 / -25", text: "RS-232C adapter", interface: "RS-232C", note: ""}
@@ -171,8 +188,7 @@ devices:
     notes:
       - "Baseline remote control of a REK without options (Matsusada product page): the proprietary digital interface port with modular IN and OUT jacks, which always needs an external adapter, plus the external analog remote control terminals. Built-in LAN, USB or RS-485 would have needed the -LMi option."
       - "Proposal: keep the PV names REK-1:* so that the GUI does not change."
-      - "rek.db hard-codes 24 A full scale (ESLO = 24/0xFFFF, DRVH = 24). With the 55 A unit every current would be wrong by a factor 2.3. Make full scale a macro."
-      - "rek.db labels the current read-backs mA although the values are in A."
+      - "Done in rek.db: full scale is a macro (VFS 150 V, IFS 24 A by default), so for the 55 A unit the st.cmd line gets IFS=55. Without it every current would be wrong by a factor 2.3. The current PVs now carry the unit A (they said mA)."
       - "Matsusada states that the input-voltage variants, -L(400V) among them, do not carry CE marking. Worth telling IBA's safety group before installation."
     questions:
       - "Which adapter sits between the RS-485 to USB converter and the REK150-24 today (label on the box)? Does the new unit have the same modular port?"
@@ -186,13 +202,18 @@ devices:
     host: ioc_hv
     link: "USB"
     protocol: "libcom1"
-    epics: {db: thermocouples.db, macros: {DEVICE: thm, PORT: thermo}}
+    epics:
+      - {db: thermocouples.db, macros: {PORT: thermo, DEVICE: THM}}
+      - {db: libcom1_device.db, macros: {PORT: thermo, DEVICE: THM}}
     status: modify
     libcom1: true
+    labels: {t1: "Temp Sensor 1", t2: "Back Plate Temp", t3: "Magnet Plate Temp", t4: "Temp Sensor 4"}
     notes:
-      - "thermocouples.db: the description of thm:data still says 'All solenoid statuses' (copied from the valve box)."
+      - "The board sends 16 channels. t1 to t4 (degC), the cold junctions j1 to j4 and the fault codes f1 to f4 have PVs, the junction fault codes a1 to a4 do not. A faulted thermocouple reads INVALID."
+      - "Labels t1 to t4 are those of the lab GUI of 2023 (RAS/Devices.js)."
+      - "Assumed (A9): 19200 baud as in the firmware; the repository's and the lab's st.cmd say 9600."
     questions:
-      - "What do t1 to t4 measure? The database has no descriptions or units."
+      - "What do t1 and t4 measure? The lab GUI names only t2 (back plate) and t3 (magnet plate)."
 
   # ------------------------------------------------------------------ high voltage
   - id: au_src
@@ -204,21 +225,24 @@ devices:
     via: usb_opt
     link: "optical fiber (chain assignment is a proposal)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {UNITNUM: "1", PORT: mat_co}}
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", IFS: "15"}}
     status: modify
     change: "Second optical chain, slimmer polling, scaling fix into the repository"
-    proposed:
-      - {name: "AU:alloff:set", type: bo, desc: "All HV outputs off (#AL on both chains)"}
     notes:
       - "Why the update rate drops with every supply: the CO protocol returns one value per request, each request addresses one supply, and all supplies of a chain share one 9600 baud port. One request plus reply is about 20 characters, so about 20 ms on the wire before any turnaround time."
-      - "matsusada_au20p7.db polls five values per supply every 0.1 s (set-point echo and monitor for voltage and current, plus status). That is 50 requests per second for a single supply, more than the chain can carry. With N supplies every value updates N times slower."
-      - "Fix 1: poll only the two monitors (MN1, MN2) fast. Read the set-point echoes (CH0?, CH1?) after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5."
-      - "Fix 2: two chains on two adapters are polled in parallel. Put the supplies that need the fastest read-back on the short chain."
-      - "Fix 3: give the set records PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
-      - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible)."
-      - "Proposal for the split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first. The lenses stay on the CO-U32."
-      - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. The repository still hard-codes 7.5 mA: commit the local fix, ideally as a full-scale macro."
+      - "The lab's matsusada_au20p7.db of 2023 polls five values per supply every 0.1 s (set-point echo and monitor for voltage and current, plus status). That is 50 requests per second for a single supply, more than the chain can carry. With N supplies every value updates N times slower."
+      - "Fix 1, built in the reworked matsusada_au20p7.db: only the two monitors (MN1, MN2) are polled fast. The set-point echoes (CH0?, CH1?) are read after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5."
+      - "Fix 2, built: two chains on two asyn ports (mat_opt behind the USB-OPT, mat_co behind the CO-U32), polled in parallel. Put the supplies that need the fastest read-back on the short chain."
+      - "Fix 3, built: the set records have PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
+      - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible). The turnaround time of the real adapters is not known: the simulator assumes 5 ms (A6)."
+      - "Proposal for the split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first. The lenses stay on the CO-U32. The emulation is built that way (assumed, A3)."
+      - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. matsusada_au20p7.db now takes the full scale as macros (VFS, IFS), and st.cmd sets IFS=15 for this unit. Assumed (A4): the same 16-bit set and 12-bit monitor scaling as the P7.5; the lab's local fix has not been seen."
+      - "Unit 1, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files)."
+      - "For all AU supplies and the REK: the output follows the permit interlock_open (macro PERMIT), as in the lab's database of 2023 (assumed still wanted, A19). A set-point write in the first 5 s after an IOC start is not sent to the supply, because the databases first take over the supply's own settings (P20)."
       - "The PV prefix AU-20P7-<n> is wrong for this unit (it is a P15) and for the negative ones. Another reason to name PVs by function: source, puller, lens 1 to 3."
+    questions:
+      - "All AU supplies and the REK: switching an output on sends ICN 100, which sets the current limit to 100 % of full scale whatever current:setpoint holds (the lab's sequence, kept, macro ICN_ON). Is that wanted (P17)?"
+      - "All AU supplies and the REK: they are put into remote mode (REN) with every status poll, so that a supply that was switched off and on comes back by itself. The front panel then cannot take local control while the IOC runs; the lab sent REN only at start and on switching. Keep it (P19)?"
 
   - id: au_puller
     name: "Puller"
@@ -229,11 +253,12 @@ devices:
     via: usb_opt
     link: "optical fiber (chain assignment is a proposal)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "2"}}
     status: modify
     change: "Second optical chain, database into the repository"
-    pvs_unknown: true
-    questions:
-      - "Unit number and PV names of the puller supply? Do the PVs show the negative voltage with its sign?"
+    notes:
+      - "Unit 2 and the PV names AU-20P7-2:*, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files)."
+      - "The PVs show positive numbers, as the lab's database does (decision D3, assumption A5). The macro POL=- would show the sign."
 
   - id: au_lens1
     name: "Lens 1"
@@ -244,11 +269,11 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {UNITNUM: "2", PORT: mat_co}}
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "3"}}
     status: modify
     change: "Slimmer polling"
-    questions:
-      - "st.cmd in the repository calls unit 2 'Einzel Lens'. Is that lens 1, as assumed here?"
+    notes:
+      - "Unit 3, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files). The repository's older st.cmd called unit 2 'Einzel Lens'; in the 2023 file unit 2 is the puller."
 
   - id: au_lens2
     name: "Lens 2"
@@ -259,9 +284,13 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "5"}}
     status: modify
     change: "Slimmer polling, database into the repository"
-    pvs_unknown: true
+    flags: {assumed: "Unit 5 is a guess (A2): the lab's st.cmd of 2023 loads units 1 to 4 only"}
+    notes:
+      - "Assumed (A2): unit 5, so the PV names are AU-20P7-5:*. The lab's st.cmd of 2023 loads units 1 to 4 only."
+      - "The PVs show positive numbers, as the lab's database does (decision D3, assumption A5). The macro POL=- would show the sign."
 
   - id: au_lens3
     name: "Lens 3 (not in use)"
@@ -272,13 +301,28 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "4", SCAN_MON: Passive, SCAN_GET: Passive, SCAN_STS: Passive}}
     status: tbd
-    pvs_unknown: true
+    flags: {not_polled: "Installed but not in use: its records are loaded with scanning off"}
     notes:
       - "The latest extraction system has no lens 3 (electrode grounded). Do not poll this supply while it is unused: every polled supply slows its chain."
+      - "Built that way: its records are loaded with scanning off (Passive), nothing polls it. Unit 4, from the lab's st.cmd of 2023 (A2)."
     questions:
       - "Keep the lens 3 supply connected as a spare, or take it off the chain?"
-      - "Unit numbers of all five supplies (st.cmd in the repository only loads units 1 and 2)."
+      - "Unit numbers of all five supplies: 1 to 4 are from the lab's st.cmd of 2023, 5 (lens 2) is a guess (A2). Please confirm them from the front panels or the lab files."
+
+  - id: hv_alloff
+    name: "All HV off"
+    model: "One command to both optical chains (#AL SW0)"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    link: "both optical chains"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto (multiple command #AL)"
+    epics: {db: au_alloff.db, macros: {PORT1: mat_opt, PORT2: mat_co, R1: "AU-20P7-1:SetToggleOutput", R2: "AU-20P7-2:SetToggleOutput", R3: "AU-20P7-3:SetToggleOutput", R4: "AU-20P7-5:SetToggleOutput", R5: "AU-20P7-4:SetToggleOutput"}}
+    status: new
+    notes:
+      - "Proposed in revision 0.6 under the ion source supply, built as AU:alloff:set: sends #AL SW0 on both chains and clears the output request of every supply listed in R1 to R5, so that one write of 1 switches a supply on again."
 
   # ------------------------------------------------------------------ vacuum and gas
   - id: mfc
@@ -289,12 +333,16 @@ devices:
     host: ioc_rack
     link: "RS-485 multi-drop, 9-pin D-sub, through an FTDI USB to RS-485 adapter (power spliced in from a small supply)"
     protocol: "MKS RS-485 protocol"
+    epics: {db: mfc.db, macros: {PORT: MFC, DEVICE: MFC, ADDR: "254"}}
     status: keep
-    pvs_unknown: true
     notes:
       - "Works as it is, no change planned."
       - "The Ethernet port of the unit is for setup only, not for control."
-      - "The repository has the MFC commented out in st.cmd and no database for it. Commit what runs today, so that its PVs appear here."
+      - "mfc.db and mfc.proto are now in the repository: the lab's draft of 2023 (set point only, commented out in its st.cmd), completed from the MKS RS-485 supplement 1046411-001 Rev. A. Sets are acknowledged. The set point is in percent of full scale, MFC:getFlow in flow units (sccm)."
+      - "Assumed (A11): address 254 and 9600 baud, as in the lab's draft. MFC:getFlow is a new name in the lab's style (A12)."
+    questions:
+      - "Please send the MFC files that run in the lab, so that mfc.db can be compared with them (A11)."
+      - "The MKS supplement does not show the reply to a set (with or without the value) or an example of a negative reply. The protocol file accepts both forms of the positive reply. What does the unit answer (P11)?"
 
   - id: gauge_ctrl
     name: "Gauge controller (homemade)"
@@ -304,10 +352,18 @@ devices:
     host: ioc_rack
     link: "USB"
     protocol: "libcom1"
-    epics: {db: pressure.db, macros: {DEVICE: avr6, PORT: AVR6}}
+    epics:
+      - {db: pressure.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
+      - {db: libcom1_device.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
     status: replace
+    labels: {apg: "APG Pressure", diag_box: "Diagnostic Box Pressure"}
     notes:
       - "To be replaced by an off-the-shelf controller."
+      - "Two channels in torr: p1 the Pirani gauge (APG, PRESSURE:apg:getpressure), p2 the ion gauge (AIM, PRESSURE:diag_box:getpressure, the diagnostic box in the lab's names). Labels from the lab GUI of 2023."
+      - "The firmware keeps sending the last pressure after a gauge was switched off at the box, so a pressure value does not prove that the gauge is on (P6)."
+      - "Assumed (A10): 115200 baud, no parity, as in the Arduino Mega firmware IonGaugeController. The lab's st.cmd says even parity."
+    questions:
+      - "Which firmware runs in the lab: IonGaugeController (Arduino Mega, 8N1) or IonGaugeController_Teensy? The lab's st.cmd calls it a Teensy and sets even parity; the emulator follows the Mega sketch (P2)."
 
   - id: gauge_new
     name: "Gauge controller (off the shelf)"
@@ -343,35 +399,73 @@ devices:
     host: ioc_rack
     link: "homemade RS-232 to USB adapter with power feed"
     protocol: "StreamDevice, aim.proto, 9600 baud"
-    epics: {db: aim.db, macros: {DEVICE: aim, PORT: AIM}}
+    epics: {db: aim.db, macros: {PORT: AIM, DEVICE: AIM}}
     status: keep
+    labels: {p: "nAIM-S Ion Gauge Source Pressure"}
+    notes:
+      - "AIM:enable now waits for the gauge's answer, so a rejected or unanswered command raises an alarm."
+      - "Assumed (A15): the gauge answers !C752 as in the Edwards manual, and the pressure is in torr as in the lab's database."
+    questions:
+      - "The nAIM instruction manual was not found. Please check on the gauge the protocol taken from INFICON's description (?V752 answered by pressure and a 4-digit status word, !C752 answered by *C752 0) (P7), and the pressure unit configured in the gauge (P8)."
+      - "AIM:getpressure is INVALID while the gauge is off or striking (P9). Is another display preferred?"
 
   - id: turbo
     name: "Turbopump controllers"
-    model: "2 x Leybold TURBOTRONIK NT 20"
+    model: "2 x Leybold TURBOTRONIK NT 20, one Arduino Opta for both"
     subsystem: vacuum
     location: rack
     host: ioc_rack
     link: "remote-control inputs and status relays wired to an Opta, RS-232 monitor output in addition"
     protocol: "libcom1 over TCP (Opta) for start, stop, status. StreamDevice, listen only, for the RS-232 data"
+    epics:
+      - {db: turbo.db, macros: {PORT: TURBO, DEVICE: TURBO}}
+      - {db: libcom1_device.db, macros: {PORT: TURBO, DEVICE: TURBO}}
     status: new
-    proposed:
-      - {name: "turbo1:start:set", type: bo, desc: "Start / stop (remote-control input)"}
-      - {name: "turbo1:atspeed:get", type: bi, desc: "Normal operation relay"}
-      - {name: "turbo1:failure:get", type: bi, desc: "Failure relay"}
-      - {name: "turbo1:speed:get", type: ai, egu: Hz, desc: "Rotation speed (RS-232 monitor)"}
-      - {name: "turbo1:current:get", type: ai, egu: A, desc: "Motor current (RS-232 monitor)"}
-      - {name: "turbo1:age:get", type: ai, egu: s, desc: "Age of the last RS-232 record"}
+    flags: {assumed: "The Opta firmware does not exist yet: turbo.db defines its channel map (P13)"}
     options:
       - {name: "A: Opta on the remote-control terminals", text: "Start and stop through the remote inputs, normal-operation and failure relays read back.", interface: "digital I/O", note: "Recommended. The same relays feed the interlock."}
       - {name: "B: RS-232 monitor output", text: "The converter sends its internal values by itself, about every 8 s. Read only.", interface: "RS-232, listen only", note: "Add to A for speed and current. Data format has to be captured from a unit."}
       - {name: "C: replace by Turbo.Drive TD20 classic", text: "Leybold's successor, sold as a replacement for the NT 20.", interface: "RS-232, RS-485 or Profibus", note: "Only if full serial control is wanted."}
     notes:
-      - "One set of PVs per pump (turbo1, turbo2)."
+      - "One set of PVs per pump (TURBO1:*, TURBO2:*, devices turbo1 and turbo2), and the identity of the Opta (TURBO:*). The PVs proposed in revision 0.6 (start, at speed, failure, speed, current, age) exist now with these prefixes."
       - "The NT 20 has no serial command interface: its RS-232 port only reports."
-      - "The status relays (normal operation, failure) are assumed from sister models. Check them in the operating instructions GA 05.208."
+      - "Checked in the operating instructions GA 05.208/8: THREE status relays, NORMAL (speed above 80 % of the target speed), ACCEL and FAILURE (changeover: open when the controller has no power, closes on a failure). Remote inputs START (high-active) and STOP (low-active, dominant); a failure is reset by STOP, so there is no reset PV. RS-232: data output only, 9600 baud, all main parameters about every 8 s, format 'on request'."
+      - "One Opta for both pumps (decision D7), wired as the 'ON/OFF switch' of Fig. 6: 2 of its 4 relays and 6 of its 8 inputs. The two spare relays could switch HEATING if the pumps have flange heaters."
+      - "Assumed (P13): the Opta firmware does not exist yet. The channel map in turbo.db (r1 r2 r3 r4 n1 a1 f1 n2 a2 f2) is its specification."
     questions:
       - "Is the RS-232 port fitted on your two NT 20 units? Which TURBOVAC pumps do they drive?"
+
+  - id: turbo1
+    name: "Turbopump 1"
+    model: "Leybold TURBOTRONIK NT 20"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "run relay and status contacts on the turbopump Opta, RS-232 data output"
+    protocol: "libcom1 over TCP (through the Opta), StreamDevice listen only (nt20_monitor.proto)"
+    epics:
+      - {db: turbo_pump.db, macros: {P: TURBO1, DEVICE: TURBO, PORT: TURBO, RELAY: r1, RUN: "0", NORMAL: "4", ACCEL: "5", FAILURE: "6"}}
+      - {db: nt20_monitor.db, macros: {P: TURBO1, PORT: NT20_1}}
+    status: new
+    flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
+    notes:
+      - "Assumed (A16): the RS-232 port is fitted. Assumed (A17, P14): the record format is invented until a capture from a unit exists. TURBO1:raw:get and TURBO1:age:get work with any one-line format."
+
+  - id: turbo2
+    name: "Turbopump 2"
+    model: "Leybold TURBOTRONIK NT 20"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "run relay and status contacts on the turbopump Opta, RS-232 data output"
+    protocol: "libcom1 over TCP (through the Opta), StreamDevice listen only (nt20_monitor.proto)"
+    epics:
+      - {db: turbo_pump.db, macros: {P: TURBO2, DEVICE: TURBO, PORT: TURBO, RELAY: r2, RUN: "1", NORMAL: "7", ACCEL: "8", FAILURE: "9"}}
+      - {db: nt20_monitor.db, macros: {P: TURBO2, PORT: NT20_2}}
+    status: new
+    flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
+    notes:
+      - "As turbopump 1 (A16, A17, P14)."
 
   - id: rough
     name: "Roughing pumps"
@@ -387,7 +481,7 @@ devices:
       - {name: "rough1:running:get", type: bi, desc: "Pump running (contactor or pump status)"}
       - {name: "rough1:fault:get", type: bi, desc: "Motor protection / pump fault"}
     notes:
-      - "Foreline pressure exists already: avr6:apg:getpressure."
+      - "Foreline pressure exists already: PRESSURE:apg:getpressure."
     questions:
       - "Make and model of the roughing pumps, and how many? Do they have a remote interface or only mains?"
 
@@ -399,14 +493,17 @@ devices:
     host: ioc_rack
     link: "USB"
     protocol: "libcom1, acknowledged sets"
-    epics: {db: solenoidbox.db, macros: {DEVICE: avr12, PORT: AVR12}}
+    epics:
+      - {db: solenoidbox.db, macros: {PORT: AVR12, DEVICE: VALVE}}
+      - {db: libcom1_device.db, macros: {PORT: AVR12, DEVICE: VALVE}}
     status: replace
     libcom1: true
+    labels: {s1: "Foreline Valve", s2: "MFC Shutoff Valve", s3: "Vent Valve", s4: "Faraday Cup"}
     notes:
       - "Stays in service until the additional Optas have arrived (a few weeks). Flash the protocol 2 firmware anyway, so that sets are acknowledged in the meantime."
     questions:
-      - "The device list says 4 x solenoid valve controller, st.cmd loads one box with 8 channels. Four boxes, or four valves on one box?"
-      - "Which valve is on which channel? The database only says s1 to s8."
+      - "The device list says 4 x solenoid valve controller, st.cmd loads one box with 8 channels. Four boxes, or four valves on one box? (The emulation assumes one box with 8 channels, A14.)"
+      - "Which valve is on which channel? The database only says s1 to s8. The lab GUI of 2023 labels s1 foreline valve, s2 MFC shutoff valve, s3 vent valve and s4 Faraday cup (taken over as labels, assumption A14). Are s5 to s8 connected?"
 
   - id: valves_opta
     name: "Solenoid valve controller (Opta)"
@@ -447,11 +544,18 @@ devices:
     host: ioc_rack
     link: "USB"
     protocol: "libcom1"
-    epics: {db: sensorbox.db, macros: {DEVICE: avr10, PORT: AVR10}}
+    epics:
+      - {db: sensorbox.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
+      - {db: libcom1_device.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
     status: tbd
     libcom1: true
+    labels: {f1: "N/A", f2: "Turbo pump", f3: "Front Plate", f4: "Faraday Cup 1", f5: "N/A"}
+    notes:
+      - "Seven temperatures t1 to t7 (degC) and five water flows f1 to f5. Flow labels from the lab GUI of 2023."
+      - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
     questions:
       - "The sensor box is in st.cmd but not in the device list. Still in use, or replaced by the Opta flow readout?"
+      - "Unit of the water flows? The firmware multiplies the pulses of 0.5 s by 0.06, which fits litres per hour by one of its comments and not litres per minute by the other. The unit field is left empty (P3)."
 
   - id: ilk_old
     name: "Interlock controller (old)"
@@ -461,10 +565,17 @@ devices:
     host: ioc_rack
     link: "USB"
     protocol: "libcom1"
-    epics: {db: interlockbox.db, macros: {DEVICE: avr11, PORT: AVR11}}
+    epics:
+      - {db: interlockbox.db, macros: {PORT: AVR11, DEVICE: INTLK}}
+      - {db: libcom1_device.db, macros: {PORT: AVR11, DEVICE: INTLK}}
     status: replace
+    labels: {i1: "HV Door Lower", i2: "HV Door Upper"}
     notes:
-      - "Two interlock inputs. The summary PV interlock_status has no device prefix."
+      - "Two interlock inputs, the HV cage doors (1 = door closed; labels from the lab GUI of 2023). The summary PV interlock_open (formerly interlock_status) has no device prefix. It is the output permit of the AU supplies and the REK."
+      - "Assumed (A18): still connected to the rack IOC, as in the lab's st.cmd of 2023."
+    questions:
+      - "The box has two relay channels (s1, s2) that no database uses. What do they switch (P4)?"
+      - "The door PVs INTLK:i1:get_interlock and i2 are now binary records (Open, Closed); the lab's were analog records with the same numbers. Does a script read their type (P5)?"
 
   - id: ilk_new
     name: "Interlock system (new)"
@@ -494,9 +605,14 @@ devices:
     location: rack
     host: ioc_rack
     link: "USB today, Ethernet proposed"
-    protocol: "tbd"
+    protocol: "tbd (assumed: libcom1 over TCP, A13)"
+    epics:
+      - {db: faradaycup.db, macros: {PORT: FC, DEVICE: FC}}
+      - {db: libcom1_device.db, macros: {PORT: FC, DEVICE: FC}}
     status: modify
-    pvs_unknown: true
+    flags: {assumed: "Placeholder until the firmware is known: libcom1 over TCP, one current channel in A (A13, P12)"}
+    notes:
+      - "faradaycup.db is a placeholder. Assumed (A13, P12): the Opta speaks libcom1 over TCP and serves one channel with the cup current in A (FC:current:get), identity FaradayCupOpta. The cup actuator is assumed to be valve channel s4 (VALVE:s4), as labelled in the lab GUI."
     questions:
       - "Which firmware and which PVs does the Faraday cup Opta serve today? Not in the repository."
 
@@ -609,7 +725,8 @@ interlock:
     - "Supplies on the HV platform get their permit through an isolated path (fiber or the mains contactor), not through a copper signal."
     - "Communication timeout in the device firmware (libcom1 set_comm_timeout) is an extra, not an interlock."
   questions:
-    - "What are the two inputs of the existing interlock box, and what do they switch?"
+    - "What are the two inputs of the existing interlock box, and what do they switch? (The lab GUI of 2023 calls them HV door lower and upper; in software they form interlock_open, the output permit of the AU supplies and the REK.)"
+    - "Outputs come back on by themselves: when the interlock opens, the AU and REK outputs are forced off but the request stays set, so they switch on again when it closes. That is the lab's database of 2023, kept. The rules below say a trip latches; one record more would clear the request on permit loss. Which one (P16)?"
     - "Full list of interlock signals for MIST-2 at IBA, and what each one must switch off."
     - "Does IBA require a certified safety controller or safety relays for the personnel functions, and who signs it off?"
     - "PLC for layer B: Arduino Opta (in hand, no SIL rating), or an industrial PLC that IBA already supports?"
@@ -725,6 +842,7 @@ software:
     - "React Automation Studio is actively developed (release 8.1.0 of May 2026), so the overhaul can stay on it. A better layout does not need a different toolkit."
     - "Its Docker setup expects Linux with host networking. Run it on Linux (WSL2 for development), not on Docker Desktop for Windows."
     - "The GUI code in the repository (RAS/IsoDAR) dates from 2021 and is full of placeholder PVs. Bring the version that runs in the lab into the repository before the overhaul starts."
+    - "The new GUI lives in RAS/mist2 (RAS V8.1.0, decision D6). It takes every device and PV name from one registry, RAS/mist2/ReactApp/src/registry/registry.json, which plan/registry.py generates from this file, the databases and the st.cmd files."
     - "Overview page: the source drawn as a synoptic with live values at the place where they are measured. Color follows alarm severity, not hand-set thresholds in the page."
     - "Subsystem pages are generated from controls.yaml. Expert pages (raw channels, firmware identity, communication state) sit one click behind."
     - "Alternative, if you ever want the EPICS community standard with alarm server, archive viewer and save/restore in one tool: Phoebus (CS-Studio). It is a desktop application, not a web page."
@@ -755,7 +873,7 @@ software:
 
 naming:
   text:
-    - "Today's PV names follow three different patterns: by COM-port nickname (avr12:s1:set), by model (AU-20P7-1:voltage:set, REK-1:..., tdk:...) and without any prefix (interlock_status). None says what the device does."
+    - "Today's PV names (the lab's, decision D1) follow three different patterns: by device type (VALVE:s1:set, PRESSURE:apg:getpressure), by model (AU-20P7-1:voltage:setpoint, REK-1:..., TDK:...) and without any prefix (interlock_open). None says what the device does."
     - "A rebuild is the cheapest moment to fix this. Proposal: MIST2:<area>:<function>:<signal>, for example MIST2:SRC:FilDis:Current-SP, and keep the old names as EPICS aliases until the GUI and all scripts have moved."
     - "Renaming also touches every client that reads PVs by name, including automated tuning. Decide once, before the new devices get their PVs."
 
@@ -763,3 +881,170 @@ global_questions:
   - "Please send dbl output and st.cmd from both IOCs, so that the PV lists show what really runs and not only what is in the repository."
   - "Is the PV naming convention open for change, or are the current names fixed by existing clients?"
   - "Target date for phase 1, and what must work on day one?"
+
+# ---------------------------------------------------------------------- databases: roles of the records
+# What the GUI and the tests need to know about the records of each database, written once and used
+# for every device that loads it. plan/registry.py turns this into the registry.
+#
+#   class     widget class of the devices that load it (docs/emulation/gui/LAYOUT.md 1.4)
+#   roles     role: record. The record is named without its prefix macro (voltage:setpoint, not
+#             $(DEV)-$(UNITNUM):voltage:setpoint). A written record gets a mapping:
+#               record    the record
+#               readback  the role that shows the set took effect (null: none)
+#               test      [low, high]: values a test may write
+#               ack       true: the device answers the set, a missing answer is an alarm on the set
+#                         record. false: it does not, a read of the setting follows instead.
+#               note      optional
+#   channels  roles per channel. <n> stands for the channel number: "s<n>" gives s1, s2, ...
+#   internal  records that are no role: fan-outs, arrays, helper records
+#   unit      macro that holds the unit address on a bus (a simulator with several units)
+#   macros    macros that every load of this database has (optional)
+#
+# A record that is neither a role nor internal stops build.py and registry.py: add it here.
+databases:
+  ioc_info.db:
+    class: ioc
+    roles: {heartbeat: heartbeat, mode: mode}
+
+  libcom1_device.db:
+    roles:
+      id: id
+      firmware: firmware
+      channel_list: {record: channels, note: "full text in the field VAL$ (more than 40 characters)"}
+
+  matsusada_au20p7.db:
+    class: supply
+    unit: UNITNUM
+    roles:
+      vset: {record: "voltage:setpoint", readback: vget, test: [0, 100], ack: false}
+      vget: "voltage:get"
+      vread: "voltage:read"
+      iset: {record: "current:setpoint", readback: iget, test: [0, 0.5], ack: false}
+      iget: "current:get"
+      iread: "current:read"
+      power: "power:read"
+      out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
+                note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
+      out_state: read_output_status
+      status: "status:read"
+    internal: [OutputIntlk, ToggleOutput, "output:init"]
+
+  rek.db:
+    class: supply
+    unit: UNITNUM
+    roles:
+      vset: {record: "voltage:setpoint", readback: vget, test: [0, 10], ack: false}
+      vget: "voltage:get"
+      vread: "voltage:read"
+      iset: {record: "current:setpoint", readback: iget, test: [0, 1], ack: false}
+      iget: "current:get"
+      iread: "current:read"
+      power: "power:read"
+      out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
+                note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
+      out_state: read_output_status
+      status: "status:read"
+    internal: [OutputIntlk, ToggleOutput, "output:init"]
+
+  au_alloff.db:
+    class: command
+    roles:
+      cmd: {record: "AU:alloff:set", readback: null, test: [0, 1], ack: false,
+            note: "1 switches every AU output off and clears the requests; returns to 0 by itself"}
+    internal: ["AU:alloff:fanout", "AU:alloff:chain1", "AU:alloff:chain2", "AU:alloff:requests", "AU:alloff:spare"]
+
+  tdk.db:
+    class: supply
+    roles:
+      vset: {record: "voltage:setpoint", readback: vread, test: [0, 2], ack: true,
+             note: "no echo record: voltage:read follows while the output is on"}
+      vread: "voltage:read"
+      iset: {record: "current:setpoint", readback: iread, test: [0, 100], ack: true,
+             note: "no echo record: current:read follows while the output is on"}
+      iread: "current:read"
+      power: "power:get"
+      out_cmd: {record: "status:setpoint", readback: out_state, test: [0, 1], ack: true}
+      out_state: "status:get"
+      mode: "mode:get"
+      fault: "fault:get"
+
+  thermocouples.db:
+    class: reading
+    channels:
+      "t<n>": {value: "t<n>:get", junction: "j<n>:get", fault: "f<n>:get"}
+    internal: [data, "int:fanout"]
+
+  sensorbox.db:
+    class: reading
+    channels:
+      "t<n>": {value: "t<n>:gettemp"}
+      "f<n>": {value: "f<n>:getflow"}
+    internal: [data, "int:fanout"]
+
+  faradaycup.db:
+    class: reading
+    roles: {value: "current:get"}
+    internal: [data]
+
+  pressure.db:
+    class: gauge
+    channels:
+      apg: {p: "apg:getpressure"}
+      diag_box: {p: "diag_box:getpressure"}
+    internal: [data, "int:fanout"]
+
+  aim.db:
+    class: gauge
+    roles:
+      p: getpressure
+      enable: {record: enable, readback: null, test: [0, 1], ack: true,
+               note: "no read-back record: getpressure is INVALID while the gauge is off"}
+
+  solenoidbox.db:
+    class: valve
+    channels:
+      "s<n>":
+        cmd: {record: "s<n>:set", readback: state, test: [0, 1], ack: true}
+        state: "s<n>:get"
+    internal: [data, "int:fanout"]
+
+  interlockbox.db:
+    class: interlock
+    roles: {open: interlock_open}
+    channels:
+      "i<n>": {state: "i<n>:get_interlock"}
+    internal: [data, "int:fanout"]
+
+  mfc.db:
+    class: mfc
+    unit: ADDR
+    roles:
+      sp_cmd: {record: setSP, readback: sp, test: [0, 50], ack: true}
+      sp: getSP
+      flow: getFlow
+      wink_cmd: {record: setWink, readback: wink, test: [0, 1], ack: true}
+      wink: getWink
+
+  turbo.db:
+    internal: [data]
+
+  turbo_pump.db:
+    class: turbo
+    roles:
+      run_cmd: {record: "start:set", readback: run_state, test: [0, 1], ack: true,
+                note: "0 stops the pump and resets a failure"}
+      run_state: "start:get"
+      atspeed: "atspeed:get"
+      accel: "accel:get"
+      failure: "failure:get"
+      state: "state:get"
+    internal: ["int:relays", "int:state"]
+
+  nt20_monitor.db:
+    class: turbo
+    roles:
+      speed: "speed:get"
+      current: "current:get"
+      age: "age:get"
+      raw: {record: "raw:get", note: "full text in the field VAL$"}
+    internal: ["int:raw", "int:speed", "int:current", "int:fresh", "int:stale", "int:refresh"]
