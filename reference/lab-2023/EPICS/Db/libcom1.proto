@@ -1,0 +1,58 @@
+# libcom1.proto
+#
+# Requires:
+# - StreamDevice compiled with LibCom1ExponentComverter
+#
+# This file provides a protocol for communicating with a libcom1 device
+#
+# Author(s): Ryan Yang (ryang2@mit.edu)
+#
+# Changlog:
+# 2021/05/23 - Documentation
+# 2020/04/21 - Added reading in as array
+# 2020/11/02 - Added rudimentory way to read multiple values from device
+
+
+Terminator = LF;
+
+# Obtain a singular value from a channel
+com1_getLink {
+    # q01<chanelnum><precision>
+    out "q01\$1\$2";
+
+    # o<channelnum><com1exponent>
+    # %z is custom defined by LibCom1ExponentConverter
+    in "o%*c%*c%z";
+}
+
+# Set a value on a channel using a float
+com1_setLink_flt {
+    # s<channel><flt>
+    out "s\$1%f";
+}
+
+# Set a value on a channel using an integer
+com1_setLink {
+    out "s\$1%d";
+}
+
+# Better method to read multiple values from device, returns an array
+read_all_array {
+    separator = ":";
+    extrainput = ignore;
+    out "A";
+    in "o%g"
+}
+
+# Rudimentory methods to read multiple values from device
+read_all_3val {
+    out "A";
+    in "o%g:%(\$1)g:%(\$2)g"
+}
+
+read_all_3val_iointr {
+    in "o%g:%(\$1)g:%(\$2)g";
+}
+
+
+

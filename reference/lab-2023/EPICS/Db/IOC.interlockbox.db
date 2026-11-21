@@ -1,0 +1,41 @@
+# Author: Philip Weigel
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All interlocks")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".1 second")
+    field(NELM, "4")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):i1:get_interlock")
+    field(LNK1, "$(DEVICE):i2:get_interlock")
+}
+
+record(ai, "$(DEVICE):i1:get_interlock") {
+    field(DESC, "Get interlock 1 status")  # 0 = open, 1 = closed
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(SCAN, "Passive")    
+}
+
+record(ai, "$(DEVICE):i2:get_interlock") {
+    field(DESC, "Get interlock 2 status")  # 0 = open, 1 = closed
+	field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(SCAN, "Passive")
+}
+
+# Recall for the ternary operator that it works as, condition ? valIfTrue : valIfFalse
+# Formerly called 'interlock_status'
+record(calc, "interlock_open") {
+    field(DESC, "Status of the interlocks")
+    field(INPA, "$(DEVICE):i1:get_interlock.VAL NPP")
+    field(INPB, "$(DEVICE):i2:get_interlock.VAL NPP")
+    field(CALC, "(A&&B) ? 0 : 1")  # 0 if A and B (doors closed), 1 otherwise
+    field(SCAN, ".1 second")
+	field(HIGH, "1")
+	field(HSV, "MAJOR") 
+}

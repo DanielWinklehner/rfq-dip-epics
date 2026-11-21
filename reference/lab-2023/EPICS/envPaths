@@ -1,0 +1,6 @@
+epicsEnvSet("IOC","iocsampleIOC")
+epicsEnvSet("TOP","C:/EPICS/IOCs/sampleIOC")
+epicsEnvSet("EPICS_BASE","C:/EPICS/base-3.15.8")
+epicsEnvSet("SUPPORT","C:/EPICS/base-3.15.8/../support")
+epicsEnvSet("ASYN","C:/EPICS/base-3.15.8/../support/asyn")
+epicsEnvSet("STREAM","C:/EPICS/base-3.15.8/../support/StreamDevice")

@@ -1,0 +1,12 @@
+# Author: Philip Weigel
+
+Terminator = CR;
+
+get_pressure {
+	out "?V752";
+	in "=V752 %E;%*d";
+}
+
+enable {
+	out "\!C752 %{0|1}";
+}

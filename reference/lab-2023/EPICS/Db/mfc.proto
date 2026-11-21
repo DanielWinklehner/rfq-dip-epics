@@ -1,0 +1,36 @@
+# Author: Philip Weigel
+
+Terminator = CR;
+
+# device id 254, command layout is @@@254{command}{!/?}{value};FF
+
+#getWink {
+#	out "@@@254WK?;FF";
+#	in "@@@000ACK%{OFF|ON};FF";
+#}
+
+#setWink {
+#	out "@@@254WK!%{OFF|ON};FF";
+#	@init { getWink; }
+#}
+
+#getFS {
+#	out "@@@254FS?;FF";
+#	in "@@@000ACK%d;FF";
+#}
+
+#setFS {
+#
+#}
+
+getSP {
+	out "@@@254S?;FF";
+	in "@@@000ACK%f;FF"; # @@@000ACK  0.00
+}
+
+#2023/03/08 15:43:49.576846 MFC MFC:getSP: got "-20.00;FF" where "  " was expected
+#2023/03/08 15:44:15.300348 MFC MFC:getSP: got "20.00;FF" where " " was expected
+setSP {
+	out "@@@254S!%f;FF";
+	#@init { getSP; }
+}

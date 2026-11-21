@@ -1,0 +1,125 @@
+# Author: Philip Weigel
+
+record(ao, "REK-$(UNITNUM):voltage:setpoint") {
+    field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(OUT, "@rek.proto set_voltage($(UNITNUM)) $(PORT)")
+    field(DRVL, "0")
+    field(DRVH, "150")
+    field(EGU,  "V")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.00228885") # 150/0xFFFF
+    field(EOFF, "0")
+}
+
+record(ai, "REK-$(UNITNUM):voltage:get") {
+    field(DESC, "Get voltage of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto get_voltage($(UNITNUM)) $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU,  "V")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.00228885") # 150/0xFFFF
+    field(EOFF, "0")
+}
+
+record(ai, "REK-$(UNITNUM):voltage:read") {
+    field(DESC, "Read voltage of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto read_voltage($(UNITNUM)) $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU,  "V")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.03663") # 150/0xFFF
+    field(EOFF, "0")
+}
+
+record(ao, "REK-$(UNITNUM):current:setpoint") {
+    field(DESC, "Set current of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(OUT, "@rek.proto set_current($(UNITNUM)) $(PORT)")
+    field(DRVL, "0")
+    field(DRVH, "24")
+    field(EGU, "A")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.000366217") # 24/0xFFFF
+    field(EOFF, "0")
+}
+
+record(ai, "REK-$(UNITNUM):current:get") {
+    field(DESC, "Get current of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto get_current($(UNITNUM)) $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU, "mA")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.000366217") # 24/0xFFFF
+    field(EOFF, "0")
+}
+
+record(ai, "REK-$(UNITNUM):current:read") {
+    field(DESC, "Read current of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto read_current($(UNITNUM)) $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU, "mA")
+    field(LINR, "SLOPE")
+    field(ESLO, "0.00586081") # 24/0xFFF
+    field(EOFF, "0")
+}
+
+record(bo, "REK-$(UNITNUM):SetToggleOutput") {
+	field(DESC, "Set value for enabling PS output")
+	field(ZNAM, "DISABLED")
+	field(ONAM, "ENABLED")
+	field(SCAN, "Passive")
+}
+
+record(calcout, "REK-$(UNITNUM):OutputIntlk") {
+	field(DESC, "Checks for the interlock being open")
+	field(INPA, "interlock_open CPP")
+	field(INPB, "REK-$(UNITNUM):SetToggleOutput CPP")
+	field(CALC, "A ? 0 : B") # if the interlock is open: 0, otherwise SetToggleOutput
+	field(SCAN, ".1 second")
+	field(OOPT, "On Change") # only write to the output if the value changes
+	field(DOPT, "Use CALC") # writes the output of calc
+	field(OUT, "REK-$(UNITNUM):ToggleOutput PP")
+}
+
+record(bo, "REK-$(UNITNUM):ToggleOutput") {
+	field(DESC, "Toggle the status of the PS output")
+	field(DTYP, "stream")
+	field(ZNAM, "DISABLED")
+	field(ONAM, "ENABLED")
+	field(SCAN, "Passive")
+	field(OUT, "@rek.proto toggle_output($(UNITNUM)) $(PORT)")
+}
+
+record(bi, "REK-$(UNITNUM):status:read") {
+    field(DESC, "Read status of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto read_status($(UNITNUM)) $(PORT)")
+    field(SCAN, ".1 second")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+}
+
+#read_output_status
+record(bi, "REK-$(UNITNUM):read_output_status") {
+    field(DESC, "Read output status of $(PORT):$(UNITNUM)")
+    field(DTYP, "stream")
+    field(INP, "@rek.proto get_output_status($(UNITNUM)) $(PORT)")
+    field(SCAN, "1 second")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+}
+
+record(calc, "REK-$(UNITNUM):power:read") {
+   field(DESC, "Read power of $(PORT):$(UNITNUM)")
+   field(INPA, "REK-$(UNITNUM):voltage:read.VAL NPP")
+   field(INPB, "REK-$(UNITNUM):current:read.VAL NPP")
+   field(CALC, "A * B / 1000")
+   field(SCAN, ".1 second")
+   field(PREC, "3")
+   field(EGU, "W")
+}
