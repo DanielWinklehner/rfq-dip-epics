@@ -75,6 +75,11 @@ A Channel Access client of your own needs `EPICS_CA_AUTO_ADDR_LIST=NO` and
 
 **IOC shell:** `docker attach mist2emu-ioc-rack-1`. Leave it with ctrl-p ctrl-q, not ctrl-c.
 
+**Saved limits:** the current limits of the high-voltage supplies and of the filament discharge
+supply are kept across `restart` and `down`/`up` in the Docker volume `mist2emu-save`. Their
+defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them and reset them:
+[../../emulation/README.md](../../emulation/README.md), "Saved limits".
+
 **Which PVs exist:** `RAS/mist2/ReactApp/src/registry/registry.json`, or the Word document in
 `plan/out/`.
 
@@ -125,6 +130,9 @@ Every number of the model is a property of the model. None is measured on MIST-2
 parameters, each marked as law, estimate or free choice, are in
 `emulation/sim/config/plant.yaml`. Run the system tests without the plant.
 
+The turbopump needs about 70 s to reach its speed in the emulation (the real pump: about
+9 minutes). Until then the pressure is too high for a discharge.
+
 ## 7. The GUI
 
 | Command | What it does |
@@ -137,8 +145,22 @@ Open <http://localhost:3000/> in a browser on Windows. The GUI uses the ports 30
 9001 of the WSL machine. It finds the IOCs through `RAS/mist2/.env`, which is created from
 `env.template` on first use.
 
-State of the GUI: see [STATUS.md](STATUS.md). The pages are built after the layout decision
-([gui/LAYOUT.md](gui/LAYOUT.md)).
+**What you see:** an overview drawing of the source and the six-way cross, one tab per
+subsystem (plasma, extraction, vacuum and gas, cooling and interlock, infrastructure), and
+trends. A click on any element of a drawing opens that device in a browser window of its own,
+which stays until you close it. Colour follows the EPICS alarm severity, and a record that is
+INVALID shows that instead of a stale number. Expert information (PV names, alarm status, raw
+values) is in each device window. There is no login. Only opening the vent valve asks first.
+
+**Check it:** with the emulation and the GUI running, `RAS/mist2/tools/gui-check.sh` drives a
+headless browser through every page and device window, compares what is shown with Channel
+Access, injects faults and writes set points. It saves screenshots to
+`RAS/mist2/tools/screenshots/`. It takes about 5 minutes.
+
+Every device, PV name and state word in the GUI comes from the registry
+(`RAS/mist2/ReactApp/src/registry/registry.json`, generated from `plan/controls.yaml`). How the
+GUI is built: [../../RAS/mist2/README.md](../../RAS/mist2/README.md). Why it looks like this:
+[gui/LAYOUT.md](gui/LAYOUT.md).
 
 ## 8. From the emulation to the real computers
 

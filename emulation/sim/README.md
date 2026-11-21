@@ -258,11 +258,13 @@ What the point implies:
   supply with more current (REK150-55). The model does not hide this.
 - **The predicted pressure is BELOW the owner's range.** The model predicts a nAIM reading of
   7.0e-6 torr at 1 sccm, a factor 1.4 under the low end of 1e-5 to 5e-5 torr. Possible reasons,
-  none chosen: the gauge's calibration for hydrogen (without the H2 factor of 0.46 the reading
-  would be 1.5e-5 torr, inside the range); the gauge sits on a side flange, away from the pump;
+  none chosen: the gauge sits on a side flange, away from the pump;
   a conductance between pump and chamber (ISO-K flange, valve, screen) lowers the effective
   speed below the data sheet value; the remembered flow; a different pump; the base pressure
-  (a free choice of 2e-6 torr reading).
+  (a free choice of 2e-6 torr reading). The gauge calibration is not among them any more: the
+  owner believes the nAIM is calibrated for N2 (2026-11-21), which is what the model assumes
+  (H2 factor 0.46). If the gauge showed true hydrogen pressure, the reading would be
+  1.5e-5 torr, inside the range.
 - **It is one point.** The slopes around it (discharge current per filament current, per sccm)
   follow from Richardson's law, Stefan-Boltzmann and the free choices; they are properties of the
   model. `tools/plant_step_response.py` says so in its output.
@@ -362,7 +364,7 @@ gauge heads switched off (the nAIM simulator still decides what it reports when 
 | `aperture_conductance_l_s` | 8 | l/s | estimate: molecular flow of H2 through an extraction aperture of about 5 mm |
 | `chamber_volume_l` | 1 | l | estimate: plasma chamber of the source |
 | `cross_volume_l` | 40 | l | estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long) |
-| `aim_h2_factor` | 0.46 | 1 | law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure |
+| `aim_h2_factor` | 0.46 | 1 | law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure. That the nAIM is calibrated for N2 is the owner's belief (2026-11-21), not checked on the gauge |
 | `cross_base_reading_torr` | 2e-06 | torr | free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas |
 | `apg_floor_torr` | 0.001 | torr | free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that |
 | `apg_ceiling_torr` | 944.06 | torr | free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml) |

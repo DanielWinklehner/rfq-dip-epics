@@ -105,7 +105,7 @@ model:
   aperture_conductance_l_s: {value: 8.0, unit: l/s, source: "estimate: molecular flow of H2 through an extraction aperture of about 5 mm"}
   chamber_volume_l:        {value: 1.0, unit: l, source: "estimate: plasma chamber of the source"}
   cross_volume_l:          {value: 40.0, unit: l, source: "estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long)"}
-  aim_h2_factor:           {value: 0.46, unit: "1", source: "law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure"}
+  aim_h2_factor:           {value: 0.46, unit: "1", source: "law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure. That the nAIM is calibrated for N2 is the owner's belief (2026-11-21), not checked on the gauge"}
   cross_base_reading_torr: {value: 2.0e-6, unit: torr, source: "free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas"}
   apg_floor_torr:          {value: 1.0e-3, unit: torr, source: "free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that"}
   apg_ceiling_torr:        {value: 944.06, unit: torr, source: "free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml)"}
