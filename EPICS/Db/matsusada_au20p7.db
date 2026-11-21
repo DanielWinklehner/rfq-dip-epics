@@ -1,185 +1,215 @@
-# matsusada_au20p7.db
+# matsusada_au20p7.db - one Matsusada AU supply behind a CO series controller (CO-U32, CO-HV)
 #
-# Params Required:
-# UNITNUM: Unique number to identify power supply index in chain
-# PORT: asyn device port
+# Terminology: "setpoint" changes the set point, "get" reads the set point back from the supply,
+# "read" measures the output.
 #
-# This file provides EPICS PV definitions for a Matsusada AU-20P7 power supply connected
-# to a Matsusada CO series power supply controller
-# 
-# Teminology:
-# - "Set" means to change the setpoint
-# - "Get" means to obtain the setpoint
-# - "Read" means to measure the output
+# Macros (default):
+#   UNITNUM              unit number on the chain (UNIT switch of the CO-HV), also in the PV names
+#   PORT                 asyn port of the chain
+#   DEV (AU-20P7)        PV prefix, the PVs are DEV-UNITNUM:...
+#   VFS (20000), IFS (7.5)   full scale in V and mA
+#   POL (empty)          sign of the voltage PVs: empty = positive, "-" = negative numbers.
+#                        With "-" also set VDRVL=-VFS and VDRVH=0.
+#   VDRVL (0), VDRVH (VFS)   drive limits of the voltage set point
+#   PERMIT (interlock_open)  output permit PV: non-zero = open = output forced off. An INVALID or
+#                        disconnected permit counts as open
+#   ICN_ON (100)         percentage sent with ICN when the output is switched on
+#   SCAN_MON (.1 second) monitors (MN1, MN2)
+#   SCAN_GET (5 second)  set-point echoes (CH0?, CH1?) and the SW setting; also read after
+#                        every set and every switching
+#   SCAN_STS (1 second)  output state (STS)
+#                        Passive for all three: the supply is not polled (lens 3)
+#   GRACE (5)            seconds after the start before the permit can switch the output and
+#                        before writes to the set points are sent (see :output:init)
+#   PDIV (1000)          power:read = voltage:read * current:read / PDIV, in W
+#   EGUI (mA)            unit of the current PVs
+#   PROTO (matsusada_co_ctrl.proto)
 #
-# Author(s): Ryan Yang (ryang2@mit.edu)
+# The set points carry no acknowledgement (the CO series does not answer a set). Each set reads
+# the setting back in the same protocol and compares it: a supply that does not answer or does
+# not execute the set turns the set-point record INVALID (TIMEOUT or CALC). The echo record
+# (:get) is read after every set as well (forward link to .PROC through CA: it processes a
+# scanned record, and a record that is busy is processed again when it is done). After an IOC start the set points show the supply's
+# settings (see :output:init).
 #
-# Changlog:
-# 2021/05/23 - Documentation
-# 2021/02/22 - Added conversion of units (Raw <-> V/mA)
-# 2021/02/08 - Added file
+# Output switching, as in the lab: SetToggleOutput (the operator's request) -> OutputIntlk
+# (forces 0 while the permit is open) -> ToggleOutput (sends REN, ICN, RST, SW). At the start,
+# :output:init copies the output state read from the supply into the request, so that an IOC
+# restart leaves a supply that is on, on, and sends nothing.
+#
+# rek.db is the same file with other defaults. Keep both in step.
+#
+# Authors: Ryan Yang (ryang2@mit.edu), 2021; reworked for MIST-2 in 2026.
 
-
-record(ao, "AU-20P7-$(UNITNUM):voltage:set") {
+record(ao, "$(DEV=AU-20P7)-$(UNITNUM):voltage:setpoint") {
     field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto set_voltage($(UNITNUM)) $(PORT)")
-    field(DRVL, "0")
-    field(DRVH, "20000")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) set_voltage($(UNITNUM)) $(PORT)")
+    field(PRIO, "HIGH")
+    field(DRVL, "$(VDRVL=0)")
+    field(DRVH, "$(VDRVH=$(VFS=20000))")
     field(EGU,  "V")
     field(LINR, "SLOPE")
-    #field(ASLO, "2")
-    field(ESLO, "0.30518043793392846") # 20000/0xFFFF
-    field(EOFF, "0")
+    field(ESLO, "1.5259021896696422e-05")
+    field(ASLO, "$(POL=)$(VFS=20000)")
+    field(SIMM, "YES")
+    field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):voltage:get.PROC CA")
 }
 
-#record(ao, "AU-20P7-$(UNITNUM):voltage:set:AOFF") {
-#    field(DTYP,"Soft Channel")
-#    field(VAL,"0")
-#    field(OUT,"AU-20P7-$(UNITNUM):voltage:set.AOFF PP")
-#    field(PINI,"YES")
-#}
-
-record(ai, "AU-20P7-$(UNITNUM):voltage:get") {
+record(ai, "$(DEV=AU-20P7)-$(UNITNUM):voltage:get") {
     field(DESC, "Get voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(INP, "@matsusada_co_ctrl.proto get_voltage($(UNITNUM)) $(PORT)")
-    field(SCAN, ".1 second")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) get_voltage($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_GET=5 second)")
+    field(PINI, "YES")
     field(EGU,  "V")
     field(LINR, "SLOPE")
-    #field(ASLO, "2")
-    field(ESLO, "0.30518043793392846") # 20000/0xFFFF
-    field(EOFF, "0")
+    field(ESLO, "1.5259021896696422e-05")
+    field(ASLO, "$(POL=)$(VFS=20000)")
 }
 
-#record(dfanout, "AU-20P7-$(UNITNUM):voltage:clbr:ASLO") {
-#    field(DOL, "1")
-#    field(OMSL, "supervisory")
-#    field(SELM, "All")
-#}
-
-record(ai, "AU-20P7-$(UNITNUM):voltage:read") {
+record(ai, "$(DEV=AU-20P7)-$(UNITNUM):voltage:read") {
     field(DESC, "Read voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(INP, "@matsusada_co_ctrl.proto read_voltage($(UNITNUM)) $(PORT)")
-    field(SCAN, ".1 second")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) read_voltage($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_MON=.1 second)")
     field(EGU,  "V")
     field(LINR, "SLOPE")
-    #field(ASLO, "2")
-    field(ESLO, "4.884004884004884") # 20000/0xFFF
-    field(EOFF, "0")
+    field(ESLO, "2.442002442002442e-04")
+    field(ASLO, "$(POL=)$(VFS=20000)")
 }
 
-record(ao, "AU-20P7-$(UNITNUM):current:set") {
+record(ao, "$(DEV=AU-20P7)-$(UNITNUM):current:setpoint") {
     field(DESC, "Set current of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto set_current($(UNITNUM)) $(PORT)")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) set_current($(UNITNUM)) $(PORT)")
+    field(PRIO, "HIGH")
     field(DRVL, "0")
-    field(DRVH, "7.5")
-    field(EGU, "mA")
+    field(DRVH, "$(IFS=7.5)")
+    field(EGU,  "$(EGUI=mA)")
     field(LINR, "SLOPE")
-    field(ESLO, "0.00011444266422522316") # 7.5/0xFFFF
-    field(EOFF, "0")
+    field(ESLO, "1.5259021896696422e-05")
+    field(ASLO, "$(IFS=7.5)")
+    field(SIMM, "YES")
+    field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):current:get")
 }
 
-record(ai, "AU-20P7-$(UNITNUM):current:get") {
+# Read after every current set and by the FLNK of read_output_status (every SCAN_GET).
+record(ai, "$(DEV=AU-20P7)-$(UNITNUM):current:get") {
     field(DESC, "Get current of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(INP, "@matsusada_co_ctrl.proto get_current($(UNITNUM)) $(PORT)")
-    field(SCAN, ".1 second")
-    field(EGU, "mA")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) get_current($(UNITNUM)) $(PORT)")
+    field(PINI, "YES")
+    field(EGU,  "$(EGUI=mA)")
     field(LINR, "SLOPE")
-    field(ESLO, "0.00011444266422522316") # 7.5/0xFFFF
-    field(EOFF, "0")
+    field(ESLO, "1.5259021896696422e-05")
+    field(ASLO, "$(IFS=7.5)")
 }
 
-record(ai, "AU-20P7-$(UNITNUM):current:read") {
+record(ai, "$(DEV=AU-20P7)-$(UNITNUM):current:read") {
     field(DESC, "Read current of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(INP, "@matsusada_co_ctrl.proto read_current($(UNITNUM)) $(PORT)")
-    field(SCAN, ".1 second")
-    field(EGU, "mA")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) read_current($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_MON=.1 second)")
+    field(EGU,  "$(EGUI=mA)")
     field(LINR, "SLOPE")
-    field(ESLO, "0.0018315018315018315") # 7.5/0xFFF
-    field(EOFF, "0")
+    field(ESLO, "2.442002442002442e-04")
+    field(ASLO, "$(IFS=7.5)")
+    field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):power:read")
 }
 
-#record(bo, "AU-20P7-$(UNITNUM):polarity:set") {
-#    field(DESC, "Set polarity of $(PORT):$(UNITNUM)")
-#    field(DTYP, "stream")
-#    field(OUT, "@matsusada_co_ctrl.proto set_polarity($(UNITNUM)) $(PORT)")
-#    field(ZNAM, "Positive")
-#    field(ONAM, "Negative")
-#}
+record(calc, "$(DEV=AU-20P7)-$(UNITNUM):power:read") {
+    field(DESC, "Read power of $(PORT):$(UNITNUM)")
+    field(INPA, "$(DEV=AU-20P7)-$(UNITNUM):voltage:read NPP MS")
+    field(INPB, "$(DEV=AU-20P7)-$(UNITNUM):current:read NPP MS")
+    field(CALC, "A*B/$(PDIV=1000)")
+    field(PREC, "3")
+    field(EGU,  "W")
+}
 
-#record(bi, "AU-20P7-$(UNITNUM):polarity:get") {
-#    field(DESC, "Get polarity of $(PORT):$(UNITNUM)")
-#    field(DTYP, "stream")
-#    field(INP, "@matsusada_co_ctrl.proto get_polarity($(UNITNUM)) $(PORT)")
-#    field(SCAN, ".5 second")
-#    field(ZNAM, "Positive")
-#    field(ONAM, "Negative")
-#}
+# --- output ------------------------------------------------------------------------------------
 
-#record(bi, "AU-20P7-$(UNITNUM):polarity:read") {
-#    field(DESC, "Read polarity of $(PORT):$(UNITNUM)")
-#    field(DTYP, "stream")
-#    field(INP, "@matsusada_co_ctrl.proto read_polarity($(UNITNUM)) $(PORT)")
-#    field(SCAN, ".5 second")
-#    field(ZNAM, "Positive")
-#    field(ONAM, "Negative")
-#}
+record(bo, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput") {
+    field(DESC, "Set value for enabling PS output")
+    field(ZNAM, "DISABLED")
+    field(ONAM, "ENABLED")
+}
 
-record(bo, "AU-20P7-$(UNITNUM):enable") {
-    field(DESC, "enable")
+# 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
+# input A raises to INVALID through MS or a broken link), otherwise the request. Writes the
+# ToggleOutput only when the result changes. Disabled during the first GRACE seconds.
+record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk") {
+    field(DESC, "Forces the output off, permit open")
+    field(INPA, "$(PERMIT=interlock_open) CP MS")
+    field(INPB, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput CP")
+    field(INPC, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk.NSEV NPP")
+    field(CALC, "(A||C>=3)?0:B")
+    field(SCAN, "1 second")
+    field(OOPT, "On Change")
+    field(DOPT, "Use CALC")
+    field(OUT,  "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput PP")
+    field(DISV, "1")
+    field(DISA, "1")
+}
+
+record(bo, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput") {
+    field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto enable_output($(UNITNUM)) $(PORT)")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) toggle_output($(UNITNUM),$(ICN_ON=100)) $(PORT)")
+    field(PRIO, "HIGH")
+    field(ZNAM, "DISABLED")
+    field(ONAM, "ENABLED")
+    field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):read_output_status.PROC CA")
 }
 
-record(bo, "AU-20P7-$(UNITNUM):disable") {
-    field(DESC, "disable")
-    field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto disable_output($(UNITNUM)) $(PORT)")
+# NEW. At the start: request := output state read by the @init of ToggleOutput, and the same
+# into OutputIntlk's previous value, so that the first evaluation sends nothing. After GRACE
+# seconds (links connected) OutputIntlk is enabled and evaluated once, and the set points take
+# the settings read from the supply (their :get records, read at PINI). The set points are in
+# simulation mode until then (SIMM=YES: processed, nothing sent), so this sends nothing either.
+# A write to a set point in the first GRACE seconds is therefore not sent.
+record(seq, "$(DEV=AU-20P7)-$(UNITNUM):output:init") {
+    field(DESC, "Request := output state at start")
+    field(PINI, "YES")
+    field(SELM, "All")
+    field(DOL1, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput NPP")
+    field(LNK1, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput PP")
+    field(DOL2, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput NPP")
+    field(LNK2, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk.PVAL NPP")
+    field(DLY3, "$(GRACE=5)")
+    field(DO3,  "0")
+    field(LNK3, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk.DISA NPP")
+    field(DO4,  "1")
+    field(LNK4, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk.PROC NPP")
+    field(DOL5, "$(DEV=AU-20P7)-$(UNITNUM):voltage:get NPP MS")
+    field(LNK5, "$(DEV=AU-20P7)-$(UNITNUM):voltage:setpoint PP MS")
+    field(DO6,  "0")
+    field(LNK6, "$(DEV=AU-20P7)-$(UNITNUM):voltage:setpoint.SIMM NPP")
+    field(DOL7, "$(DEV=AU-20P7)-$(UNITNUM):current:get NPP MS")
+    field(LNK7, "$(DEV=AU-20P7)-$(UNITNUM):current:setpoint PP MS")
+    field(DO8,  "0")
+    field(LNK8, "$(DEV=AU-20P7)-$(UNITNUM):current:setpoint.SIMM NPP")
 }
 
-record(bo, "AU-20P7-$(UNITNUM):status:set") {
-    field(DESC, "Set status of $(PORT)$(UNITNUM)")
-    field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto set_status($(UNITNUM)) $(PORT)")
-    field(ZNAM, "OFF")
-    field(ONAM, "ON")
-}
-
-record(bi, "AU-20P7-$(UNITNUM):status:read") {
+# Output really on (STS: CO) or off (CF). Differs from read_output_status after a cut-off.
+record(bi, "$(DEV=AU-20P7)-$(UNITNUM):status:read") {
     field(DESC, "Read status of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(INP, "@matsusada_co_ctrl.proto read_status($(UNITNUM)) $(PORT)")
-    field(SCAN, ".1 second")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) read_status($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_STS=1 second)")
     field(ZNAM, "OFF")
     field(ONAM, "ON")
 }
 
-#record(calcout, "AU-20P7-$(UNITNUM):rstcheck") {
-#    field(INPA, "AU-20P7-$(UNITNUM):status:read.VAL NPP")
-#    field(CALC, "A")
-#    field(SCAN, ".1 second")
-#    field(OOPT, "Transition To Zero")
-#    field(OUT, "AU-20P7-$(UNITNUM):reset PP")
-#}
-
-record(bo, "AU-20P7-$(UNITNUM):reset") {
-    field(DESC, "Reset cutoff of $(PORT):$(UNITNUM)")
+# The SW setting (SW?). It changes only by a switching command, so it is read after each one
+# (FLNK of ToggleOutput) and otherwise slowly. Its FLNK reads the current setting, which the
+# ICN of every switching changes.
+record(bi, "$(DEV=AU-20P7)-$(UNITNUM):read_output_status") {
+    field(DESC, "Read output status of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
-    field(OUT, "@matsusada_co_ctrl.proto reset($(UNITNUM)) $(PORT)")
+    field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) get_output_status($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_GET=5 second)")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+    field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):current:get")
 }
-
-record(calc, "AU-20P7-$(UNITNUM):power:read") {
-    field(DESC, "Read power of $(PORT):$(UNITNUM)")
-    field(INPA, "AU-20P7-$(UNITNUM):voltage:read.VAL NPP")
-    field(INPB, "AU-20P7-$(UNITNUM):current:read.VAL NPP")
-    field(CALC, "A * B / 1000")
-    field(SCAN, ".1 second")
-    field(PREC, "3")
-    field(EGU, "W")
-}
-
