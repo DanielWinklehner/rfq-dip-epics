@@ -2,9 +2,9 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-All device tasks (T3 to T6) and T1, T2, T9 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. Running: T10 (plan and registry) and a
-follow-up of T3 on even polling.
+All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
+table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite), a
+follow-up of T3 on even polling, and a follow-up of T10 on the database parser.
 
 ## Done
 
@@ -31,6 +31,12 @@ follow-up of T3 on even polling.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T10 merged** (checked by the lead, including three negative checks): `plan/controls.yaml`
+  is revision 0.7 and describes what was built. `make -C emulation plan-check` now compares the
+  plan with the databases and both `st.cmd` files and fails on any difference. The device
+  registry `RAS/mist2/ReactApp/src/registry/registry.json` is generated from the same sources:
+  19 devices, 2 IOCs, 219 PVs, 15 simulators. `plan/out` keeps only the PDFs and the Word file
+  under version control (D8), `plan/epics_db` is gone.
 - **T7 done** (by the lead): `make -C emulation up` starts two IOCs and two simulator containers
   with every device. Both IOC logs are free of errors. Checked by hand on the running system:
   a PV of every device, high voltage on with read-back, the interlock door switching off the AU
@@ -143,6 +149,8 @@ both IOCs, expected in the week of 2026-11-23.
 | P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
 | P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
 | P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |
+| P22 | The database parser of `plan/build.py` does not see a record that is written on one line, so such a record would be missing from plan and registry without a warning. No database in the repository has one. Follow-up given to T10 | T10 follow-up |
+| P23 | `make -C emulation plan` changes the tracked PDFs and the Word file on every run, because the tools embed the build time | T10 follow-up, optional |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
