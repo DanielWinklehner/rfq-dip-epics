@@ -3,8 +3,7 @@
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite) and a
-follow-up of T3 on even polling.
+table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite).
 
 ## Done
 
@@ -145,7 +144,8 @@ both IOCs, expected in the week of 2026-11-23.
 | P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Planned: stop listening instead | Lead, after T3 |
 | P16 | **Outputs come back on by themselves.** When the interlock opens, the AU and REK outputs are forced off, but the request stays set. When the interlock closes again, the outputs switch back on without anyone doing anything. That is how the lab's 2023 database works, and I kept it. Your interlock rules in the plan say that a trip latches. One record more would clear the request on permit loss | You |
 | P17 | **Enabling an output sets the current limit to 100 %.** The lab's sequence sends `ICN 100` on enable, so `current:setpoint` is overwritten: I set 10 mA, enabled, and the echo read 15 mA. Kept, with the percentage as macro `ICN_ON` | You |
-| P18 | **Update rates on a chain are uneven.** With two supplies on a chain the first one gets about 9 Hz and the second one 5 to 9 Hz, at 16 ms turnaround 8 Hz and 5 Hz. Cause: each monitor record is scanned at 10 Hz on its own, and a record that is still waiting for the line misses its turn. The bus arithmetic assumes an even share. Follow-up given to T3: poll each chain in one fair round | T3 follow-up |
+| P18 | Done: each supply reads its two monitors as one cycle and waits its turn, so all supplies of a chain update at the same rate, whatever the load order. Measured in the lead's run: 9.1 Hz with two supplies at 5 ms turnaround (bus arithmetic 9.65), 6.1 Hz at 16 ms (6.34), 5.8 Hz with three polled supplies (6.14). The 4 to 6 % below the arithmetic is about 1 ms of idle line per transaction | Closed |
+| P24 | A supply that does not answer now gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until the dead supply answers again or is taken out of the polling. Polling a silent supply less often would avoid this | Later, if wanted |
 | P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
 | P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
 | P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |

@@ -231,7 +231,7 @@ devices:
     notes:
       - "Why the update rate drops with every supply: the CO protocol returns one value per request, each request addresses one supply, and all supplies of a chain share one 9600 baud port. One request plus reply is about 20 characters, so about 20 ms on the wire before any turnaround time."
       - "The lab's matsusada_au20p7.db of 2023 polls five values per supply every 0.1 s (set-point echo and monitor for voltage and current, plus status). That is 50 requests per second for a single supply, more than the chain can carry. With N supplies every value updates N times slower."
-      - "Fix 1, built in the reworked matsusada_au20p7.db: only the two monitors (MN1, MN2) are polled fast. The set-point echoes (CH0?, CH1?) are read after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5."
+      - "Fix 1, built in the reworked matsusada_au20p7.db: only the two monitors (MN1, MN2) are polled fast. The set-point echoes (CH0?, CH1?) are read after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5. Each supply reads its two monitors as one cycle and waits its turn on the line, so all supplies of a chain update at the same rate (measured 9.1 Hz with two supplies at 5 ms turnaround, 6.1 Hz at 16 ms)."
       - "Fix 2, built: two chains on two asyn ports (mat_opt behind the USB-OPT, mat_co behind the CO-U32), polled in parallel. Put the supplies that need the fastest read-back on the short chain."
       - "Fix 3, built: the set records have PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
       - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible). The turnaround time of the real adapters is not known: the simulator assumes 5 ms (A6)."
@@ -927,7 +927,7 @@ databases:
                 note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
       out_state: read_output_status
       status: "status:read"
-    internal: [OutputIntlk, ToggleOutput, "output:init"]
+    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
 
   rek.db:
     class: supply
@@ -944,7 +944,7 @@ databases:
                 note: "switching on sends ICN 100: the current set point becomes full scale (P17)"}
       out_state: read_output_status
       status: "status:read"
-    internal: [OutputIntlk, ToggleOutput, "output:init"]
+    internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:done"]
 
   au_alloff.db:
     class: command
