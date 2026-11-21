@@ -33,6 +33,7 @@ Signals per unit <a> (all magnitudes, SI units, also for negative supplies):
 and line.turnaround_ms (a test knob: `set` changes the turnaround of the line at run time).
 """
 
+import asyncio
 import re
 
 from ..core import ALL, REQUIRED, ConfigError, Simulator, register
@@ -201,6 +202,18 @@ class MatsusadaCO(Simulator):
 
     def _is_on(self, a):
         return self.unit[a]["sig"]["output"].value >= 0.5
+
+    # --- line timing -------------------------------------------------------------------------
+
+    async def _sleep_until(self, t):
+        """The core waits with asyncio.sleep, which wakes up to about 1 ms late (epoll counts in
+        whole milliseconds). On a full chain that is idle line after every reply, about 5 % of a
+        19 ms transaction. Sleep to 1 ms before the time and then yield to the loop until it."""
+        delay = t - self._loop.time() - 0.001
+        if delay > 0:
+            await asyncio.sleep(delay)
+        while self._loop.time() < t:
+            await asyncio.sleep(0)
 
     # --- protocol ----------------------------------------------------------------------------
 

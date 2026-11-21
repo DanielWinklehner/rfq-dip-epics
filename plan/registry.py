@@ -98,6 +98,7 @@ def build(model):
             records[pv["name"]] = dict(pv, owner=owner["id"], sim=sim, direction=direction)
     # A record turns INVALID when its simulator is silent: a StreamDevice read, or an input link with MS
     # to such a record (also across devices and IOCs).
+    alias_of = {alias: name for name, r in records.items() for alias in r.get("aliases", [])}
     fails = {name: {r["sim"]} if r["sim"] and r["direction"] == "in" else set() for name, r in records.items()}
     changed = True
     while changed:
@@ -107,6 +108,7 @@ def build(model):
                 words = link.split()
                 if INPUT_LINKS.match(key) and words and not link.startswith("@") and set(words) & {"MS", "MSS", "MSI"}:
                     target = words[0].split(".")[0]
+                    target = alias_of.get(target, target)
                     if target in fails and not fails[target] <= fails[name]:
                         fails[name] |= fails[target]
                         changed = True
@@ -122,6 +124,8 @@ def build(model):
             for key in ("egu", "desc"):
                 if pv[key]:
                     item[key] = pv[key]
+            if pv.get("aliases"):
+                item["aliases"] = pv["aliases"]
             if pv.get("internal"):
                 item["internal"] = True
             if pv.get("role"):

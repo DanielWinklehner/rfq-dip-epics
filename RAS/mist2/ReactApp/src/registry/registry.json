@@ -327,6 +327,24 @@
       "rek:1"
      ]
     },
+    "REK-1:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "REK-1:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "REK-1:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
+    },
     "REK-1:SetToggleOutput": {
      "type": "bo",
      "access": "w",
@@ -748,6 +766,24 @@
       "mat_opt:1"
      ]
     },
+    "AU-20P7-1:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "AU-20P7-1:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "AU-20P7-1:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
+    },
     "AU-20P7-1:SetToggleOutput": {
      "type": "bo",
      "access": "w",
@@ -924,6 +960,24 @@
       "mat_opt:2"
      ]
     },
+    "AU-20P7-2:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "AU-20P7-2:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "AU-20P7-2:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
+    },
     "AU-20P7-2:SetToggleOutput": {
      "type": "bo",
      "access": "w",
@@ -1099,6 +1153,24 @@
      "fails_with": [
       "mat_co:3"
      ]
+    },
+    "AU-20P7-3:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "AU-20P7-3:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "AU-20P7-3:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
     },
     "AU-20P7-3:SetToggleOutput": {
      "type": "bo",
@@ -1277,6 +1349,24 @@
      "fails_with": [
       "mat_co:5"
      ]
+    },
+    "AU-20P7-5:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "AU-20P7-5:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "AU-20P7-5:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
     },
     "AU-20P7-5:SetToggleOutput": {
      "type": "bo",
@@ -1458,6 +1548,24 @@
      "fails_with": [
       "mat_co:4"
      ]
+    },
+    "AU-20P7-4:_poll:tick": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Monitor tick (internal)",
+     "internal": true
+    },
+    "AU-20P7-4:_poll:gate": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Starts a monitor cycle (internal)",
+     "internal": true
+    },
+    "AU-20P7-4:_poll:done": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "End of a monitor cycle (internal)",
+     "internal": true
     },
     "AU-20P7-4:SetToggleOutput": {
      "type": "bo",

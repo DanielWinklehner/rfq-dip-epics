@@ -9,7 +9,7 @@ the only place where the GUI and the tests learn device and PV names. `iocs` hol
 (role to PV name, including the identity roles `id`, `firmware`, `channel_list` of libcom1
 devices), `channels` (per channel a `label` and its roles), `labels` (for device-level roles),
 `simulators` and `pvs`. Each PV has `type`, `access` (`r`/`w`), `egu`, `desc`, `role` and
-`channel`, or `internal: true`; a written PV has `test` (safe range `[low, high]`), `ack` (the
+`channel`, or `internal: true`, and `aliases` (other PV names of the same record) if it has any; a written PV has `test` (safe range `[low, high]`), `ack` (the
 device answers the set) and `readback` (PV name, or null); `sim` names the simulator behind a
 StreamDevice record and `fails_with` the simulators whose silence turns the PV INVALID, both as
 `name` or `name:unit` (a fault on the whole simulator covers all its units). `simulators` maps each

@@ -37,6 +37,14 @@ databases). `python plan/registry.py` needs only PyYAML.
   the tests ask for: `vset`, `state`, ...) or marks it `internal`. A record without either is a
   warning, so a record added to a database later cannot be forgotten in the registry.
 - `registry.py` refuses to write while there is any warning.
+- The database parser accepts what EPICS accepts for records (one-line bodies, unquoted values,
+  comments, `info`, `alias`). Anything else in a database is a warning, and so is a file in which
+  a plain scan for `record(` finds more records than the parser. `plan/test_build.py` tests it
+  (`python3 -m unittest plan/test_build.py`; `plan-check` runs it too).
+- An alias is shown with its record: in the Word document as "(alias: …)" after the description,
+  in the registry as `aliases` of the record's PV. It needs no role of its own.
+- The Word document is reproducible (fixed zip dates). The PDFs are not: Graphviz 2.43 with cairo
+  writes the build time as CreationDate and ignores SOURCE_DATE_EPOCH.
 
 ## How to iterate
 

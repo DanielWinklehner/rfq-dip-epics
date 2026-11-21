@@ -1,4 +1,4 @@
-"""Bus timing: PRIO=HIGH of the set points, update rates of the monitors (report), IOC log."""
+"""Bus timing: PRIO=HIGH of the set points, update rates of the polls (report), IOC log."""
 import os
 import re
 import statistics
@@ -10,12 +10,9 @@ import pytest
 from mat import BUILD, GRACE, control, get, put, wait_for
 
 BAUD, BITS = 9600, 10
-REPLY_TIMEOUT = 0.150        # matsusada_co_ctrl.proto
-OVERHEAD = 0.0015            # line idle per protocol (IOC, asyn, TCP); fitted, the report shows
-                             # the idle time measured per transaction
+REPLY_TIMEOUT = 0.150 + 0.050  # matsusada_co_ctrl.proto: ReplyTimeout, then the @replytimeout wait
 CHAINS = {"mat_opt": [1, 2], "mat_co": [3, 5]}
-LENS3_SCANS = {"voltage:read": ".1 second", "current:read": ".1 second",
-               "status:read": "1 second", "voltage:get": "5 second",
+LENS3_SCANS = {"_poll:tick": ".1 second", "status:read": "1 second", "voltage:get": "5 second",
                "read_output_status": "5 second"}
 
 
@@ -32,67 +29,38 @@ def tx(request, reply, turnaround_ms, dead=False):
     return t + (len(reply) + 1) * BITS / BAUD + turnaround_ms / 1000.0
 
 
-def protocols(unit, ta, dead=False, overhead=0.0):
-    """The protocols the database runs for one polled unit: (period s, seconds, name)."""
+def protocols(unit, ta, dead=False):
+    """The protocols the database runs for one polled unit: (period s, seconds on the line)."""
     u = "#%d " % unit
-    return [(p, t + overhead, n) for p, t, n in [
-        (0.1, tx(u + "MN1", "MONI1=FFFH", ta, dead), "MN1"),
-        (0.1, tx(u + "MN2", "MONI2=FFFH", ta, dead), "MN2"),
-        (1.0, tx(u + "REN", None, ta) + tx(u + "STS", "#%d CO RM" % unit, ta, dead), "STS"),
-        (5.0, tx(u + "CH0?", "CH0=FFFFH", ta, dead), "CH0?"),
-        (5.0, tx(u + "SW?", "SW1", ta, dead) + tx(u + "CH1?", "CH1=FFFFH", ta, dead), "SW?"),
-    ]]
+    return [
+        (0.1, tx(u + "MN1", "MONI1=FFFH", ta, dead)),
+        (0.1, tx(u + "MN2", "MONI2=FFFH", ta, dead)),
+        (1.0, tx(u + "REN", None, ta) + tx(u + "STS", "#%d CO RM" % unit, ta, dead)),
+        (5.0, tx(u + "CH0?", "CH0=FFFFH", ta, dead)),
+        (5.0, tx(u + "SW?", "SW1", ta, dead) + tx(u + "CH1?", "CH1=FFFFH", ta, dead)),
+    ]
 
 
 def bus_rate(units, ta, dead=()):
-    """Continuous bus arithmetic: monitors at 10 Hz unless the line is full; then they share
-    what the other protocols leave. Returns {unit: rate} (the same for every unit)."""
-    fixed = sum(t / p for u in units for p, t, n in protocols(u, ta, u in dead) if p > 0.1)
-    mon = sum(t for u in units for p, t, n in protocols(u, ta, u in dead) if p == 0.1)
-    rate = min(10.0, (1.0 - fixed) / mon)
-    return {u: rate for u in units}
-
-
-def scan_model(units, ta, dead=(), seconds=120.0):
-    """The same with the EPICS scan rules: at every tick of its scan period a record that is not
-    busy is queued (a busy record misses the tick); the line serves the queue in the order of the
-    scan list (the order the records were loaded), with OVERHEAD between two protocols.
-    Returns {(unit, "MN1" or "MN2"): rate}."""
-    recs = [dict(unit=u, period=p, t=t, name=n, busy=False, done=0)
-            for u in units for p, t, n in protocols(u, ta, u in dead, OVERHEAD)]
-    phase = {0.1: 0.0, 1.0: 0.031, 5.0: 0.017}
-    ticks = sorted((phase[r["period"]] + k * r["period"], i) for i, r in enumerate(recs)
-                   for k in range(int(seconds / r["period"])))
-    queue, current, k = [], None, 0                 # current: (finish time, record index)
-    while k < len(ticks):
-        tick, i = ticks[k]
-        if current and current[0] <= tick:          # the transaction on the line ends first
-            finish, j = current
-            recs[j]["busy"] = False
-            recs[j]["done"] += 1
-            current = None
-            if queue:
-                j = queue.pop(0)
-                current = (finish + recs[j]["t"], j)
-            continue
-        k += 1
-        if not recs[i]["busy"]:
-            recs[i]["busy"] = True
-            if current:
-                queue.append(i)
-            else:
-                current = (tick + recs[i]["t"], i)
-    return {(r["unit"], r["name"]): r["done"] / seconds for r in recs if r["period"] == 0.1}
+    """Bus arithmetic: the monitors run at 10 Hz (SCAN_MON) unless the line is full; then the
+    supplies share evenly what the status and echo polls leave."""
+    fixed = sum(t / p for u in units for p, t in protocols(u, ta, u in dead) if p > 0.1)
+    mon = sum(t for u in units for p, t in protocols(u, ta, u in dead) if p == 0.1)
+    return min(10.0, (1.0 - fixed) / mon)
 
 
 # --- measurement ---------------------------------------------------------------------------------
 
-def measure(units_by_chain, seconds=10.0):
-    """Monitor update rates: {(unit, "MN1"|"MN2"): rate} seen by a Channel Access client
-    (voltage:read and current:read, MDEL -1 for the measurement, so that every processing is
-    posted), and {unit: (MN1 + MN2) / 2} from the simulator's transaction counts."""
+READS = (("MN1", "voltage:read"), ("MN2", "current:read"), ("CH0?", "voltage:get"),
+         ("CH1?", "current:get"))
+
+
+def measure(units_by_chain, seconds=20.0):
+    """Update rates per (unit, command) seen by a Channel Access client (MDEL -1 for the
+    measurement, so that every processing is posted). SW? is read with CH1? (forward link), and
+    STS is what the simulator's reply count leaves: replies - MN1 - MN2 - CH0? - SW? - CH1?."""
     pvs = {(u, n): "AU-20P7-%d:%s" % (u, s) for us in units_by_chain.values() for u in us
-           for n, s in (("MN1", "voltage:read"), ("MN2", "current:read"))}
+           for n, s in READS}
     counts = {k: 0 for k in pvs}
     monitors = []
     for k, pv in pvs.items():
@@ -108,22 +76,21 @@ def measure(units_by_chain, seconds=10.0):
         c.stats(reset=True)
     time.sleep(seconds)
     stats = {ch: c.stats() for ch, c in ctls.items()}
-    ca = {k: n / seconds for k, n in counts.items()}
+    rate = {k: n / seconds for k, n in counts.items()}
     for m in monitors:
         m.clear_callbacks()
         m.disconnect()
     for pv in pvs.values():
         put(pv + ".MDEL", 0)
-    sim = {}
-    for ch, units in units_by_chain.items():
-        s = stats[ch]
-        sim[ch] = (s["elapsed_s"] - s["busy_s"]) / max(1, s["requests"])   # idle per request
-        for u in units:
-            replies = s["per_unit"].get(str(u), {}).get("replies", 0) / s["elapsed_s"]
-            sim[u] = (replies - 1.0 - 3 / 5.0) / 2      # minus STS 1/s, CH0? SW? CH1? per 5 s
     for c in ctls.values():
         c.close()
-    return sim, ca
+    for ch, units in units_by_chain.items():
+        s = stats[ch]
+        for u in units:
+            replies = s["per_unit"].get(str(u), {}).get("replies", 0) / s["elapsed_s"]
+            rate[u, "SW?"] = rate[u, "CH1?"]
+            rate[u, "STS"] = replies - sum(rate[u, n] for n in ("MN1", "MN2", "CH0?", "SW?", "CH1?"))
+    return rate
 
 
 def set_turnaround(ms):
@@ -136,6 +103,7 @@ def set_turnaround(ms):
 
 
 def poll_lens3(on):
+    """Lens 3 polled like the others (SCAN fields at run time), or not at all."""
     for s, scan in LENS3_SCANS.items():
         put("AU-20P7-4:%s.SCAN" % s, scan if on else "Passive")
 
@@ -187,7 +155,9 @@ def test_prio_high_overtakes_the_polls(capsys):
 
 
 def test_rate_report(capsys):
-    """Five supplies as in the table, lens 3 loaded but not polled; then lens 3 polled."""
+    """Two chains as in the table, lens 3 loaded but not polled; then lens 3 polled (three
+    supplies on mat_co). Requirement: every polled monitor PV of a chain updates at the same
+    rate, within 10 % of the bus arithmetic, capped at SCAN_MON (10 Hz)."""
     for d in ("AU-20P7-1", "AU-20P7-2", "AU-20P7-3", "AU-20P7-5"):
         if get(d + ":SetToggleOutput") == 0:
             put(d + ":SetToggleOutput", 1)
@@ -204,34 +174,32 @@ def test_rate_report(capsys):
             poll_lens3(lens3)
             chains = {"mat_opt": [1, 2], "mat_co": [3, 5] + ([4] if lens3 else [])}
             time.sleep(1.0)
-            sim, ca = measure(chains)
+            rate = measure(chains)
             for ch, units in chains.items():
-                bus, model = bus_rate(units, t), scan_model(units, t)
+                bus = bus_rate(units, t)
                 for u in units:
-                    rows.append(dict(case=label, chain=ch, unit=u, bus=bus[u], idle=sim[ch],
-                                     sv=model[u, "MN1"], si=model[u, "MN2"], sim=sim[u],
-                                     cv=ca[u, "MN1"], ci=ca[u, "MN2"]))
+                    rows.append(dict(case=label, chain=ch, unit=u, bus=bus,
+                                     **{n: rate[u, n] for n in ("MN1", "MN2", "STS", "CH0?", "SW?")}))
     finally:
         set_turnaround(None)
         poll_lens3(False)
-    lines = ["Update rate of the monitor PVs, Hz. Predicted: bus = bus arithmetic (the line shared",
-             "evenly), scan V/I = the same line with the EPICS scan rules (a busy record misses its",
-             "tick; the queue is served in scan-list order). Measured: CA V/I = monitor updates of",
-             "voltage:read / current:read seen by a Channel Access client, sim = (MN1 + MN2) / 2 from",
-             "the simulator's transaction counts; idle = line idle time per request (sim stats).",
-             "The scan model counts %.1f ms between two protocols." % (OVERHEAD * 1000),
-             "%-32s %-7s %4s | %5s %6s %6s | %6s %6s %6s | %6s %7s" % (
-                 "case", "chain", "unit", "bus", "scan V", "scan I", "CA V", "CA I", "sim",
-                 "CA/bus", "idle ms")]
+    lines = ["Update rates, Hz. bus = bus arithmetic (monitors at 10 Hz unless the line is full,",
+             "then shared evenly). V, I = voltage:read, current:read as a Channel Access client sees",
+             "them; STS, CH0?, SW? = the status and echo polls (wanted: 1, 0.2, 0.2).",
+             "%-32s %-7s %4s | %5s | %5s %5s %5s | %5s %5s %5s" % (
+                 "case", "chain", "unit", "bus", "V", "I", "V/bus", "STS", "CH0?", "SW?")]
     for r in rows:
-        lines.append("%-32s %-7s %4d | %5.2f %6.2f %6.2f | %6.2f %6.2f %6.2f | %5.0f%% %7.1f" % (
-            r["case"], r["chain"], r["unit"], r["bus"], r["sv"], r["si"], r["cv"], r["ci"],
-            r["sim"], 100 * (r["cv"] + r["ci"]) / 2 / r["bus"], r["idle"] * 1000))
+        lines.append("%-32s %-7s %4d | %5.2f | %5.2f %5.2f %4.0f%% | %5.2f %5.2f %5.2f" % (
+            r["case"], r["chain"], r["unit"], r["bus"], r["MN1"], r["MN2"],
+            100 * r["MN1"] / r["bus"], r["STS"], r["CH0?"], r["SW?"]))
     report("\n".join(lines), capsys)
     for r in rows:
-        assert (r["cv"] + r["ci"]) / 2 == pytest.approx(r["sim"], rel=0.1), r  # every poll seen
-        assert r["cv"] == pytest.approx(r["sv"], rel=0.15, abs=0.3), r      # the scan model
-        assert r["ci"] == pytest.approx(r["si"], rel=0.15, abs=0.3), r      # explains the rates
+        for n in ("MN1", "MN2"):
+            assert r[n] == pytest.approx(r["bus"], rel=0.1), (n, r)    # even, as the arithmetic
+            assert r[n] <= 10.0 * 1.02, (n, r)                         # never above SCAN_MON
+        assert r["STS"] == pytest.approx(1.0, abs=0.15), r              # not starved
+        assert r["CH0?"] == pytest.approx(0.2, abs=0.11), r
+        assert r["SW?"] == pytest.approx(0.2, abs=0.11), r
 
 
 def test_rate_with_a_silent_neighbour(capsys):
@@ -240,15 +208,15 @@ def test_rate_with_a_silent_neighbour(capsys):
         c.fault("silent", unit=5)
         try:
             time.sleep(1.5)
-            sim, ca = measure({"mat_co": [3]})
+            rate = measure({"mat_co": [3]})
         finally:
             c.clear("silent")
-    model = scan_model([3, 5], 5.0, dead=(5,))[3, "MN1"]
-    bus = bus_rate([3, 5], 5.0, dead=(5,))[3]
-    report("Unit 5 silent (reply timeout %d ms): unit 3 keeps %.2f updates/s (CA, voltage:read), "
-           "%.2f (sim); predicted: scan model %.2f, bus arithmetic %.2f"
-           % (REPLY_TIMEOUT * 1000, ca[3, "MN1"], sim[3], model, bus), capsys)
-    assert ca[3, "MN1"] > 2.0
+    bus = bus_rate([3, 5], 5.0, dead=(5,))
+    report("Unit 5 silent (reply timeout and wait %d ms): unit 3 keeps %.2f (voltage:read) and %.2f "
+           "(current:read) updates/s; bus arithmetic with the timeouts %.2f"
+           % (REPLY_TIMEOUT * 1000, rate[3, "MN1"], rate[3, "MN2"], bus), capsys)
+    for n in ("MN1", "MN2"):
+        assert rate[3, n] == pytest.approx(bus, rel=0.1)
     wait_for(lambda: get("AU-20P7-5:voltage:read.SEVR") == 0, 5, "unit 5 back")
 
 
@@ -261,7 +229,9 @@ ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invali
                    r"|no reply|timeout|not connected", re.I)
 TRAFFIC = re.compile(r"^\S+ \S+ (?P<port>\S+) (\S+:? )?(No reply within \d+ ms|\d+ additional errors|"
                      r"device \S+ 0 disconnected|lockRequest: |Input \"[^\"]*\"|mismatch after|"
-                     r"got \"|No match for |Input \"[0-9A-F]+H\" does not match format \"%=04X\")")
+                     r"got \"|No match for |Input \"[0-9A-F]+H\" does not match format \"%=04X\")"
+                     r"|^(?P<ca>dbCaTask) ca_array_put Channel write request failed"
+                     r"|^\S+ has DB CA link to \S+$")
 
 
 def test_ioc_log_has_no_error_line(capsys):
@@ -275,7 +245,8 @@ def test_ioc_log_has_no_error_line(capsys):
     for l in lines:
         m = TRAFFIC.search(l)
         if m:
-            ports[m.group("port")] = ports.get(m.group("port"), 0) + 1
+            key = m.group("port") or m.group("ca") or "dbCa"
+            ports[key] = ports.get(key, 0) + 1
     report("IOC log: no database, protocol or link error; StreamDevice traffic messages per "
            "port (from the faults): %s" % (ports or "none"), capsys)
 

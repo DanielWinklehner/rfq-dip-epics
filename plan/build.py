@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 
 import yaml
 
@@ -74,20 +75,127 @@ def record_key(template):
     return re.sub(r"^(?:\$[({][^)}]*[)}][-:]?)+", "", template)
 
 
+class DbError(Exception):
+    """A database the parser does not understand, or whose records it did not all find."""
+
+
+def tokens(text, name):
+    """Tokens of a database file: (kind, value, line). kind is 'str' (quoted), 'word' or one of ( ) { } ,"""
+    i, line, out = 0, 1, []
+    while i < len(text):
+        c = text[i]
+        if c == "\n":
+            line += 1
+            i += 1
+        elif c.isspace():
+            i += 1
+        elif c == "#":                                   # comment to the end of the line
+            while i < len(text) and text[i] != "\n":
+                i += 1
+        elif c == '"':
+            j = i + 1
+            while j < len(text) and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            if j >= len(text):
+                raise DbError("%s line %d: string without its closing quote" % (name, line))
+            out.append(("str", text[i + 1:j], line))
+            line += text.count("\n", i, j)
+            i = j + 1
+        elif c in "(){},":
+            out.append((c, c, line))
+            i += 1
+        else:                                            # bare word, may hold $(macro) or ${macro}
+            j = i
+            while j < len(text) and not text[j].isspace() and text[j] not in '(){},"#':
+                if text.startswith(("$(", "${"), j):
+                    depth, j = 1, j + 2
+                    while j < len(text) and depth:
+                        depth += {"(": 1, "{": 1, ")": -1, "}": -1}.get(text[j], 0)
+                        j += 1
+                else:
+                    j += 1
+            out.append(("word", text[i:j], line))
+            i = j
+    return out
+
+
+def simple_record_names(text):
+    """Independent rough scan: the names of all record( and grecord( statements, comments cut at '#'."""
+    text = re.sub(r"#[^\n]*", "", text)
+    return re.findall(r'\bg?record\s*\(\s*[^,()]*,\s*"?([^"\s)]+)', text)
+
+
 def parse_db(path, macros, undefined=None):
-    """Records of an EPICS database as a list of dicts, macros expanded."""
+    """Records of an EPICS database as a list of dicts, macros expanded. Raises DbError for anything
+    the parser does not understand, and when the rough scan finds a record the parser did not."""
+    name = os.path.basename(path)
     with open(path, errors="replace") as handle:
         text = handle.read().replace("\r", "")
-    text = re.sub(r"^\s*#.*$", "", text, flags=re.M)
-    pvs = []
-    for match in re.finditer(r'record\(\s*(\w+)\s*,\s*"([^"]+)"\s*\)\s*\{(.*?)\n\}', text, re.S):
-        rtype, name, body = match.groups()
-        fields = {key: expand(value, macros, undefined)
-                  for key, value in re.findall(r'field\(\s*(\w+)\s*,\s*"([^"]*)"', body)}
-        pvs.append({"name": expand(name, macros, undefined), "key": record_key(name), "type": rtype,
-                    "egu": fields.get("EGU", ""), "desc": fields.get("DESC", ""), "scan": fields.get("SCAN", ""),
-                    "fields": fields, "state": "existing"})
-    return pvs
+    toks, pos = tokens(text, name), [0]
+
+    def take(*kinds):
+        if pos[0] >= len(toks):
+            raise DbError("%s: unexpected end of file" % name)
+        tok = toks[pos[0]]
+        if tok[0] not in kinds:
+            raise DbError("%s line %d: expected %s, found %r" % (name, tok[2], " or ".join(kinds), tok[1]))
+        pos[0] += 1
+        return tok
+
+    def peek(kind):
+        return pos[0] < len(toks) and toks[pos[0]][0] == kind
+
+    def args(count):
+        take("(")
+        values = [take("str", "word")[1]]
+        for _ in range(count - 1):
+            take(",")
+            values.append(take("str", "word")[1])
+        take(")")
+        return values
+
+    records, aliases = [], []
+    while pos[0] < len(toks):
+        word, line = take("word")[1:]
+        if word in ("record", "grecord"):
+            rtype, template = args(2)
+            fields, info, own_aliases = {}, {}, []
+            if peek("{"):
+                take("{")
+                while not peek("}"):
+                    item, item_line = take("word")[1:]
+                    if item == "field":
+                        key, value = args(2)
+                        fields[key] = expand(value, macros, undefined)
+                    elif item == "info":
+                        key, value = args(2)
+                        info[key] = value
+                    elif item == "alias":
+                        own_aliases.append(expand(args(1)[0], macros, undefined))
+                    else:
+                        raise DbError("%s line %d: %r in the body of record %s is not field, info or alias"
+                                      % (name, item_line, item, template))
+                take("}")
+            records.append({"name": expand(template, macros, undefined), "key": record_key(template), "type": rtype,
+                            "egu": fields.get("EGU", ""), "desc": fields.get("DESC", ""), "scan": fields.get("SCAN", ""),
+                            "fields": fields, "info": info, "aliases": own_aliases, "state": "existing"})
+        elif word == "alias":
+            target, alias = args(2)
+            aliases.append((expand(target, macros, undefined), expand(alias, macros, undefined), line))
+        else:
+            raise DbError("%s line %d: statement %r is not understood (only record, grecord and alias are)" % (name, line, word))
+    by_name = {rec["name"]: rec for rec in records}
+    for target, alias, line in aliases:
+        if target not in by_name:
+            raise DbError("%s line %d: alias %s for record %s, which this file does not define" % (name, line, alias, target))
+        by_name[target]["aliases"].append(alias)
+    scanned = simple_record_names(text)
+    if len(scanned) != len(records):
+        parsed = [record_key(r["key"]) for r in records]
+        missed = [n for n in scanned if record_key(n) not in parsed] or ["(names not told apart)"]
+        raise DbError("%s: a plain scan finds %d record statements, the parser %d. Missed: %s"
+                      % (name, len(scanned), len(records), ", ".join(missed)))
+    return records
 
 
 def loads_of(entry):
@@ -158,6 +266,7 @@ class Model:
         self._check()
         self._check_roles()
         self._check_loads()
+        self.warnings = list(dict.fromkeys(self.warnings))   # the same problem once, even if several devices load the file
 
     def _db(self, name, macros, owner):
         path = os.path.join(self.db_dir, name)
@@ -165,7 +274,11 @@ class Model:
             self.warnings.append("%s: database %s not found in %s" % (owner, name, self.db_dir))
             return []
         undefined = set()
-        pvs = parse_db(path, macros, undefined)
+        try:
+            pvs = parse_db(path, macros, undefined)
+        except DbError as error:
+            self.warnings.append(str(error))
+            return []
         for macro in sorted(undefined):
             self.warnings.append("%s: %s needs macro %s, the load in controls.yaml does not give it" % (owner, name, macro))
         return pvs
@@ -222,9 +335,10 @@ class Model:
         for owner in self.d["hosts"] + self.devices:
             for pv in owner["pvs"]:
                 if pv["state"] == "existing":
-                    if pv["name"] in seen and seen[pv["name"]] != owner["id"]:
-                        self.warnings.append("PV %s is defined by %s and %s" % (pv["name"], seen[pv["name"]], owner["id"]))
-                    seen[pv["name"]] = owner["id"]
+                    for name in [pv["name"]] + pv.get("aliases", []):
+                        if name in seen and seen[name] != owner["id"]:
+                            self.warnings.append("PV %s is defined by %s and %s" % (name, seen[name], owner["id"]))
+                        seen[name] = owner["id"]
 
     def _check_roles(self):
         """Every record of a loaded database has a role or is internal; every rule names a record that exists."""
@@ -241,7 +355,11 @@ class Model:
             if rule is None:
                 self.warnings.append("%s: no entry under 'databases:' in controls.yaml, so no record has a role" % who)
                 continue
-            keys = [pv["key"] for pv in parse_db(path, {})]
+            try:
+                records = parse_db(path, {})
+            except DbError:
+                continue  # reported by _db
+            keys = [pv["key"] for pv in records]
             named = {}
             for role, spec in (rule.get("roles") or {}).items():
                 named[role_spec(spec)["record"]] = ("role", role, role_spec(spec))
@@ -257,7 +375,7 @@ class Model:
             for key in named:
                 if key not in keys:
                     self.warnings.append("%s: controls.yaml names record %s, which the database does not have" % (who, key))
-            for rec in parse_db(path, {}):
+            for rec in records:
                 kind, role, spec = named.get(rec["key"], (None, None, None))
                 if kind is None:
                     self.warnings.append("%s: record %s has no role and is not internal. Add it under "
@@ -800,6 +918,8 @@ def build_docx(m, images, out_path):
                     if dev["status"] == "replace":
                         state = "goes away"
                     description = pv["desc"] + (" (%s)" % pv["remark"] if pv.get("remark") else "")
+                    if pv.get("aliases"):
+                        description += " (alias: %s)" % ", ".join(pv["aliases"])
                     rows.append([pv["name"], pv["type"], "W" if pv["type"] in WRITE_TYPES else "R", pv["egu"], description, state])
                 table(["PV", "Record", "R/W", "Unit", "Description", "State"], rows, [5.6, 1.5, 1.0, 1.2, 5.9, 1.8], status_col=5, mono_col=0)
             elif not dev.get("pvs_unknown"):
@@ -921,6 +1041,19 @@ def _change(dev):
     return ", ".join(parts) or (dev.get("notes") or [""])[0]
 
 
+def fix_zip_dates(path, date):
+    """Rewrite a zip file (the docx) with every entry dated to the plan revision, so that the same
+    inputs give the same bytes."""
+    stamp = tuple(int(x) for x in str(date).split("-")) + (0, 0, 0)
+    with zipfile.ZipFile(path) as old:
+        entries = [(info, old.read(info.filename)) for info in old.infolist()]
+    with zipfile.ZipFile(path, "w") as new:
+        for info, data in entries:
+            fixed = zipfile.ZipInfo(info.filename, date_time=stamp)
+            fixed.compress_type, fixed.external_attr = info.compress_type, info.external_attr
+            new.writestr(fixed, data)
+
+
 # ----------------------------------------------------------------------------- main
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -943,6 +1076,7 @@ def main():
         subprocess.run(["pdfunite"] + pdfs + [os.path.join(args.out, "MIST-2_Control_System_Sketches.pdf")], check=False)
     if not args.no_docx:
         build_docx(m, images, os.path.join(args.out, "MIST-2_Control_System_Plan.docx"))
+        fix_zip_dates(os.path.join(args.out, "MIST-2_Control_System_Plan.docx"), m.d["meta"]["date"])
     devices = len(m.devices)
     existing = sum(1 for dev in m.devices for pv in m.public(dev) if pv["state"] == "existing")
     proposed = sum(m.counts(dev)[1] for dev in m.devices)

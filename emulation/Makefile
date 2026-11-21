@@ -43,9 +43,10 @@ devtest:
 plan:
 	$(TOOLS) python plan/build.py
 
-# Builds into a temporary directory in the container, plan/out stays untouched.
+# Runs the parser tests (plan/test_build.py), then builds into a temporary directory in the
+# container: plan/out stays untouched.
 plan-check:
-	@out=$$($(TOOLS) sh -c 'python plan/build.py --out "$$(mktemp -d)"' 2>&1); status=$$?; \
+	@out=$$($(TOOLS) sh -c 'python -m unittest -q plan/test_build.py && python plan/build.py --out "$$(mktemp -d)"' 2>&1); status=$$?; \
 	echo "$$out"; \
 	if [ $$status -ne 0 ]; then echo "plan-check: FAIL (build.py exit $$status)"; exit 1; fi; \
 	if echo "$$out" | grep -q WARNING; then echo "plan-check: FAIL (warnings)"; exit 1; fi; \

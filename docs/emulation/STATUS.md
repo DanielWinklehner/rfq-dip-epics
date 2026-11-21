@@ -2,9 +2,8 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-All device tasks (T3 to T6) and T1, T2, T9 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. Running: T10 (plan and registry) and a
-follow-up of T3 on even polling.
+All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
+table is loaded by the two emulated IOCs (T7 done)**. Running: T8 (system test suite).
 
 ## Done
 
@@ -31,6 +30,12 @@ follow-up of T3 on even polling.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T10 merged** (checked by the lead, including three negative checks): `plan/controls.yaml`
+  is revision 0.7 and describes what was built. `make -C emulation plan-check` now compares the
+  plan with the databases and both `st.cmd` files and fails on any difference. The device
+  registry `RAS/mist2/ReactApp/src/registry/registry.json` is generated from the same sources:
+  19 devices, 2 IOCs, 219 PVs, 15 simulators. `plan/out` keeps only the PDFs and the Word file
+  under version control (D8), `plan/epics_db` is gone.
 - **T7 done** (by the lead): `make -C emulation up` starts two IOCs and two simulator containers
   with every device. Both IOC logs are free of errors. Checked by hand on the running system:
   a PV of every device, high voltage on with read-back, the interlock door switching off the AU
@@ -139,10 +144,13 @@ both IOCs, expected in the week of 2026-11-23.
 | P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Planned: stop listening instead | Lead, after T3 |
 | P16 | **Outputs come back on by themselves.** When the interlock opens, the AU and REK outputs are forced off, but the request stays set. When the interlock closes again, the outputs switch back on without anyone doing anything. That is how the lab's 2023 database works, and I kept it. Your interlock rules in the plan say that a trip latches. One record more would clear the request on permit loss | You |
 | P17 | **Enabling an output sets the current limit to 100 %.** The lab's sequence sends `ICN 100` on enable, so `current:setpoint` is overwritten: I set 10 mA, enabled, and the echo read 15 mA. Kept, with the percentage as macro `ICN_ON` | You |
-| P18 | **Update rates on a chain are uneven.** With two supplies on a chain the first one gets about 9 Hz and the second one 5 to 9 Hz, at 16 ms turnaround 8 Hz and 5 Hz. Cause: each monitor record is scanned at 10 Hz on its own, and a record that is still waiting for the line misses its turn. The bus arithmetic assumes an even share. Follow-up given to T3: poll each chain in one fair round | T3 follow-up |
+| P18 | Done: each supply reads its two monitors as one cycle and waits its turn, so all supplies of a chain update at the same rate, whatever the load order. Measured in the lead's run: 9.1 Hz with two supplies at 5 ms turnaround (bus arithmetic 9.65), 6.1 Hz at 16 ms (6.34), 5.8 Hz with three polled supplies (6.14). The 4 to 6 % below the arithmetic is about 1 ms of idle line per transaction | Closed |
+| P24 | A supply that does not answer now gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until the dead supply answers again or is taken out of the polling. Polling a silent supply less often would avoid this | Later, if wanted |
 | P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
 | P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
 | P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |
+| P22 | Done: the database parser handles records in any layout, and an independent count of record statements fails the check if the parser misses one | Closed |
+| P23 | `make -C emulation plan` still changes the tracked PDFs on every run: Graphviz embeds the build time and ignores the usual setting for reproducible builds. The Word file is reproducible now. A fix needs one more tool (`qpdf`) in the tools image | Later, if it annoys |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0

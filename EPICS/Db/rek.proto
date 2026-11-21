@@ -21,11 +21,20 @@ Terminator = CR;
 
 # All supplies of a chain share one 9600 baud line, so a supply that does not answer must not
 # hold it long. A reply takes 17 to 19 ms plus the adapter's turnaround (5 to 16 ms). 150 ms
-# leaves four times that, and the other supply of a chain of two keeps about 2.7 updates per
-# second while its neighbour is silent (100 ms: 3.7, but replies late by a host hiccup then
-# land in the next transaction; the default 1000 ms: 0.2).
+# leaves four times that. The supplies of a chain share the line evenly, so while one of two is
+# silent (150 ms timeout + 50 ms wait per request) the other keeps about 1.4 updates per second
+# (the default 1000 ms: 0.3).
 ReplyTimeout = 150;
 ReadTimeout = 50;
+# A record waits at most this long for the line. Each supply has at most one monitor, one status
+# and two echo reads queued, so even a chain of three silent supplies is through its queue in
+# about 2 s; a disconnected chain turns the records INVALID within 3 s (default 5000 ms).
+LockTimeout = 3000;
+
+# After a reply timeout keep the line 50 ms longer: a reply that comes late then arrives before
+# the next request and is discarded (StreamDevice flushes old input before every write) instead
+# of being taken as the reply to the next request, possibly of another supply.
+@replytimeout { wait 50; }
 
 # Voltage (hex)
 set_voltage {
