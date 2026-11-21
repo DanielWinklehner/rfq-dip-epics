@@ -36,9 +36,9 @@ if [ -z "${EPICS_IOCSH_HISTFILE:-}" ] && [ ! -w "$BOOT/$IOC" ]; then
 fi
 
 # Files written at run time (autosave: the limits) go to $MIST2_SAVE/<ioc>, outside the tracked
-# sources. Default: save/ next to the EPICS directory (ignored by git; /opt/mist2/save in the
-# image). The emulation maps it to the repository's save/ directory.
-MIST2_SAVE=${MIST2_SAVE:-$(cd "$TOP/../.." && pwd)/save}
+# sources. Default: $XDG_STATE_HOME/mist2 (~/.local/state/mist2). The emulation sets it to a
+# Docker volume (emulation/compose.yaml).
+MIST2_SAVE=${MIST2_SAVE:-${XDG_STATE_HOME:-$HOME/.local/state}/mist2}
 mkdir -p "$MIST2_SAVE/$IOC" || { echo "run-ioc.sh: cannot create $MIST2_SAVE/$IOC" >&2; exit 2; }
 
 export TOP IOC MIST2_PORTS EPICS_HOST_ARCH MIST2_SAVE

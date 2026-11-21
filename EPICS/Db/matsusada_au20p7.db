@@ -38,7 +38,7 @@
 # supply reports (_init:vtake, nothing sent), and the current limit is sent (_limit:apply).
 # A supply that cannot be reached at the start is taken over in the same way when it answers.
 # REN is sent only by the probe and by every switching (as in the lab), so the front panel can
-# take local control; status:read shows it.
+# take local control; status:read shows it. Switching on sends the current limit after REN.
 #
 # The current limit (current:limit, also under the lab's name current:setpoint) is not taken
 # over from the supply: it comes from autosave (defaults file, then the file saved at run time,
@@ -300,9 +300,9 @@ record(bo, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput") {
 }
 
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
-# input A raises to INVALID through MS or a broken link), otherwise the request. Writes the
-# ToggleOutput only when the result changes. Disabled until GRACE seconds after the first
-# contact (:output:init).
+# input A raises to INVALID through MS or a broken link), otherwise the request. Starts the
+# switching sequence (_out:switch) only when the result changes. Disabled until GRACE seconds
+# after the first contact (:output:init).
 record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
     field(INPA, "$(PERMIT=interlock_open) CP MS")
@@ -311,11 +311,43 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk") {
     field(CALC, "(A||C>=3)?0:B")
     field(SCAN, "1 second")
     field(OOPT, "On Change")
-    field(DOPT, "Use CALC")
-    field(OUT,  "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput PP")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "((A||C>=3)?0:B)?5:6")
+    field(OUT,  "$(DEV=AU-20P7)-$(UNITNUM):_out:switch.SELN PP")
     field(DISV, "1")
     field(DISA, "1")
     field(FLNK, "$(DEV=AU-20P7)-$(UNITNUM):_permit:latch")
+}
+
+# Switching sequence. On (mask 5): _out:limit (REN, CH1 <limit>), then ToggleOutput (RST, SW1,
+# SW? compared). Off (mask 6): _out:remote (REN), then ToggleOutput (RST, SW0, SW? compared).
+# So the limit at the supply is right whenever an output goes on, also after a power cycle,
+# and switching off sends no limit.
+record(seq, "$(DEV=AU-20P7)-$(UNITNUM):_out:switch") {
+    field(DESC, "Switching sequence (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SELM, "Mask")
+    field(SHFT, "0")
+    field(LNK0, "$(DEV=AU-20P7)-$(UNITNUM):_out:limit.PROC PP")
+    field(LNK1, "$(DEV=AU-20P7)-$(UNITNUM):_out:remote.PROC PP")
+    field(DOL2, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk NPP")
+    field(LNK2, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput PP")
+}
+
+record(bo, "$(DEV=AU-20P7)-$(UNITNUM):_out:limit") {
+    field(DESC, "Switch on: REN, current limit (internal)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) switch_on_limit($(UNITNUM),$(DEV=AU-20P7)-$(UNITNUM):) $(PORT)")
+    field(PRIO, "HIGH")
+    field(UDFS, "NO_ALARM")
+}
+
+record(bo, "$(DEV=AU-20P7)-$(UNITNUM):_out:remote") {
+    field(DESC, "Switch off: REN (internal)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) remote($(UNITNUM)) $(PORT)")
+    field(PRIO, "HIGH")
+    field(UDFS, "NO_ALARM")
 }
 
 # The latch: while the permit is lost the request is cleared, so that nothing switches on when
@@ -332,8 +364,9 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):_permit:latch") {
     field(OUT,  "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput PP")
 }
 
-# Sends REN, RST (cancel a cut-off) and SW, reads SW? back and compares it. The current limit
-# is not touched. ToggleOutput is in simulation mode only while :output:init takes it over.
+# Sends RST (cancel a cut-off) and SW, reads SW? back and compares it, after _out:limit or
+# _out:remote (REN) of the switching sequence. In simulation mode only while :output:init takes
+# it over. A client that writes ToggleOutput directly bypasses the permit, REN and the limit.
 record(bo, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput") {
     field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")

@@ -38,6 +38,23 @@ section "Plant model".
 Disturbances for loop tests (emission drift, pressure burst): the plant's control port,
 `172.30.0.30:6090`, see `sim/README.md`.
 
+## Saved limits (autosave)
+
+The current limits of the AU and REK supplies are restored at every IOC start: first
+`EPICS/ioc/iocBoot/<ioc>/limits.defaults` (committed, edit by hand), then the file autosave
+writes when a limit changes, `limits.sav`, which wins. In the emulation that file lives in the
+Docker volume `mist2emu-save` (`/var/lib/mist2/save/<ioc>/` in the IOC containers). It survives
+`make -C emulation restart` and `down`/`up`; `docker compose down -v` would remove it.
+
+| What | Command |
+|---|---|
+| Look at the saved limits | `docker run --rm -v mist2emu-save:/s:ro --entrypoint cat mist2-ioc:dev /s/iocRack/limits.sav /s/iocHV/limits.sav` |
+| Reset to the defaults | `make -C emulation down`, `docker volume rm mist2emu-save`, `make -C emulation up` |
+| Reset one IOC only | stop it, then `docker run --rm -v mist2emu-save:/s --entrypoint sh mist2-ioc:dev -c 'rm -f /s/iocRack/limits.sav*'`, start it |
+
+On a real computer the directory is `$MIST2_SAVE/<ioc>` (default `~/.local/state/mist2/<ioc>`,
+set by `EPICS/ioc/iocBoot/run-ioc.sh`); deleting `limits.sav*` there resets to the defaults.
+
 On a real Linux computer: `make -C EPICS/ioc` (local paths in `EPICS/ioc/configure/RELEASE.local`),
 then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
 

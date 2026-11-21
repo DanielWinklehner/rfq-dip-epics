@@ -51,7 +51,10 @@ def sim_signal(prefix, name, what="value"):
 
 
 def get(pv):
-    value = epics.caget(pv, timeout=3)
+    # use_monitor=False: a fresh read from the IOC. pyepics' default returns the value of its
+    # monitor, which right after a completed put can still be the old one (seen: the SEVR of a
+    # set that the IOC had already turned INVALID read as 0, once in about 150 puts).
+    value = epics.caget(pv, timeout=3, use_monitor=False)
     assert value is not None, "%s does not answer" % pv
     return value
 
@@ -91,7 +94,8 @@ def all_valid(prefix, suffixes=SUFFIXES):
 
 def not_valid(prefix, suffixes=SUFFIXES):
     """The PVs of `prefix` with an alarm, for failure messages."""
-    return [s for s in suffixes if epics.caget("%s:%s.SEVR" % (prefix, s), timeout=2) != 0]
+    return [s for s in suffixes
+            if epics.caget("%s:%s.SEVR" % (prefix, s), timeout=2, use_monitor=False) != 0]
 
 
 def invalid(prefix, suffixes):

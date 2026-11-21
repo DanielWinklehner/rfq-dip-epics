@@ -32,6 +32,7 @@
   port: 5003
   turnaround_ms: 5
   options:
+    queries_without_remote: true
     units:
       - {address: 1, vfs: 150, ifs: 24, load_ohm: 5.0}                          # REK150-24
 
@@ -40,6 +41,7 @@
   port: 5004
   turnaround_ms: 5
   options:
+    queries_without_remote: true
     units:
       - {address: 2, vfs: 150, ifs: 55, load_ohm: 2.0}                          # REK150-55
       - {address: 9, vfs: 150, ifs: 55, load_ohm: 2.0}                          # permit test only

@@ -213,7 +213,8 @@ def test_rate_with_a_silent_neighbour(capsys):
 ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invalid|failed|unknown"
                    r"|syntax|bad |mismatch|does not match|too short|no match|disconnected"
                    r"|no reply|timeout|not connected", re.I)
-TRAFFIC = re.compile(r"^\S+ \S+ (?P<port>\S+) (\S+:? )?(No reply within \d+ ms|\d+ additional errors|"
+# (Two threads of the IOC can print at the same moment: a line may start with two time stamps.)
+TRAFFIC = re.compile(r"^(?:\d{4}/\d\d/\d\d \S+ )*(?P<port>\S+) (\S+:? )?(No reply within \d+ ms|\d+ additional errors|"
                      r"device \S+ 0 disconnected|lockRequest: |Input \"[^\"]*\"|mismatch after|"
                      r"got \"|No match for |Input \"[0-9A-F]+H\" does not match format \"%=04X\")"
                      r"|^(?P<ca>dbCaTask) ca_array_put Channel write request failed"

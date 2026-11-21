@@ -15,8 +15,8 @@ from mat import (AU, GRACE, INTERNAL, POLLED, SUFFIXES, UNPOLLED, UNPOLLED_UNREA
 # are read by a forward link right after it, behind the polls of the chain).
 ECHO = 3
 # Lines of the simulator log for a set or switching command executed by a unit (CH1 is the
-# current limit, which the IOC sends at the first contact).
-CMD = r"%s INFO unit %d: (CH0|SW|RST|VCN|ICN)"
+# current limit, which the IOC sends at the first contact and when switching on).
+CMD = r"%s INFO unit %d: (CH0|SW|RST|VCN|ICN)(?!.*ignored)"
 
 
 def test_ioc_start_with_an_output_on_keeps_it_on():
@@ -205,6 +205,7 @@ def test_local_control_after_a_status_poll():
     it back (no REN), sets are not executed; switching from the control system takes it back."""
     d = "AU-20P7-3"
     switch(d, True)
+    mark = sim_log_mark()
     with control(d) as c:
         c.set("3.remote", 0)
         c.release("3.remote")
@@ -213,11 +214,38 @@ def test_local_control_after_a_status_poll():
     time.sleep(3)                                    # three status polls later: still local
     assert get(d + ":status:read") == 3 and sim_signal(d, "remote") == 0
     put(d + ":voltage:setpoint", 7000)               # not executed: CALC alarm
-    assert sevr(d + ":voltage:setpoint") == 3
+    time.sleep(1)                                    # the harness writes the simulator log
+    log = sim_log_since(mark, r"mat_co INFO unit 3: ")
+    assert sevr(d + ":voltage:setpoint") == 3, log
+    assert not [l for l in log if "REN" in l], log  # nothing took remote control back
+    assert [l for l in log if "CH0 5999 ignored (local)" in l], log
     switch(d, False)                                 # switching sends REN
     assert get(d + ":status:read") == 0 and sim_signal(d, "remote") == 1
     put(d + ":voltage:setpoint", 5000)
     assert sevr(d + ":voltage:setpoint") == 0
+
+
+def test_switching_on_applies_the_limit():
+    """Switch on: REN, CH1 <limit>, RST, SW1. Also after the supply lost its setting (power
+    cycle, emulated by setting it in the simulator). Switch off: no limit."""
+    d = "AU-20P7-3"
+    put(d + ":current:limit", 4.5)
+    with control(d) as c:
+        c.set("3.iset", 0.0)                         # the supply forgot its limit
+        c.release("3.iset")
+    time.sleep(1)                                    # the simulator log is written ...
+    mark = sim_log_mark()                            # ... by the harness, with a delay
+    switch(d, True)
+    assert sim_signal(d, "iset") == pytest.approx(0.0045, rel=1e-4)
+    time.sleep(1)
+    log = [l.split("unit 3: ")[1] for l in sim_log_since(mark, r"mat_co INFO unit 3: ")]
+    code = "%04X" % round(4.5 / 7.5 * 0xFFFF)
+    assert log == ["CH1 %s" % code, "RST", "SW1"], log
+    mark = sim_log_mark()
+    switch(d, False)
+    time.sleep(1)
+    log = [l.split("unit 3: ")[1] for l in sim_log_since(mark, r"mat_co INFO unit 3: ")]
+    assert log == ["RST", "SW0"], log
 
 
 def test_silent_unit_does_not_stall_its_chain():

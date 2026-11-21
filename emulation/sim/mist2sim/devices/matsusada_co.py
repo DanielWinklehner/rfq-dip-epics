@@ -26,7 +26,8 @@ current mode (the voltage is pulled down). The monitors carry noise and are quan
 Fault "trip": the unit cuts off as after an overload and stays off until RST.
 
 Signals per unit <a> (all magnitudes, SI units, also for negative supplies):
-    <a>.vset V, <a>.iset A        programmed set points (CH0/VCN, CH1/ICN)
+    <a>.vset V, <a>.iset A        programmed set points (CH0/VCN, CH1/ICN); a value set here
+                                  stays after release (front panel, power cycle)
     <a>.vout V, <a>.iout A        output (what MN1/MN2 measure)
     <a>.output 0/1                output really on (SW1, not cut off)
     <a>.sw 0/1, <a>.cutoff 0/1, <a>.remote 0/1 (set 0 = front panel takes local control; it
@@ -187,12 +188,21 @@ class MatsusadaCO(Simulator):
 
     def _model(self, dt, signals):
         self.turnaround_ms = self.turnaround.value
-        for u in self.unit.values():
+        for addr, u in self.unit.items():
             s = u["sig"]
             if s["remote"].external:
                 # Front panel (plant model or test): the unit stays in that mode after release,
                 # local until the next REN.
+                if s["remote"].target != s["remote"].value:
+                    self.log.info("unit %s: front panel: %s", addr,
+                                  "remote" if s["remote"].value >= 0.5 else "local")
                 s["remote"].target = s["remote"].value
+            for k in ("vset", "iset"):
+                # A setting changed outside the line (front panel, power cycle) stays after
+                # release, until the next set command.
+                if s[k].external and s[k].target != s[k].value:
+                    self.log.info("unit %s: %s := %g outside the line", addr, k, s[k].value)
+                    s[k].target = s[k].value
             on = s["sw"].value >= 0.5 and s["cutoff"].value < 0.5
             s["output"].target = 1.0 if on else 0.0
             v = s["vset"].value if on else 0.0
@@ -258,11 +268,15 @@ class MatsusadaCO(Simulator):
         if self.now() < d["silent_until"]:
             return None                  # switched off
         if cmd == "REN" and not param:
+            if s["remote"].value < 0.5:
+                self.log.info("unit %s: REN (remote control on)", unit)
             s["remote"].target = 1.0
             return None
         if s["remote"].value < 0.5:
             # Manual 7-2 REN/GTL: without remote control only REN is accepted.
             if not (self.options["queries_without_remote"] and _is_query(cmd)):
+                if not _is_query(cmd):
+                    self.log.info("unit %s: %s %s ignored (local)", unit, cmd, param)
                 return None
         if cmd in ("CH0", "CH1"):
             if not _HEX4.fullmatch(param):
@@ -303,6 +317,7 @@ class MatsusadaCO(Simulator):
             return None
         if cmd == "GTL":
             s["remote"].target = 0.0
+            self.log.info("unit %s: GTL (local)", unit)
             return None
         if cmd == "MN1":
             return "MONI1=%03XH" % code12(s["vout"].read(), d["vfs"])

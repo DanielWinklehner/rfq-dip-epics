@@ -15,9 +15,9 @@ x-ioc: &ioc
     # Edits need only `docker compose restart`, no image build.
     - ../EPICS/Db:/opt/mist2/EPICS/Db:ro
     - ../EPICS/ioc/iocBoot:/opt/mist2/EPICS/ioc/iocBoot:ro
-    # Files the IOCs write at run time (autosave: the limits), one subdirectory per IOC. In the
-    # repository's save/ (ignored by git), so they survive restart and down/up.
-    - ../save:/var/lib/mist2/save
+    # Files the IOCs write at run time (autosave: the limits), one subdirectory per IOC, in the
+    # named volume mist2emu-save: it survives restart and down/up (not `down -v`). See README.md.
+    - save:/var/lib/mist2/save
 
 x-sim: &sim
   image: mist2-tools:dev
@@ -116,6 +116,10 @@ services:
       - ..:/repo
     networks:
       - mist2ctl
+
+volumes:
+  save:
+    name: mist2emu-save
 
 networks:
   mist2ctl:

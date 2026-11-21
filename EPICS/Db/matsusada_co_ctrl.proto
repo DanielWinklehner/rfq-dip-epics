@@ -68,11 +68,20 @@ read_current {
     in "MONI2=%XH";
 }
 
-# Output. REN (remote control, as the lab did with every switching), RST (cancel a cut-off),
-# SW1 or SW0, as in manual 6-7 without "ICN": switching does not touch the current limit.
-# The SW setting is read back and compared.
-toggle_output {
+# Switching, as in manual 6-7: on = REN, the current limit (CH1, instead of the manual's
+# "ICN 100"), RST, SW1; off = REN, RST, SW0. The REN and the limit come from switch_on_limit or
+# remote (records _out:limit, _out:remote), then toggle_output: RST (cancel a cut-off), SW, and
+# the SW setting read back and compared. $2 of switch_on_limit is the PV prefix of the supply.
+switch_on_limit {
     out "#\$1 REN";
+    out "#\$1 CH1 %(\$2current:limit.RVAL)04X";
+}
+
+remote {
+    out "#\$1 REN";
+}
+
+toggle_output {
     out "#\$1 RST";
     out "#\$1 SW%{0|1}";
     out "#\$1 SW?";

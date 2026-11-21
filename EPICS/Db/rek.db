@@ -15,6 +15,12 @@
 # setting after the first contact; a write before that is not sent.
 # Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
 # setting after the first contact; a write before that is not sent.
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
 record(ao, "$(DEV=REK)-$(UNITNUM):voltage:setpoint") {
     field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
@@ -263,9 +269,9 @@ record(bo, "$(DEV=REK)-$(UNITNUM):SetToggleOutput") {
 }
 
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
-# input A raises to INVALID through MS or a broken link), otherwise the request. Writes the
-# ToggleOutput only when the result changes. Disabled until GRACE seconds after the first
-# contact (:output:init).
+# input A raises to INVALID through MS or a broken link), otherwise the request. Starts the
+# switching sequence (_out:switch) only when the result changes. Disabled until GRACE seconds
+# after the first contact (:output:init).
 record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
     field(INPA, "$(PERMIT=interlock_open) CP MS")
@@ -274,11 +280,43 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(CALC, "(A||C>=3)?0:B")
     field(SCAN, "1 second")
     field(OOPT, "On Change")
-    field(DOPT, "Use CALC")
-    field(OUT,  "$(DEV=REK)-$(UNITNUM):ToggleOutput PP")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "((A||C>=3)?0:B)?5:6")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):_out:switch.SELN PP")
     field(DISV, "1")
     field(DISA, "1")
     field(FLNK, "$(DEV=REK)-$(UNITNUM):_permit:latch")
+}
+
+# Switching sequence. On (mask 5): _out:limit (REN, CH1 <limit>), then ToggleOutput (RST, SW1,
+# SW? compared). Off (mask 6): _out:remote (REN), then ToggleOutput (RST, SW0, SW? compared).
+# So the limit at the supply is right whenever an output goes on, also after a power cycle,
+# and switching off sends no limit.
+record(seq, "$(DEV=REK)-$(UNITNUM):_out:switch") {
+    field(DESC, "Switching sequence (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SELM, "Mask")
+    field(SHFT, "0")
+    field(LNK0, "$(DEV=REK)-$(UNITNUM):_out:limit.PROC PP")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):_out:remote.PROC PP")
+    field(DOL2, "$(DEV=REK)-$(UNITNUM):OutputIntlk NPP")
+    field(LNK2, "$(DEV=REK)-$(UNITNUM):ToggleOutput PP")
+}
+
+record(bo, "$(DEV=REK)-$(UNITNUM):_out:limit") {
+    field(DESC, "Switch on: REN, current limit (internal)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=rek.proto) switch_on_limit($(UNITNUM),$(DEV=REK)-$(UNITNUM):) $(PORT)")
+    field(PRIO, "HIGH")
+    field(UDFS, "NO_ALARM")
+}
+
+record(bo, "$(DEV=REK)-$(UNITNUM):_out:remote") {
+    field(DESC, "Switch off: REN (internal)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=rek.proto) remote($(UNITNUM)) $(PORT)")
+    field(PRIO, "HIGH")
+    field(UDFS, "NO_ALARM")
 }
 
 # The latch: while the permit is lost the request is cleared, so that nothing switches on when
@@ -295,8 +333,9 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
     field(OUT,  "$(DEV=REK)-$(UNITNUM):SetToggleOutput PP")
 }
 
-# Sends REN, RST (cancel a cut-off) and SW, reads SW? back and compares it. The current limit
-# is not touched. ToggleOutput is in simulation mode only while :output:init takes it over.
+# Sends RST (cancel a cut-off) and SW, reads SW? back and compares it, after _out:limit or
+# _out:remote (REN) of the switching sequence. In simulation mode only while :output:init takes
+# it over. A client that writes ToggleOutput directly bypasses the permit, REN and the limit.
 record(bo, "$(DEV=REK)-$(UNITNUM):ToggleOutput") {
     field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")
