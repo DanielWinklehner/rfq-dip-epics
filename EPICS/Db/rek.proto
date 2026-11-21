@@ -1,15 +1,42 @@
-# Author: Philip Weigel
+# rek.proto - the REK supply behind a CO series controller (CO-U32, CO-RG).
+# Identical to matsusada_co_ctrl.proto except for this header.
+#
+# Protocol: CO series instruction manual rev 0.4, chapters 5 and 7
+#   https://wiki.jlab.org/ciswiki/images/5/5b/CO_series_REV_0.4.pdf
+# Hex mode: set points 16 bit (CH0/CH1, CHn?), monitors 12 bit (MN1/MN2).
+# Set commands get NO reply. Every set is therefore followed by a read of its setting and
+# compared with what was sent (%=): a supply that does not execute the set, or does not
+# answer, turns the set-point record INVALID (CALC or TIMEOUT).
+# The set points have no @init: StreamDevice 2.8.26 converts a LONG input of an ao record with
+# ASLO only, not ESLO (devaoStream.c, readData). After an IOC start the :setpoint records start
+# at 0 as in the lab; the :get records show the supply's settings.
+#
+# Argument $1 is the unit number (the UNIT switch of the CO-HV), $2 (toggle_output only) the
+# percentage sent with ICN when the output is switched on.
+#
+# Authors: Ryan Yang (ryang2@mit.edu), 2021; reworked for MIST-2 in 2026.
+# rek.proto is the same file for the REK supply (loaded by rek.db): keep both in step.
 
 Terminator = CR;
 
-# Voltage (Hex)
+# All supplies of a chain share one 9600 baud line, so a supply that does not answer must not
+# hold it long. A reply takes 17 to 19 ms plus the adapter's turnaround (5 to 16 ms). 150 ms
+# leaves four times that, and the other supply of a chain of two keeps about 2.7 updates per
+# second while its neighbour is silent (100 ms: 3.7, but replies late by a host hiccup then
+# land in the next transaction; the default 1000 ms: 0.2).
+ReplyTimeout = 150;
+ReadTimeout = 50;
+
+# Voltage (hex)
 set_voltage {
     out "#\$1 CH0 %04X";
+    out "#\$1 CH0?";
+    in "CH0=%=04XH";
 }
 
 get_voltage {
     out "#\$1 CH0?";
-    in "CH0=%XH"
+    in "CH0=%XH";
 }
 
 read_voltage {
@@ -17,15 +44,16 @@ read_voltage {
     in "MONI1=%XH";
 }
 
-
-# Current (Hex)
+# Current (hex)
 set_current {
     out "#\$1 CH1 %04X";
+    out "#\$1 CH1?";
+    in "CH1=%=04XH";
 }
 
 get_current {
     out "#\$1 CH1?";
-    in "CH1=%XH"
+    in "CH1=%XH";
 }
 
 read_current {
@@ -33,33 +61,33 @@ read_current {
     in "MONI2=%XH";
 }
 
-# Status
-reset {
+# Output. On: REN, ICN <$2>, RST (cancel a cut-off), SW1 as in manual 6-7. Off: the same with
+# ICN 0 and SW0 (as the lab did). The SW setting is read back and compared.
+# @init reads the SW setting, so that after an IOC restart the record shows the real state.
+toggle_output {
     out "#\$1 REN";
-    #out "#\$1 RST";
+    out "#\$1 ICN %{0|\$2}";
+    out "#\$1 RST";
+    out "#\$1 SW%{0|1}";
+    out "#\$1 SW?";
+    in "SW%={0|1}";
+    @init { out "#\$1 REN"; out "#\$1 SW?"; in "SW%{0|1}"; }
 }
 
-enable_output {
-    out "#\$1 REN";
-	out "#\$1 ICN 100";
-	out "#\$1 SW1";
+get_output_status {
+    out "#\$1 SW?";
+    in "SW%d";
 }
 
-disable_output {
-	out "#\$1 SW0";
-}
-
-set_status {
-    out "#\$1 SW%d";
-    
-    @init {
-      reset;
-    }
-}
-
+# Output really on (CO) or off (CF): differs from SW? after a cut-off. REN first, so that a
+# supply that was switched off and on again comes back into remote control by itself.
 read_status {
+    out "#\$1 REN";
     out "#\$1 STS";
- 
-    in "#%*d %{CF|CO} %*c%*c %*c%*c";
+    in "#\$1 %{CF|CO} %*{LO|RM}";
 }
 
+# All units of the chain off (manual 5-2, multiple command). No reply.
+all_off {
+    out "#AL SW0";
+}

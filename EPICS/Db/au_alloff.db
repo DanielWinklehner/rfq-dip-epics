@@ -1,0 +1,63 @@
+# au_alloff.db - all AU supplies off with one write: AU:alloff:set = 1
+#
+# Sends "#AL SW0" (manual 5-2, multiple command) on both chains at once, with high priority,
+# and then sets the output request (SetToggleOutput) of every listed supply to 0, so that the
+# request PVs agree with the supplies and one write of 1 switches a supply on again.
+# The request then goes through each supply's usual chain (OutputIntlk, ToggleOutput).
+#
+# Macros:
+#   PORT1 (mat_opt), PORT2 (mat_co)   the two chains
+#   PROTO (matsusada_co_ctrl.proto)
+#   R1 ... R8           request PVs of the supplies, e.g. R1=AU-20P7-1:SetToggleOutput.
+#                       Unused ones point at AU:alloff:spare.
+#
+# AU:alloff:set returns to 0 by itself after one second; writing 0 does nothing.
+
+record(bo, "AU:alloff:set") {
+    field(DESC, "All AU supplies off")
+    field(ZNAM, "IDLE")
+    field(ONAM, "ALL OFF")
+    field(HIGH, "1")
+    field(FLNK, "AU:alloff:fanout")
+}
+
+record(fanout, "AU:alloff:fanout") {
+    field(DESC, "Both chains, then the requests")
+    field(SDIS, "AU:alloff:set NPP")
+    field(DISV, "0")
+    field(SELM, "All")
+    field(LNK1, "AU:alloff:chain1")
+    field(LNK2, "AU:alloff:chain2")
+    field(LNK3, "AU:alloff:requests")
+}
+
+record(bo, "AU:alloff:chain1") {
+    field(DESC, "#AL SW0 on $(PORT1=mat_opt)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) all_off $(PORT1=mat_opt)")
+    field(PRIO, "HIGH")
+}
+
+record(bo, "AU:alloff:chain2") {
+    field(DESC, "#AL SW0 on $(PORT2=mat_co)")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) all_off $(PORT2=mat_co)")
+    field(PRIO, "HIGH")
+}
+
+record(dfanout, "AU:alloff:requests") {
+    field(DESC, "Output requests := 0")
+    field(VAL,  "0")
+    field(OUTA, "$(R1=AU:alloff:spare) PP")
+    field(OUTB, "$(R2=AU:alloff:spare) PP")
+    field(OUTC, "$(R3=AU:alloff:spare) PP")
+    field(OUTD, "$(R4=AU:alloff:spare) PP")
+    field(OUTE, "$(R5=AU:alloff:spare) PP")
+    field(OUTF, "$(R6=AU:alloff:spare) PP")
+    field(OUTG, "$(R7=AU:alloff:spare) PP")
+    field(OUTH, "$(R8=AU:alloff:spare) PP")
+}
+
+record(bo, "AU:alloff:spare") {
+    field(DESC, "Target of the unused outputs")
+}
