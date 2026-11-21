@@ -1,0 +1,39 @@
+# The two AU chains of the rack and two REK supplies, as in docs/emulation/DESIGN.md (D2).
+# Unit 5 (lens 2) starts with its output on, as a previous IOC left it: the IOC start of this
+# case is the "IOC restart with an output on". Loads: 4 MOhm for the AU (5 mA at 20 kV).
+- name: mat_opt
+  type: matsusada_co
+  port: 5001
+  turnaround_ms: 5
+  options:
+    units:
+      - {address: 1, vfs: 20000, ifs: 0.015, load_ohm: 4.0e+6}                 # ion source AU20P15
+      - {address: 2, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # puller AU20N7.5
+
+- name: mat_co
+  type: matsusada_co
+  port: 5002
+  turnaround_ms: 5
+  options:
+    units:
+      - {address: 3, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 1 AU20P7.5
+      - {address: 5, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6,  # lens 2 AU20N7.5
+         output_on: true, vset: 3000, iset: 0.0075}
+      - {address: 4, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 3, not polled
+
+- name: rek
+  type: matsusada_co
+  port: 5003
+  turnaround_ms: 5
+  options:
+    units:
+      - {address: 1, vfs: 150, ifs: 24, load_ohm: 5.0}                          # REK150-24
+
+- name: rek55
+  type: matsusada_co
+  port: 5004
+  turnaround_ms: 5
+  options:
+    units:
+      - {address: 2, vfs: 150, ifs: 55, load_ohm: 2.0}                          # REK150-55
+      - {address: 9, vfs: 150, ifs: 55, load_ohm: 2.0}                          # permit test only

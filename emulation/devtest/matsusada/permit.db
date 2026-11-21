@@ -1,0 +1,7 @@
+# The output permit of this case: 0 = closed (outputs allowed), 1 = open.
+record(bo, "interlock_open") {
+    field(ZNAM, "closed")
+    field(ONAM, "open")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
