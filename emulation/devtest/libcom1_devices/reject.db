@@ -1,0 +1,8 @@
+# reject.db - test only (case libcom1_devices): an acknowledged set that the valve box rejects.
+# The firmware accepts every finite number on s1..s8, so none of the real set records can
+# provoke a rejection. Channel s9 does not exist: the box answers ERR4 instead of "ok".
+record(bo, "DEVTEST:reject:set") {
+    field(DESC, "Set to a channel the box does not have")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink_ack(s9) $(PORT)")
+}
