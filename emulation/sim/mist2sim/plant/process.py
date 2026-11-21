@@ -301,9 +301,9 @@ class Plant:
         finally:
             self._server.close()
             await self.release_all()
+            self._flush_log(time.monotonic(), force=True)
             for lk in self.links.values():
                 lk.drop()
-            self._flush_log(time.monotonic(), force=True)
 
     # --- the plant's own control port -------------------------------------------------------
 
