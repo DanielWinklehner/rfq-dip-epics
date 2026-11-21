@@ -19,7 +19,7 @@ import sys
 import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build import REPO, WRITE_TYPES, Model, loads_of  # noqa: E402
+from build import REPO, WRITE_TYPES, Model, db_states, loads_of  # noqa: E402
 
 OUT = os.path.join(REPO, "RAS", "mist2", "ReactApp", "src", "registry", "registry.json")
 
@@ -101,7 +101,8 @@ def build(model):
 
     def entry(owner):
         out_roles, out_channels, pvs = {}, {}, {}
-        labels = owner.get("labels") or {}
+        labels, states = owner.get("labels") or {}, owner.get("states") or {}
+        spare, confirm = set(owner.get("spare") or []), owner.get("confirm") or {}
         for pv in owner["pvs"]:
             if pv["state"] != "existing":
                 continue
@@ -112,6 +113,8 @@ def build(model):
                     item[key] = pv[key]
             if pv.get("aliases"):
                 item["aliases"] = pv["aliases"]
+            if db_states(pv):
+                item["states"] = db_states(pv)
             if pv.get("internal"):
                 item["internal"] = True
             if pv.get("role"):
@@ -119,7 +122,14 @@ def build(model):
                 scope = out_roles
                 if pv.get("channel"):
                     item["channel"] = pv["channel"]
-                    scope = out_channels.setdefault(pv["channel"], {"label": labels.get(pv["channel"]), "roles": {}})["roles"]
+                    if pv["channel"] not in out_channels:
+                        channel = out_channels[pv["channel"]] = {"label": labels.get(pv["channel"])}
+                        if pv["channel"] in spare:
+                            channel["spare"] = True
+                        if pv["channel"] in states:
+                            channel["states"] = states[pv["channel"]]
+                        channel["roles"] = {}
+                    scope = out_channels[pv["channel"]]["roles"]
                 scope[pv["role"]] = pv["name"]
                 spec = pv["spec"]
                 for key in ("test", "ack", "note"):
@@ -127,6 +137,9 @@ def build(model):
                         item[key] = spec[key]
                 if "readback" in spec:
                     item["readback"] = spec["readback"]
+                ask = confirm.get(pv.get("channel")) or confirm.get(pv["role"])
+                if ask and item["access"] == "w":
+                    item["confirm"] = ask
             if r["sim"]:
                 item["sim"] = r["sim"]
             if faults["silent"][pv["name"]]:
@@ -149,6 +162,9 @@ def build(model):
         role_labels = {k: v for k, v in labels.items() if k in out_roles}
         if role_labels:
             result["labels"] = role_labels
+        role_states = {k: v for k, v in states.items() if k in out_roles}
+        if role_states:
+            result["states"] = role_states
         result["simulators"] = sorted({r["sim"] for r in records.values() if r["owner"] == owner["id"] and r["sim"]})
         result["loads"] = [{"db": l["db"], "macros": {k: str(v) for k, v in model.macros(l).items()}} for l in loads_of(owner)]
         result["pvs"] = pvs
