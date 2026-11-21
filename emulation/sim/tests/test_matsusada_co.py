@@ -203,6 +203,23 @@ class Commands(unittest.TestCase):
         self.assertEqual(sim.process("#4 STS"), [b"#4 CO RM"])
         self.assertEqual(sim.process("#4 MN1"), [b"MONI1=%03XH" % round(0.25 * 0xFFF)])
 
+    def test_front_panel_local_stays_until_ren(self):
+        remote(self.sim, 1)
+        self.sim.signals["1.remote"].force(0.0)
+        self.sim.step_couplings()
+        self.sim.signals["1.remote"].release()
+        self.assertEqual(self.ask("#1 STS"), [])                       # local: only REN counts
+        self.sim.process("#1 REN")
+        self.assertEqual(self.ask("#1 STS"), ["#1 CF RM"])
+
+    def test_unit_switched_on_later(self):
+        sim = chain(clock=self.clock, units=[dict(AU, address=1, silent_for_s=10)])
+        self.assertEqual(sim.process("#1 REN"), [])
+        self.assertEqual(sim.process("#1 STS"), [])
+        self.clock.advance(11)
+        sim.process("#1 REN")
+        self.assertEqual(sim.process("#1 STS"), [b"#1 CF RM"])
+
     def test_signals_for_a_plant_model(self):
         remote(self.sim, 1)
         self.sim.process("#1 CH0 FFFF")

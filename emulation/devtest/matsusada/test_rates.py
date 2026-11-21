@@ -11,9 +11,7 @@ from mat import BUILD, GRACE, control, get, put, wait_for
 
 BAUD, BITS = 9600, 10
 REPLY_TIMEOUT = 0.150 + 0.050  # matsusada_co_ctrl.proto: ReplyTimeout, then the @replytimeout wait
-CHAINS = {"mat_opt": [1, 2], "mat_co": [3, 5]}
-LENS3_SCANS = {"_poll:tick": ".1 second", "status:read": "1 second", "voltage:get": "5 second",
-               "read_output_status": "5 second"}
+CHAINS = {"mat_opt": [1, 2], "mat_co": [3, 4]}
 
 
 # --- bus arithmetic ------------------------------------------------------------------------------
@@ -102,12 +100,6 @@ def set_turnaround(ms):
                 c.set("line.turnaround_ms", ms)
 
 
-def poll_lens3(on):
-    """Lens 3 polled like the others (SCAN fields at run time), or not at all."""
-    for s, scan in LENS3_SCANS.items():
-        put("AU-20P7-4:%s.SCAN" % s, scan if on else "Passive")
-
-
 @pytest.fixture(autouse=True)
 def after_grace():
     """Writes to the set points are sent only after the GRACE period of the database."""
@@ -135,7 +127,7 @@ def latency_of_sets(pv, unit, n=20):
 
 def test_prio_high_overtakes_the_polls(capsys):
     pv = "AU-20P7-3:voltage:setpoint"
-    for d in ("AU-20P7-3", "AU-20P7-5"):            # both supplies of the chain on, polled
+    for d in ("AU-20P7-3", "AU-20P7-4"):            # both supplies of the chain on, polled
         if get(d + ":SetToggleOutput") == 0:
             put(d + ":SetToggleOutput", 1)
     high = latency_of_sets(pv, 3)
@@ -145,7 +137,7 @@ def test_prio_high_overtakes_the_polls(capsys):
     finally:
         put(pv + ".PRIO", "HIGH")
     lines = ["PRIO of AU-20P7-3:voltage:setpoint, caput -> CH0 at the simulator, chain mat_co "
-             "polled (units 3 and 5), %d sets each:" % len(high)]
+             "polled (units 3 and 4), %d sets each:" % len(high)]
     for name, v in (("HIGH", high), ("LOW ", low)):
         lines.append("  %s  median %5.1f ms   max %5.1f ms" % (
             name, statistics.median(v) * 1000, max(v) * 1000))
@@ -155,24 +147,19 @@ def test_prio_high_overtakes_the_polls(capsys):
 
 
 def test_rate_report(capsys):
-    """Two chains as in the table, lens 3 loaded but not polled; then lens 3 polled (three
-    supplies on mat_co). Requirement: every polled monitor PV of a chain updates at the same
-    rate, within 10 % of the bus arithmetic, capped at SCAN_MON (10 Hz)."""
-    for d in ("AU-20P7-1", "AU-20P7-2", "AU-20P7-3", "AU-20P7-5"):
+    """Two chains with two supplies each. Requirement: every polled monitor PV of a chain updates
+    at the same rate, within 10 % of the bus arithmetic, capped at SCAN_MON (10 Hz)."""
+    for d in ("AU-20P7-1", "AU-20P7-2", "AU-20P7-3", "AU-20P7-4"):
         if get(d + ":SetToggleOutput") == 0:
             put(d + ":SetToggleOutput", 1)
     with control("mat_co") as c:
         ta = c.info()["settings"]["turnaround_ms"]
     rows = []
-    cases = [("turnaround %g ms (configuration)" % ta, ta, False),
-             ("turnaround 16 ms", 16.0, False),
-             ("turnaround %g ms, lens 3 polled" % ta, ta, True),
-             ("turnaround 16 ms, lens 3 polled", 16.0, True)]
+    cases = [("turnaround %g ms (configuration)" % ta, ta), ("turnaround 16 ms", 16.0)]
     try:
-        for label, t, lens3 in cases:
+        for label, t in cases:
             set_turnaround(None if t == ta else t)
-            poll_lens3(lens3)
-            chains = {"mat_opt": [1, 2], "mat_co": [3, 5] + ([4] if lens3 else [])}
+            chains = CHAINS
             time.sleep(1.0)
             rate = measure(chains)
             for ch, units in chains.items():
@@ -182,7 +169,6 @@ def test_rate_report(capsys):
                                      **{n: rate[u, n] for n in ("MN1", "MN2", "STS", "CH0?", "SW?")}))
     finally:
         set_turnaround(None)
-        poll_lens3(False)
     lines = ["Update rates, Hz. bus = bus arithmetic (monitors at 10 Hz unless the line is full,",
              "then shared evenly). V, I = voltage:read, current:read as a Channel Access client sees",
              "them; STS, CH0?, SW? = the status and echo polls (wanted: 1, 0.2, 0.2).",
@@ -205,19 +191,19 @@ def test_rate_report(capsys):
 def test_rate_with_a_silent_neighbour(capsys):
     put("AU-20P7-3:SetToggleOutput", 1)
     with control("mat_co") as c:
-        c.fault("silent", unit=5)
+        c.fault("silent", unit=4)
         try:
             time.sleep(1.5)
             rate = measure({"mat_co": [3]})
         finally:
             c.clear("silent")
-    bus = bus_rate([3, 5], 5.0, dead=(5,))
-    report("Unit 5 silent (reply timeout and wait %d ms): unit 3 keeps %.2f (voltage:read) and %.2f "
+    bus = bus_rate([3, 4], 5.0, dead=(4,))
+    report("Unit 4 silent (reply timeout and wait %d ms): unit 3 keeps %.2f (voltage:read) and %.2f "
            "(current:read) updates/s; bus arithmetic with the timeouts %.2f"
            % (REPLY_TIMEOUT * 1000, rate[3, "MN1"], rate[3, "MN2"], bus), capsys)
     for n in ("MN1", "MN2"):
         assert rate[3, n] == pytest.approx(bus, rel=0.1)
-    wait_for(lambda: get("AU-20P7-5:voltage:read.SEVR") == 0, 5, "unit 5 back")
+    wait_for(lambda: get("AU-20P7-4:voltage:read.SEVR") == 0, 5, "unit 4 back")
 
 
 # Lines of the IOC log that mean an error (as in devtest/example). StreamDevice's messages about
@@ -227,11 +213,19 @@ def test_rate_with_a_silent_neighbour(capsys):
 ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invalid|failed|unknown"
                    r"|syntax|bad |mismatch|does not match|too short|no match|disconnected"
                    r"|no reply|timeout|not connected", re.I)
-TRAFFIC = re.compile(r"^\S+ \S+ (?P<port>\S+) (\S+:? )?(No reply within \d+ ms|\d+ additional errors|"
+# (Two threads of the IOC can print at the same moment: a line may start with two time stamps.)
+TRAFFIC = re.compile(r"^(?:\d{4}/\d\d/\d\d \S+ )*(?P<port>\S+) (\S+:? )?(No reply within \d+ ms|\d+ additional errors|"
                      r"device \S+ 0 disconnected|lockRequest: |Input \"[^\"]*\"|mismatch after|"
                      r"got \"|No match for |Input \"[0-9A-F]+H\" does not match format \"%=04X\")"
                      r"|^(?P<ca>dbCaTask) ca_array_put Channel write request failed"
-                     r"|^\S+ has DB CA link to \S+$")
+                     r"|^\S+ has DB CA link to \S+$"
+                     # autosave at the first IOC start: no saved file yet (the defaults apply)
+                     r"|^save_restore: (Can't open file '/tmp/limits\.sav|Trying backup file|"
+                     r"Can't figure out which seq file|so I'm just going to start with|"
+                     r"Can't find a file to restore from|\*+$|Can't open save file)"
+                     r"|^save_restore:write_save_file: Backup file \(/tmp/limits\.savB\) bad or "
+                     r"not found"
+                     r"|^devtest: IOC restarted on request")
 
 
 def test_ioc_log_has_no_error_line(capsys):
@@ -245,7 +239,7 @@ def test_ioc_log_has_no_error_line(capsys):
     for l in lines:
         m = TRAFFIC.search(l)
         if m:
-            key = m.group("port") or m.group("ca") or "dbCa"
+            key = m.group("port") or m.group("ca") or "autosave and harness"
             ports[key] = ports.get(key, 0) + 1
     report("IOC log: no database, protocol or link error; StreamDevice traffic messages per "
            "port (from the faults): %s" % (ports or "none"), capsys)

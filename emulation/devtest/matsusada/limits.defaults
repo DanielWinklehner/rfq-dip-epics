@@ -1,0 +1,12 @@
+# limits.defaults of this case (autosave format): restored at every IOC start before the file
+# saved at run time (/tmp/limits.sav in the IOC container). Values chosen so that the tests can
+# tell them apart from the full scale.
+AU-20P7-1:current:limit 15
+AU-20P7-2:current:limit 6
+AU-20P7-3:current:limit 7.5
+AU-20P7-4:current:limit 7.5
+AU-20P7-6:current:limit 2.5
+REK-1:current:limit 24
+REK-2:current:limit 55
+REK-9:current:limit 55
+<END>

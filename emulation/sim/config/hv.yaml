@@ -22,6 +22,8 @@
   baud: 9600
   turnaround_ms: 5            # ASSUMED
   options:
+    # ASSUMED: in local control (front panel) the unit still answers queries; STS reports LO
+    queries_without_remote: true
     units:
       - {address: 1, vfs: 150, ifs: 24, load_ohm: 5.0}   # for the REK150-55: ifs: 55
 
