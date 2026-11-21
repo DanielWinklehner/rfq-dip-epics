@@ -2,8 +2,8 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1, T2, T4, T6, T9 and T14 are merged. The device tasks T3 and T5 are running, one subagent
-and one worktree each.
+T1, T2, T4, T5, T6, T9 and T14 are merged. T3 (Matsusada supplies) is running. The lead is
+wiring the merged devices into the two IOCs (T7).
 
 ## Done
 
@@ -30,6 +30,11 @@ and one worktree each.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T5 merged** (acceptance run by the lead: 9 MFC, 6 Faraday cup, 9 turbopump tests):
+  `mfc.db`, `faradaycup.db`, `turbo.db`, `turbo_pump.db`, `nt20_monitor.db` with their protocol
+  files and simulators. The MKS RS-485 supplement (1046411-001 Rev. A) was found, so the MFC
+  protocol is from the vendor's document. New PVs: `MFC:getFlow`, `FC:current:get`, and the
+  `TURBO1:*` and `TURBO2:*` sets of the G1 note.
 - **T4 merged** (acceptance run by the lead: 13 TDK tests, 11 nAIM tests): `tdk.db` and
   `aim.db` on the lab's names. New PVs: `TDK:power:get`, `TDK:mode:get`, `TDK:fault:get`.
   All three TDK sets and the nAIM enable are acknowledged, and a missing or negative answer
@@ -117,6 +122,11 @@ both IOCs, expected in the week of 2026-11-23.
 | P8 | The nAIM reports in the unit configured in the gauge (status bits 4 and 5). The lab's database says torr and nothing checks it | You, with the gauge |
 | P9 | `AIM:getpressure` is INVALID while the gauge is off or striking, by decision of T4 from the status word. It keeps the number the gauge sent | Tell me if you prefer another display |
 | P10 | After a TDK power cycle the supply comes back with its output off (safe start), while `TDK:status:setpoint` still shows ON until it is written again. `TDK:status:get` shows the truth | GUI and loop design |
+| P11 | MFC: the supplement does not show the reply to a set (with or without the value) or a literal example of a negative reply. The protocol file accepts both forms of the positive reply. `MFC:getFlow` reads in flow units (sccm), the set point stays in percent of full scale as in the lab's draft | Lab files |
+| P12 | Faraday cup: everything but the hardware is assumed (libcom1 over TCP, one channel in A, identity `FaradayCupOpta`) | Firmware source |
+| P13 | Turbopump Opta: its firmware does not exist. The channel map is defined in `turbo.db` (`r1 r2 r3 r4 n1 a1 f1 n2 a2 f2`), and the firmware has to be written to match | Firmware, later |
+| P14 | NT 20 monitor port: the record format is invented (`NT20 f=0833Hz I=1.25A ACC`). `TURBO<n>:raw:get` and `:age:get` work with any one-line format | A capture from a unit |
+| P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Planned: stop listening instead | Lead, after T3 |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
