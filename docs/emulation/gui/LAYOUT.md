@@ -19,6 +19,28 @@ grayscale, with alarm colours only where they show a severity. All values are ma
 The wireframes all show one machine state: Lens 2 (AU unit 5) has stopped answering, so its
 read-backs are INVALID, and the magnet plate thermocouple is in MINOR. Everything else is normal.
 
+## Decision (gate G2, 2026-11-21)
+
+**Option B, with one change: the panel becomes a window.** Clicking an element of the synoptic
+opens that device in a browser window of its own. It stays until the operator closes it or the
+main window is closed. Several can be open at once. The lab computer has three monitors of about
+24 inch, so the synoptic keeps a full screen and the device windows go on the others. This
+removes the two weaknesses listed for B below: the drawing no longer shrinks, and two devices
+can be worked on side by side.
+
+**The machine, as told by the owner** (drawing: `reference/mist2-source-and-cross.webp`):
+
+- The source has a hairpin filament.
+- A conical high-voltage break follows, then a CF 10 inch six-way cross at ground potential.
+- The extraction system with puller and lenses 1 to 3 sits in the upstream flange of the cross.
+- The Faraday cup comes in from the top flange.
+- Turbopump 1 sits on the bottom flange. Phase 1 stops there: no turbopump 2 until later.
+
+This replaces the assumptions about electrode order, turbopumps and the "diagnostic box" in
+sections 6 and 8 and in the wireframes: there is one vacuum chamber, the cross. Still assumed:
+where the three gauges and the vent valve sit, and the other questions of section 6, which are
+built with the defaults named there.
+
 ## Review by the lead (2026-11-21)
 
 I agree with the recommendation in section 5. Three corrections to what the wireframes show:

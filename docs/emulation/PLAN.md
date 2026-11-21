@@ -19,7 +19,7 @@ The design is in [DESIGN.md](DESIGN.md), the current state in [STATUS.md](STATUS
 |---|---|---|
 | G0 | Startup questions | closed: zip found, `latest.zip` received, the rest on best judgement until the lab files arrive |
 | G1 | Design note | closed: approved 2026-11-21, D1 to D8 as proposed |
-| G2 | GUI layout proposal | **open**: [gui/LAYOUT.md](gui/LAYOUT.md), three options, recommendation A |
+| G2 | GUI layout proposal | closed: decided 2026-11-21, option B with device windows |
 
 ## Tasks
 

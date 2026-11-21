@@ -1,10 +1,11 @@
 # Status
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
-**G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
+**G2 is decided** (2026-11-21): layout B, with each device opening in a window of its own
+([gui/LAYOUT.md](gui/LAYOUT.md), section "Decision").
 All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
 table is loaded by the two emulated IOCs (T7 done)**. T8 (system test suite) and T12 (plant model) are merged as well. Running: a follow-up of T8
-that adapts the suite to the corrected registry. Waiting: the GUI pages (T11), for G2.
+that adapts the suite to the corrected registry. Next: the GUI pages (T11) and the plant model on the one-chamber arrangement.
 
 ## Done
 
@@ -87,7 +88,13 @@ that adapts the suite to the corrected registry. Waiting: the GUI pages (T11), f
 
 ## Open
 
-- G2: choice of the GUI layout, and the questions about the machine in gui/LAYOUT.md section 6.
+- The GUI pages (T11), now that the layout is decided.
+- The questions of gui/LAYOUT.md section 6 that were not answered: where the three gauges and the
+  vent valve sit, names of the temperature and flow channels, confirmation dialogs, theme. They
+  are built with the defaults named there.
+- Turbopump 2 is not in the system in phase 1. Its records, simulator and tests stay, and the
+  plan flags it as not installed, so that the GUI does not draw it. Say so if the rack IOC
+  should not load it at all.
 - Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
 - Briefs for T8 (system tests) and T10 (plan and registry) are written. T10 starts when T3 is
   merged, T8 after T10, because the tests take their PV names from the registry.

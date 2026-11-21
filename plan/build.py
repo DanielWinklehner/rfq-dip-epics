@@ -39,7 +39,7 @@ STATUS_TEXT = {
     "new": "to be added", "later": "phase 2", "tbd": "open, information missing",
 }
 WRITE_TYPES = {"ao", "bo", "longout", "mbbo", "stringout", "aao"}
-FLAGS = {"not_polled": "Not polled", "assumed": "Assumed"}  # device flags, shown by the GUI
+FLAGS = {"not_polled": "Not polled", "assumed": "Assumed", "not_installed": "Not installed"}  # device flags, shown by the GUI
 FONT = "Helvetica"
 MONO = "Courier"
 

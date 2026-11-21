@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.7"
+  revision: "0.8"
   date: "2026-11-21"
   author: "D. Winklehner"
   basis:
@@ -146,6 +146,7 @@ devices:
     epics: {db: tdk.db, macros: {PORT: TDK, DEVICE: TDK, ADR: "6"}}
     status: keep
     notes:
+      - "The filament is a hairpin filament (owner, 2026-11-21)."
       - "Sets are already acknowledged (the supply answers OK). A missing or negative answer now ends in an alarm on the set record."
       - "Power, mode and fault register, proposed in revision 0.6, exist now: TDK:power:get, TDK:mode:get, TDK:fault:get."
       - "Assumed (A8): address 6 and 19200 baud, from tdk.proto and the repository's st.cmd."
@@ -257,6 +258,7 @@ devices:
     status: modify
     change: "Second optical chain, database into the repository"
     notes:
+      - "Arrangement (owner, 2026-11-21): the source is followed by a conical high-voltage break and a CF 10 inch six-way cross at ground potential. The extraction system with the puller and lenses 1 to 3 sits in the upstream flange of the cross."
       - "Unit 2 and the PV names AU-20P7-2:*, from the lab's st.cmd of 2023 (A2: to be confirmed with the current lab files)."
       - "The PVs show positive numbers, as the lab's database does (decision D3, assumption A5). The macro POL=- would show the sign."
 
@@ -427,6 +429,7 @@ devices:
       - {name: "B: RS-232 monitor output", text: "The converter sends its internal values by itself, about every 8 s. Read only.", interface: "RS-232, listen only", note: "Add to A for speed and current. Data format has to be captured from a unit."}
       - {name: "C: replace by Turbo.Drive TD20 classic", text: "Leybold's successor, sold as a replacement for the NT 20.", interface: "RS-232, RS-485 or Profibus", note: "Only if full serial control is wanted."}
     notes:
+      - "Phase 1 (owner, 2026-11-21): one turbopump only, on the bottom flange of the six-way cross. Turbopump 2 comes later. Its records and its simulator exist already, and the plan flags it as not installed."
       - "One set of PVs per pump (TURBO1:*, TURBO2:*, devices turbo1 and turbo2), and the identity of the Opta (TURBO:*). The PVs proposed in revision 0.6 (start, at speed, failure, speed, current, age) exist now with these prefixes."
       - "The NT 20 has no serial command interface: its RS-232 port only reports."
       - "Checked in the operating instructions GA 05.208/8: THREE status relays, NORMAL (speed above 80 % of the target speed), ACCEL and FAILURE (changeover: open when the controller has no power, closes on a failure). Remote inputs START (high-active) and STOP (low-active, dominant); a failure is reset by STOP, so there is no reset PV. RS-232: data output only, 9600 baud, all main parameters about every 8 s, format 'on request'."
@@ -449,6 +452,7 @@ devices:
     status: new
     flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
     notes:
+      - "On the bottom flange of the CF 10 inch six-way cross (owner, 2026-11-21)."
       - "Assumed (A16): the RS-232 port is fitted. Assumed (A17, P14): the record format is invented until a capture from a unit exists. TURBO1:raw:get and TURBO1:age:get work with any one-line format."
 
   - id: turbo2
@@ -463,8 +467,11 @@ devices:
       - {db: turbo_pump.db, macros: {P: TURBO2, DEVICE: TURBO, PORT: TURBO, RELAY: r2, RUN: "1", NORMAL: "7", ACCEL: "8", FAILURE: "9"}}
       - {db: nt20_monitor.db, macros: {P: TURBO2, PORT: NT20_2}}
     status: new
-    flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
+    flags:
+      assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"
+      not_installed: "Phase 1 has one turbopump. Turbopump 2 comes later."
     notes:
+      - "Not in the system in phase 1 (owner, 2026-11-21)."
       - "As turbopump 1 (A16, A17, P14)."
 
   - id: rough
@@ -612,6 +619,7 @@ devices:
     status: modify
     flags: {assumed: "Placeholder until the firmware is known: libcom1 over TCP, one current channel in A (A13, P12)"}
     notes:
+      - "The Faraday cup comes in from the top flange of the six-way cross (owner, 2026-11-21)."
       - "faradaycup.db is a placeholder. Assumed (A13, P12): the Opta speaks libcom1 over TCP and serves one channel with the cup current in A (FC:current:get), identity FaradayCupOpta. The cup actuator is assumed to be valve channel s4 (VALVE:s4), as labelled in the lab GUI."
     questions:
       - "Which firmware and which PVs does the Faraday cup Opta serve today? Not in the repository."
@@ -839,6 +847,7 @@ software:
     - {id: report, name: "Snapshot report", text: "One PDF with all pertinent values, plus JSON", status: new}
     - {id: clients, name: "Scan and analysis tools", text: "Dipole scan, emittance scan, automated tuning", status: later}
   gui:
+    - "Layout decided on 2026-11-21 (gate G2): the synoptic is the console. Clicking an element opens that device in a window of its own, which stays until it is closed. The lab computer has three monitors of about 24 inch: the synoptic on one, device windows on the others."
     - "React Automation Studio is actively developed (release 8.1.0 of May 2026), so the overhaul can stay on it. A better layout does not need a different toolkit."
     - "Its Docker setup expects Linux with host networking. Run it on Linux (WSL2 for development), not on Docker Desktop for Windows."
     - "The GUI code in the repository (RAS/IsoDAR) dates from 2021 and is full of placeholder PVs. Bring the version that runs in the lab into the repository before the overhaul starts."
