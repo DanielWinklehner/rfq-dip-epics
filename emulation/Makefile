@@ -63,3 +63,21 @@ test:
 	else \
 		echo "emulation/tests does not exist yet: the system tests are not there yet"; \
 	fi
+
+# --- Plant model (sim/README.md, "Plant model") ------------------------------------------------
+# `up` starts the emulation without the plant, as before. up-plant starts it with the plant.
+# plant-stop stops only the plant: every device goes back to its own behaviour.
+.PHONY: up-plant plant-stop plant-logs down-plant
+
+up-plant:
+	$(COMPOSE) --profile plant up -d --wait
+
+plant-stop:
+	$(COMPOSE) --profile plant stop plant
+	$(COMPOSE) --profile plant rm -f plant
+
+plant-logs:
+	$(COMPOSE) --profile plant logs --no-color plant
+
+down-plant:
+	$(COMPOSE) --profile tools --profile plant down --remove-orphans

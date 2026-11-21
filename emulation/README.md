@@ -26,3 +26,23 @@ then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
 Device tests: `emulation/devtest/run.sh <case> [pytest arguments]`. A case directory holds
 `sim.yaml` (or a one-line `sim.cmd`), `ioc.cmd` and `test_*.py`; see the header of
 `devtest/run.sh` and the example in `devtest/example/`. Logs go to `<case>/build/`.
+
+## Plant model
+
+Without it each simulator has its own fixed model (a load resistance, constant pressures). With
+it, filament, discharge, gas, vacuum, extraction and heat are coupled: raise the filament current
+and the REK current follows, open the gas and the gauges rise. It is one more container (`plant`,
+172.30.0.30, Compose profile `plant`) that talks only to the control ports of `sim-rack` and
+`sim-hv`. Equations, parameters, disturbances and what it does not model: `sim/README.md`,
+section "Plant model".
+
+| Command | What it does |
+|---|---|
+| `make -C emulation up-plant` | Start the emulation with the plant model |
+| `make -C emulation plant-stop` | Stop only the plant: every device goes back to its own behaviour |
+| `make -C emulation plant-logs` | The plant's log (status every 10 s, events) |
+| `make -C emulation down-plant` | Stop everything, the plant included (`down` does not know the profile) |
+
+`make -C emulation up` starts the emulation without the plant, exactly as before.
+Disturbances for loop tests (emission drift, pressure burst): the plant's control port,
+`172.30.0.30:6090`, see `sim/README.md`.
