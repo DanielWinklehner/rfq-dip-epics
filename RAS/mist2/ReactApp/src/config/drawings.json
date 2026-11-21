@@ -1,0 +1,186 @@
+{
+ "about": "Geometry of the drawings (brief T11: geometry in data). Coordinates in the drawing's viewBox. statics: parts without a device. elements: a device or one channel (registry ids) with an optional symbol (type, x, y, rotate, state = role that fills it), an optional anchor for the leader line, and a tag (x, y, w). list: the area where the page's devices that no element places are listed. A page without elements is a generated list.",
+ "pages": {
+  "Overview": {
+   "viewBox": [0, 0, 1920, 960],
+   "statics": [
+    {"type": "text", "x": 20, "y": 24, "text": "MIST-2 phase 1. Arrangement as told by the owner (G2); where the gauges and the vent valve sit is assumed.", "muted": true, "italic": true},
+    {"type": "rect", "x": 40, "y": 60, "w": 560, "h": 660, "style": "dashed"},
+    {"type": "text", "x": 56, "y": 84, "text": "HV platform, at the ion source voltage"},
+    {"type": "rect", "x": 330, "y": 300, "w": 190, "h": 220, "style": "body", "rx": 6},
+    {"type": "text", "x": 425, "y": 505, "text": "plasma chamber", "anchor": "middle"},
+    {"type": "polygon", "points": [[520, 350], [640, 325], [640, 495], [520, 470]], "style": "solid"},
+    {"type": "text", "x": 620, "y": 545, "text": "HV break"},
+    {"type": "rect", "x": 710, "y": 330, "w": 80, "h": 160, "style": "body"},
+    {"type": "rect", "x": 1010, "y": 330, "w": 80, "h": 160, "style": "body"},
+    {"type": "rect", "x": 820, "y": 220, "w": 160, "h": 80, "style": "body"},
+    {"type": "rect", "x": 820, "y": 520, "w": 160, "h": 80, "style": "body"},
+    {"type": "circle", "x": 900, "y": 410, "r": 165, "style": "body"},
+    {"type": "line", "points": [[520, 410], [1240, 410]], "style": "beam"},
+    {"type": "text", "x": 900, "y": 610, "text": "six-way cross CF 10\", ground", "anchor": "middle", "size": 11},
+    {"type": "text", "x": 1170, "y": 395, "text": "to the beam line (phase 2)", "size": 11, "muted": true},
+    {"type": "rect", "x": 815, "y": 335, "w": 10, "h": 50, "style": "solid"},
+    {"type": "rect", "x": 815, "y": 435, "w": 10, "h": 50, "style": "solid"},
+    {"type": "text", "x": 700, "y": 505, "text": "puller", "anchor": "middle", "size": 10},
+    {"type": "text", "x": 740, "y": 520, "text": "lens 1", "anchor": "middle", "size": 10},
+    {"type": "text", "x": 780, "y": 505, "text": "lens 2", "anchor": "middle", "size": 10},
+    {"type": "text", "x": 820, "y": 520, "text": "lens 3, grounded", "anchor": "middle", "size": 10},
+    {"type": "line", "points": [[900, 165], [900, 286]], "style": "solid"},
+    {"type": "line", "points": [[1010, 520], [1078, 598]], "style": "pipe"},
+    {"type": "text", "x": 1060, "y": 660, "text": "side flange", "size": 11},
+    {"type": "line", "points": [[900, 714], [900, 860], [557, 860]], "style": "pipe"},
+    {"type": "circle", "x": 535, "y": 860, "r": 22, "style": "solid"},
+    {"type": "text", "x": 535, "y": 905, "text": "roughing pump (no PVs yet)", "anchor": "middle", "size": 11},
+    {"type": "text", "x": 760, "y": 848, "text": "foreline", "size": 11, "muted": true},
+    {"type": "line", "points": [[876, 690], [780, 690]], "style": "pipe"},
+    {"type": "text", "x": 772, "y": 694, "text": "air", "anchor": "end", "size": 11},
+    {"type": "line", "points": [[415, 520], [415, 880]], "style": "pipe"},
+    {"type": "rect", "x": 405, "y": 700, "w": 20, "h": 14, "style": "solid"},
+    {"type": "text", "x": 432, "y": 692, "text": "insulating break (assumed)", "size": 10, "muted": true}
+   ],
+   "elements": [
+    {"device": "fil_heat", "symbol": {"type": "filament", "x": 425, "y": 390, "state": "out_state"}, "tag": {"x": 60, "y": 100, "w": 230}},
+    {"device": "fil_dis_old", "anchor": [340, 340], "tag": {"x": 60, "y": 200, "w": 230}},
+    {"device": "thermo_hv", "anchor": [330, 470], "tag": {"x": 60, "y": 300, "w": 230}},
+    {"device": "au_src", "anchor": [120, 720], "tag": {"x": 60, "y": 740, "w": 230}},
+    {"device": "mfc", "tag": {"x": 245, "y": 880, "w": 170}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 415, "y": 780, "state": "state", "rotate": 90}, "tag": {"x": 440, "y": 760, "w": 160}},
+    {"device": "au_puller", "symbol": {"type": "electrode", "x": 700, "y": 410, "state": "out_state"}, "tag": {"x": 640, "y": 40, "w": 190}},
+    {"device": "au_lens1", "symbol": {"type": "electrode", "x": 740, "y": 410, "state": "out_state"}, "tag": {"x": 840, "y": 40, "w": 190}},
+    {"device": "au_lens2", "symbol": {"type": "electrode", "x": 780, "y": 410, "state": "out_state"}, "tag": {"x": 1040, "y": 40, "w": 190}},
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 900, "y": 150, "state": "state", "rotate": 90}, "tag": {"x": 930, "y": 135, "w": 170}},
+    {"device": "fc_opta", "symbol": {"type": "cup", "x": 900, "y": 300}, "tag": {"x": 1240, "y": 150, "w": 200}},
+    {"device": "turbo1", "symbol": {"type": "turbo", "x": 900, "y": 690, "state": "run_state"}, "tag": {"x": 960, "y": 700, "w": 210}},
+    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 820, "y": 690, "state": "state"}, "tag": {"x": 620, "y": 700, "w": 160}},
+    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 720, "y": 860, "state": "state"}, "tag": {"x": 640, "y": 890, "w": 160}},
+    {"device": "naim", "symbol": {"type": "gauge", "x": 1090, "y": 615}, "tag": {"x": 1180, "y": 560, "w": 210}},
+    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 1125, "y": 615}, "tag": {"x": 1180, "y": 612, "w": 210}}
+   ],
+   "list": {"x": 1480, "y": 40, "w": 260, "h": 900}
+  },
+  "Plasma generator": {
+   "viewBox": [0, 0, 1920, 700],
+   "statics": [
+    {"type": "rect", "x": 40, "y": 40, "w": 1300, "h": 520, "style": "dashed"},
+    {"type": "text", "x": 56, "y": 64, "text": "HV platform, at the ion source voltage"},
+    {"type": "rect", "x": 560, "y": 150, "w": 40, "h": 300, "style": "body"},
+    {"type": "text", "x": 580, "y": 140, "text": "back plate", "anchor": "middle", "size": 11},
+    {"type": "rect", "x": 600, "y": 150, "w": 360, "h": 300, "style": "body", "rx": 6},
+    {"type": "text", "x": 780, "y": 435, "text": "plasma chamber", "anchor": "middle"},
+    {"type": "line", "points": [[758, 322], [758, 380], [600, 380]], "style": "solid"},
+    {"type": "line", "points": [[802, 322], [802, 400], [600, 400]], "style": "solid"},
+    {"type": "text", "x": 640, "y": 395, "text": "filament feedthrough", "size": 10, "muted": true},
+    {"type": "line", "points": [[960, 300], [1600, 300]], "style": "beam"},
+    {"type": "polygon", "points": [[1340, 240], [1440, 220], [1440, 380], [1340, 360]], "style": "solid"},
+    {"type": "text", "x": 1390, "y": 410, "text": "HV break", "anchor": "middle"},
+    {"type": "text", "x": 1460, "y": 330, "text": "extraction, six-way cross", "size": 11, "muted": true},
+    {"type": "rect", "x": 120, "y": 420, "w": 140, "h": 90, "style": "body"},
+    {"type": "text", "x": 190, "y": 470, "text": "isolation transformer 1", "anchor": "middle", "size": 10},
+    {"type": "rect", "x": 300, "y": 420, "w": 140, "h": 90, "style": "body"},
+    {"type": "text", "x": 370, "y": 470, "text": "isolation transformer 2", "anchor": "middle", "size": 10},
+    {"type": "line", "points": [[700, 450], [700, 590]], "style": "pipe"},
+    {"type": "rect", "x": 1480, "y": 300, "w": 400, "h": 120, "style": "dashed"},
+    {"type": "text", "x": 1496, "y": 330, "text": "Reserved: control loop of the discharge (WP10)"},
+    {"type": "text", "x": 1496, "y": 352, "text": "enable, mode, set point, output, limits; not built yet", "size": 11, "muted": true},
+    {"type": "rect", "x": 690, "y": 545, "w": 20, "h": 14, "style": "solid"},
+    {"type": "text", "x": 717, "y": 557, "text": "insulating break (assumed)", "size": 10, "muted": true}
+   ],
+   "elements": [
+    {"device": "fil_heat", "symbol": {"type": "filament", "x": 780, "y": 300, "state": "out_state"}, "tag": {"x": 1000, "y": 70, "w": 240}},
+    {"device": "fil_dis_old", "anchor": [960, 200], "tag": {"x": 1000, "y": 170, "w": 240}},
+    {"device": "thermo_hv", "channel": "t1", "anchor": [560, 200], "tag": {"x": 320, "y": 80, "w": 200}},
+    {"device": "thermo_hv", "channel": "t2", "anchor": [600, 390], "tag": {"x": 320, "y": 200, "w": 200}},
+    {"device": "thermo_hv", "channel": "t3", "anchor": [190, 420], "tag": {"x": 60, "y": 330, "w": 200}},
+    {"device": "thermo_hv", "channel": "t4", "anchor": [370, 420], "tag": {"x": 280, "y": 330, "w": 200}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 700, "y": 500, "state": "state", "rotate": 90}, "tag": {"x": 720, "y": 480, "w": 160}},
+    {"device": "mfc", "tag": {"x": 610, "y": 590, "w": 180}},
+    {"device": "au_src", "anchor": [1340, 90], "tag": {"x": 1480, "y": 60, "w": 240}}
+   ],
+   "list": {"x": 1480, "y": 450, "w": 240, "h": 230}
+  },
+  "Extraction": {
+   "viewBox": [0, 0, 1920, 560],
+   "statics": [
+    {"type": "line", "points": [[100, 300], [1340, 300]], "style": "beam"},
+    {"type": "rect", "x": 100, "y": 200, "w": 200, "h": 200, "style": "body", "rx": 6},
+    {"type": "text", "x": 200, "y": 235, "text": "ion source (HV platform)", "anchor": "middle", "size": 11},
+    {"type": "polygon", "points": [[300, 240], [420, 215], [420, 385], [300, 360]], "style": "solid"},
+    {"type": "text", "x": 360, "y": 415, "text": "HV break", "anchor": "middle"},
+    {"type": "rect", "x": 420, "y": 90, "w": 900, "h": 320, "style": "dashed"},
+    {"type": "text", "x": 436, "y": 112, "text": "six-way cross, upstream flange (ground)"},
+    {"type": "rect", "x": 1075, "y": 225, "w": 10, "h": 50, "style": "solid"},
+    {"type": "rect", "x": 1075, "y": 325, "w": 10, "h": 50, "style": "solid"},
+    {"type": "text", "x": 1080, "y": 395, "text": "lens 3: grounded, no supply", "anchor": "middle", "size": 11}
+   ],
+   "elements": [
+    {"device": "au_src", "anchor": [200, 200], "tag": {"x": 60, "y": 40, "w": 230}},
+    {"device": "au_puller", "symbol": {"type": "electrode", "x": 600, "y": 300, "state": "out_state"}, "tag": {"x": 470, "y": 440, "w": 230}},
+    {"device": "au_lens1", "symbol": {"type": "electrode", "x": 760, "y": 300, "state": "out_state"}, "tag": {"x": 720, "y": 440, "w": 230}},
+    {"device": "au_lens2", "symbol": {"type": "electrode", "x": 920, "y": 300, "state": "out_state"}, "tag": {"x": 970, "y": 440, "w": 230}},
+    {"device": "hv_alloff", "tag": {"x": 1400, "y": 40, "w": 230}},
+    {"device": "ilk_old", "tag": {"x": 1400, "y": 130, "w": 230}}
+   ],
+   "list": {"x": 1660, "y": 40, "w": 240, "h": 500}
+  },
+  "Vacuum and gas": {
+   "viewBox": [0, 0, 1920, 700],
+   "statics": [
+    {"type": "rect", "x": 60, "y": 220, "w": 220, "h": 120, "style": "dashed"},
+    {"type": "text", "x": 170, "y": 285, "text": "ion source (HV platform)", "anchor": "middle", "size": 11},
+    {"type": "polygon", "points": [[280, 250], [380, 232], [380, 328], [280, 310]], "style": "solid"},
+    {"type": "text", "x": 330, "y": 360, "text": "HV break", "anchor": "middle", "size": 11},
+    {"type": "rect", "x": 525, "y": 210, "w": 70, "h": 140, "style": "body"},
+    {"type": "rect", "x": 795, "y": 210, "w": 70, "h": 140, "style": "body"},
+    {"type": "rect", "x": 630, "y": 105, "w": 140, "h": 70, "style": "body"},
+    {"type": "rect", "x": 630, "y": 375, "w": 140, "h": 70, "style": "body"},
+    {"type": "circle", "x": 700, "y": 280, "r": 150, "style": "body"},
+    {"type": "line", "points": [[380, 280], [1000, 280]], "style": "beam"},
+    {"type": "text", "x": 1010, "y": 270, "text": "to the beam line (phase 2)", "size": 11, "muted": true},
+    {"type": "line", "points": [[700, 75], [700, 180]], "style": "solid"},
+    {"type": "line", "points": [[800, 390], [868, 450]], "style": "pipe"},
+    {"type": "text", "x": 905, "y": 500, "text": "side flange", "anchor": "middle", "size": 11},
+    {"type": "line", "points": [[700, 534], [700, 610], [302, 610]], "style": "pipe"},
+    {"type": "circle", "x": 280, "y": 610, "r": 22, "style": "solid"},
+    {"type": "text", "x": 280, "y": 655, "text": "roughing pump (no PVs yet)", "anchor": "middle", "size": 11},
+    {"type": "line", "points": [[676, 510], [540, 510]], "style": "pipe"},
+    {"type": "text", "x": 532, "y": 514, "text": "air", "anchor": "end", "size": 11},
+    {"type": "line", "points": [[190, 340], [190, 520]], "style": "pipe"}
+   ],
+   "elements": [
+    {"device": "turbo1", "symbol": {"type": "turbo", "x": 700, "y": 510, "state": "run_state"}, "tag": {"x": 760, "y": 530, "w": 220}},
+    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 600, "y": 510, "state": "state"}, "tag": {"x": 400, "y": 450, "w": 160}},
+    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 480, "y": 610, "state": "state"}, "tag": {"x": 400, "y": 625, "w": 160}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 190, "y": 430, "state": "state", "rotate": 90}, "tag": {"x": 210, "y": 410, "w": 160}},
+    {"device": "mfc", "tag": {"x": 80, "y": 520, "w": 200}},
+    {"device": "naim", "symbol": {"type": "gauge", "x": 885, "y": 465}, "tag": {"x": 960, "y": 390, "w": 220}},
+    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 920, "y": 465}, "tag": {"x": 960, "y": 445, "w": 220}},
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 60, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 40, "w": 170}}
+   ],
+   "list": {"x": 1300, "y": 40, "w": 240, "h": 640}
+  },
+  "Cooling and interlocks": {
+   "viewBox": [0, 0, 1920, 320],
+   "elements": [],
+   "list": {"x": 20, "y": 20, "w": 300, "h": 280}
+  },
+  "Diagnostics": {
+   "viewBox": [0, 0, 1920, 520],
+   "statics": [
+    {"type": "rect", "x": 525, "y": 230, "w": 70, "h": 140, "style": "body"},
+    {"type": "rect", "x": 795, "y": 230, "w": 70, "h": 140, "style": "body"},
+    {"type": "rect", "x": 630, "y": 125, "w": 140, "h": 70, "style": "body"},
+    {"type": "rect", "x": 630, "y": 395, "w": 140, "h": 70, "style": "body"},
+    {"type": "circle", "x": 700, "y": 300, "r": 150, "style": "body"},
+    {"type": "line", "points": [[380, 300], [1000, 300]], "style": "beam"},
+    {"type": "text", "x": 1010, "y": 290, "text": "to the beam line (phase 2)", "size": 11, "muted": true},
+    {"type": "text", "x": 370, "y": 290, "text": "from the extraction", "anchor": "end", "size": 11, "muted": true},
+    {"type": "line", "points": [[700, 95], [700, 215]], "style": "solid"}
+   ],
+   "elements": [
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 80, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 60, "w": 170}},
+    {"device": "fc_opta", "symbol": {"type": "cup", "x": 700, "y": 230}, "tag": {"x": 900, "y": 180, "w": 230}}
+   ],
+   "list": {"x": 1300, "y": 40, "w": 240, "h": 440}
+  }
+ }
+}

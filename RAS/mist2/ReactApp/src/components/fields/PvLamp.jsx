@@ -8,13 +8,13 @@ import stateText from "./stateText";
 
 // The lamp of a binary state (LAYOUT.md 1.2): filled when on, hollow when
 // off, in the colour of the record's severity; crossed out without connection.
-export const Lamp = ({ state, on, size = 14 }) => {
+export const Lamp = ({ state, on, size = 14, x, y }) => {
   const theme = useTheme();
   const colors = alarmColors(theme, state);
   const color = state === "ok" ? theme.palette.text.primary : colors.stroke;
   const r = size / 2 - 1.5;
   return (
-    <svg width={size} height={size} style={{ flex: "none" }}>
+    <svg x={x} y={y} width={size} height={size} style={{ flex: "none" }}>
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -31,9 +31,12 @@ export const Lamp = ({ state, on, size = 14 }) => {
   );
 };
 
+// The word beside a lamp: the state string, or the word of a bad alarm state.
+export const lampText = (state, value, enumStrs) =>
+  alarmWord(state) ?? `${stateText(value, enumStrs)} ${marker(state)}`.trim();
+
 const PvLampComponent = (props) => {
   const state = alarmState(props.initialized, props.alarmSeverity);
-  const text = alarmWord(state) ?? `${stateText(props.value, props.enumStrs)} ${marker(state)}`;
   return (
     <Stack direction="row" spacing={1} alignItems="center" data-pv={props.pv} data-alarm={state}>
       <Lamp state={state} on={Number(props.value) !== 0} />
@@ -41,7 +44,7 @@ const PvLampComponent = (props) => {
         {props.label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap data-value>
-        {text.trim()}
+        {lampText(state, props.value, props.enumStrs)}
       </Typography>
     </Stack>
   );

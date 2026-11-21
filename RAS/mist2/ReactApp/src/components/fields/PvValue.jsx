@@ -3,7 +3,7 @@ import TextField from "@mui/material/TextField";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmState, displayText, fieldSx } from "../../alarm/severity";
-import { isText } from "../../registry";
+import valueFormat from "./valueFormat";
 
 const PvValueComponent = (props) => {
   const theme = useTheme();
@@ -25,19 +25,8 @@ const PvValueComponent = (props) => {
 
 // A read-back: value, unit and precision from the record, coloured by its
 // severity. `exponent` shows the number in exponent format (pressures).
-const PvValue = ({ pv, exponent = false, ...others }) => {
-  const text = isText(pv);
-  return (
-    <Widget
-      {...others}
-      pv={pv}
-      component={PvValueComponent}
-      useStringValue={text}
-      usePvUnits
-      usePvPrecision={!text && !exponent}
-      numberFormat={exponent ? { notation: "exponential", precision: 3 } : undefined}
-    />
-  );
-};
+const PvValue = ({ pv, exponent = false, ...others }) => (
+  <Widget {...others} pv={pv} component={PvValueComponent} {...valueFormat(pv, exponent)} />
+);
 
 export default PvValue;

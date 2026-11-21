@@ -26,6 +26,15 @@ export const stateNames = {
   disconnected: "no connection",
 };
 
+// The alarm status names of EPICS base (menuAlarmStat). Channel Access sends
+// only the first 16 as strings, so the others arrive as numbers.
+const statusNames = [
+  "NO_ALARM", "READ", "WRITE", "HIHI", "HIGH", "LOLO", "LOW", "STATE", "COS", "COMM", "TIMEOUT",
+  "HWLIMIT", "CALC", "SCAN", "LINK", "SOFT", "BAD_SUB", "UDF", "DISABLE", "SIMM", "READ_ACCESS",
+  "WRITE_ACCESS",
+];
+export const statusName = (value) => (/^\d+$/.test(String(value)) ? statusNames[Number(value)] : value);
+
 export const marker = (state) => markers[state];
 export const alarmWord = (state) => words[state];
 

@@ -6,7 +6,7 @@ import RoleField from "../RoleField";
 // Rows of role fields, two per row so that related roles stand side by side.
 // A row whose roles the device or channel does not have is left out, a single
 // missing role leaves its place empty.
-const RoleGrid = ({ id, channel, rows, fieldProps = {} }) => {
+const RoleGrid = ({ id, channel, rows }) => {
   const roles = rolesOf(id, channel);
   return (
     <Grid container spacing={2} alignItems="flex-start">
@@ -15,7 +15,7 @@ const RoleGrid = ({ id, channel, rows, fieldProps = {} }) => {
         .flat()
         .map((role, index) => (
           <Grid key={`${role}-${index}`} size={6}>
-            <RoleField id={id} channel={channel} role={role} {...fieldProps[role]} />
+            <RoleField id={id} channel={channel} role={role} />
           </Grid>
         ))}
     </Grid>

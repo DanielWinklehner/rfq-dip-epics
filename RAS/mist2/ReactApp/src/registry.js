@@ -15,6 +15,11 @@ const allPvs = Object.fromEntries([
 
 export const pvInfo = (name) => allPvs[name];
 
+const owners = Object.fromEntries(
+  Object.entries(devices).flatMap(([id, device]) => Object.keys(device.pvs).map((name) => [name, id]))
+);
+export const deviceOfPv = (name) => owners[name];
+
 export const isInstalled = (id) => !devices[id].flags.not_installed;
 export const isPolled = (id) => !devices[id].flags.not_polled;
 
