@@ -1,0 +1,38 @@
+# libcom1_device.db
+#
+# Params Required:
+# DEVICE: EPICS PV Prefix
+# PORT: asyn device port
+#
+# Generic records for any libcom1 device with protocol 2 firmware: which device is on this
+# port, with which firmware and which channel order. Load it next to the device's own database:
+#
+#   dbLoadRecords("db/libcom1_device.db","PORT='AVR11',DEVICE=avr11")
+#
+# The identity is read every 10 seconds. These records therefore show within seconds when a
+# device was unplugged or a different one sits on the port (COM port numbers change).
+#
+# The array from read_all_array is positional. Compare $(DEVICE):channels with the order your
+# database assumes whenever firmware is updated.
+
+record(stringin, "$(DEVICE):id") {
+    field(DESC, "Device name")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_identify $(PORT)")
+    field(SCAN, "10 second")
+    field(PINI, "YES")
+    field(FLNK, "$(DEVICE):firmware")
+}
+
+record(stringin, "$(DEVICE):firmware") {
+    field(DESC, "Firmware version")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_firmware $(PORT)")
+    field(FLNK, "$(DEVICE):channels")
+}
+
+record(stringin, "$(DEVICE):channels") {
+    field(DESC, "Channels in query-all order")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto com1_channels $(PORT)")
+}

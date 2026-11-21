@@ -1,0 +1,765 @@
+# MIST-2 control system: single source of truth for the rebuild at IBA.
+#
+# Edit this file, then run   python build.py   to regenerate the sketches (out/*.svg, *.png, *.pdf)
+# and the Word document (out/MIST-2_Control_System_Plan.docx).
+#
+# status values:
+#   keep     stays as it is
+#   modify   stays, but firmware / interface / database changes
+#   replace  will be removed, a new device takes over
+#   new      to be added
+#   later    phase 2 (dipole scan, emittance scanners)
+#   tbd      not decided, or not enough information yet
+#
+# Existing PVs are read from the EPICS databases in epics_db/ (snapshot of rfq-dip-epics).
+# Only PVs that do not exist yet are listed here, under "proposed".
+
+meta:
+  title: "MIST-2 Control System Rebuild at IBA"
+  subtitle: "Device inventory, connections, process variables and work plan"
+  revision: "0.6"
+  date: "2026-11-21"
+  author: "D. Winklehner"
+  basis:
+    - "Device list 'MIST-2 Devices Comm Protocols' (docx)"
+    - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
+    - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
+    - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+
+phases:
+  - id: 1
+    name: "Phase 1: ion source re-commissioning"
+    text: "Source, extraction, vacuum, gas, cooling, interlocks and Faraday cup. No dipole, probably no emittance scanners."
+  - id: 2
+    name: "Phase 2: beam characterization"
+    text: "Dipole scan (today LabVIEW) and emittance scanners (today Python/Flask) moved to EPICS with one common scan tool."
+
+network:
+  name: "Control network"
+  text: "New Ethernet switch (model tbc), fiber to both IOCs"
+
+locations:
+  - {id: control, name: "Control room / desk"}
+  - {id: rack, name: "Equipment rack (ground potential)"}
+  - {id: hv, name: "High-voltage platform"}
+  - {id: emit, name: "Emittance scanner rack"}
+
+hosts:
+  - id: lab_pc
+    name: "Lab computer"
+    location: control
+    role: "Serves the GUI (React Automation Studio). Runs the LabVIEW dipole scan."
+    os: "Windows"
+    uplink: "Ethernet"
+    status: keep
+  - id: ioc_rack
+    name: "Rack IOC"
+    model: "1U server"
+    location: rack
+    role: "EPICS IOC for everything in the rack"
+    os: "Windows today, Linux planned"
+    uplink: "Fiber to the new switch"
+    status: modify
+    change: "Move from Windows to Linux"
+    notes:
+      - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4."
+    questions:
+      - "Which COM ports does the running IOC use? Please send st.cmd and the output of dbl."
+  - id: ioc_hv
+    name: "HV platform IOC"
+    model: "ASUS mini PC"
+    location: hv
+    role: "EPICS IOC for the supplies on the high-voltage platform"
+    os: "?"
+    uplink: "Fiber to the new switch (the only link that crosses to the platform)"
+    status: keep
+    questions:
+      - "Operating system of the mini PC? Please send its st.cmd and dbl output as well."
+  - id: emit_pc
+    name: "Emittance scanner PC"
+    model: "Small form-factor PC"
+    location: emit
+    role: "Python server (Flask), no EPICS"
+    os: "?"
+    uplink: "Ethernet"
+    status: later
+
+adapters:
+  - id: co_u32
+    name: "Matsusada CO-U32"
+    text: "USB to optical fiber, up to 32 supplies"
+    host: ioc_rack
+    link: "USB (virtual COM port, 9600 baud)"
+    status: modify
+  - id: usb_opt
+    name: "Matsusada USB-OPT"
+    text: "USB to optical fiber, second chain"
+    host: ioc_rack
+    link: "USB (virtual COM port)"
+    status: new
+  - id: ni_desk
+    name: "NI USB-6001"
+    text: "analog I/O"
+    host: lab_pc
+    link: "USB"
+    status: later
+  - id: ni_emit
+    name: "NI USB-6001"
+    text: "analog out + HV amplifier"
+    host: emit_pc
+    link: "USB"
+    status: later
+
+subsystems:
+  - {id: source, name: "Plasma generator (HV platform)", phase: 1}
+  - {id: hv, name: "Extraction and beam optics high voltage", phase: 1}
+  - {id: vacuum, name: "Vacuum and gas", phase: 1}
+  - {id: cooling, name: "Cooling and interlocks", phase: 1}
+  - {id: diag, name: "Beam diagnostics", phase: 1}
+  - {id: scan, name: "Dipole scan and emittance scanners", phase: 2}
+
+devices:
+  # ------------------------------------------------------------------ plasma generator
+  - id: fil_heat
+    name: "Filament heating supply"
+    model: "TDK-Lambda GENESYS 8-300 (8 V, 300 A)"
+    subsystem: source
+    location: hv
+    host: ioc_hv
+    link: "USB (RS-232/485 also available)"
+    protocol: "StreamDevice, tdk.proto, 19200 baud"
+    epics: {db: tdk.db, macros: {DEVICE: tdk, PORT: TDK}}
+    status: keep
+    proposed:
+      - {name: "tdk:power:get", type: calc, egu: W, desc: "Output power (V x I)"}
+      - {name: "tdk:mode:get", type: mbbi, desc: "CV / CC / off (MODE?)"}
+      - {name: "tdk:fault:get", type: longin, desc: "Fault register (FLT?)"}
+    notes:
+      - "Sets are already acknowledged (the supply answers OK)."
+
+  - id: fil_dis_old
+    name: "Filament discharge supply (old)"
+    model: "Matsusada REK150-24 (150 V, 24 A)"
+    subsystem: source
+    location: hv
+    host: ioc_hv
+    link: "RS-485 to USB adapter"
+    protocol: "StreamDevice, rek.proto (Matsusada CO protocol), 9600 baud"
+    epics: {db: rek.db, macros: {UNITNUM: "1", PORT: REK}}
+    status: replace
+    notes:
+      - "Replaced by the REK150-55."
+
+  - id: fil_dis_new
+    name: "Filament discharge supply (new)"
+    model: "Matsusada REK150-55-L(400V) (150 V, 55 A, 8.3 kW), no communication options"
+    subsystem: source
+    location: hv
+    host: ioc_hv
+    link: "Matsusada digital interface port, through an external CO adapter"
+    protocol: "Matsusada CO protocol (rek.proto), same as the old unit"
+    status: new
+    inherits_pvs_from: fil_dis_old
+    proposed:
+      - {name: "REK-1:mode:read", type: mbbi, desc: "CV / CC mode"}
+      - {name: "REK-1:alarm:read", type: longin, desc: "Alarm / cutoff cause"}
+    options:
+      - {name: "CO-MET4-25", text: "RS-485 adapter (25-pin D-sub)", interface: "RS-485", note: "Probably what the REK150-24 uses today. Then nothing changes but the supply."}
+      - {name: "CO-MET2-9 / -25", text: "RS-232C adapter", interface: "RS-232C", note: ""}
+      - {name: "CO-U32m", text: "USB adapter for the modular port", interface: "USB", note: "Not the CO-U32 in the rack: that one is for supplies with the optical port."}
+      - {name: "CO-E32m", text: "LAN adapter for the modular port", interface: "Ethernet", note: "Cleanest for a Linux IOC. Check delivery time."}
+    notes:
+      - "Baseline remote control of a REK without options (Matsusada product page): the proprietary digital interface port with modular IN and OUT jacks, which always needs an external adapter, plus the external analog remote control terminals. Built-in LAN, USB or RS-485 would have needed the -LMi option."
+      - "Proposal: keep the PV names REK-1:* so that the GUI does not change."
+      - "rek.db hard-codes 24 A full scale (ESLO = 24/0xFFFF, DRVH = 24). With the 55 A unit every current would be wrong by a factor 2.3. Make full scale a macro."
+      - "rek.db labels the current read-backs mA although the values are in A."
+      - "Matsusada states that the input-voltage variants, -L(400V) among them, do not carry CE marking. Worth telling IBA's safety group before installation."
+    questions:
+      - "Which adapter sits between the RS-485 to USB converter and the REK150-24 today (label on the box)? Does the new unit have the same modular port?"
+      - "8.3 kW on the platform at 400 V three-phase: is the isolation transformer and the platform mains sized for it?"
+
+  - id: thermo_hv
+    name: "Thermocouple readout"
+    model: "Arduino based"
+    subsystem: source
+    location: hv
+    host: ioc_hv
+    link: "USB"
+    protocol: "libcom1"
+    epics: {db: thermocouples.db, macros: {DEVICE: thm, PORT: thermo}}
+    status: modify
+    libcom1: true
+    notes:
+      - "thermocouples.db: the description of thm:data still says 'All solenoid statuses' (copied from the valve box)."
+    questions:
+      - "What do t1 to t4 measure? The database has no descriptions or units."
+
+  # ------------------------------------------------------------------ high voltage
+  - id: au_src
+    name: "Ion source voltage"
+    model: "Matsusada AU20P15 (+20 kV, 15 mA) with CO-HV"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    via: usb_opt
+    link: "optical fiber (chain assignment is a proposal)"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    epics: {db: matsusada_au20p7.db, macros: {UNITNUM: "1", PORT: mat_co}}
+    status: modify
+    change: "Second optical chain, slimmer polling, scaling fix into the repository"
+    proposed:
+      - {name: "AU:alloff:set", type: bo, desc: "All HV outputs off (#AL on both chains)"}
+    notes:
+      - "Why the update rate drops with every supply: the CO protocol returns one value per request, each request addresses one supply, and all supplies of a chain share one 9600 baud port. One request plus reply is about 20 characters, so about 20 ms on the wire before any turnaround time."
+      - "matsusada_au20p7.db polls five values per supply every 0.1 s (set-point echo and monitor for voltage and current, plus status). That is 50 requests per second for a single supply, more than the chain can carry. With N supplies every value updates N times slower."
+      - "Fix 1: poll only the two monitors (MN1, MN2) fast. Read the set-point echoes (CH0?, CH1?) after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5."
+      - "Fix 2: two chains on two adapters are polled in parallel. Put the supplies that need the fastest read-back on the short chain."
+      - "Fix 3: give the set records PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
+      - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible)."
+      - "Proposal for the split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first. The lenses stay on the CO-U32."
+      - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. The repository still hard-codes 7.5 mA: commit the local fix, ideally as a full-scale macro."
+      - "The PV prefix AU-20P7-<n> is wrong for this unit (it is a P15) and for the negative ones. Another reason to name PVs by function: source, puller, lens 1 to 3."
+
+  - id: au_puller
+    name: "Puller"
+    model: "Matsusada AU20N7.5 (-20 kV, 7.5 mA) with CO-HV"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    via: usb_opt
+    link: "optical fiber (chain assignment is a proposal)"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    status: modify
+    change: "Second optical chain, database into the repository"
+    pvs_unknown: true
+    questions:
+      - "Unit number and PV names of the puller supply? Do the PVs show the negative voltage with its sign?"
+
+  - id: au_lens1
+    name: "Lens 1"
+    model: "Matsusada AU20P7.5 (+20 kV, 7.5 mA) with CO-HV"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    via: co_u32
+    link: "optical fiber"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    epics: {db: matsusada_au20p7.db, macros: {UNITNUM: "2", PORT: mat_co}}
+    status: modify
+    change: "Slimmer polling"
+    questions:
+      - "st.cmd in the repository calls unit 2 'Einzel Lens'. Is that lens 1, as assumed here?"
+
+  - id: au_lens2
+    name: "Lens 2"
+    model: "Matsusada AU20N7.5 (-20 kV, 7.5 mA) with CO-HV"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    via: co_u32
+    link: "optical fiber"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    status: modify
+    change: "Slimmer polling, database into the repository"
+    pvs_unknown: true
+
+  - id: au_lens3
+    name: "Lens 3 (not in use)"
+    model: "Matsusada AU20P7.5 (+20 kV, 7.5 mA) with CO-HV"
+    subsystem: hv
+    location: rack
+    host: ioc_rack
+    via: co_u32
+    link: "optical fiber"
+    protocol: "StreamDevice, matsusada_co_ctrl.proto"
+    status: tbd
+    pvs_unknown: true
+    notes:
+      - "The latest extraction system has no lens 3 (electrode grounded). Do not poll this supply while it is unused: every polled supply slows its chain."
+    questions:
+      - "Keep the lens 3 supply connected as a spare, or take it off the chain?"
+      - "Unit numbers of all five supplies (st.cmd in the repository only loads units 1 and 2)."
+
+  # ------------------------------------------------------------------ vacuum and gas
+  - id: mfc
+    name: "Mass flow controller"
+    model: "MKS GV50A"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "RS-485 multi-drop, 9-pin D-sub, through an FTDI USB to RS-485 adapter (power spliced in from a small supply)"
+    protocol: "MKS RS-485 protocol"
+    status: keep
+    pvs_unknown: true
+    notes:
+      - "Works as it is, no change planned."
+      - "The Ethernet port of the unit is for setup only, not for control."
+      - "The repository has the MFC commented out in st.cmd and no database for it. Commit what runs today, so that its PVs appear here."
+
+  - id: gauge_ctrl
+    name: "Gauge controller (homemade)"
+    model: "Arduino based, for Edwards APG and AIM"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "USB"
+    protocol: "libcom1"
+    epics: {db: pressure.db, macros: {DEVICE: avr6, PORT: AVR6}}
+    status: replace
+    notes:
+      - "To be replaced by an off-the-shelf controller."
+
+  - id: gauge_new
+    name: "Gauge controller (off the shelf)"
+    model: "tbd, see options"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "tbd (RS-232/485 or Ethernet, depending on the choice)"
+    protocol: "StreamDevice, protocol file per controller"
+    status: new
+    inherits_pvs_from: gauge_ctrl
+    proposed:
+      - {name: "gauge:aim:enable:set", type: bo, desc: "Cold-cathode gauge on / off"}
+      - {name: "gauge:<n>:state:get", type: mbbi, desc: "Gauge state (off, striking, on, error)"}
+      - {name: "gauge:relay<n>:get", type: bi, desc: "Set-point relay state (also an interlock input)"}
+    options:
+      - {name: "A1: Edwards TIC Instrument Controller", text: "3 or 6 Edwards active gauges. Keeps the APG and AIM heads.", interface: "RS-232 and RS-485", note: "Recommended if the pumps are not Edwards. Same protocol family as the nAIM. Set-point outputs for the interlock."}
+      - {name: "A2: Edwards TIC Turbo and Instrument Controller", text: "As A1, and also runs an Edwards turbopump and its backing pump.", interface: "RS-232 and RS-485", note: "Not applicable: the turbopumps run on Leybold NT 20 converters."}
+      - {name: "A3: no controller", text: "Feed the gauges with 24 V and read their 0-10 V signal with the PLC.", interface: "analog", note: "Cheapest. Needs an accurate analog input (Opta expansion, not the base inputs)."}
+      - {name: "B1: Pfeiffer TPG 366 (or TPG 361/362)", text: "6 (or 1/2) Pfeiffer ActiveLine gauges. New gauge heads needed, one full-range head replaces an APG and AIM pair.", interface: "Ethernet, RS-485, USB", note: "Best if the turbopumps are Pfeiffer, or if Ethernet matters most."}
+      - {name: "B2: digital gauges without controller", text: "Transducers with their own serial or fieldbus port, as the nAIM already is.", interface: "RS-485 or EtherCAT", note: "Fewest boxes. New gauge heads needed. Fits a later EtherCAT migration."}
+    notes:
+      - "Proposal: keep the two pressure PV names (or alias them), add units and alarm limits (HIHI/HIGH) so that a bad vacuum shows as an alarm."
+    questions:
+      - "Which gauges stay: only the APG and the AIM, or more heads at IBA (how many channels)?"
+      - "With Leybold NT 20 converters on the pumps, A1 is the recommendation. Agreed?"
+
+  - id: naim
+    name: "Ion gauge (digital)"
+    model: "Edwards nAIM"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "homemade RS-232 to USB adapter with power feed"
+    protocol: "StreamDevice, aim.proto, 9600 baud"
+    epics: {db: aim.db, macros: {DEVICE: aim, PORT: AIM}}
+    status: keep
+
+  - id: turbo
+    name: "Turbopump controllers"
+    model: "2 x Leybold TURBOTRONIK NT 20"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "remote-control inputs and status relays wired to an Opta, RS-232 monitor output in addition"
+    protocol: "libcom1 over TCP (Opta) for start, stop, status. StreamDevice, listen only, for the RS-232 data"
+    status: new
+    proposed:
+      - {name: "turbo1:start:set", type: bo, desc: "Start / stop (remote-control input)"}
+      - {name: "turbo1:atspeed:get", type: bi, desc: "Normal operation relay"}
+      - {name: "turbo1:failure:get", type: bi, desc: "Failure relay"}
+      - {name: "turbo1:speed:get", type: ai, egu: Hz, desc: "Rotation speed (RS-232 monitor)"}
+      - {name: "turbo1:current:get", type: ai, egu: A, desc: "Motor current (RS-232 monitor)"}
+      - {name: "turbo1:age:get", type: ai, egu: s, desc: "Age of the last RS-232 record"}
+    options:
+      - {name: "A: Opta on the remote-control terminals", text: "Start and stop through the remote inputs, normal-operation and failure relays read back.", interface: "digital I/O", note: "Recommended. The same relays feed the interlock."}
+      - {name: "B: RS-232 monitor output", text: "The converter sends its internal values by itself, about every 8 s. Read only.", interface: "RS-232, listen only", note: "Add to A for speed and current. Data format has to be captured from a unit."}
+      - {name: "C: replace by Turbo.Drive TD20 classic", text: "Leybold's successor, sold as a replacement for the NT 20.", interface: "RS-232, RS-485 or Profibus", note: "Only if full serial control is wanted."}
+    notes:
+      - "One set of PVs per pump (turbo1, turbo2)."
+      - "The NT 20 has no serial command interface: its RS-232 port only reports."
+      - "The status relays (normal operation, failure) are assumed from sister models. Check them in the operating instructions GA 05.208."
+    questions:
+      - "Is the RS-232 port fitted on your two NT 20 units? Which TURBOVAC pumps do they drive?"
+
+  - id: rough
+    name: "Roughing pumps"
+    model: "make and model tbd"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "tbd (relay and status contact via PLC, or serial)"
+    protocol: "protocol tbd"
+    status: new
+    proposed:
+      - {name: "rough1:run:set", type: bo, desc: "Switch pump on / off"}
+      - {name: "rough1:running:get", type: bi, desc: "Pump running (contactor or pump status)"}
+      - {name: "rough1:fault:get", type: bi, desc: "Motor protection / pump fault"}
+    notes:
+      - "Foreline pressure exists already: avr6:apg:getpressure."
+    questions:
+      - "Make and model of the roughing pumps, and how many? Do they have a remote interface or only mains?"
+
+  - id: valves
+    name: "Solenoid valve controller (Arduino)"
+    model: "Arduino based, 8 channels per box"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "USB"
+    protocol: "libcom1, acknowledged sets"
+    epics: {db: solenoidbox.db, macros: {DEVICE: avr12, PORT: AVR12}}
+    status: replace
+    libcom1: true
+    notes:
+      - "Stays in service until the additional Optas have arrived (a few weeks). Flash the protocol 2 firmware anyway, so that sets are acknowledged in the meantime."
+    questions:
+      - "The device list says 4 x solenoid valve controller, st.cmd loads one box with 8 channels. Four boxes, or four valves on one box?"
+      - "Which valve is on which channel? The database only says s1 to s8."
+
+  - id: valves_opta
+    name: "Solenoid valve controller (Opta)"
+    model: "Arduino Opta, to be ordered"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "Ethernet"
+    protocol: "libcom1 over TCP, acknowledged sets"
+    status: new
+    inherits_pvs_from: valves
+    notes:
+      - "An Opta has 4 relay outputs. More valves need a second Opta or a relay expansion module."
+      - "Proposal: same PV names as today, so that the GUI does not change. Better: names that say what each valve does."
+      - "Decide the safe state per valve (open or closed on loss of communication) and switch on the communication timeout."
+
+  # ------------------------------------------------------------------ cooling and interlocks
+  - id: flow_opta
+    name: "Flow meter readout"
+    model: "Arduino Opta"
+    subsystem: cooling
+    location: rack
+    host: ioc_rack
+    link: "USB today, Ethernet proposed"
+    protocol: "tbd"
+    status: modify
+    pvs_unknown: true
+    notes:
+      - "Cooling loop runs DI water, 0.25 to 2 l/min per branch. Each branch should report flow and temperature."
+    questions:
+      - "Which flow sensors, how many branches, and which firmware runs on the Opta?"
+
+  - id: sensorbox
+    name: "Sensor box (temperatures and flows)"
+    model: "Arduino based"
+    subsystem: cooling
+    location: rack
+    host: ioc_rack
+    link: "USB"
+    protocol: "libcom1"
+    epics: {db: sensorbox.db, macros: {DEVICE: avr10, PORT: AVR10}}
+    status: tbd
+    libcom1: true
+    questions:
+      - "The sensor box is in st.cmd but not in the device list. Still in use, or replaced by the Opta flow readout?"
+
+  - id: ilk_old
+    name: "Interlock controller (old)"
+    model: "Arduino based"
+    subsystem: cooling
+    location: rack
+    host: ioc_rack
+    link: "USB"
+    protocol: "libcom1"
+    epics: {db: interlockbox.db, macros: {DEVICE: avr11, PORT: AVR11}}
+    status: replace
+    notes:
+      - "Two interlock inputs. The summary PV interlock_status has no device prefix."
+
+  - id: ilk_new
+    name: "Interlock system (new)"
+    model: "tbd: safety relays plus PLC, see interlock chapter"
+    subsystem: cooling
+    location: rack
+    host: ioc_rack
+    link: "Ethernet (read-only status to EPICS)"
+    protocol: "tbd (Modbus TCP or libcom1 over TCP)"
+    status: new
+    proposed:
+      - {name: "ilk:in:<signal>:get", type: bi, desc: "One PV per interlock input"}
+      - {name: "ilk:permit:hv:get", type: bi, desc: "High-voltage permit"}
+      - {name: "ilk:permit:plasma:get", type: bi, desc: "Filament and discharge permit"}
+      - {name: "ilk:permit:gas:get", type: bi, desc: "Gas permit"}
+      - {name: "ilk:tripped:get", type: bi, desc: "Any interlock latched"}
+      - {name: "ilk:firstfault:get", type: mbbi, desc: "Input that tripped first"}
+      - {name: "ilk:bypass:get", type: bi, desc: "Key-switch bypass active"}
+      - {name: "ilk:reset:set", type: bo, desc: "Reset request (only works when all inputs are good)"}
+      - {name: "ilk:heartbeat:get", type: longin, desc: "PLC alive counter"}
+
+  # ------------------------------------------------------------------ diagnostics
+  - id: fc_opta
+    name: "Faraday cup readout"
+    model: "Arduino Opta"
+    subsystem: diag
+    location: rack
+    host: ioc_rack
+    link: "USB today, Ethernet proposed"
+    protocol: "tbd"
+    status: modify
+    pvs_unknown: true
+    questions:
+      - "Which firmware and which PVs does the Faraday cup Opta serve today? Not in the repository."
+
+  # ------------------------------------------------------------------ phase 2
+  - id: magnets
+    name: "Dipole magnet supplies"
+    model: "Old supplies, analog interface only"
+    subsystem: scan
+    location: control
+    host: lab_pc
+    via: ni_desk
+    link: "analog 0-10 V"
+    protocol: "LabVIEW, not in EPICS"
+    status: later
+    proposed:
+      - {name: "dipole:current:set", type: ao, egu: A, desc: "Current setpoint"}
+      - {name: "dipole:current:get", type: ai, egu: A, desc: "Current read-back"}
+    notes:
+      - "Keep the NI USB-6001. Serve it from a small Python soft IOC (nidaqmx) instead of LabVIEW."
+
+  - id: keithley_desk
+    name: "Picoammeter (dipole scan)"
+    model: "Keithley, model tbc"
+    subsystem: scan
+    location: control
+    host: lab_pc
+    link: "RS-485 to USB converter"
+    protocol: "direct, not in EPICS"
+    status: later
+    proposed:
+      - {name: "pico1:current:get", type: ai, egu: A, desc: "Measured current"}
+      - {name: "pico1:range:set", type: mbbo, desc: "Range"}
+
+  - id: emit_motors
+    name: "Emittance scanner stepper motors"
+    model: "2 x stepper"
+    subsystem: scan
+    location: emit
+    host: emit_pc
+    link: "tbc"
+    protocol: "Python / Flask, not in EPICS"
+    status: later
+    proposed:
+      - {name: "emit:x:pos:set", type: ao, egu: mm, desc: "Position setpoint (same for y)"}
+      - {name: "emit:x:pos:get", type: ai, egu: mm, desc: "Position read-back"}
+      - {name: "emit:x:moving:get", type: bi, desc: "Motor moving"}
+
+  - id: emit_pico
+    name: "Picoammeter (emittance scanner)"
+    model: "Keithley, model tbc"
+    subsystem: scan
+    location: emit
+    host: emit_pc
+    link: "tbc"
+    protocol: "Python / Flask, not in EPICS"
+    status: later
+
+  - id: emit_defl
+    name: "Deflection voltage"
+    model: "Matsusada HV amplifier"
+    subsystem: scan
+    location: emit
+    host: emit_pc
+    via: ni_emit
+    link: "analog"
+    protocol: "Python / Flask, not in EPICS"
+    status: later
+    proposed:
+      - {name: "emit:defl:voltage:set", type: ao, egu: V, desc: "Deflection voltage"}
+
+# ---------------------------------------------------------------------- interlock concept
+interlock:
+  intro:
+    - "This is a concept for discussion. The required safety level (ISO 13849 performance level or IEC 62061 SIL) comes from the risk assessment that IBA's safety group owns. That assessment decides which functions must sit in certified hardware."
+    - "Proposal: two layers that do not depend on each other, and EPICS only watches."
+  layers:
+    - id: A
+      name: "Layer A: personnel safety"
+      tech: "Hard-wired safety relays (dual channel, force-guided contacts)"
+      text: "Doors, emergency stop, grounding. Cuts mains to the HV supplies and the platform. No software, no network."
+    - id: B
+      name: "Layer B: machine protection"
+      tech: "PLC with fail-safe wiring (energize to run)"
+      text: "Cooling, vacuum, temperatures. Removes the permits. Latches, needs a manual reset, remembers the first fault."
+    - id: C
+      name: "EPICS (monitor only)"
+      tech: "Reads every input and permit over Ethernet"
+      text: "Shows state, first fault and bypass. Can request a reset. Never part of the trip path."
+  inputs:
+    - {name: "Emergency stop", layer: A, source: "push buttons", status: new}
+    - {name: "HV cage doors closed", layer: A, source: "door switches", status: new}
+    - {name: "Grounding / earthing device", layer: A, source: "position switch", status: tbd}
+    - {name: "Cooling water flow per branch", layer: B, source: "flow switches or Opta flow readout", status: modify}
+    - {name: "Source and magnet temperatures", layer: B, source: "thermocouples / thermal switches", status: tbd}
+    - {name: "Vacuum below threshold", layer: B, source: "gauge setpoint relay (nAIM / gauge controller)", status: modify}
+    - {name: "Turbopumps at speed", layer: B, source: "turbopump controller relay", status: new}
+    - {name: "Foreline pressure / roughing pump running", layer: B, source: "APG gauge, pump contact", status: new}
+    - {name: "Existing interlock inputs i1, i2", layer: B, source: "old interlock box", status: tbd}
+  outputs:
+    - {name: "HV mains contactor", layer: A, acts_on: "AU supplies, platform isolation transformer"}
+    - {name: "HV permit", layer: B, acts_on: "AU supplies (external interlock input)"}
+    - {name: "Plasma permit", layer: B, acts_on: "filament heating and discharge supplies"}
+    - {name: "Gas permit", layer: B, acts_on: "MFC / gas solenoid valve"}
+    - {name: "Gate valve close", layer: B, acts_on: "solenoid valves"}
+  rules:
+    - "Loss of a signal, a broken wire or loss of PLC power must trip. Never the other way round."
+    - "Trips latch. Reset is a deliberate action and only works when all inputs are good."
+    - "A bypass needs a key switch and is visible in EPICS and on the rack."
+    - "The IOC, the GUI and the network can fail without changing the safety state."
+    - "Supplies on the HV platform get their permit through an isolated path (fiber or the mains contactor), not through a copper signal."
+    - "Communication timeout in the device firmware (libcom1 set_comm_timeout) is an extra, not an interlock."
+  questions:
+    - "What are the two inputs of the existing interlock box, and what do they switch?"
+    - "Full list of interlock signals for MIST-2 at IBA, and what each one must switch off."
+    - "Does IBA require a certified safety controller or safety relays for the personnel functions, and who signs it off?"
+    - "PLC for layer B: Arduino Opta (in hand, no SIL rating), or an industrial PLC that IBA already supports?"
+
+# ---------------------------------------------------------------------- work packages
+work_packages:
+  - id: WP1
+    name: "Filament discharge supply swap"
+    phase: 1
+    items:
+      - "Install the REK150-55, decide the interface (LAN preferred if the unit has it)."
+      - "Make full-scale voltage and current macros in rek.db and matsusada_au20p7.db."
+      - "Check platform power: isolation transformer, mains, cooling."
+  - id: WP2
+    name: "Vacuum system into EPICS"
+    phase: 1
+    items:
+      - "Turbopump controllers: protocol file and database per controller type."
+      - "Roughing pumps: on/off and status through the PLC, or serial if available."
+      - "Replace the homemade gauge controller by an off-the-shelf one."
+      - "Turbopumps: two Leybold NT 20 on an Opta (start, stop, status relays), RS-232 monitor output in addition."
+      - "Mass flow controller: works as it is. Commit its protocol file and database to the repository."
+      - "Solenoid valves: Arduino now, Opta when the new units arrive."
+      - "Units, alarm limits and descriptions for all pressure PVs."
+  - id: WP3
+    name: "New interlock system"
+    phase: 1
+    items:
+      - "Signal list and cause-and-effect matrix (which input removes which permit)."
+      - "Agree the safety level and the hardware with IBA's safety group."
+      - "Build, test every input including wire-break, document the tests."
+      - "Read-only EPICS interface and a GUI page with first-fault display."
+  - id: WP4
+    name: "Rack IOC on Linux and Matsusada communication"
+    phase: 1
+    items:
+      - "Find out which USB chip the CO-U32 uses (vendor and product ID). If it is a standard USB-serial chip with a custom ID, Linux needs a udev rule and no new driver."
+      - "Otherwise: user-space bridge (libusb) that exposes a serial or TCP port to asyn."
+      - "The Matsusada CO-E32 LAN adapter may come later. Its delivery time is too long for use before the winter break, so the CO-U32 has to work on Linux first."
+      - "The new USB-OPT adapter raises the same USB question as the CO-U32. Answer both together."
+      - "Split the AU supplies over the two optical chains (two asyn ports, polled in parallel)."
+      - "Rework matsusada_au20p7.db: fast polling for the monitors only, set-point echo after a set, PRIO = HIGH on the set records, full-scale macros, one 'all off' PV."
+      - "Stable device names (udev by serial number) instead of COM numbers."
+      - "Move the IOC, then retire Windows on the rack PC."
+  - id: WP5
+    name: "Firmware and protocol update of the Arduino devices"
+    phase: 1
+    items:
+      - "Flash libcom1 protocol 2 firmware (branch libcom1-robustness-fixes), device by device, firmware before database."
+      - "Load libcom1_device.db for every device (identity, firmware date, channel list)."
+      - "Decide the safe state per device and switch on the communication timeout."
+  - id: WP6
+    name: "Network and naming"
+    phase: 1
+    items:
+      - "New Ethernet switch: fiber to the rack IOC and to the platform IOC, copper ports for Ethernet devices in the rack."
+      - "Nothing on the HV platform connects to the switch by copper. Fiber is the only link that crosses."
+      - "Optas from USB to Ethernet with fixed addresses."
+      - "Decide the PV naming convention before new PVs are added. Keep old names as aliases."
+  - id: WP7
+    name: "GUI overhaul"
+    phase: 1
+    items:
+      - "New layout: one overview page with the source as a synoptic, one page per subsystem, expert pages behind them."
+      - "Generate the subsystem pages from controls.yaml, so that a new device gets its page without hand work."
+      - "Show alarm severity everywhere (the databases now propagate INVALID)."
+  - id: WP8
+    name: "Snapshot report (printout)"
+    phase: 1
+    items:
+      - "Small service that reads all report PVs and writes one PDF plus a machine-readable snapshot (JSON)."
+      - "Trigger from a GUI button. Operator comment and time stamp on the first page."
+      - "The JSON snapshot doubles as a saved set of settings that can be restored later."
+  - id: WP9
+    name: "Data logging with retention tiers"
+    phase: 1
+    items:
+      - "Choose the archiver (EPICS Archiver Appliance, or a time-series database with Grafana)."
+      - "Tag every PV in controls.yaml with its tier. Generate the archiver configuration from it."
+      - "Log set commands, alarms and interlock trips as events, kept forever."
+  - id: WP10
+    name: "Control loops"
+    phase: 1
+    items:
+      - "Loop IOC on the HV platform computer, first loop: discharge current."
+      - "Step 1: plain PID with output limits, slew limit and automatic hand-back to manual."
+      - "Step 2: neural-network layer (gain scheduling or feed-forward), trained on the logged data, behind the same limits."
+  - id: WP11
+    name: "Dipole scan in EPICS"
+    phase: 2
+    items:
+      - "Python soft IOC for the NI USB-6001 (magnet current), picoammeter via StreamDevice."
+      - "Replace the LabVIEW scan by a Python scan tool that only talks to PVs."
+  - id: WP12
+    name: "Emittance scanners in EPICS"
+    phase: 2
+    items:
+      - "Motors, picoammeter and deflection voltage as PVs."
+      - "Same scan tool as the dipole scan."
+
+software:
+  intro:
+    - "The GUI shows values and sends commands, nothing else. Logging, reports and control loops are separate services. They keep running when no GUI is open, and each of them talks to the IOCs through PVs only."
+    - "controls.yaml is the common configuration: GUI pages, the archiver's PV list with its tiers, and the report layout are generated from it."
+  components:
+    - {id: iocs, name: "Device IOCs", text: "Rack IOC and HV platform IOC", status: modify}
+    - {id: loops, name: "Loop IOC", text: "PID and NN loops, runs next to the HV platform IOC", status: new}
+    - {id: gui, name: "GUI", text: "React Automation Studio, new layout", status: modify}
+    - {id: archiver, name: "Archiver", text: "Three retention tiers plus events", status: new}
+    - {id: report, name: "Snapshot report", text: "One PDF with all pertinent values, plus JSON", status: new}
+    - {id: clients, name: "Scan and analysis tools", text: "Dipole scan, emittance scan, automated tuning", status: later}
+  gui:
+    - "React Automation Studio is actively developed (release 8.1.0 of May 2026), so the overhaul can stay on it. A better layout does not need a different toolkit."
+    - "Its Docker setup expects Linux with host networking. Run it on Linux (WSL2 for development), not on Docker Desktop for Windows."
+    - "The GUI code in the repository (RAS/IsoDAR) dates from 2021 and is full of placeholder PVs. Bring the version that runs in the lab into the repository before the overhaul starts."
+    - "Overview page: the source drawn as a synoptic with live values at the place where they are measured. Color follows alarm severity, not hand-set thresholds in the page."
+    - "Subsystem pages are generated from controls.yaml. Expert pages (raw channels, firmware identity, communication state) sit one click behind."
+    - "Alternative, if you ever want the EPICS community standard with alarm server, archive viewer and save/restore in one tool: Phoebus (CS-Studio). It is a desktop application, not a web page."
+  report:
+    - "A small Python service reads every PV tagged for the report and writes one PDF: grouped by subsystem, with time stamp, alarm state and an operator comment."
+    - "It stores the same snapshot as JSON next to the PDF. That file can be compared with a later one, or written back to restore the set points."
+    - "It is triggered by a PV, so the button can sit in the GUI and a script can request a report as well."
+  tiers:
+    - {tier: "1  raw", rate: "as sampled (up to 10 Hz)", keep: "30 days", use: "Fault finding, loop tuning, training data"}
+    - {tier: "2  seconds", rate: "1 s mean, min, max", keep: "2 years", use: "Run comparison, conditioning history"}
+    - {tier: "3  minutes", rate: "1 min mean, min, max", keep: "forever", use: "Long-term trends, operating hours"}
+    - {tier: "events", rate: "on change", keep: "forever", use: "Set commands, alarms, interlock trips, reports"}
+  archiver:
+    - "Option 1: EPICS Archiver Appliance. Built for PVs (keeps IOC time stamps, alarm state and units), has short, medium and long-term stores, and is the community standard. More to install (Java services)."
+    - "Option 2: a time-series database (TimescaleDB or InfluxDB) with Grafana. Lighter, retention and down-sampling rules are built in, and history is one query away from Python. Needs a small Channel Access logger in front."
+    - "The numbers in the table are a starting point. Decide them per PV group, disk space is not the limit for a system of this size."
+  loops:
+    - "Loops run in a soft IOC on the HV platform computer, next to the supplies they act on. No GUI and no Ethernet hop inside the loop."
+    - "First loop: discharge current. Measured value is the discharge supply current (REK), presumably the actuator is the filament heating current (TDK). Both are polled at 10 Hz today, so the loop can correct on a time scale of about a second, which matches a thermal filament."
+    - "Step 1 is a plain PID. It needs output limits, a slew-rate limit, anti-windup and bumpless switching between manual and automatic before anything smarter is added."
+    - "The loop hands back to manual by itself when an interlock trips, when a PV it uses goes INVALID, or when its data is stale."
+    - "Step 2 adds the neural network as an advisor: it schedules the PID gains or supplies a feed-forward term, trained on tier 1 data. Its output passes the same limits as the PID output, and a bad or late answer means plain PID."
+    - "Proposed PVs per loop: enable, mode (manual / PID / PID+NN), setpoint, output, kp, ki, kd, limits, state."
+  questions:
+    - "Which values belong on the printout, and is one page per subsystem the right grouping?"
+    - "Which values should be stabilized besides the discharge current, and what is the actuator for each?"
+    - "Where should archiver and report service run: lab computer, rack IOC, or a new small server?"
+
+naming:
+  text:
+    - "Today's PV names follow three different patterns: by COM-port nickname (avr12:s1:set), by model (AU-20P7-1:voltage:set, REK-1:..., tdk:...) and without any prefix (interlock_status). None says what the device does."
+    - "A rebuild is the cheapest moment to fix this. Proposal: MIST2:<area>:<function>:<signal>, for example MIST2:SRC:FilDis:Current-SP, and keep the old names as EPICS aliases until the GUI and all scripts have moved."
+    - "Renaming also touches every client that reads PVs by name, including automated tuning. Decide once, before the new devices get their PVs."
+
+global_questions:
+  - "Please send dbl output and st.cmd from both IOCs, so that the PV lists show what really runs and not only what is in the repository."
+  - "Is the PV naming convention open for change, or are the current names fixed by existing clients?"
+  - "Target date for phase 1, and what must work on day one?"

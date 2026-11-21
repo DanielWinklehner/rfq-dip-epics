@@ -1,0 +1,738 @@
+#!/usr/bin/env python3
+"""Generate the MIST-2 control system sketches and the Word document from controls.yaml.
+
+    python build.py                 # everything into out/
+    python build.py --no-docx       # sketches only
+    python build.py --db-dir ../rfq-dip-epics/EPICS/Db    # read the live databases
+
+Needs: Python 3.9+, PyYAML, python-docx, and Graphviz ("dot") on the PATH.
+"""
+import argparse
+import html
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+import yaml
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+STATUS = {  # label, fill, border, dashed
+    "keep":    ("KEEP",    "#FFFFFF", "#555555", False),
+    "modify":  ("MODIFY",  "#FFF2CC", "#B58900", False),
+    "replace": ("REPLACE", "#F8D7DA", "#B03A2E", False),
+    "new":     ("NEW",     "#D5F5E3", "#1E8449", False),
+    "later":   ("PHASE 2", "#D6EAF8", "#2E86C1", True),
+    "tbd":     ("TBD",     "#ECECEC", "#777777", True),
+}
+STATUS_TEXT = {
+    "keep": "stays as it is", "modify": "stays, with changes", "replace": "will be removed",
+    "new": "to be added", "later": "phase 2", "tbd": "open, information missing",
+}
+WRITE_TYPES = {"ao", "bo", "longout", "mbbo", "stringout", "aao"}
+FONT = "Helvetica"
+MONO = "Courier"
+
+
+# ----------------------------------------------------------------------------- model
+def subst(text, macros):
+    for key, value in macros.items():
+        text = text.replace("$(%s)" % key, str(value)).replace("${%s}" % key, str(value))
+    return text
+
+
+def parse_db(path, macros):
+    """Records of an EPICS database as a list of dicts, macros substituted."""
+    with open(path, errors="replace") as handle:
+        text = handle.read().replace("\r", "")
+    text = re.sub(r"^\s*#.*$", "", text, flags=re.M)
+    pvs = []
+    for match in re.finditer(r'record\(\s*(\w+)\s*,\s*"([^"]+)"\s*\)\s*\{(.*?)\n\}', text, re.S):
+        rtype, name, body = match.groups()
+        if rtype in ("fanout", "dfanout"):
+            continue
+
+        def field(key):
+            found = re.search(r'field\(\s*%s\s*,\s*"([^"]*)"' % key, body)
+            return subst(found.group(1), macros) if found else ""
+
+        pvs.append({"name": subst(name, macros), "type": rtype, "egu": field("EGU"),
+                    "desc": field("DESC"), "scan": field("SCAN"), "state": "existing"})
+    return pvs
+
+
+class Model:
+    def __init__(self, path, db_dir):
+        with open(path, encoding="utf-8") as handle:
+            self.d = yaml.safe_load(handle)
+        self.db_dir = db_dir
+        self.devices = self.d["devices"]
+        self.hosts = {h["id"]: h for h in self.d["hosts"]}
+        self.adapters = {a["id"]: a for a in self.d.get("adapters", [])}
+        self.by_id = {dev["id"]: dev for dev in self.devices}
+        self.warnings = []
+        for dev in self.devices:
+            dev["pvs"] = self._pvs(dev)
+        self._check()
+
+    def _db(self, name, macros):
+        path = os.path.join(self.db_dir, name)
+        if not os.path.exists(path):
+            self.warnings.append("database %s not found in %s" % (name, self.db_dir))
+            return []
+        return parse_db(path, macros)
+
+    def _pvs(self, dev):
+        pvs = []
+        epics = dev.get("epics")
+        if epics:
+            pvs += self._db(epics["db"], epics.get("macros", {}))
+        if dev.get("inherits_pvs_from"):
+            src = self.by_id[dev["inherits_pvs_from"]]
+            for pv in self._db(src["epics"]["db"], src["epics"].get("macros", {})):
+                pvs.append(dict(pv, state="reuse"))
+        if dev.get("libcom1") and epics:
+            for pv in self._db("libcom1_device.db", epics.get("macros", {})):
+                pvs.append(dict(pv, state="proposed", remark="database exists: libcom1_device.db"))
+        for pv in dev.get("proposed", []):
+            pvs.append({"name": pv["name"], "type": pv.get("type", ""), "egu": pv.get("egu", ""),
+                        "desc": pv.get("desc", ""), "scan": "", "state": "proposed", "remark": pv.get("remark", "")})
+        return pvs
+
+    def _check(self):
+        seen = {}
+        for dev in self.devices:
+            for key in ("subsystem", "location", "host", "status"):
+                if key not in dev:
+                    self.warnings.append("device %s has no %s" % (dev["id"], key))
+            if dev.get("status") not in STATUS:
+                self.warnings.append("device %s: unknown status %r" % (dev["id"], dev.get("status")))
+            if dev.get("host") not in self.hosts:
+                self.warnings.append("device %s: unknown host %r" % (dev["id"], dev.get("host")))
+            if dev.get("via") and dev["via"] not in self.adapters:
+                self.warnings.append("device %s: unknown adapter %r" % (dev["id"], dev["via"]))
+            for pv in dev["pvs"]:
+                if pv["state"] == "existing":
+                    if pv["name"] in seen and seen[pv["name"]] != dev["id"]:
+                        self.warnings.append("PV %s is defined by %s and %s" % (pv["name"], seen[pv["name"]], dev["id"]))
+                    seen[pv["name"]] = dev["id"]
+
+    def counts(self, dev):
+        existing = sum(1 for pv in dev["pvs"] if pv["state"] in ("existing", "reuse"))
+        proposed = sum(1 for pv in dev["pvs"] if pv["state"] == "proposed")
+        return existing, proposed
+
+
+# ----------------------------------------------------------------------------- graphviz
+def esc(text):
+    return html.escape(str(text), quote=False)
+
+
+def edge_label(text, width=26):
+    """Link text for an edge: wrapped, and safe inside a quoted dot string."""
+    return _wrap(str(text).replace('"', "'"), width).replace("\n", "\\n")
+
+
+def node_style(status):
+    label, fill, border, dashed = STATUS[status]
+    style = "rounded,filled" + (",dashed" if dashed else "")
+    return 'style="%s", fillcolor="%s", color="%s"' % (style, fill, border)
+
+
+def box_label(title, lines, status=None, extra=None):
+    rows = ['<TR><TD ALIGN="LEFT"><B>%s</B></TD></TR>' % esc(title)]
+    for line in lines:
+        if line:
+            rows.append('<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">%s</FONT></TD></TR>' % esc(line))
+    tail = []
+    if status:
+        tail.append(STATUS[status][0])
+    if extra:
+        tail.append(extra)
+    if tail:
+        rows.append('<TR><TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="%s"><B>%s</B></FONT></TD></TR>'
+                    % (STATUS[status][2] if status else "#555555", esc("  |  ".join(tail))))
+    return '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1">%s</TABLE>>' % "".join(rows)
+
+
+def legend_node(with_pvs):
+    rows = ['<TR><TD COLSPAN="2" ALIGN="LEFT"><B>Legend</B></TD></TR>']
+    for key in ("keep", "modify", "replace", "new", "later", "tbd"):
+        label, fill, border, _ = STATUS[key]
+        rows.append('<TR><TD BGCOLOR="%s" BORDER="1" COLOR="%s"><FONT POINT-SIZE="8"><B>%s</B></FONT></TD>'
+                    '<TD ALIGN="LEFT"><FONT POINT-SIZE="9">%s</FONT></TD></TR>' % (fill, border, label, esc(STATUS_TEXT[key])))
+    if with_pvs:
+        rows.append('<TR><TD ALIGN="LEFT"><FONT FACE="%s" POINT-SIZE="9">name</FONT></TD>'
+                    '<TD ALIGN="LEFT"><FONT POINT-SIZE="9">PV that exists today</FONT></TD></TR>' % MONO)
+        rows.append('<TR><TD ALIGN="LEFT"><FONT FACE="%s" POINT-SIZE="9" COLOR="#1E8449">+ name</FONT></TD>'
+                    '<TD ALIGN="LEFT"><FONT POINT-SIZE="9">proposed PV</FONT></TD></TR>' % MONO)
+    return ('legend [shape=plain, label=<<TABLE BORDER="1" COLOR="#999999" CELLBORDER="0" CELLSPACING="2" '
+            'CELLPADDING="3" BGCOLOR="#FFFFFF">%s</TABLE>>];' % "".join(rows))
+
+
+HEADER = """digraph G {
+  rankdir=LR; compound=true; nodesep=0.22; ranksep=%s; newrank=true;
+  graph [fontname="%s", fontsize=13, labelloc=t, labeljust=l, pad=0.2, bgcolor="white"];
+  node  [fontname="%s", fontsize=10, shape=box, margin="0.10,0.05"];
+  edge  [fontname="%s", fontsize=8, color="#555555", fontcolor="#333333", arrowsize=0.6];
+"""
+
+
+def overview_dot(m):
+    out = [HEADER % ("0.75", FONT, FONT, FONT)]
+    meta = m.d["meta"]
+    out.append('  label=<<B>%s</B>: devices and connections (rev. %s, %s)>;' % (esc(meta["title"]), esc(meta["revision"]), esc(meta["date"])))
+    net = m.d.get("network", {})
+    out.append('  lan [label=<<B>%s</B><BR/><FONT POINT-SIZE="9">%s</FONT>>, ' % (esc(net.get("name", "Control network")), esc(_wrap(net.get("text", "Ethernet, EPICS Channel Access"), 30)).replace("\n", "<BR/>")) +
+               'style="filled", fillcolor="#EAECEE", color="#555555", height=1.2];')
+    for loc in m.d["locations"]:
+        out.append('  subgraph cluster_%s { label=<<B>%s</B>>; style="rounded"; color="#999999"; bgcolor="#FAFAFA";' % (loc["id"], esc(loc["name"])))
+        for host in m.d["hosts"]:
+            if host["location"] == loc["id"]:
+                out.append('    %s [label=%s, %s, penwidth=2];' % (host["id"], box_label(
+                    host["name"], [host.get("model", ""), "OS: " + host.get("os", "?")], host["status"], "IOC / computer"), node_style(host["status"])))
+        for adapter in m.adapters.values():
+            if m.hosts[adapter["host"]]["location"] == loc["id"]:
+                out.append('    %s [label=%s, %s, shape=box];' % (adapter["id"], box_label(
+                    adapter["name"], [adapter.get("text", "")], adapter["status"], "adapter"), node_style(adapter["status"])))
+        for dev in m.devices:
+            if dev["location"] == loc["id"]:
+                existing, proposed = m.counts(dev)
+                pvs = "PVs: %s%s" % ("?" if dev.get("pvs_unknown") else existing, " (+%d)" % proposed if proposed else "")
+                out.append('    %s [label=%s, %s];' % (dev["id"], box_label(dev["name"], [dev.get("model", "")], dev["status"], pvs), node_style(dev["status"])))
+        out.append("  }")
+    for host in m.d["hosts"]:
+        out.append('  lan -> %s [dir=none, penwidth=1.6, label="%s"];' % (host["id"], edge_label(host.get("uplink", ""))))
+    for adapter in m.adapters.values():
+        out.append('  %s -> %s [label="%s"];' % (adapter["host"], adapter["id"], edge_label(adapter.get("link", ""))))
+    for dev in m.devices:
+        src = dev.get("via") or dev["host"]
+        style = ', style=dashed' if dev["status"] in ("later", "tbd", "new") else ""
+        out.append('  %s -> %s [label="%s"%s];' % (src, dev["id"], edge_label(dev.get("link", "")), style))
+    out.append("  " + legend_node(False))
+    out.append("  { rank=same; lan; legend; }")
+    out.append("}")
+    return "\n".join(out)
+
+
+def group_pvs(pvs):
+    """Collapse s1..s8 style series so that the sketches stay readable."""
+    groups, order = {}, []
+    for pv in pvs:
+        parts = pv["name"].split(":")
+        key = None
+        if len(parts) >= 3:
+            found = re.match(r"^([A-Za-z]+)(\d+)$", parts[1])
+            if found:
+                key = (parts[0], found.group(1), ":".join(parts[2:]), pv["type"], pv["state"])
+        if key is None:
+            key = ("single", pv["name"], pv["state"])
+            groups[key] = dict(pv)
+            order.append(key)
+            continue
+        if key not in groups:
+            groups[key] = dict(pv, first=int(found.group(2)), last=int(found.group(2)), n=1)
+            order.append(key)
+        else:
+            groups[key]["last"] = int(found.group(2))
+            groups[key]["n"] += 1
+    rows = []
+    for key in order:
+        pv = groups[key]
+        if pv.get("n", 1) > 1:
+            pv["name"] = "%s:%s%d..%d:%s" % (key[0], key[1], pv["first"], pv["last"], key[2])
+            pv["desc"] = re.sub(r"\b%s%d\b" % (key[1], pv["first"]), key[1] + "N", pv["desc"])
+            pv["desc"] = re.sub(r"\b(\w+ )%d\b" % pv["first"], r"\1N", pv["desc"])
+        rows.append(pv)
+    return rows
+
+
+def pv_table(dev, m):
+    label, fill, border, dashed = STATUS[dev["status"]]
+    rows = ['<TR><TD COLSPAN="3" ALIGN="LEFT" BGCOLOR="%s"><B>%s</B>&nbsp;&nbsp;<FONT POINT-SIZE="8" COLOR="%s"><B>%s</B></FONT></TD></TR>'
+            % (fill, esc(dev["name"]), border, label),
+            '<TR><TD COLSPAN="3" ALIGN="LEFT" BGCOLOR="%s"><FONT POINT-SIZE="9">%s</FONT></TD></TR>' % (fill, esc(dev.get("model", ""))),
+            '<TR><TD COLSPAN="3" ALIGN="LEFT" BGCOLOR="%s"><FONT POINT-SIZE="8" COLOR="#444444">%s</FONT></TD></TR>' % (fill, esc(dev.get("protocol", "")))]
+    if dev.get("pvs_unknown"):
+        rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>existing PVs: not in the repository</I></FONT></TD></TR>')
+    for pv in group_pvs(dev["pvs"]):
+        color = {"existing": "#000000", "reuse": "#000000", "proposed": "#1E8449"}[pv["state"]]
+        if dev["status"] == "replace":
+            color = "#888888"
+        prefix = "+ " if pv["state"] == "proposed" else ""
+        io = "W" if pv["type"] in WRITE_TYPES else "R"
+        unit = " [%s]" % pv["egu"] if pv["egu"] else ""
+        rows.append('<TR><TD ALIGN="LEFT"><FONT FACE="%s" POINT-SIZE="9" COLOR="%s">%s%s</FONT></TD>'
+                    '<TD><FONT POINT-SIZE="8" COLOR="%s">%s</FONT></TD>'
+                    '<TD ALIGN="LEFT"><FONT POINT-SIZE="8" COLOR="%s">%s%s</FONT></TD></TR>'
+                    % (MONO, color, prefix, esc(pv["name"]), color, io, color, esc(_short(pv["desc"], 46)), esc(unit)))
+    if not dev["pvs"] and not dev.get("pvs_unknown"):
+        rows.append('<TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="9" COLOR="#777777"><I>no PVs yet</I></FONT></TD></TR>')
+    return ('<<TABLE BORDER="1" COLOR="%s" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3" BGCOLOR="#FFFFFF"%s>%s</TABLE>>'
+            % (border, ' STYLE="dashed"' if dashed else "", "".join(rows)))
+
+
+def subsystem_dot(m, sub):
+    devs = [dev for dev in m.devices if dev["subsystem"] == sub["id"]]
+    out = [HEADER % ("0.8", FONT, FONT, FONT)]
+    out.append('  label=<<B>%s</B>: process variables (R = read, W = write)>;' % esc(sub["name"]))
+    used_hosts, used_adapters = [], []
+    for dev in devs:
+        if dev["host"] not in used_hosts:
+            used_hosts.append(dev["host"])
+        if dev.get("via") and dev["via"] not in used_adapters:
+            used_adapters.append(dev["via"])
+    for hid in used_hosts:
+        host = m.hosts[hid]
+        out.append('  %s [label=%s, %s, penwidth=2];' % (hid, box_label(host["name"], [host.get("model", ""), "OS: " + host.get("os", "?")], host["status"], "IOC / computer"), node_style(host["status"])))
+    for aid in used_adapters:
+        adapter = m.adapters[aid]
+        out.append('  %s [label=%s, %s];' % (aid, box_label(adapter["name"], [adapter.get("text", "")], adapter["status"], "adapter"), node_style(adapter["status"])))
+        out.append('  %s -> %s [label="%s"];' % (adapter["host"], aid, edge_label(adapter.get("link", ""))))
+    for dev in devs:
+        out.append('  %s [shape=plain, label=%s];' % (dev["id"], pv_table(dev, m)))
+        out.append('  %s -> %s [label="%s"];' % (dev.get("via") or dev["host"], dev["id"], edge_label(dev.get("link", ""))))
+    out.append("  " + legend_node(True))
+    out.append("  { rank=same; %s; legend; }" % used_hosts[0])
+    out.append("}")
+    return "\n".join(out)
+
+
+def interlock_dot(m):
+    ilk = m.d["interlock"]
+    out = [HEADER % ("1.2", FONT, FONT, FONT)]
+    out.append('  label=<<B>Interlock system</B>: concept for discussion>;')
+    colors = {"A": ("#FDEDEC", "#B03A2E"), "B": ("#FEF5E7", "#B9770E"), "C": ("#EBF5FB", "#2E86C1")}
+    for layer in ilk["layers"]:
+        fill, border = colors[layer["id"]]
+        out.append('  layer%s [label=<<B>%s</B><BR/><FONT POINT-SIZE="9">%s</FONT><BR/><FONT POINT-SIZE="8" COLOR="#444444">%s</FONT>>, '
+                   'style="filled", fillcolor="%s", color="%s", penwidth=2, margin="0.2,0.12"];'
+                   % (layer["id"], esc(layer["name"]), esc(layer["tech"]), esc(_wrap(layer["text"], 52)).replace("\n", "<BR/>"), fill, border))
+    for index, signal in enumerate(ilk["inputs"]):
+        out.append('  in%d [label=%s, %s];' % (index, box_label(signal["name"], [signal.get("source", "")], signal["status"]), node_style(signal["status"])))
+        out.append('  in%d -> layer%s;' % (index, signal["layer"]))
+    for index, signal in enumerate(ilk["outputs"]):
+        out.append('  out%d [label=%s, style="rounded,filled", fillcolor="#FFFFFF", color="%s"];'
+                   % (index, box_label(signal["name"], ["acts on: " + signal.get("acts_on", "")]), colors[signal["layer"]][1]))
+        out.append('  layer%s -> out%d [penwidth=1.5, color="%s"];' % (signal["layer"], index, colors[signal["layer"]][1]))
+    out.append('  layerA -> layerB [label="safety chain open\\nremoves all permits", constraint=false, color="#B03A2E"];')
+    out.append('  layerA -> layerC [style=dashed, taillabel="status (read only)", labeldistance=4.5, labelangle=-18, labelfontcolor="#2E86C1", constraint=false, color="#2E86C1"];')
+    out.append('  layerB -> layerC [style=dashed, label="inputs, permits, first fault\\n(read only)", fontcolor="#2E86C1", color="#2E86C1"];')
+    out.append('  layerC -> layerB [style=dashed, label="reset request", fontcolor="#2E86C1", color="#2E86C1", constraint=false];')
+    out.append("  " + legend_node(False))
+    out.append("}")
+    return "\n".join(out)
+
+
+def software_dot(m):
+    sw = m.d["software"]
+    out = [HEADER % ("0.9", FONT, FONT, FONT)]
+    out.append('  label=<<B>Software architecture</B>: who talks to whom>;')
+    out.append('  ca [label=<<B>Channel Access</B><BR/><FONT POINT-SIZE="9">all PVs, by name</FONT>>, style="filled", fillcolor="#EAECEE", color="#555555", height=2.6, width=1.5];')
+    out.append('  hw [label=<<B>Devices</B><BR/><FONT POINT-SIZE="9">supplies, gauges, pumps,<BR/>valves, interlock PLC</FONT>>, style="rounded,filled", fillcolor="#FFFFFF", color="#555555"];')
+    out.append('  cfg [label=<<B>controls.yaml</B><BR/><FONT POINT-SIZE="9">devices, PVs, tiers,<BR/>report groups</FONT>>, shape=note, style="filled", fillcolor="#FDFEFE", color="#555555"];')
+    ids = set()
+    for comp in sw["components"]:
+        ids.add(comp["id"])
+        out.append('  %s [label=%s, %s%s];' % (comp["id"], box_label(comp["name"], _wrap(comp.get("text", ""), 34).split("\n"), comp["status"]),
+                                         node_style(comp["status"]), ", penwidth=2" if comp["id"] in ("iocs", "loops") else ""))
+    flows = [("hw", "iocs", "serial, USB, Ethernet", "both", ""), ("iocs", "ca", "", "both", ""), ("loops", "ca", "reads and writes", "both", ""),
+             ("ca", "gui", "show and command", "both", ""), ("ca", "archiver", "monitor", "forward", ""), ("ca", "report", "read once", "forward", ""),
+             ("ca", "clients", "scan, tune", "both", ""), ("archiver", "gui", "history plots", "forward", "dashed"),
+             ("archiver", "clients", "training data", "forward", "dashed"), ("gui", "report", "trigger", "forward", "dashed"),
+             ("cfg", "gui", "pages", "forward", "dotted"), ("cfg", "archiver", "PV list, tiers", "forward", "dotted"), ("cfg", "report", "layout", "forward", "dotted")]
+    fixed = ("hw", "ca", "cfg")
+    for src, dst, label, direction, style in flows:
+        if (src in ids or src in fixed) and (dst in ids or dst in fixed):
+            out.append('  %s -> %s [label="%s", dir=%s%s%s];' % (src, dst, label, direction, ", style=%s" % style if style else "",
+                                                                 ", constraint=false" if style == "dashed" else ""))
+    out.append("  { rank=same; iocs; loops; }")
+    out.append("  " + legend_node(False))
+    out.append("}")
+    return "\n".join(out)
+
+
+def _short(text, width):
+    return text if len(text) <= width else text[:width - 1].rstrip() + "\u2026"
+
+
+def _wrap(text, width):
+    words, lines, line = text.split(), [], ""
+    for word in words:
+        if len(line) + len(word) + 1 > width and line:
+            lines.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    lines.append(line)
+    return "\n".join(lines)
+
+
+def render(name, dot, out_dir):
+    path = os.path.join(out_dir, name + ".dot")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(dot)
+    for fmt, extra in (("svg", []), ("pdf", []), ("png", ["-Gdpi=170"])):
+        subprocess.run(["dot", "-T" + fmt] + extra + [path, "-o", os.path.join(out_dir, name + "." + fmt)], check=True)
+    return os.path.join(out_dir, name + ".png")
+
+
+# ----------------------------------------------------------------------------- word document
+def build_docx(m, images, out_path):
+    from docx import Document
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_BREAK
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Cm, Pt, RGBColor
+
+    doc = Document()
+    section = doc.sections[0]
+    section.page_width, section.page_height = Cm(21.0), Cm(29.7)
+    for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+        setattr(section, side, Cm(2.0))
+    text_width = 17.0
+    styles = doc.styles
+    styles["Normal"].font.name = "Calibri"
+    styles["Normal"].font.size = Pt(11)
+    for name, size in (("Title", 24), ("Heading 1", 16), ("Heading 2", 13), ("Heading 3", 11.5)):
+        style = styles[name]
+        style.font.name = "Calibri"
+        style.font.size = Pt(size)
+        style.font.bold = True
+        style.font.color.rgb = RGBColor(0x1F, 0x3A, 0x5F)
+        style.element.rPr.rFonts.set(qn("w:asciiTheme"), "minorHAnsi")
+        style.paragraph_format.space_before = Pt(14 if name != "Heading 3" else 10)
+        style.paragraph_format.space_after = Pt(6)
+        style.paragraph_format.keep_with_next = True
+
+    def shade(cell, color):
+        props = cell._tc.get_or_add_tcPr()
+        shd = OxmlElement("w:shd")
+        shd.set(qn("w:val"), "clear")
+        shd.set(qn("w:color"), "auto")
+        shd.set(qn("w:fill"), color.lstrip("#"))
+        props.append(shd)
+
+    def set_widths(tbl, widths):
+        for index, width in enumerate(widths):
+            tbl.columns[index].width = Cm(width)
+        for row in tbl.rows:
+            for index, width in enumerate(widths):
+                row.cells[index].width = Cm(width)
+
+    def write(cell, text, size=9, bold=False, mono=False, color=None, italic=False):
+        paragraph = cell.paragraphs[0]
+        paragraph.paragraph_format.space_after = Pt(0)
+        run = paragraph.add_run(str(text))
+        run.font.size = Pt(size)
+        run.bold = bold
+        run.italic = italic
+        if mono:
+            run.font.name = "Consolas"
+        if color:
+            run.font.color.rgb = RGBColor.from_string(color.lstrip("#"))
+        return run
+
+    def table(header, rows, widths, status_col=None, mono_col=None):
+        tbl = doc.add_table(rows=1, cols=len(header))
+        tbl.style = "Table Grid"
+        tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+        tbl.autofit = False
+        for index, text in enumerate(header):
+            cell = tbl.rows[0].cells[index]
+            shade(cell, "#D9E2F3")
+            write(cell, text, bold=True)
+        for row in rows:
+            cells = tbl.add_row().cells
+            for index, value in enumerate(row):
+                if index == status_col and value in STATUS:
+                    shade(cells[index], STATUS[value][1])
+                    write(cells[index], STATUS[value][0], size=8, bold=True, color=STATUS[value][2])
+                elif index == status_col and value == "proposed":
+                    shade(cells[index], STATUS["new"][1])
+                    write(cells[index], "PROPOSED", size=8, bold=True, color=STATUS["new"][2])
+                elif index == status_col:
+                    write(cells[index], str(value).upper(), size=8, bold=True, color="#555555")
+                else:
+                    write(cells[index], value, mono=(index == mono_col), size=8.5 if index == mono_col else 9)
+        set_widths(tbl, widths)
+        doc.add_paragraph().paragraph_format.space_after = Pt(2)
+        return tbl
+
+    def bullets(items):
+        for item in items:
+            paragraph = doc.add_paragraph(str(item), style="List Bullet")
+            paragraph.paragraph_format.space_after = Pt(2)
+
+    def para(text, italic=False, size=None, label=False):
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run(text)
+        run.italic = italic
+        run.bold = label
+        if size:
+            run.font.size = Pt(size)
+        if label:
+            paragraph.paragraph_format.keep_with_next = True
+            paragraph.paragraph_format.space_after = Pt(2)
+        return paragraph
+
+    def picture(path, max_height=22.5):
+        from PIL import Image
+        with Image.open(path) as image:
+            width_px, height_px = image.size
+        width = text_width
+        if width * height_px / width_px > max_height:
+            width = max_height * width_px / height_px
+        doc.add_picture(path, width=Cm(width))
+        doc.paragraphs[-1].alignment = 1
+
+    def page_break():
+        doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+
+    meta = m.d["meta"]
+    doc.add_paragraph(meta["title"], style="Title")
+    para(meta["subtitle"], size=13)
+    para("Revision %s, %s. %s" % (meta["revision"], meta["date"], meta["author"]), size=10)
+    para("This document is generated from controls.yaml. Change the YAML file and run build.py; do not edit the tables here by hand, the next build overwrites them.", italic=True, size=10)
+
+    # 1 -----------------------------------------------------------------------------------
+    doc.add_heading("1  Scope and status of this document", level=1)
+    para("It lists every controlled device of the MIST-2 ion source, how it is connected, which process variables (PVs) exist today, "
+         "which ones are proposed, and what changes for the rebuild at IBA. This revision is a baseline built from:")
+    bullets(meta["basis"])
+    para("Everything marked TBD or listed under open questions is a guess or a gap. PV names of existing devices come from the "
+         "repository, not from the running IOCs, and still have to be checked against them.")
+    for phase in m.d["phases"]:
+        paragraph = doc.add_paragraph()
+        paragraph.add_run(phase["name"] + ". ").bold = True
+        paragraph.add_run(phase["text"])
+    doc.add_heading("Status colors", level=2)
+    table(["Status", "Meaning"], [[key, STATUS_TEXT[key]] for key in ("keep", "modify", "replace", "new", "later", "tbd")], [3.0, 14.0], status_col=0)
+
+    # 2 -----------------------------------------------------------------------------------
+    page_break()
+    doc.add_heading("2  System overview", level=1)
+    para("Devices by location, the computer that talks to each of them, and the physical link. The number of PVs is given as "
+         "existing (+ proposed).")
+    picture(images["overview"])
+
+    doc.add_heading("2.1  Computers and IOCs", level=2)
+    table(["Computer", "Location", "Role", "OS", "Uplink", "Status"],
+          [[h["name"] + (" (%s)" % h["model"] if h.get("model") else ""), _loc(m, h["location"]), h.get("role", ""), h.get("os", ""), h.get("uplink", ""), h["status"]]
+           for h in m.d["hosts"]], [3.0, 2.6, 4.2, 2.2, 3.2, 1.8], status_col=5)
+
+    doc.add_heading("2.2  Changes at a glance", level=2)
+    rows = []
+    for dev in m.devices:
+        if dev["status"] != "keep":
+            rows.append([dev["name"], dev.get("model", ""), _change(dev), dev["status"]])
+    table(["Device", "Model", "What changes", "Status"], rows, [4.0, 4.4, 6.8, 1.8], status_col=3)
+
+    # 3 -----------------------------------------------------------------------------------
+    page_break()
+    doc.add_heading("3  Devices", level=1)
+    para("One section per subsystem: a sketch with all PVs, then every device with its connection, its PVs, notes and open questions.")
+    number = 0
+    for sub in m.d["subsystems"]:
+        if number:
+            page_break()
+        number += 1
+        doc.add_heading("3.%d  %s" % (number, sub["name"]), level=2)
+        para("Phase %s." % sub["phase"], italic=True, size=10)
+        picture(images["sub_" + sub["id"]], max_height=20.0)
+        for dev in [d for d in m.devices if d["subsystem"] == sub["id"]]:
+            doc.add_heading("%s" % dev["name"], level=3)
+            existing, proposed = m.counts(dev)
+            host = m.hosts[dev["host"]]
+            link = dev.get("link", "")
+            if dev.get("via"):
+                adapter = m.adapters[dev["via"]]
+                link = "%s, via %s (%s)" % (link, adapter["name"], adapter.get("link", ""))
+            attributes = [["Model", dev.get("model", "")], ["Location", _loc(m, dev["location"])], ["Controlled by", host["name"]],
+                          ["Connection", link], ["Protocol / support", dev.get("protocol", "")]]
+            if dev.get("epics"):
+                macros = ", ".join("%s=%s" % item for item in dev["epics"].get("macros", {}).items())
+                attributes.append(["EPICS database", "%s (%s)" % (dev["epics"]["db"], macros)])
+            attributes.append(["Status", dev["status"]])
+            tbl = doc.add_table(rows=0, cols=2)
+            tbl.style = "Table Grid"
+            tbl.autofit = False
+            for key, value in attributes:
+                cells = tbl.add_row().cells
+                shade(cells[0], "#F2F2F2")
+                write(cells[0], key, bold=True)
+                if key == "Status":
+                    shade(cells[1], STATUS[value][1])
+                    write(cells[1], "%s: %s" % (STATUS[value][0], STATUS_TEXT[value]), bold=True, color=STATUS[value][2])
+                else:
+                    write(cells[1], value)
+            set_widths(tbl, [3.6, 13.4])
+            doc.add_paragraph().paragraph_format.space_after = Pt(2)
+
+            if dev.get("pvs_unknown"):
+                para("Existing PVs: not in the repository. They have to come from the running IOC (dbl).", italic=True, size=10)
+            if dev["pvs"]:
+                rows = []
+                for pv in dev["pvs"]:
+                    state = {"existing": "exists", "reuse": "reuse", "proposed": "proposed"}[pv["state"]]
+                    if dev["status"] == "replace":
+                        state = "goes away"
+                    description = pv["desc"] + (" (%s)" % pv["remark"] if pv.get("remark") else "")
+                    rows.append([pv["name"], pv["type"], "W" if pv["type"] in WRITE_TYPES else "R", pv["egu"], description, state])
+                table(["PV", "Record", "R/W", "Unit", "Description", "State"], rows, [5.6, 1.5, 1.0, 1.2, 5.9, 1.8], status_col=5, mono_col=0)
+            elif not dev.get("pvs_unknown"):
+                para("No PVs yet.", italic=True, size=10)
+            if dev.get("options"):
+                para("Options", size=10, label=True)
+                table(["Option", "What it is", "Interface", "Comment"],
+                      [[o["name"], o.get("text", ""), o.get("interface", ""), o.get("note", "")] for o in dev["options"]], [4.0, 5.6, 2.4, 5.0])
+            if dev.get("notes"):
+                para("Notes", size=10, label=True)
+                bullets(dev["notes"])
+            if dev.get("questions"):
+                para("Open questions", size=10, label=True)
+                bullets(dev["questions"])
+
+    # 4 -----------------------------------------------------------------------------------
+    page_break()
+    ilk = m.d["interlock"]
+    doc.add_heading("4  Interlock system", level=1)
+    for text in ilk["intro"]:
+        para(text)
+    picture(images["interlock"], max_height=17.0)
+    doc.add_heading("4.1  Layers", level=2)
+    table(["Layer", "Technology", "What it does"], [[l["name"], l["tech"], l["text"]] for l in ilk["layers"]], [4.0, 5.0, 8.0])
+    doc.add_heading("4.2  Inputs (to be completed)", level=2)
+    table(["Signal", "Layer", "Source", "Status"], [[s["name"], s["layer"], s.get("source", ""), s["status"]] for s in ilk["inputs"]], [6.0, 1.4, 7.8, 1.8], status_col=3)
+    doc.add_heading("4.3  Outputs (to be completed)", level=2)
+    table(["Output", "Layer", "Acts on"], [[s["name"], s["layer"], s.get("acts_on", "")] for s in ilk["outputs"]], [6.0, 1.4, 9.6])
+    doc.add_heading("4.4  Design rules", level=2)
+    bullets(ilk["rules"])
+
+    # 5 -----------------------------------------------------------------------------------
+    page_break()
+    sw = m.d["software"]
+    doc.add_heading("5  Operator interface, logging, reports and control loops", level=1)
+    for text in sw["intro"]:
+        para(text)
+    picture(images["software"], max_height=13.0)
+    table(["Component", "What it does", "Status"], [[c["name"], c.get("text", ""), c["status"]] for c in sw["components"]], [4.0, 11.2, 1.8], status_col=2)
+    doc.add_heading("5.1  GUI", level=2)
+    bullets(sw["gui"])
+    doc.add_heading("5.2  Snapshot report (printout)", level=2)
+    bullets(sw["report"])
+    doc.add_heading("5.3  Data logging", level=2)
+    table(["Tier", "What is stored", "Kept for", "Used for"], [[t["tier"], t["rate"], t["keep"], t["use"]] for t in sw["tiers"]], [2.4, 4.6, 2.4, 7.6])
+    bullets(sw["archiver"])
+    doc.add_heading("5.4  Control loops", level=2)
+    bullets(sw["loops"])
+
+    # 6 -----------------------------------------------------------------------------------
+    page_break()
+    doc.add_heading("6  Work packages", level=1)
+    for wp in m.d["work_packages"]:
+        doc.add_heading("%s  %s (phase %s)" % (wp["id"], wp["name"], wp["phase"]), level=3)
+        bullets(wp["items"])
+
+    doc.add_heading("7  PV naming", level=1)
+    for text in m.d["naming"]["text"]:
+        para(text)
+
+    # 7 -----------------------------------------------------------------------------------
+    page_break()
+    doc.add_heading("8  Open questions", level=1)
+    para("Collected from all chapters. Answers go into controls.yaml, then the question is deleted there.")
+    rows, count = [], 0
+    for text in m.d.get("global_questions", []):
+        count += 1
+        rows.append([str(count), "General", text, ""])
+    for host in m.d["hosts"]:
+        for text in host.get("questions", []):
+            count += 1
+            rows.append([str(count), host["name"], text, ""])
+    for dev in m.devices:
+        for text in dev.get("questions", []):
+            count += 1
+            rows.append([str(count), dev["name"], text, ""])
+    for text in ilk.get("questions", []):
+        count += 1
+        rows.append([str(count), "Interlock system", text, ""])
+    for text in sw.get("questions", []):
+        count += 1
+        rows.append([str(count), "GUI, logging, loops", text, ""])
+    table(["#", "Topic", "Question", "Answer"], rows, [0.8, 3.6, 8.0, 4.6])
+
+    doc.add_heading("9  How this document is built", level=1)
+    bullets(["controls.yaml holds devices, connections, status, proposed PVs, questions and work packages.",
+             "Existing PVs are read from the EPICS databases in epics_db/ (snapshot of rfq-dip-epics, commit %s)." % _commit(),
+             "build.py writes the sketches (SVG, PDF, PNG, drawn by Graphviz) and this document.",
+             "Keep the three in one git repository. Every decision is then one small, reviewable change to the YAML file."])
+    doc.save(out_path)
+
+
+def _loc(m, loc_id):
+    for loc in m.d["locations"]:
+        if loc["id"] == loc_id:
+            return loc["name"]
+    return loc_id
+
+
+def _change(dev):
+    if dev.get("change"):
+        return dev["change"]
+    if dev["status"] == "new":
+        return "Add to the control system"
+    if dev["status"] == "replace":
+        return "Remove"
+    if dev["status"] == "later":
+        return "Move into EPICS in phase 2"
+    if dev["status"] == "tbd":
+        return (dev.get("questions") or ["Open"])[0]
+    parts = []
+    if dev.get("libcom1"):
+        parts.append("libcom1 protocol 2 firmware, identity PVs")
+    if "Ethernet proposed" in dev.get("link", ""):
+        parts.append("USB to Ethernet")
+    return ", ".join(parts) or (dev.get("notes") or [""])[0]
+
+
+def _commit():
+    path = os.path.join(HERE, "epics_db", "SOURCE_COMMIT")
+    return open(path).read().strip() if os.path.exists(path) else "unknown"
+
+
+# ----------------------------------------------------------------------------- main
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--yaml", default=os.path.join(HERE, "controls.yaml"))
+    parser.add_argument("--db-dir", default=os.path.join(HERE, "epics_db"))
+    parser.add_argument("--out", default=os.path.join(HERE, "out"))
+    parser.add_argument("--no-docx", action="store_true")
+    args = parser.parse_args()
+    if not shutil.which("dot"):
+        sys.exit("Graphviz not found: install it (apt install graphviz / winget install Graphviz.Graphviz) and put 'dot' on the PATH")
+    os.makedirs(args.out, exist_ok=True)
+    m = Model(args.yaml, args.db_dir)
+    images = {"overview": render("overview", overview_dot(m), args.out)}
+    for sub in m.d["subsystems"]:
+        images["sub_" + sub["id"]] = render("sub_" + sub["id"], subsystem_dot(m, sub), args.out)
+    images["interlock"] = render("interlock", interlock_dot(m), args.out)
+    images["software"] = render("software", software_dot(m), args.out)
+    if shutil.which("pdfunite"):
+        pdfs = [os.path.join(args.out, os.path.basename(p)[:-4] + ".pdf") for p in images.values()]
+        subprocess.run(["pdfunite"] + pdfs + [os.path.join(args.out, "MIST-2_Control_System_Sketches.pdf")], check=False)
+    if not args.no_docx:
+        build_docx(m, images, os.path.join(args.out, "MIST-2_Control_System_Plan.docx"))
+    devices = len(m.devices)
+    existing = sum(1 for dev in m.devices for pv in dev["pvs"] if pv["state"] == "existing")
+    proposed = sum(m.counts(dev)[1] for dev in m.devices)
+    print("%d devices, %d existing PVs, %d proposed PVs, %d sketches" % (devices, existing, proposed, len(images)))
+    for warning in m.warnings:
+        print("WARNING:", warning)
+
+
+if __name__ == "__main__":
+    main()

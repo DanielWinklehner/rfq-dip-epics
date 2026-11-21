@@ -1,0 +1,62 @@
+# Author: Philip Weigel
+
+record(ao, "$(DEVICE):voltage:set") {
+    field(DESC, "Set voltage of $(PORT):$(DEVICE)")
+    field(DTYP, "stream")
+    field(OUT, "@tdk.proto set_voltage $(PORT)")
+    field(DRVL, "0")
+    field(DRVH, "8.4")
+    field(EGU,  "V")
+    #field(LINR, "SLOPE")
+    #field(ESLO, "1")
+    #field(EOFF, "0")
+}
+
+record(ai, "$(DEVICE):voltage:get") {
+    field(DESC, "Get voltage of $(PORT):$(DEVICE)")
+    field(DTYP, "stream")
+    field(INP, "@tdk.proto read_voltage $(PORT)")
+    field(SCAN, ".1 second")
+    field(EGU,  "V")
+    #field(LINR, "SLOPE")
+    #field(ASLO, "2")
+    #field(EOFF, "0")
+}
+
+record(ao, "$(DEVICE):current:set") {
+    field(DESC, "Set voltage of $(PORT):$(DEVICE)")
+    field(DTYP, "stream")
+    field(OUT, "@tdk.proto set_current $(PORT)")
+    field(DRVL, "0")
+    field(DRVH, "300")
+    field(EGU,  "A")
+    #field(LINR, "SLOPE")
+    #field(ESLO, "1")
+    #field(EOFF, "0")
+}
+
+record(ai, "$(DEVICE):current:get") {
+    field(DESC, "Get current of $(PORT):$(DEVICE)")
+    field(DTYP, "stream")
+    field(INP, "@tdk.proto read_current $(PORT)")
+    field(SCAN, ".1 second")
+    #field(EGU,  "A")
+    #field(LINR, "SLOPE")
+    #field(EOFF, "0")
+}
+
+record(bo, "$(DEVICE):status:set") {
+    field(DESC, "Set status")
+    field(DTYP, "stream")
+    field(OUT, "@tdk.proto set_status $(PORT)")
+}
+
+record(bi, "$(DEVICE):status:get") {
+    field(DESC, "Set status")
+    field(DTYP, "stream")
+    field(INP, "@tdk.proto get_status $(PORT)")
+    field(SCAN, ".1 second")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+}
+
