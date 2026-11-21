@@ -10,13 +10,13 @@ import PvValue from "./fields/PvValue";
 // the registry: a binary request gets buttons (asking first where the
 // registry says `confirm`), any other written record an input field, a
 // read-back with two words a lamp, everything else a value field. Nothing when
-// the device does not have the role. The registry's note is the helper text.
+// the device does not have the role. The registry's notes are in the expert view.
 const RoleField = ({ id, channel, role }) => {
   const pv = rolesOf(id, channel)[role];
   if (!pv) return null;
-  const { type, access, note, confirm } = pvInfo(pv);
+  const { type, access, confirm } = pvInfo(pv);
   const words = wordsOf(id, channel, role);
-  const props = { pv, label: roleText(id, role), helperText: note };
+  const props = { pv, label: roleText(id, role) };
   if (access === "w") {
     return type === "bo" ? (
       <PvCommand {...props} custom_selection_strings={words} confirm={confirm} />

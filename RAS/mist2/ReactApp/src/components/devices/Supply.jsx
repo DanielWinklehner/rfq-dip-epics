@@ -2,7 +2,7 @@ import React from "react";
 import Stack from "@mui/material/Stack";
 import RoleGrid from "./RoleGrid";
 
-// What the operator works with: set points beside their echo (the TDK's
+// What the operator works with: set points beside their echo (the filament heating supply's
 // current is a set point), the read-backs, the output request beside the
 // output state, power and the remote/local status.
 const operation = [

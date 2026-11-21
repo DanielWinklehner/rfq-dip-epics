@@ -4,7 +4,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormHelperText from "@mui/material/FormHelperText";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -45,7 +44,6 @@ const PvCommandComponent = (props) => {
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      {props.helperText && <FormHelperText>{props.helperText}</FormHelperText>}
       <Dialog open={asked !== null} onClose={() => setAsked(null)}>
         <DialogTitle>Confirm</DialogTitle>
         <DialogContent>{props.confirm?.text}</DialogContent>

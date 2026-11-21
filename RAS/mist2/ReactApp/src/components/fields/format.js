@@ -27,8 +27,14 @@ const formatNumber = (value, prec, units) => {
 // The text of a value from the props a Widget passes to its component: the
 // state word, the text, or the number in the record's precision, in exponent
 // format or with an SI prefix where the unit and the value call for it.
-export const valueText = ({ value, enumStrs, units, pvData }) => {
+// pvServer may send a number as a string, so a value that is not a text
+// record and reads as a finite number is a number.
+export const valueText = ({ value, enumStrs, units, pvData, useStringValue }) => {
   if (enumStrs?.length) return enumStrs[Number(value)] ?? String(value);
-  const parts = typeof pvData.value === "number" ? formatNumber(pvData.value, pvData.metadata.precision, units) : [value, units];
+  const number = Number(pvData.value);
+  const parts =
+    !useStringValue && pvData.value !== "" && Number.isFinite(number)
+      ? formatNumber(number, pvData.metadata.precision, units)
+      : [value, units];
   return parts.filter((part) => part !== "" && part != null).join(" ");
 };

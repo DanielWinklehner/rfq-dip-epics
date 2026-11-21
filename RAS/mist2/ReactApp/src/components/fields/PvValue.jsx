@@ -13,7 +13,6 @@ const PvValueComponent = (props) => {
       size="small"
       label={props.label}
       value={displayText(state, valueText(props))}
-      helperText={props.helperText}
       sx={fieldSx(theme, state)}
       slotProps={{
         input: { readOnly: true },
