@@ -20,16 +20,7 @@ IOC shell: `docker attach mist2emu-ioc-rack-1` (leave with ctrl-p ctrl-q, not ct
 Channel Access clients: `EPICS_CA_AUTO_ADDR_LIST=NO EPICS_CA_ADDR_LIST=172.30.0.255`.
 Another subnet: `export MIST2_SUBNET=172.31.5` before `up`.
 
-On a real Linux computer: `make -C EPICS/ioc` (local paths in `EPICS/ioc/configure/RELEASE.local`),
-then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
-
-Device tests: `emulation/devtest/run.sh <case> [pytest arguments]`. A case directory holds
-`sim.yaml` (or a one-line `sim.cmd`), `ioc.cmd` and `test_*.py`; see the header of
-`devtest/run.sh` and the example in `devtest/example/`. Logs go to `<case>/build/`.
-
-## Plant model
-
-Without it each simulator has its own fixed model (a load resistance, constant pressures). With
+Plant model (optional): without it each simulator has its own fixed model (a load resistance, constant pressures). With
 it, filament, discharge, gas, vacuum, extraction and heat are coupled: raise the filament current
 and the REK current follows, open the gas and the gauges rise. It is one more container (`plant`,
 172.30.0.30, Compose profile `plant`) that talks only to the control ports of `sim-rack` and
@@ -46,3 +37,10 @@ section "Plant model".
 `make -C emulation up` starts the emulation without the plant, exactly as before.
 Disturbances for loop tests (emission drift, pressure burst): the plant's control port,
 `172.30.0.30:6090`, see `sim/README.md`.
+
+On a real Linux computer: `make -C EPICS/ioc` (local paths in `EPICS/ioc/configure/RELEASE.local`),
+then `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`.
+
+Device tests: `emulation/devtest/run.sh <case> [pytest arguments]`. A case directory holds
+`sim.yaml` (or a one-line `sim.cmd`), `ioc.cmd` and `test_*.py`; see the header of
+`devtest/run.sh` and the example in `devtest/example/`. Logs go to `<case>/build/`.
