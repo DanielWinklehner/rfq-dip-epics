@@ -1,0 +1,219 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Verdana, Arial, sans-serif">
+<title>Option C · Side rail, tables and expert mode — Extraction page with Expert ON (extra columns, device rows)</title>
+<defs><pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#5a5a5a"/><rect width="6" height="12" fill="#6e6e6e"/></pattern><pattern id="hatchc" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#0d47a1"/><rect width="6" height="12" fill="#1565c0"/></pattern><marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#616161"/></marker></defs>
+<rect x="0" y="0" width="1600" height="900" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<rect x="0" y="0" width="1600" height="24" rx="0" fill="#d6d6d6" stroke="none" stroke-width="1"/>
+<text x="10" y="17" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Option C · Side rail, tables and expert mode — Extraction page with Expert ON (extra columns, device rows)</text>
+<text x="1590" y="17" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">MIST-2 GUI wireframe · 1600 × 900 · T14</text>
+<rect x="0" y="24" width="1600" height="48" rx="0" fill="#3c3c3c" stroke="none" stroke-width="1"/>
+<line x1="16" y1="41" x2="34" y2="41" stroke="#ffffff" stroke-width="2"/>
+<line x1="16" y1="48" x2="34" y2="48" stroke="#ffffff" stroke-width="2"/>
+<line x1="16" y1="55" x2="34" y2="55" stroke="#ffffff" stroke-width="2"/>
+<text x="50" y="54" font-size="17" font-weight="bold" text-anchor="start" fill="#ffffff">MIST-2 Ion Source</text>
+<text x="1582" y="55" font-size="20" font-weight="bold" text-anchor="middle" fill="#ffffff">⋮</text>
+<rect x="1470" y="34" width="96" height="28" rx="4" fill="none" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="1518" y="53" font-size="12" font-weight="normal" text-anchor="middle" fill="#bdbdbd">PDF report</text>
+<rect x="1338" y="32" width="120" height="32" rx="4" fill="#fafafa" stroke="#000000" stroke-width="2.5"/>
+<text x="1398" y="53" font-size="13" font-weight="bold" text-anchor="middle" fill="#000000">ALL HV OFF</text>
+<rect x="1200" y="34" width="124" height="28" rx="14" fill="#ffffff" stroke="#ffffff" stroke-width="1"/>
+<text x="1262" y="53" font-size="12" font-weight="bold" text-anchor="middle" fill="#3c3c3c">Expert ON</text>
+<rect x="0" y="72" width="1600" height="28" rx="0" fill="url(#hatch)" stroke="none" stroke-width="1"/>
+<rect x="8" y="75" width="640" height="22" rx="3" fill="#2b2b2b" stroke="none" stroke-width="1"/>
+<text x="16" y="91" font-size="12.5" font-weight="bold" text-anchor="start" fill="#ffffff">EMULATOR — rack IOC and HV IOC report mode sim. No hardware is connected.</text>
+<rect x="1318.5" y="76" width="265.5" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1329.5" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1338.5" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">Interlock: doors closed, permit yes</text>
+<rect x="1164.3" y="76" width="148.2" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1175.3" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1184.3" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">HV IOC  sim  ♥ 1 s</text>
+<rect x="996.3" y="76" width="162.0" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1007.3" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1016.3" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">Rack IOC  sim  ♥ 1 s</text>
+<rect x="0" y="100" width="200" height="800" rx="0" fill="#e4e4e4" stroke="none" stroke-width="1"/>
+<line x1="200" y1="100" x2="200" y2="900" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="131" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Overview</text>
+<circle cx="184" cy="126" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="175" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Plasma generator</text>
+<circle cx="184" cy="170" r="6" fill="#e6a100" stroke="#e6a100" stroke-width="1.2"/>
+<rect x="0" y="196" width="200" height="36" rx="0" fill="#ffffff" stroke="none" stroke-width="1"/>
+<rect x="0" y="196" width="5" height="36" rx="0" fill="#424242" stroke="none" stroke-width="1"/>
+<text x="18" y="219" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Extraction</text>
+<circle cx="184" cy="214" r="6" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2"/>
+<text x="18" y="263" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Vacuum &amp; gas</text>
+<circle cx="184" cy="258" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="307" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Cooling &amp; interlocks</text>
+<circle cx="184" cy="302" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="351" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Diagnostics</text>
+<circle cx="184" cy="346" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<line x1="12" y1="374" x2="188" y2="374" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="395" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Trends</text>
+<text x="18" y="439" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Infrastructure</text>
+<circle cx="184" cy="434" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="14" y="500" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">Dot = worst severity</text>
+<text x="14" y="516" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">on that page</text>
+<text x="216" y="128" font-size="18" font-weight="bold" text-anchor="start" fill="#212121">Extraction</text>
+<text x="330" y="128" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">Expert mode adds the columns PV, SEVR / STAT, updated and a header row per device. Stays on until switched off.</text>
+<rect x="216" y="146" width="960" height="29" rx="0" fill="#e0e0e0" stroke="none" stroke-width="1"/>
+<text x="226" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Channel</text>
+<text x="376" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Set / command</text>
+<text x="506" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Read-back</text>
+<text x="636" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">PV</text>
+<text x="936" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">SEVR / STAT</text>
+<text x="1096" y="165" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">updated</text>
+<rect x="216" y="175" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="194" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Ion source voltage (AU 1)</text>
+<text x="1166" y="194" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">AU20P15 · mat_opt (USB-OPT) unit 1 · 6.6 Hz</text>
+<rect x="216" y="204" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="223" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage</text>
+<rect x="374" y="208" width="106" height="21" rx="3" fill="#fafafa" stroke="#424242" stroke-width="1"/>
+<text x="380" y="223" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">15.00 kV  ✎</text>
+<text x="506" y="223" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">15.00 kV</text>
+<text x="636" y="223" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-1:voltage:read</text>
+<text x="936" y="223" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="223" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:04:25</text>
+<rect x="216" y="233" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="252" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">current</text>
+<text x="376" y="252" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="506" y="252" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">1.20 mA</text>
+<text x="636" y="252" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-1:current:read</text>
+<text x="936" y="252" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="252" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:04:25</text>
+<rect x="216" y="262" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="281" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Puller (AU 2)</text>
+<text x="1166" y="281" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">AU20N7.5 · mat_opt unit 2 · 6.6 Hz</text>
+<rect x="216" y="291" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="310" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage</text>
+<rect x="374" y="295" width="106" height="21" rx="3" fill="#fafafa" stroke="#424242" stroke-width="1"/>
+<text x="380" y="310" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">4.20 kV  ✎</text>
+<text x="506" y="310" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">4.20 kV</text>
+<text x="636" y="310" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-2:voltage:read</text>
+<text x="936" y="310" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="310" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:04:25</text>
+<rect x="216" y="320" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="339" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Lens 1 (AU 3)</text>
+<text x="1166" y="339" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">AU20P7.5 · mat_co (CO-U32) unit 3 · 6.4 Hz</text>
+<rect x="216" y="349" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="368" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage</text>
+<rect x="374" y="353" width="106" height="21" rx="3" fill="#fafafa" stroke="#424242" stroke-width="1"/>
+<text x="380" y="368" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">6.00 kV  ✎</text>
+<text x="506" y="368" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">6.00 kV</text>
+<text x="636" y="368" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-3:voltage:read</text>
+<text x="936" y="368" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="368" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:04:25</text>
+<rect x="216" y="378" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="397" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Lens 2 (AU 5)</text>
+<text x="1166" y="397" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">AU20N7.5 · mat_co unit 5 · last reply 14:02:11</text>
+<rect x="216" y="407" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="426" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage set</text>
+<rect x="374" y="411" width="106" height="21" rx="3" fill="#fafafa" stroke="#424242" stroke-width="1"/>
+<text x="380" y="426" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">2.50 kV  ✎</text>
+<text x="506" y="426" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="636" y="426" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-5:voltage:setpoint</text>
+<text x="936" y="426" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="426" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:01:40</text>
+<rect x="216" y="436" width="960" height="29" rx="0" fill="#ecd7f3" stroke="none" stroke-width="1"/>
+<rect x="216" y="436" width="4" height="29" rx="0" fill="#8e24aa" stroke="none" stroke-width="1"/>
+<rect x="216" y="436" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="455" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage</text>
+<text x="376" y="455" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="506" y="455" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="636" y="455" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-5:voltage:read</text>
+<text x="936" y="455" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">INVALID / TIMEOUT</text>
+<text x="1096" y="455" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:02:11</text>
+<rect x="216" y="465" width="960" height="29" rx="0" fill="#ecd7f3" stroke="none" stroke-width="1"/>
+<rect x="216" y="465" width="4" height="29" rx="0" fill="#8e24aa" stroke="none" stroke-width="1"/>
+<rect x="216" y="465" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="484" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">current</text>
+<text x="376" y="484" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="506" y="484" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="636" y="484" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-5:current:read</text>
+<text x="936" y="484" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">INVALID / TIMEOUT</text>
+<text x="1096" y="484" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:02:11</text>
+<rect x="216" y="494" width="960" height="29" rx="0" fill="#ecd7f3" stroke="none" stroke-width="1"/>
+<rect x="216" y="494" width="4" height="29" rx="0" fill="#8e24aa" stroke="none" stroke-width="1"/>
+<rect x="216" y="494" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="513" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">output</text>
+<rect x="374" y="498" width="92" height="21" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="420" y="513" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">ON</text>
+<text x="506" y="513" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="636" y="513" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-5:read_output_status</text>
+<text x="936" y="513" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">INVALID / TIMEOUT</text>
+<text x="1096" y="513" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:02:11</text>
+<rect x="216" y="523" width="960" height="29" rx="0" fill="#ecd7f3" stroke="none" stroke-width="1"/>
+<rect x="216" y="523" width="4" height="29" rx="0" fill="#8e24aa" stroke="none" stroke-width="1"/>
+<rect x="216" y="523" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="542" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">status word</text>
+<text x="376" y="542" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="506" y="542" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="636" y="542" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-5:status:read</text>
+<text x="936" y="542" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">INVALID / TIMEOUT</text>
+<text x="1096" y="542" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">14:02:11</text>
+<rect x="216" y="552" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="571" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Lens 3 (AU 4)</text>
+<text x="1166" y="571" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">not polled (scan off by macro)</text>
+<rect x="216" y="581" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="600" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">voltage</text>
+<text x="376" y="600" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="506" y="600" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="636" y="600" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU-20P7-4:voltage:read</text>
+<text x="936" y="600" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">scan off</text>
+<text x="1096" y="600" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="610" width="960" height="29" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="629" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Commands</text>
+<rect x="216" y="639" width="960" height="29" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="658" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">all HV off</text>
+<rect x="374" y="643" width="92" height="21" rx="4" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<text x="420" y="658" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#424242">ALL OFF</text>
+<text x="506" y="658" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="636" y="658" font-size="11.5" font-family="DejaVu Sans Mono, monospace" fill="#424242">AU:alloff:set</text>
+<text x="936" y="658" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="1096" y="658" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="1194" y="146" width="390" height="556" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1204" y="138" width="160.2" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1210" y="151" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Extraction voltages</text>
+<rect x="1264" y="168" width="300" height="494" rx="0" fill="#fbfbfb" stroke="#e0e0e0" stroke-width="1"/>
+<line x1="1264" y1="662.0" x2="1564" y2="662.0" stroke="#ececec" stroke-width="1"/>
+<text x="1258" y="666.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">0</text>
+<line x1="1264" y1="538.5" x2="1564" y2="538.5" stroke="#ececec" stroke-width="1"/>
+<text x="1258" y="542.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">5</text>
+<line x1="1264" y1="415.0" x2="1564" y2="415.0" stroke="#ececec" stroke-width="1"/>
+<text x="1258" y="419.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">10</text>
+<line x1="1264" y1="291.5" x2="1564" y2="291.5" stroke="#ececec" stroke-width="1"/>
+<text x="1258" y="295.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">15</text>
+<line x1="1264" y1="168.0" x2="1564" y2="168.0" stroke="#ececec" stroke-width="1"/>
+<text x="1258" y="172.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">20</text>
+<text x="1258" y="162" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">kV</text>
+<text x="1264.0" y="676" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-10 min</text>
+<text x="1339.0" y="676" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-7.5</text>
+<text x="1414.0" y="676" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-5</text>
+<text x="1489.0" y="676" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-2.5</text>
+<text x="1564.0" y="676" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">now</text>
+<path d="M1264.0,291.5 L1269.1,291.5 L1274.2,291.5 L1279.3,291.5 L1284.3,291.5 L1289.4,291.5 L1294.5,291.5 L1299.6,291.5 L1304.7,291.5 L1309.8,291.5 L1314.8,291.5 L1319.9,291.5 L1325.0,291.5 L1330.1,291.5 L1335.2,291.5 L1340.3,291.5 L1345.4,291.5 L1350.4,291.5 L1355.5,291.5 L1360.6,291.5 L1365.7,291.5 L1370.8,291.5 L1375.9,291.5 L1380.9,291.5 L1386.0,291.5 L1391.1,291.5 L1396.2,291.5 L1401.3,291.5 L1406.4,291.5 L1411.5,291.5 L1416.5,291.5 L1421.6,291.5 L1426.7,291.5 L1431.8,291.5 L1436.9,291.5 L1442.0,291.5 L1447.1,291.5 L1452.1,291.5 L1457.2,291.5 L1462.3,291.5 L1467.4,291.5 L1472.5,291.5 L1477.6,291.5 L1482.6,291.5 L1487.7,291.5 L1492.8,291.5 L1497.9,291.5 L1503.0,291.5 L1508.1,291.5 L1513.2,291.5 L1518.2,291.5 L1523.3,291.5 L1528.4,291.5 L1533.5,291.5 L1538.6,291.5 L1543.7,291.5 L1548.7,291.5 L1553.8,291.5 L1558.9,291.5 L1564.0,291.5" stroke="#212121" stroke-width="1.6" fill="none"/>
+<line x1="1264" y1="688" x2="1286" y2="688" stroke="#212121" stroke-width="1.6"/>
+<text x="1291" y="692" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Source</text>
+<path d="M1264.0,558.3 L1269.1,558.3 L1274.2,558.3 L1279.3,558.3 L1284.3,558.3 L1289.4,558.3 L1294.5,558.3 L1299.6,558.3 L1304.7,558.3 L1309.8,558.3 L1314.8,558.3 L1319.9,558.3 L1325.0,558.3 L1330.1,558.3 L1335.2,558.3 L1340.3,558.3 L1345.4,558.3 L1350.4,558.3 L1355.5,558.3 L1360.6,558.3 L1365.7,558.3 L1370.8,558.3 L1375.9,558.3 L1380.9,558.3 L1386.0,558.3 L1391.1,558.3 L1396.2,558.3 L1401.3,558.3 L1406.4,558.3 L1411.5,558.3 L1416.5,558.3 L1421.6,558.3 L1426.7,558.3 L1431.8,558.3 L1436.9,558.3 L1442.0,558.3 L1447.1,558.3 L1452.1,558.3 L1457.2,558.3 L1462.3,558.3 L1467.4,558.3 L1472.5,558.3 L1477.6,558.3 L1482.6,558.3 L1487.7,558.3 L1492.8,558.3 L1497.9,558.3 L1503.0,558.3 L1508.1,558.3 L1513.2,558.3 L1518.2,558.3 L1523.3,558.3 L1528.4,558.3 L1533.5,558.3 L1538.6,558.3 L1543.7,558.3 L1548.7,558.3 L1553.8,558.3 L1558.9,558.3 L1564.0,558.3" stroke="#616161" stroke-width="1.6" fill="none" stroke-dasharray="6 3"/>
+<line x1="1343.6" y1="688" x2="1365.6" y2="688" stroke="#616161" stroke-width="1.6" stroke-dasharray="6 3"/>
+<text x="1370.6" y="692" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Puller</text>
+<path d="M1264.0,513.8 L1269.1,513.8 L1274.2,513.8 L1279.3,513.8 L1284.3,513.8 L1289.4,513.8 L1294.5,513.8 L1299.6,513.8 L1304.7,513.8 L1309.8,513.8 L1314.8,513.8 L1319.9,513.8 L1325.0,513.8 L1330.1,513.8 L1335.2,513.8 L1340.3,513.8 L1345.4,513.8 L1350.4,513.8 L1355.5,513.8 L1360.6,513.8 L1365.7,513.8 L1370.8,513.8 L1375.9,513.8 L1380.9,513.8 L1386.0,513.8 L1391.1,513.8 L1396.2,513.8 L1401.3,513.8 L1406.4,513.8 L1411.5,513.8 L1416.5,513.8 L1421.6,513.8 L1426.7,513.8 L1431.8,513.8 L1436.9,513.8 L1442.0,513.8 L1447.1,513.8 L1452.1,513.8 L1457.2,513.8 L1462.3,513.8 L1467.4,513.8 L1472.5,513.8 L1477.6,513.8 L1482.6,513.8 L1487.7,513.8 L1492.8,513.8 L1497.9,513.8 L1503.0,513.8 L1508.1,513.8 L1513.2,513.8 L1518.2,513.8 L1523.3,513.8 L1528.4,513.8 L1533.5,513.8 L1538.6,513.8 L1543.7,513.8 L1548.7,513.8 L1553.8,513.8 L1558.9,513.8 L1564.0,513.8" stroke="#9e9e9e" stroke-width="1.6" fill="none" stroke-dasharray="2 3"/>
+<line x1="1423.1999999999998" y1="688" x2="1445.1999999999998" y2="688" stroke="#9e9e9e" stroke-width="1.6" stroke-dasharray="2 3"/>
+<text x="1450.1999999999998" y="692" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Lens 1</text>
+<path d="M1264.0,600.2 L1271.0,600.2 L1278.0,600.2 L1284.9,600.2 L1291.9,600.2 L1298.9,600.2 L1305.9,600.2 L1312.8,600.2 L1319.8,600.2 L1326.8,600.2 L1333.8,600.2 L1340.7,600.2 L1347.7,600.2 L1354.7,600.2 L1361.7,600.2 L1368.7,600.2 L1375.6,600.2 L1382.6,600.2 L1389.6,600.2 L1396.6,600.2 L1403.5,600.2 L1410.5,600.2 L1417.5,600.2 L1424.5,600.2 L1431.4,600.2 L1438.4,600.2 L1445.4,600.2 L1452.4,600.2 L1459.3,600.2 L1466.3,600.2 L1473.3,600.2 L1480.3,600.2 L1487.3,600.2 L1494.2,600.2 L1501.2,600.2 L1508.2,600.2 L1515.2,600.2 L1522.1,600.2 L1529.1,600.2 L1536.1,600.2 L1543.1,600.2 L1550.0,600.2 L1557.0,600.2 L1564.0,600.2" stroke="#424242" stroke-width="1.6" fill="none" stroke-dasharray="8 3 2 3"/>
+<line x1="1502.7999999999997" y1="688" x2="1524.7999999999997" y2="688" stroke="#424242" stroke-width="1.6" stroke-dasharray="8 3 2 3"/>
+<text x="1529.7999999999997" y="692" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Lens 2</text>
+<rect x="216" y="724" width="960" height="96" rx="4" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2"/>
+<text x="228" y="746" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">Why is it purple?  INVALID since 14:02:11, STAT = TIMEOUT</text>
+<text x="228" y="768" font-size="12" font-weight="normal" text-anchor="start" fill="#4a148c">Unit 5 has not answered a poll for 2 min 14 s. Lens 1 (unit 3) on the same chain answers, so the</text>
+<text x="228" y="786" font-size="12" font-weight="normal" text-anchor="start" fill="#4a148c">chain CO-U32 (mat_co) and the adapter work: check the supply, its fiber and its CO-HV board.</text>
+<text x="228" y="804" font-size="12" font-weight="normal" text-anchor="start" fill="#4a148c">Set point records stay NO_ALARM because the CO protocol does not answer sets (DESIGN.md §2).</text>
+<rect x="1194" y="724" width="390" height="152" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1204" y="716" width="222.6" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1210" y="729" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Infrastructure (rail entry)</text>
+<text x="1210" y="754" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">Rack IOC</text>
+<text x="1340" y="754" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">mode sim, heartbeat 1 s</text>
+<text x="1210" y="782" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">HV IOC</text>
+<text x="1340" y="782" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">mode sim, heartbeat 1 s</text>
+<text x="1210" y="810" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">libcom1 devices</text>
+<text x="1340" y="810" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">id, firmware, channels</text>
+<text x="1210" y="838" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">simulator</text>
+<text x="1340" y="838" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">fault injection</text>
+</svg>

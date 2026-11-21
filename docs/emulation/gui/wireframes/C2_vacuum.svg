@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Verdana, Arial, sans-serif">
+<title>Option C · Side rail, tables and expert mode — Vacuum &amp; gas page (one row per channel, trends on the right)</title>
+<defs><pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#5a5a5a"/><rect width="6" height="12" fill="#6e6e6e"/></pattern><pattern id="hatchc" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#0d47a1"/><rect width="6" height="12" fill="#1565c0"/></pattern><marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#616161"/></marker></defs>
+<rect x="0" y="0" width="1600" height="900" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<rect x="0" y="0" width="1600" height="24" rx="0" fill="#d6d6d6" stroke="none" stroke-width="1"/>
+<text x="10" y="17" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Option C · Side rail, tables and expert mode — Vacuum &amp; gas page (one row per channel, trends on the right)</text>
+<text x="1590" y="17" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">MIST-2 GUI wireframe · 1600 × 900 · T14</text>
+<rect x="0" y="24" width="1600" height="48" rx="0" fill="#3c3c3c" stroke="none" stroke-width="1"/>
+<line x1="16" y1="41" x2="34" y2="41" stroke="#ffffff" stroke-width="2"/>
+<line x1="16" y1="48" x2="34" y2="48" stroke="#ffffff" stroke-width="2"/>
+<line x1="16" y1="55" x2="34" y2="55" stroke="#ffffff" stroke-width="2"/>
+<text x="50" y="54" font-size="17" font-weight="bold" text-anchor="start" fill="#ffffff">MIST-2 Ion Source</text>
+<text x="1582" y="55" font-size="20" font-weight="bold" text-anchor="middle" fill="#ffffff">⋮</text>
+<rect x="1470" y="34" width="96" height="28" rx="4" fill="none" stroke="#bdbdbd" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="1518" y="53" font-size="12" font-weight="normal" text-anchor="middle" fill="#bdbdbd">PDF report</text>
+<rect x="1338" y="32" width="120" height="32" rx="4" fill="#fafafa" stroke="#000000" stroke-width="2.5"/>
+<text x="1398" y="53" font-size="13" font-weight="bold" text-anchor="middle" fill="#000000">ALL HV OFF</text>
+<rect x="1200" y="34" width="124" height="28" rx="14" fill="none" stroke="#ffffff" stroke-width="1"/>
+<text x="1262" y="53" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">Expert off</text>
+<rect x="0" y="72" width="1600" height="28" rx="0" fill="url(#hatch)" stroke="none" stroke-width="1"/>
+<rect x="8" y="75" width="640" height="22" rx="3" fill="#2b2b2b" stroke="none" stroke-width="1"/>
+<text x="16" y="91" font-size="12.5" font-weight="bold" text-anchor="start" fill="#ffffff">EMULATOR — rack IOC and HV IOC report mode sim. No hardware is connected.</text>
+<rect x="1318.5" y="76" width="265.5" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1329.5" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1338.5" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">Interlock: doors closed, permit yes</text>
+<rect x="1164.3" y="76" width="148.2" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1175.3" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1184.3" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">HV IOC  sim  ♥ 1 s</text>
+<rect x="996.3" y="76" width="162.0" height="20" rx="10" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="1007.3" cy="86" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="1016.3" y="90" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">Rack IOC  sim  ♥ 1 s</text>
+<rect x="0" y="100" width="200" height="800" rx="0" fill="#e4e4e4" stroke="none" stroke-width="1"/>
+<line x1="200" y1="100" x2="200" y2="900" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="131" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Overview</text>
+<circle cx="184" cy="126" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="175" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Plasma generator</text>
+<circle cx="184" cy="170" r="6" fill="#e6a100" stroke="#e6a100" stroke-width="1.2"/>
+<text x="18" y="219" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Extraction</text>
+<circle cx="184" cy="214" r="6" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2"/>
+<rect x="0" y="240" width="200" height="36" rx="0" fill="#ffffff" stroke="none" stroke-width="1"/>
+<rect x="0" y="240" width="5" height="36" rx="0" fill="#424242" stroke="none" stroke-width="1"/>
+<text x="18" y="263" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Vacuum &amp; gas</text>
+<circle cx="184" cy="258" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="307" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Cooling &amp; interlocks</text>
+<circle cx="184" cy="302" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="351" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Diagnostics</text>
+<circle cx="184" cy="346" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<line x1="12" y1="374" x2="188" y2="374" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="18" y="395" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Trends</text>
+<text x="18" y="439" font-size="13" font-weight="normal" text-anchor="start" fill="#212121">Infrastructure</text>
+<circle cx="184" cy="434" r="5" fill="#bdbdbd" stroke="#9e9e9e" stroke-width="1.2"/>
+<text x="14" y="500" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">Dot = worst severity</text>
+<text x="14" y="516" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">on that page</text>
+<text x="216" y="128" font-size="18" font-weight="bold" text-anchor="start" fill="#212121">Vacuum &amp; gas</text>
+<text x="380" y="128" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">one row per channel · click a name for its trend · right-click: PV name, Probe</text>
+<rect x="216" y="146" width="870" height="30" rx="0" fill="#e0e0e0" stroke="none" stroke-width="1"/>
+<text x="226" y="166" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Channel</text>
+<text x="456" y="166" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Command / set point</text>
+<text x="656" y="166" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Read-back</text>
+<text x="846" y="166" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">State</text>
+<text x="1026" y="166" font-size="12" font-weight="bold" text-anchor="start" fill="#424242">Note</text>
+<rect x="216" y="176" width="870" height="30" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="196" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Pressures</text>
+<rect x="216" y="206" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="226" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">Source (nAIM)</text>
+<rect x="454" y="210" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="226" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">GAUGE ON</text>
+<text x="656" y="226" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">2.4e-6 Torr</text>
+<circle cx="854" cy="221.0" r="5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="866" y="226" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">gauge on</text>
+<text x="1026" y="226" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="236" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="256" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">Diagnostic box</text>
+<text x="456" y="256" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="656" y="256" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">8.1e-7 Torr</text>
+<text x="846" y="256" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="256" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="266" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="286" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">Foreline (APG)</text>
+<text x="456" y="286" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="656" y="286" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">3.2e-2 Torr</text>
+<text x="846" y="286" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="286" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="296" width="870" height="30" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="316" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Turbopumps (NT 20)</text>
+<rect x="216" y="326" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="346" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">Turbo 1</text>
+<rect x="454" y="330" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="346" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">RUN</text>
+<text x="656" y="346" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">1200 Hz  0.92 A</text>
+<circle cx="854" cy="341.0" r="5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="866" y="346" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NORMAL</text>
+<text x="1026" y="346" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">3 s</text>
+<rect x="216" y="356" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="376" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">Turbo 2</text>
+<rect x="454" y="360" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="376" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">RUN</text>
+<text x="656" y="376" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">1200 Hz  0.88 A</text>
+<circle cx="854" cy="371.0" r="5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="866" y="376" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">NORMAL</text>
+<text x="1026" y="376" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">3 s</text>
+<rect x="216" y="386" width="870" height="30" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="406" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Gas</text>
+<rect x="216" y="416" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="436" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">MFC set point / flow</text>
+<rect x="454" y="420" width="176" height="22" rx="3" fill="#fafafa" stroke="#424242" stroke-width="1"/>
+<text x="460" y="436" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">1.20 sccm  ✎</text>
+<text x="656" y="436" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">1.19 sccm</text>
+<text x="846" y="436" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="436" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="446" width="870" height="30" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="466" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Valves</text>
+<text x="1076" y="466" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">valve box, 8 channels</text>
+<rect x="216" y="476" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="496" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">1  Foreline</text>
+<rect x="454" y="480" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="496" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">OPEN</text>
+<text x="656" y="496" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">OPEN</text>
+<text x="846" y="496" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="496" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="506" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="526" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">2  MFC shutoff</text>
+<rect x="454" y="510" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="526" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">OPEN</text>
+<text x="656" y="526" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">OPEN</text>
+<text x="846" y="526" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="526" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="536" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="556" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">3  Vent</text>
+<rect x="454" y="540" width="92" height="22" rx="4" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<text x="500" y="556" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#424242">CLOSED</text>
+<text x="656" y="556" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">CLOSED</text>
+<text x="846" y="556" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="556" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="566" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="586" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">4  Faraday cup actuator</text>
+<rect x="454" y="570" width="92" height="22" rx="4" fill="#424242" stroke="#424242" stroke-width="1"/>
+<text x="500" y="586" font-size="11.5" font-weight="bold" text-anchor="middle" fill="#ffffff">IN</text>
+<text x="656" y="586" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">IN</text>
+<text x="846" y="586" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="586" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="596" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="616" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">5 – 8  spare</text>
+<text x="456" y="616" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="656" y="616" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">all CLOSED</text>
+<text x="846" y="616" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="616" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="216" y="626" width="870" height="30" rx="0" fill="#f0f0f0" stroke="none" stroke-width="1"/>
+<text x="226" y="646" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Roughing pump</text>
+<rect x="216" y="656" width="870" height="30" rx="0" fill="none" stroke="#e6e6e6" stroke-width="1"/>
+<text x="226" y="676" font-size="12.5" font-weight="normal" text-anchor="start" fill="#212121">(no PVs yet)</text>
+<text x="456" y="676" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="656" y="676" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="846" y="676" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<text x="1026" y="676" font-size="12.5" font-weight="normal" text-anchor="start" fill="#757575"></text>
+<rect x="1104" y="146" width="480" height="360" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1114" y="138" width="175.79999999999998" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1120" y="151" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Pressures (log scale)</text>
+<rect x="1174" y="168" width="390" height="298" rx="0" fill="#fbfbfb" stroke="#e0e0e0" stroke-width="1"/>
+<line x1="1174" y1="466.0" x2="1564" y2="466.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="470.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1e-8</text>
+<line x1="1174" y1="391.5" x2="1564" y2="391.5" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="395.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1e-6</text>
+<line x1="1174" y1="317.0" x2="1564" y2="317.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="321.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1e-4</text>
+<line x1="1174" y1="242.5" x2="1564" y2="242.5" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="246.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1e-2</text>
+<line x1="1174" y1="168.0" x2="1564" y2="168.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="172.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1e0</text>
+<text x="1168" y="162" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">Torr</text>
+<text x="1174.0" y="480" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-10 min</text>
+<text x="1271.5" y="480" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-7.5</text>
+<text x="1369.0" y="480" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-5</text>
+<text x="1466.5" y="480" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-2.5</text>
+<text x="1564.0" y="480" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">now</text>
+<path d="M1174.0,376.6 L1180.6,375.6 L1187.2,375.5 L1193.8,376.4 L1200.4,377.5 L1207.1,377.7 L1213.7,376.9 L1220.3,375.8 L1226.9,375.4 L1233.5,376.1 L1240.1,377.2 L1246.7,377.8 L1253.3,377.2 L1259.9,376.1 L1266.5,375.4 L1273.2,375.8 L1279.8,376.9 L1286.4,377.7 L1293.0,377.5 L1299.6,376.4 L1306.2,375.5 L1312.8,375.6 L1319.4,376.6 L1326.0,377.6 L1332.6,377.7 L1339.3,376.8 L1345.9,375.7 L1352.5,375.5 L1359.1,376.3 L1365.7,377.4 L1372.3,377.8 L1378.9,377.1 L1385.5,375.9 L1392.1,375.4 L1398.7,376.0 L1405.4,377.1 L1412.0,377.8 L1418.6,377.4 L1425.2,376.2 L1431.8,375.5 L1438.4,375.7 L1445.0,376.8 L1451.6,377.7 L1458.2,377.6 L1464.8,376.6 L1471.5,375.6 L1478.1,375.5 L1484.7,376.5 L1491.3,377.5 L1497.9,377.7 L1504.5,376.9 L1511.1,375.8 L1517.7,375.4 L1524.3,376.1 L1530.9,377.3 L1537.6,377.8 L1544.2,377.2 L1550.8,376.1 L1557.4,375.4 L1564.0,375.8" stroke="#212121" stroke-width="1.6" fill="none"/>
+<line x1="1174" y1="492" x2="1196" y2="492" stroke="#212121" stroke-width="1.6"/>
+<text x="1201" y="496" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">nAIM</text>
+<path d="M1174.0,393.5 L1180.6,393.4 L1187.2,394.3 L1193.8,395.4 L1200.4,395.6 L1207.1,394.8 L1213.7,393.7 L1220.3,393.3 L1226.9,394.0 L1233.5,395.1 L1240.1,395.7 L1246.7,395.1 L1253.3,394.0 L1259.9,393.3 L1266.5,393.7 L1273.2,394.8 L1279.8,395.6 L1286.4,395.4 L1293.0,394.3 L1299.6,393.4 L1306.2,393.5 L1312.8,394.5 L1319.4,395.5 L1326.0,395.6 L1332.6,394.6 L1339.3,393.6 L1345.9,393.3 L1352.5,394.2 L1359.1,395.3 L1365.7,395.7 L1372.3,395.0 L1378.9,393.8 L1385.5,393.3 L1392.1,393.8 L1398.7,395.0 L1405.4,395.7 L1412.0,395.2 L1418.6,394.1 L1425.2,393.3 L1431.8,393.6 L1438.4,394.7 L1445.0,395.6 L1451.6,395.5 L1458.2,394.5 L1464.8,393.5 L1471.5,393.4 L1478.1,394.3 L1484.7,395.4 L1491.3,395.6 L1497.9,394.8 L1504.5,393.7 L1511.1,393.3 L1517.7,394.0 L1524.3,395.1 L1530.9,395.7 L1537.6,395.1 L1544.2,394.0 L1550.8,393.3 L1557.4,393.7 L1564.0,394.8" stroke="#616161" stroke-width="1.6" fill="none" stroke-dasharray="6 3"/>
+<line x1="1240.4" y1="492" x2="1262.4" y2="492" stroke="#616161" stroke-width="1.6" stroke-dasharray="6 3"/>
+<text x="1267.4" y="496" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Diag. box</text>
+<path d="M1174.0,224.6 L1180.6,224.6 L1187.2,224.6 L1193.8,224.6 L1200.4,224.6 L1207.1,224.6 L1213.7,224.6 L1220.3,224.6 L1226.9,224.6 L1233.5,224.6 L1240.1,224.6 L1246.7,224.6 L1253.3,224.6 L1259.9,224.6 L1266.5,224.6 L1273.2,224.6 L1279.8,224.6 L1286.4,224.6 L1293.0,224.6 L1299.6,224.6 L1306.2,224.6 L1312.8,224.6 L1319.4,224.6 L1326.0,224.6 L1332.6,224.6 L1339.3,224.6 L1345.9,224.6 L1352.5,224.6 L1359.1,224.6 L1365.7,224.6 L1372.3,224.6 L1378.9,224.6 L1385.5,224.6 L1392.1,224.6 L1398.7,224.6 L1405.4,224.6 L1412.0,224.6 L1418.6,224.6 L1425.2,224.6 L1431.8,224.6 L1438.4,224.6 L1445.0,224.6 L1451.6,224.6 L1458.2,224.6 L1464.8,224.6 L1471.5,224.6 L1478.1,224.6 L1484.7,224.6 L1491.3,224.6 L1497.9,224.6 L1504.5,224.6 L1511.1,224.6 L1517.7,224.6 L1524.3,224.6 L1530.9,224.6 L1537.6,224.6 L1544.2,224.6 L1550.8,224.6 L1557.4,224.6 L1564.0,224.6" stroke="#9e9e9e" stroke-width="1.6" fill="none" stroke-dasharray="2 3"/>
+<line x1="1339.8000000000002" y1="492" x2="1361.8000000000002" y2="492" stroke="#9e9e9e" stroke-width="1.6" stroke-dasharray="2 3"/>
+<text x="1366.8000000000002" y="496" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">APG</text>
+<rect x="1104" y="524" width="480" height="360" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1114" y="516" width="97.8" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1120" y="529" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Turbo speed</text>
+<rect x="1174" y="546" width="390" height="298" rx="0" fill="#fbfbfb" stroke="#e0e0e0" stroke-width="1"/>
+<line x1="1174" y1="844.0" x2="1564" y2="844.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="848.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">0</text>
+<line x1="1174" y1="769.5" x2="1564" y2="769.5" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="773.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">400</text>
+<line x1="1174" y1="695.0" x2="1564" y2="695.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="699.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">800</text>
+<line x1="1174" y1="620.5" x2="1564" y2="620.5" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="624.5" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1200</text>
+<line x1="1174" y1="546.0" x2="1564" y2="546.0" stroke="#ececec" stroke-width="1"/>
+<text x="1168" y="550.0" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">1600</text>
+<text x="1168" y="540" font-size="10" font-weight="normal" text-anchor="end" fill="#757575">Hz</text>
+<text x="1174.0" y="858" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-10 min</text>
+<text x="1271.5" y="858" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-7.5</text>
+<text x="1369.0" y="858" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-5</text>
+<text x="1466.5" y="858" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">-2.5</text>
+<text x="1564.0" y="858" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">now</text>
+<path d="M1174.0,620.5 L1180.6,620.5 L1187.2,620.5 L1193.8,620.5 L1200.4,620.5 L1207.1,620.5 L1213.7,620.5 L1220.3,620.5 L1226.9,620.5 L1233.5,620.5 L1240.1,620.5 L1246.7,620.5 L1253.3,620.5 L1259.9,620.5 L1266.5,620.5 L1273.2,620.5 L1279.8,620.5 L1286.4,620.5 L1293.0,620.5 L1299.6,620.5 L1306.2,620.5 L1312.8,620.5 L1319.4,620.5 L1326.0,620.5 L1332.6,620.5 L1339.3,620.5 L1345.9,620.5 L1352.5,620.5 L1359.1,620.5 L1365.7,620.5 L1372.3,620.5 L1378.9,620.5 L1385.5,620.5 L1392.1,620.5 L1398.7,620.5 L1405.4,620.5 L1412.0,620.5 L1418.6,620.5 L1425.2,620.5 L1431.8,620.5 L1438.4,620.5 L1445.0,620.5 L1451.6,620.5 L1458.2,620.5 L1464.8,620.5 L1471.5,620.5 L1478.1,620.5 L1484.7,620.5 L1491.3,620.5 L1497.9,620.5 L1504.5,620.5 L1511.1,620.5 L1517.7,620.5 L1524.3,620.5 L1530.9,620.5 L1537.6,620.5 L1544.2,620.5 L1550.8,620.5 L1557.4,620.5 L1564.0,620.5" stroke="#212121" stroke-width="1.6" fill="none"/>
+<line x1="1174" y1="870" x2="1196" y2="870" stroke="#212121" stroke-width="1.6"/>
+<text x="1201" y="874" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Turbo 1</text>
+<path d="M1174.0,623.5 L1180.6,623.5 L1187.2,623.5 L1193.8,623.5 L1200.4,623.5 L1207.1,623.5 L1213.7,623.5 L1220.3,623.5 L1226.9,623.5 L1233.5,623.5 L1240.1,623.5 L1246.7,623.5 L1253.3,623.5 L1259.9,623.5 L1266.5,623.5 L1273.2,623.5 L1279.8,623.5 L1286.4,623.5 L1293.0,623.5 L1299.6,623.5 L1306.2,623.5 L1312.8,623.5 L1319.4,623.5 L1326.0,623.5 L1332.6,623.5 L1339.3,623.5 L1345.9,623.5 L1352.5,623.5 L1359.1,623.5 L1365.7,623.5 L1372.3,623.5 L1378.9,623.5 L1385.5,623.5 L1392.1,623.5 L1398.7,623.5 L1405.4,623.5 L1412.0,623.5 L1418.6,623.5 L1425.2,623.5 L1431.8,623.5 L1438.4,623.5 L1445.0,623.5 L1451.6,623.5 L1458.2,623.5 L1464.8,623.5 L1471.5,623.5 L1478.1,623.5 L1484.7,623.5 L1491.3,623.5 L1497.9,623.5 L1504.5,623.5 L1511.1,623.5 L1517.7,623.5 L1524.3,623.5 L1530.9,623.5 L1537.6,623.5 L1544.2,623.5 L1550.8,623.5 L1557.4,623.5 L1564.0,623.5" stroke="#616161" stroke-width="1.6" fill="none" stroke-dasharray="6 3"/>
+<line x1="1260.2" y1="870" x2="1282.2" y2="870" stroke="#616161" stroke-width="1.6" stroke-dasharray="6 3"/>
+<text x="1287.2" y="874" font-size="11" font-weight="normal" text-anchor="start" fill="#424242">Turbo 2</text>
+<text x="216" y="870" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">Note column: record age of the turbo RS-232 data. Expert mode (top bar) adds PV, SEVR/STAT and time columns to this same table.</text>
+</svg>

@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Verdana, Arial, sans-serif">
+<title>Shared by all options — alarm severity, emulator banner, widget classes</title>
+<defs><pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#5a5a5a"/><rect width="6" height="12" fill="#6e6e6e"/></pattern><pattern id="hatchc" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#0d47a1"/><rect width="6" height="12" fill="#1565c0"/></pattern><marker id="arr" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#616161"/></marker></defs>
+<rect x="0" y="0" width="1600" height="900" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<rect x="0" y="0" width="1600" height="24" rx="0" fill="#d6d6d6" stroke="none" stroke-width="1"/>
+<text x="10" y="17" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Shared by all options — alarm severity, emulator banner, widget classes</text>
+<text x="1590" y="17" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">MIST-2 GUI wireframe · 1600 × 900 · T14</text>
+<text x="16" y="60" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">1  How a value shows its EPICS alarm severity (same rule for fields, synoptic tags, table rows, lamps)</text>
+<text x="16" y="90" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">NO_ALARM</text>
+<text x="316" y="90" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">plain, no colour</text>
+<rect x="16" y="108" width="200" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="23" y="102" width="120.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="26" y="111" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Puller voltage read</text>
+<text x="25" y="133" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">4.20</text>
+<text x="208" y="132" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">kV</text>
+<circle cx="246" cy="126" r="8" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<rect x="16" y="160" width="200" height="57" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<text x="22" y="174" font-size="11.5" font-weight="bold" text-anchor="start" fill="#212121">Puller (AU 2)</text>
+<text x="22" y="193" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">U</text>
+<text x="210" y="193" font-size="11.5" font-weight="bold" text-anchor="end" fill="#212121">4.20 kV</text>
+<text x="22" y="210" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">I</text>
+<text x="210" y="210" font-size="11.5" font-weight="bold" text-anchor="end" fill="#212121">0.35 mA</text>
+<text x="332" y="90" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">MINOR</text>
+<text x="632" y="90" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">amber fill + ▲</text>
+<rect x="332" y="108" width="200" height="36" rx="4" fill="#ffe8a3" stroke="#e6a100" stroke-width="2"/>
+<rect x="339" y="102" width="120.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="342" y="111" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Puller voltage read</text>
+<text x="341" y="133" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">4.20</text>
+<text x="524" y="132" font-size="12" font-weight="normal" text-anchor="end" fill="#212121">kV  ▲</text>
+<circle cx="562" cy="126" r="8" fill="#e6a100" stroke="#e6a100" stroke-width="1.2"/>
+<rect x="332" y="160" width="200" height="57" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<text x="338" y="174" font-size="11.5" font-weight="bold" text-anchor="start" fill="#212121">Puller (AU 2)</text>
+<rect x="334" y="181" width="196" height="16" rx="2" fill="#ffe8a3" stroke="#e6a100" stroke-width="1.2"/>
+<text x="338" y="193" font-size="10.5" font-weight="normal" text-anchor="start" fill="#212121">U</text>
+<text x="526" y="193" font-size="11.5" font-weight="bold" text-anchor="end" fill="#212121">4.20 kV ▲</text>
+<text x="338" y="210" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">I</text>
+<text x="526" y="210" font-size="11.5" font-weight="bold" text-anchor="end" fill="#212121">0.35 mA</text>
+<text x="648" y="90" font-size="13" font-weight="bold" text-anchor="start" fill="#7f0000">MAJOR</text>
+<text x="948" y="90" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">red fill + ■</text>
+<rect x="648" y="108" width="200" height="36" rx="4" fill="#f6c4c0" stroke="#d32f2f" stroke-width="2.5"/>
+<rect x="655" y="102" width="120.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="658" y="111" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Puller voltage read</text>
+<text x="657" y="133" font-size="15" font-weight="bold" text-anchor="start" fill="#7f0000">4.20</text>
+<text x="840" y="132" font-size="12" font-weight="normal" text-anchor="end" fill="#7f0000">kV  ■</text>
+<circle cx="878" cy="126" r="8" fill="#d32f2f" stroke="#d32f2f" stroke-width="1.2"/>
+<rect x="648" y="160" width="200" height="57" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<text x="654" y="174" font-size="11.5" font-weight="bold" text-anchor="start" fill="#212121">Puller (AU 2)</text>
+<rect x="650" y="181" width="196" height="16" rx="2" fill="#f6c4c0" stroke="#d32f2f" stroke-width="1.2"/>
+<text x="654" y="193" font-size="10.5" font-weight="normal" text-anchor="start" fill="#7f0000">U</text>
+<text x="842" y="193" font-size="11.5" font-weight="bold" text-anchor="end" fill="#7f0000">4.20 kV ■</text>
+<text x="654" y="210" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">I</text>
+<text x="842" y="210" font-size="11.5" font-weight="bold" text-anchor="end" fill="#212121">0.35 mA</text>
+<text x="964" y="90" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="1264" y="90" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">purple, value hidden</text>
+<rect x="964" y="108" width="200" height="36" rx="4" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2.5"/>
+<rect x="971" y="102" width="120.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="974" y="111" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Puller voltage read</text>
+<text x="973" y="133" font-size="13" font-weight="bold" text-anchor="start" fill="#4a148c">INVALID</text>
+<text x="1156" y="133" font-size="13" font-weight="bold" text-anchor="end" fill="#4a148c">?</text>
+<circle cx="1194" cy="126" r="8" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2"/>
+<rect x="964" y="160" width="200" height="57" rx="4" fill="#ecd7f3" stroke="#8e24aa" stroke-width="2.5"/>
+<text x="970" y="174" font-size="11.5" font-weight="bold" text-anchor="start" fill="#4a148c">Puller (AU 2)</text>
+<text x="970" y="193" font-size="10.5" font-weight="normal" text-anchor="start" fill="#4a148c">U</text>
+<text x="1158" y="193" font-size="11.5" font-weight="bold" text-anchor="end" fill="#4a148c">INVALID</text>
+<text x="970" y="210" font-size="10.5" font-weight="normal" text-anchor="start" fill="#4a148c">I</text>
+<text x="1158" y="210" font-size="11.5" font-weight="bold" text-anchor="end" fill="#4a148c">INVALID</text>
+<text x="1280" y="90" font-size="13" font-weight="bold" text-anchor="start" fill="#757575">disconnected</text>
+<text x="1580" y="90" font-size="11" font-weight="normal" text-anchor="end" fill="#757575">grey dashed, ×</text>
+<rect x="1280" y="108" width="200" height="36" rx="4" fill="#e6e6e6" stroke="#9e9e9e" stroke-width="1.5" stroke-dasharray="4 3"/>
+<rect x="1287" y="102" width="120.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1290" y="111" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Puller voltage read</text>
+<text x="1289" y="132" font-size="12" font-weight="normal" text-anchor="start" fill="#757575" font-style="italic">no connection</text>
+<text x="1472" y="133" font-size="14" font-weight="normal" text-anchor="end" fill="#757575">×</text>
+<circle cx="1510" cy="126" r="8" fill="#e0e0e0" stroke="#757575" stroke-width="1.2"/>
+<line x1="1505.2" y1="121.2" x2="1514.8" y2="130.8" stroke="#757575" stroke-width="1.2"/>
+<rect x="1280" y="160" width="200" height="57" rx="4" fill="#e6e6e6" stroke="#9e9e9e" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="1286" y="174" font-size="11.5" font-weight="bold" text-anchor="start" fill="#757575">Puller (AU 2)</text>
+<text x="1286" y="193" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">U</text>
+<text x="1474" y="193" font-size="11.5" font-weight="bold" text-anchor="end" fill="#757575">no conn.</text>
+<text x="1286" y="210" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">I</text>
+<text x="1474" y="210" font-size="11.5" font-weight="bold" text-anchor="end" fill="#757575">no conn.</text>
+<text x="16" y="252" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">INVALID (device silent, record cannot be trusted): the number is replaced by the word INVALID; the last good value and its time are one click away (expert).</text>
+<text x="16" y="270" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">Disconnected (no Channel Access connection, IOC down): RAS already replaces the value by the PV name and a disconnect icon; we show ‘no connection’ and grey it out.</text>
+<text x="16" y="288" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">Colour is never the only carrier: the marker (▲ ■ ? ×) and the word keep it readable in grayscale and for colour-blind readers. No thresholds are coded in pages.</text>
+<text x="16" y="318" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">2  Emulator banner (on every page, below the app bar)</text>
+<rect x="16" y="332" width="1568" height="28" rx="0" fill="url(#hatchc)" stroke="none" stroke-width="1"/>
+<rect x="24" y="335" width="640" height="22" rx="3" fill="#0b2e6b" stroke="none" stroke-width="1"/>
+<text x="32" y="351" font-size="12.5" font-weight="bold" text-anchor="start" fill="#ffffff">EMULATOR — rack IOC and HV IOC report mode sim. No hardware is connected.</text>
+<rect x="16" y="368" width="1568" height="28" rx="0" fill="url(#hatchc)" stroke="none" stroke-width="1"/>
+<rect x="24" y="371" width="760" height="22" rx="3" fill="#0b2e6b" stroke="none" stroke-width="1"/>
+<text x="32" y="387" font-size="12.5" font-weight="bold" text-anchor="start" fill="#ffffff">MIXED — rack IOC in mode sim, HV IOC on real hardware. Platform values are real.</text>
+<text x="16" y="416" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">Blue diagonal stripes: a colour no alarm uses. Mode comes from each IOC’s mode PV, not from a GUI setting. Mode unknown (PV disconnected) shows the banner too. Window title gets the prefix ‘[SIM]’.</text>
+<text x="16" y="446" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">3  Widget classes (one React component each, PV names from the registry)</text>
+<rect x="16" y="466" width="380" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="26" y="458" width="175.79999999999998" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="32" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Supply: Puller (AU 2)</text>
+<rect x="323.2" y="458" width="62.8" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="381" y="470" font-size="11" font-weight="normal" text-anchor="end" fill="#424242">expert ›</text>
+<rect x="30" y="496" width="170" height="36" rx="4" fill="#fafafa" stroke="#424242" stroke-width="1.4"/>
+<rect x="37" y="490" width="90.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="40" y="499" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">voltage set  ✎</text>
+<text x="39" y="521" font-size="15" font-weight="normal" text-anchor="start" fill="#212121">4.20</text>
+<text x="192" y="520" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">kV</text>
+<rect x="212" y="496" width="170" height="36" rx="4" fill="#fafafa" stroke="#424242" stroke-width="1.4"/>
+<rect x="219" y="490" width="126.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="222" y="499" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">current limit set  ✎</text>
+<text x="221" y="521" font-size="15" font-weight="normal" text-anchor="start" fill="#212121">0.50</text>
+<text x="374" y="520" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">mA</text>
+<rect x="30" y="546" width="170" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="37" y="540" width="78.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="40" y="549" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">voltage read</text>
+<text x="39" y="571" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">4.20</text>
+<text x="192" y="570" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">kV</text>
+<rect x="212" y="546" width="170" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="219" y="540" width="78.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="222" y="549" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">current read</text>
+<text x="221" y="571" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">0.35</text>
+<text x="374" y="570" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">mA</text>
+<rect x="30" y="596" width="110" height="30" rx="4" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="85.0" y="616.0" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">OUTPUT ON</text>
+<circle cx="156" cy="611" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="168" y="615" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">output on (read-back)</text>
+<rect x="412" y="466" width="180" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="422" y="458" width="144.6" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="428" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Valve: 1 Foreline</text>
+<rect x="428" y="502" width="148" height="30" rx="4" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="502.0" y="522.0" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">OPEN</text>
+<circle cx="436" cy="558" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="448" y="562" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">read-back OPEN</text>
+<path d="M491,590 L513,606 L513,590 L491,606 Z" stroke="#000" stroke-width="1.5" fill="#ffffff"/>
+<text x="502" y="630" font-size="10.5" font-weight="normal" text-anchor="middle" fill="#757575">synoptic symbol</text>
+<rect x="608" y="466" width="200" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="618" y="458" width="97.8" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="624" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Gauge: nAIM</text>
+<rect x="624" y="500" width="168" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="631" y="494" width="54.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="634" y="503" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">pressure</text>
+<text x="633" y="525" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">2.4e-6</text>
+<text x="784" y="524" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">Torr</text>
+<rect x="624" y="554" width="80" height="30" rx="4" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="664.0" y="574.0" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">ON</text>
+<text x="712" y="574" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">enable (if any)</text>
+<circle cx="700" cy="614" r="9" fill="#ffffff" stroke="#000" stroke-width="1.5"/>
+<text x="700" y="618" font-size="10" font-weight="bold" text-anchor="middle" fill="#212121">G</text>
+<rect x="824" y="466" width="250" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="834" y="458" width="160.2" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="840" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Turbo pump: Turbo 1</text>
+<rect x="840" y="498" width="80" height="30" rx="4" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="880.0" y="518.0" font-size="12" font-weight="bold" text-anchor="middle" fill="#ffffff">RUN</text>
+<circle cx="948" cy="510" r="6" fill="#ffffff" stroke="#424242" stroke-width="1.2"/>
+<text x="948" y="532" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">accel.</text>
+<circle cx="994" cy="510" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="994" y="532" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">normal</text>
+<circle cx="1040" cy="510" r="6" fill="#ffffff" stroke="#424242" stroke-width="1.2"/>
+<text x="1040" y="532" font-size="10" font-weight="normal" text-anchor="middle" fill="#757575">failure</text>
+<rect x="840" y="554" width="110" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="847" y="548" width="36.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="850" y="557" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">speed</text>
+<text x="849" y="579" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">1200</text>
+<text x="942" y="578" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">Hz</text>
+<rect x="960" y="554" width="98" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="967" y="548" width="48.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="970" y="557" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">current</text>
+<text x="969" y="579" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">0.92</text>
+<text x="1050" y="578" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">A</text>
+<text x="840" y="618" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">state NORMAL · record age 3 s</text>
+<rect x="1090" y="466" width="200" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1100" y="458" width="168.0" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1106" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Mass flow controller</text>
+<rect x="1106" y="498" width="168" height="36" rx="4" fill="#fafafa" stroke="#424242" stroke-width="1.4"/>
+<rect x="1113" y="492" width="78.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1116" y="501" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">set point  ✎</text>
+<text x="1115" y="523" font-size="15" font-weight="normal" text-anchor="start" fill="#212121">1.20</text>
+<text x="1266" y="522" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">sccm</text>
+<rect x="1106" y="550" width="168" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1113" y="544" width="30.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1116" y="553" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">flow</text>
+<text x="1115" y="575" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">1.19</text>
+<text x="1266" y="574" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">sccm</text>
+<text x="1106" y="616" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">wink: expert only</text>
+<rect x="1306" y="466" width="278" height="176" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1316" y="458" width="168.0" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1322" y="471" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Reading (T, flow, I)</text>
+<rect x="1322" y="498" width="120" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1329" y="492" width="66.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1332" y="501" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Back plate</text>
+<text x="1331" y="523" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">41.2</text>
+<text x="1434" y="522" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">°C</text>
+<rect x="1452" y="498" width="118" height="36" rx="4" fill="#ffe8a3" stroke="#e6a100" stroke-width="2"/>
+<rect x="1459" y="492" width="78.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1462" y="501" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Magnet plate</text>
+<text x="1461" y="523" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">62.3</text>
+<text x="1562" y="522" font-size="12" font-weight="normal" text-anchor="end" fill="#212121">°C  ▲</text>
+<rect x="1322" y="550" width="120" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1329" y="544" width="72.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1332" y="553" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Front plate</text>
+<text x="1331" y="575" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">1.21</text>
+<text x="1434" y="574" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">l/min</text>
+<rect x="1452" y="550" width="118" height="36" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1459" y="544" width="72.0" height="11" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1462" y="553" font-size="10" font-weight="normal" text-anchor="start" fill="#757575">Faraday cup</text>
+<text x="1461" y="575" font-size="15" font-weight="bold" text-anchor="start" fill="#212121">0.85</text>
+<text x="1562" y="574" font-size="12" font-weight="normal" text-anchor="end" fill="#757575">mA</text>
+<text x="1322" y="616" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">one class, unit and format from the PV</text>
+<rect x="16" y="660" width="380" height="120" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="26" y="652" width="160.2" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="32" y="665" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Interlock (old box)</text>
+<circle cx="36" cy="692" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="50" y="696" font-size="12" font-weight="normal" text-anchor="start" fill="#212121">HV door lower</text>
+<text x="380" y="696" font-size="12" font-weight="bold" text-anchor="end" fill="#212121">closed</text>
+<circle cx="36" cy="720" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="50" y="724" font-size="12" font-weight="normal" text-anchor="start" fill="#212121">HV door upper</text>
+<text x="380" y="724" font-size="12" font-weight="bold" text-anchor="end" fill="#212121">closed</text>
+<circle cx="36" cy="748" r="6" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="50" y="752" font-size="12" font-weight="normal" text-anchor="start" fill="#212121">permit HV and discharge</text>
+<text x="380" y="752" font-size="12" font-weight="bold" text-anchor="end" fill="#212121">yes</text>
+<rect x="412" y="660" width="396" height="120" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="422" y="652" width="207.0" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="428" y="665" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">IOC status chip (app bar)</text>
+<rect x="428" y="690" width="190" height="22" rx="11" fill="#ffffff" stroke="#424242" stroke-width="1"/>
+<circle cx="441" cy="701" r="4.5" fill="#424242" stroke="#424242" stroke-width="1.2"/>
+<text x="450" y="706" font-size="11.5" font-weight="normal" text-anchor="start" fill="#212121">Rack IOC  sim  ♥ 1 s</text>
+<rect x="428" y="722" width="190" height="22" rx="11" fill="#f6c4c0" stroke="#d32f2f" stroke-width="2"/>
+<circle cx="441" cy="733" r="4.5" fill="#d32f2f" stroke="#d32f2f" stroke-width="1.2"/>
+<text x="450" y="738" font-size="11.5" font-weight="normal" text-anchor="start" fill="#7f0000">HV IOC  heartbeat lost</text>
+<text x="630" y="706" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">heartbeat + mode PV</text>
+<text x="630" y="738" font-size="11" font-weight="normal" text-anchor="start" fill="#757575">no beat for 5 s: MAJOR</text>
+<rect x="824" y="660" width="466" height="120" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="834" y="652" width="339.59999999999997" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="840" y="665" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Device identity and communication (expert)</text>
+<text x="840" y="696" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">id / firmware</text>
+<text x="980" y="696" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">VALVE · libcom1 p2 2026-11-03</text>
+<text x="840" y="722" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">channels</text>
+<text x="980" y="722" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">s1 s2 s3 s4 s5 s6 s7 s8</text>
+<text x="840" y="748" font-size="12" font-weight="normal" text-anchor="start" fill="#757575">last reply</text>
+<text x="980" y="748" font-size="12" font-weight="bold" text-anchor="start" fill="#212121">0.4 s ago</text>
+<rect x="1306" y="660" width="278" height="120" rx="4" fill="#ffffff" stroke="#9e9e9e" stroke-width="1"/>
+<rect x="1316" y="652" width="168.0" height="16" rx="0" fill="#f2f2f2" stroke="none" stroke-width="1"/>
+<text x="1322" y="665" font-size="13" font-weight="bold" text-anchor="start" fill="#212121">Command with confirm</text>
+<rect x="1322" y="690" width="160" height="34" rx="4" fill="#fafafa" stroke="#000" stroke-width="2.5"/>
+<text x="1402" y="712" font-size="13" font-weight="bold" text-anchor="middle" fill="#212121">ALL HV OFF</text>
+<text x="1322" y="748" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">one click, no confirm (safe direction)</text>
+<text x="1322" y="766" font-size="10.5" font-weight="normal" text-anchor="start" fill="#757575">unsafe direction: confirm dialog</text>
+<text x="16" y="884" font-size="12" font-weight="normal" text-anchor="start" fill="#424242">Plus: Trend (RAS GraphY with time stamps), synoptic symbols (electrode, valve, gauge, pump, cup) and the value tag. Placeholders in the app bar: PDF report (WP8); loops (WP10) get their own widget class later.</text>
+</svg>
