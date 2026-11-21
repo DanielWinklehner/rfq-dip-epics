@@ -2,7 +2,8 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1 and T2 are running, one subagent and one worktree each. T9 and T14 are merged.
+T1, T2, T9 and T14 are merged. The device tasks T3 to T6 are running, one subagent and one
+worktree each.
 
 ## Done
 
@@ -18,6 +19,17 @@ T1 and T2 are running, one subagent and one worktree each. T9 and T14 are merged
 - Checked on this machine: Docker 29.9.2 and Compose 5.6.1 work without `sudo`, RAS tag
   `V8.1.0` and the example project are reachable.
 
+- **T1 merged** (acceptance sequence run by the lead): image `mist2-ioc:dev` with EPICS base
+  R7.0.10, asyn R4-46 and StreamDevice 2.8.26, the EPICS top `EPICS/ioc` with one `st.cmd` and
+  two port files per IOC, `emulation/compose.yaml` with two IOCs at `172.30.0.11` and `.12`, the
+  Channel Access proof and the device test harness. `make -C emulation build up ca-proof down`.
+- **Channel Access proof, 16 checks, all pass**: both IOCs answer a broadcast from the bridge
+  network and from the WSL host network, and each answers a unicast search for its own PVs only.
+- **T2 merged** (acceptance test run by the lead): simulator core and libcom1 simulator. The
+  Python libcom1 engine gives the same 122-line transcript as the real library for
+  `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
+- **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
+  of both IOCs on `172.30.0.0/24`.
 - **T9 merged** (acceptance test run by the lead): `RAS/mist2/` is a running application shell
   on RAS V8.1.0 (submodule). `make -C RAS/mist2 dev-up`, then `http://localhost:3000/` in the
   Windows browser. Three containers (nginx, Vite, pvServer), no database: with login disabled
@@ -49,6 +61,9 @@ T1 and T2 are running, one subagent and one worktree each. T9 and T14 are merged
 | `latest.zip` committed as `reference/lab-2023/`, not merged into `EPICS/Db` | It is a 2023 state and the lab has moved on. Subagents in worktrees can read it, and the merge into `EPICS/Db` happens per device with a visible diff |
 | `plan/build.py` and all tooling run in containers | `sudo` needs a password, and Graphviz, python-docx and pytest are not installed on the host |
 | Simulators in their own containers | See DESIGN.md section 2 |
+| EPICS base R7.0.10, not R7.0.11 | StreamDevice 2.8.26, the latest release, does not build against R7.0.11. The fix is on StreamDevice's master branch but in no release. With R7.0.10 everything is an unmodified release tag |
+| Each port file starts with the line `on error break` | Without it an error inside a file loaded with `iocshLoad` is ignored and the IOC starts half-configured. It is the one line in the port files that is not port configuration |
+| An IOC with an unset or wrong `MIST2_PORTS` exits instead of starting | A real computer must never come up on simulator ports by accident, or the other way round |
 
 ## Assumptions that need your confirmation
 
