@@ -1,0 +1,26 @@
+# AVR/devices/SolenoidValveBox: Arduino Mega, 8 relays s1..s8, Serial.println at 115200 baud.
+# A channel reads 1 when its relay is energised. set_solenoid() energises it only for exactly 1,
+# anything else releases it: behaviour "relay".
+- name: valvebox
+  type: libcom1
+  port: 5012                  # control port 6012 (port + 1000)
+  baud: 115200
+  bits_per_char: 10
+  turnaround_ms: 1            # assumption: loop() of the sketch does nothing else
+  in_terminator: "\n"
+  out_terminator: "\r\n"      # Serial.println
+  options:
+    identity: SolenoidValveBox
+    firmware: "Nov 21 2026"   # the sketch reports __DATE__, placeholder for the build date
+    number_format: avr        # dtostre(), Arduino AVR
+    out_buffer: 160
+    in_buffer: 128
+    channels:
+      - {id: s1, behaviour: relay}
+      - {id: s2, behaviour: relay}
+      - {id: s3, behaviour: relay}
+      - {id: s4, behaviour: relay}
+      - {id: s5, behaviour: relay}
+      - {id: s6, behaviour: relay}
+      - {id: s7, behaviour: relay}
+      - {id: s8, behaviour: relay}
