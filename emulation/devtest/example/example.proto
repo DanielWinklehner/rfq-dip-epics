@@ -1,0 +1,5 @@
+# example.proto - protocol of the fake device (fake_device.py)
+Terminator = LF;
+
+get_value { out "VAL?"; in "%f"; }
+set_value { out "SET %f"; in "OK"; }

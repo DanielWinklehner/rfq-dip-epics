@@ -1,0 +1,13 @@
+# example.db - one read-back and one set point of the fake device. Macros: P, PORT
+record(ai, "$(P):value:get") {
+    field(DTYP, "stream")
+    field(INP, "@example.proto get_value $(PORT)")
+    field(SCAN, "1 second")
+    field(PREC, "3")
+}
+
+record(ao, "$(P):value:set") {
+    field(DTYP, "stream")
+    field(OUT, "@example.proto set_value $(PORT)")
+    field(PREC, "3")
+}
