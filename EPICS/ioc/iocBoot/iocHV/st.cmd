@@ -23,6 +23,13 @@ iocshLoad("$(TOP)/iocBoot/$(IOC)/ports.$(MIST2_PORTS).cmd")
 dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-HV")
 
 ## Devices
-#dbLoadRecords("$(MIST2_DB)/tdk.db", "PORT=TDK,DEVICE=TDK")
+## Prefixes are those of the lab's IOC of 2023 (reference/lab-2023/EPICS/st.cmd).
+
+# Filament heating: TDK-Lambda GENESYS 8-300 (address 6)
+dbLoadRecords("$(MIST2_DB)/tdk.db",            "PORT=TDK,DEVICE=TDK,ADR=6")
+
+# Thermocouple board (libcom1)
+dbLoadRecords("$(MIST2_DB)/thermocouples.db",  "PORT=thermo,DEVICE=THM")
+dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=thermo,DEVICE=THM")
 
 iocInit

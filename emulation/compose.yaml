@@ -15,10 +15,25 @@ x-ioc: &ioc
     - ../EPICS/Db:/opt/mist2/EPICS/Db:ro
     - ../EPICS/ioc/iocBoot:/opt/mist2/EPICS/ioc/iocBoot:ro
 
+x-sim: &sim
+  image: mist2-tools:dev
+  init: true
+  restart: "no"
+  user: "${MIST2_UID:-1000}:${MIST2_GID:-1000}"
+  working_dir: /repo/emulation/sim
+  entrypoint: []
+  environment:
+    HOME: /tmp
+    PYTHONUNBUFFERED: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+  volumes:
+    - ..:/repo:ro
+
 services:
   ioc-rack:
     <<: *ioc
     hostname: ioc-rack
+    depends_on: [sim-rack]
     command: ["iocRack", "sim"]
     networks:
       mist2ctl:
@@ -35,6 +50,7 @@ services:
   ioc-hv:
     <<: *ioc
     hostname: ioc-hv
+    depends_on: [sim-hv]
     command: ["iocHV", "sim"]
     networks:
       mist2ctl:
@@ -48,7 +64,23 @@ services:
       start_interval: 1s
       retries: 3
 
-  # Reserved for the simulators the lead adds later: sim-rack .21, sim-hv .22, plant .30.
+  # One simulator container per emulated computer: everything that is cabled to that computer.
+  # Address .30 is reserved for the plant model.
+  sim-rack:
+    <<: *sim
+    hostname: sim-rack
+    command: ["python", "-m", "mist2sim", "--config", "config/rack.yaml"]
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.21
+
+  sim-hv:
+    <<: *sim
+    hostname: sim-hv
+    command: ["python", "-m", "mist2sim", "--config", "config/hv.yaml"]
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.22
 
   tools:
     profiles: ["tools"]

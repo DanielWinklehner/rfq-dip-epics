@@ -1,0 +1,198 @@
+# Simulators of everything that is cabled to the rack computer (container sim-rack).
+#
+# One entry per serial line, bus or Ethernet device. The asyn port that connects to it is in
+# EPICS/ioc/iocBoot/iocRack/ports.sim.cmd. Control port = port + 1000.
+# Port numbers follow the lab's old COM numbers where one exists (COM6 -> 5006).
+#
+# Values marked ASSUMED are not from a document. They are listed in docs/emulation/STATUS.md.
+
+# --- Edwards nAIM ion gauge, RS-232 (asyn port AIM) ---------------------------------------------
+- name: aim
+  type: edwards_naim
+  port: 5003
+  baud: 9600
+  turnaround_ms: 10           # ASSUMED
+  options:
+    units: torr               # ASSUMED: the unit configured in the gauge (the lab's database says torr)
+    pressure: 2.0e-6
+
+# --- Gauge controller for APG and AIM, Arduino Mega, libcom1 (asyn port AVR6) -------------------
+# AVR/devices/IonGaugeController: channels p1 (APG, foreline) and p2 (AIM, diagnostic box)
+- name: gauges
+  type: libcom1
+  port: 5006
+  baud: 115200
+  bits_per_char: 10           # 8N1 as in the sketch (the lab's st.cmd says even parity)
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"
+  out_terminator: "\r\n"      # Serial.println
+  options:
+    identity: IonGaugeController
+    firmware: "Nov 21 2026"   # the sketch reports __DATE__
+    number_format: avr
+    out_buffer: 128
+    in_buffer: 128
+    channels:
+      - {id: p1, access: rw, behaviour: analog, value: 3.0e-2, noise: 1.0e-4, lo: 1.0e-3, hi: 944.06}
+      - {id: p2, access: rw, behaviour: analog, value: 8.0e-7, noise: 4.0e-9, lo: 7.5e-9, hi: 7.5e-3}
+
+# --- Sensor box: 7 temperatures and 5 water flows, Arduino Mega, libcom1 (asyn port AVR10) ------
+- name: sensorbox
+  type: libcom1
+  port: 5010
+  baud: 115200
+  bits_per_char: 10
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"
+  out_terminator: "\r\n"
+  options:
+    identity: SensorBox
+    firmware: "Nov 21 2026"
+    number_format: avr
+    out_buffer: 192
+    in_buffer: 128
+    channels:
+      - {id: t1, access: rw, behaviour: analog, value: 24.0, noise: 0.05, step: 0.0078125}
+      - {id: t2, access: rw, behaviour: analog, value: 25.0, noise: 0.05, step: 0.0078125}
+      - {id: t3, access: rw, behaviour: analog, value: 26.0, noise: 0.05, step: 0.0078125}
+      - {id: t4, access: rw, behaviour: analog, value: 27.0, noise: 0.05, step: 0.0078125}
+      - {id: t5, access: rw, behaviour: analog, value: 28.0, noise: 0.05, step: 0.0078125}
+      - {id: t6, access: rw, behaviour: analog, value: 29.0, noise: 0.05, step: 0.0078125}
+      - {id: t7, access: rw, behaviour: analog, value: 30.0, noise: 0.05, step: 0.0078125}
+      - {id: f1, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.06}    # not connected
+      - {id: f2, access: rw, behaviour: analog, value: 3.0, noise: 0.06, lo: 0, step: 0.06}   # turbo pump
+      - {id: f3, access: rw, behaviour: analog, value: 2.4, noise: 0.06, lo: 0, step: 0.06}   # front plate
+      - {id: f4, access: rw, behaviour: analog, value: 1.8, noise: 0.06, lo: 0, step: 0.06}   # Faraday cup
+      - {id: f5, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.06}    # not connected
+
+# --- Old interlock box: two door switches, Arduino Mega, libcom1 (asyn port AVR11) --------------
+# i1, i2: 1 = door closed. s1, s2: relays of the box, not used by any database.
+- name: interlockbox
+  type: libcom1
+  port: 5011
+  baud: 115200
+  bits_per_char: 10
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"
+  out_terminator: "\r\n"
+  options:
+    identity: InterlockBox
+    firmware: "Nov 21 2026"
+    number_format: avr
+    out_buffer: 128
+    in_buffer: 128
+    channels:
+      - {id: i1, access: rw, behaviour: constant, value: 1}
+      - {id: i2, access: rw, behaviour: constant, value: 1}
+      - {id: s1, access: rw, behaviour: relay}
+      - {id: s2, access: rw, behaviour: relay}
+
+# --- Solenoid valve box, 8 relays, Arduino Mega, libcom1 (asyn port AVR12) ----------------------
+# s1 foreline valve, s2 MFC shutoff, s3 vent valve, s4 Faraday cup actuator, s5 to s8 spare
+- name: valvebox
+  type: libcom1
+  port: 5012
+  baud: 115200
+  bits_per_char: 10
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"
+  out_terminator: "\r\n"
+  options:
+    identity: SolenoidValveBox
+    firmware: "Nov 21 2026"
+    number_format: avr
+    out_buffer: 160
+    in_buffer: 128
+    channels:
+      - {id: s1, access: rw, behaviour: relay}
+      - {id: s2, access: rw, behaviour: relay}
+      - {id: s3, access: rw, behaviour: relay}
+      - {id: s4, access: rw, behaviour: relay}
+      - {id: s5, access: rw, behaviour: relay}
+      - {id: s6, access: rw, behaviour: relay}
+      - {id: s7, access: rw, behaviour: relay}
+      - {id: s8, access: rw, behaviour: relay}
+
+# --- MKS GV50A mass flow controller, RS-485 (asyn port MFC) -------------------------------------
+- name: mfc
+  type: mks_rs485
+  port: 5013
+  baud: 9600
+  turnaround_ms: 5            # ASSUMED, not in the MKS supplement
+  options:
+    units:
+      # ASSUMED: full scale and gas of the unit in the lab
+      - {address: 254, full_scale: 50.0, flow_units: SCCM, gas: H2, tau_s: 1.0}
+
+# --- Faraday cup readout, Arduino Opta, libcom1 over TCP (asyn port FC) -------------------------
+# ASSUMED in full: the firmware is not known. One channel with the cup current in A.
+- name: faradaycup
+  type: libcom1
+  port: 5030
+  baud: 115200                # TCP: only sets the reply delay of the simulator
+  turnaround_ms: 1
+  in_terminator: "\n"
+  out_terminator: "\n"
+  options:
+    identity: FaradayCupOpta
+    firmware: "placeholder"
+    number_format: g
+    channels:
+      - {id: c1, access: r, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}
+
+# --- Turbopump Opta: run relays and status contacts of both NT 20 (asyn port TURBO) -------------
+# Channel map as defined in EPICS/Db/turbo.db. The contacts are driven by nt20_1 and nt20_2.
+- name: turbo_opta
+  type: libcom1
+  port: 5031
+  baud: 115200                # TCP: only sets the reply delay of the simulator
+  turnaround_ms: 1
+  in_terminator: "\n"
+  out_terminator: "\n"
+  options:
+    identity: TurboOpta
+    firmware: "placeholder"
+    number_format: g
+    channels:
+      - {id: r1, behaviour: relay}
+      - {id: r2, behaviour: relay}
+      - {id: r3, behaviour: relay}
+      - {id: r4, behaviour: relay}
+      - {id: n1, access: r}
+      - {id: a1, access: r}
+      - {id: f1, access: r}
+      - {id: n2, access: r}
+      - {id: a2, access: r}
+      - {id: f2, access: r}
+
+# --- Leybold NT 20, RS-232 data output, talk only (asyn ports NT20_1, NT20_2) -------------------
+# The record format is INVENTED, see EPICS/Db/nt20_monitor.proto.
+# Run-up and run-down are shorter than a real pump's, so that a desk session does not wait.
+- name: nt20_1
+  type: nt20_monitor
+  port: 5032
+  baud: 9600
+  out_terminator: "\r\n"      # ASSUMED
+  options: &pump
+    period_s: 8.0
+    rated_speed_hz: 1200.0    # ASSUMED: depends on the TURBOVAC model
+    ramp_up_s: 60.0           # ASSUMED
+    run_down_s: 120.0         # ASSUMED
+    brake_s: 30.0             # ASSUMED
+    opta_host: 127.0.0.1      # turbo_opta runs in the same process
+    opta_port: 6031           # its control port
+    run_signal: r1
+    normal_signal: n1
+    accel_signal: a1
+    failure_signal: f1
+- name: nt20_2
+  type: nt20_monitor
+  port: 5033
+  baud: 9600
+  out_terminator: "\r\n"
+  options:
+    <<: *pump
+    run_signal: r2
+    normal_signal: n2
+    accel_signal: a2
+    failure_signal: f2

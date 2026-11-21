@@ -1,0 +1,50 @@
+# Simulators of everything on the high-voltage platform (container sim-hv).
+#
+# One entry per serial line or bus. The asyn port that connects to it is in
+# EPICS/ioc/iocBoot/iocHV/ports.sim.cmd. Control port = port + 1000.
+#
+# Values marked ASSUMED are not from a document. They are listed in docs/emulation/STATUS.md.
+
+# --- TDK-Lambda GENESYS 8-300, filament heating (asyn port TDK) ---------------------------------
+- name: tdk
+  type: tdk_genesys
+  port: 5001
+  baud: 19200
+  turnaround_ms: 5            # ASSUMED: response time is not in the manual
+  options:
+    address: 6
+    load_ohm: 0.025           # ASSUMED: hot filament
+
+# --- Thermocouple board, Arduino, libcom1 (asyn port thermo) ------------------------------------
+# AVR/Thermocouple: 16 channels: thermocouples, cold junctions, fault codes, junction fault codes
+- name: thermocouple
+  type: libcom1
+  port: 5020
+  baud: 19200                 # the sketch says 19200 (both st.cmd files say 9600)
+  bits_per_char: 10
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"
+  out_terminator: "\r\n"      # Serial.println
+  options:
+    identity: Thermocouple
+    firmware: "Nov 21 2026"   # the sketch reports __DATE__
+    number_format: avr
+    out_buffer: 512
+    in_buffer: 128
+    channels:
+      - {id: t1, access: rw, behaviour: analog, value: 35.0, noise: 0.05, step: 0.0078125}
+      - {id: t2, access: rw, behaviour: analog, value: 41.0, noise: 0.05, step: 0.0078125}   # back plate
+      - {id: t3, access: rw, behaviour: analog, value: 38.0, noise: 0.05, step: 0.0078125}   # magnet plate
+      - {id: t4, access: rw, behaviour: analog, value: 33.0, noise: 0.05, step: 0.0078125}
+      - {id: j1, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j2, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j3, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j4, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: f1, access: rw, behaviour: constant, value: 0}
+      - {id: f2, access: rw, behaviour: constant, value: 0}
+      - {id: f3, access: rw, behaviour: constant, value: 0}
+      - {id: f4, access: rw, behaviour: constant, value: 0}
+      - {id: a1, access: rw, behaviour: constant, value: 0}
+      - {id: a2, access: rw, behaviour: constant, value: 0}
+      - {id: a3, access: rw, behaviour: constant, value: 0}
+      - {id: a4, access: rw, behaviour: constant, value: 0}
