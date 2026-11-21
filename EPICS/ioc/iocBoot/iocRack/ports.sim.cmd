@@ -8,6 +8,12 @@
 # reach into this file, so without it a failing line here would not stop the startup.
 on error break
 
+# Matsusada AU supplies, optical chain behind the USB-OPT adapter (source, puller)
+drvAsynIPPortConfigure("mat_opt","sim-rack:5008")
+
+# Matsusada AU supplies, optical chain behind the CO-U32 adapter (lenses)
+drvAsynIPPortConfigure("mat_co","sim-rack:5009")
+
 # Edwards nAIM ion gauge, RS-232
 drvAsynIPPortConfigure("AIM","sim-rack:5003")
 

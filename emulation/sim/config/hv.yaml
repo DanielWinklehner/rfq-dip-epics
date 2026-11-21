@@ -15,6 +15,16 @@
     address: 6
     load_ohm: 0.025           # ASSUMED: hot filament
 
+# --- Matsusada REK150-24, filament discharge, own RS-485 line (asyn port REK) --------------------
+- name: rek
+  type: matsusada_co
+  port: 5019
+  baud: 9600
+  turnaround_ms: 5            # ASSUMED
+  options:
+    units:
+      - {address: 1, vfs: 150, ifs: 24, load_ohm: 5.0}   # for the REK150-55: ifs: 55
+
 # --- Thermocouple board, Arduino, libcom1 (asyn port thermo) ------------------------------------
 # AVR/Thermocouple: 16 channels: thermocouples, cold junctions, fault codes, junction fault codes
 - name: thermocouple

@@ -13,6 +13,15 @@
 # reach into this file, so without it a failing line here would not stop the startup.
 on error break
 
+# Matsusada REK150-24, filament discharge, RS-485
+drvAsynSerialPortConfigure("REK","/dev/mist2/rek")
+asynSetOption("REK",-1,"baud","9600")
+asynSetOption("REK",-1,"bits","8")
+asynSetOption("REK",-1,"parity","none")
+asynSetOption("REK",-1,"stop","1")
+asynSetOption("REK",-1,"clocal","Y")
+asynSetOption("REK",-1,"crtscts","N")
+
 # TDK-Lambda GENESYS 8-300, filament heating
 drvAsynSerialPortConfigure("TDK","/dev/mist2/tdk")
 asynSetOption("TDK",-1,"baud","19200")

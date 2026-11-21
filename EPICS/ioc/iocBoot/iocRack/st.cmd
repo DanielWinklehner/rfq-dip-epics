@@ -25,6 +25,18 @@ dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-RACK")
 ## Devices
 ## Prefixes are those of the lab's IOC of 2023 (reference/lab-2023/EPICS/st.cmd).
 
+# High-voltage supplies Matsusada AU on two optical chains. Unit numbers 1 to 4 as in the lab's
+# st.cmd of 2023, unit 5 (lens 2) is ASSUMED. The PV name is built from the unit number.
+# PERMIT (default interlock_open) forces the outputs off while it is non-zero or INVALID.
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,IFS=15")  # ion source, AU20P15
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=2")         # puller, AU20N7.5
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=3")          # lens 1, AU20P7.5
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=5")          # lens 2, AU20N7.5
+# Lens 3 is installed but not in use: its records exist, nothing polls it.
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=4,SCAN_MON=Passive,SCAN_GET=Passive,SCAN_STS=Passive")
+# One command for all outputs off: #AL SW0 on both chains
+dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P7-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-5:SetToggleOutput,R5=AU-20P7-4:SetToggleOutput")
+
 # Vacuum gauges: homemade controller for APG and AIM (libcom1), and the Edwards nAIM
 dbLoadRecords("$(MIST2_DB)/pressure.db",       "PORT=AVR6,DEVICE=PRESSURE")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR6,DEVICE=PRESSURE")

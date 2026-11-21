@@ -8,6 +8,9 @@
 # reach into this file, so without it a failing line here would not stop the startup.
 on error break
 
+# Matsusada REK150-24, filament discharge, RS-485
+drvAsynIPPortConfigure("REK","sim-hv:5019")
+
 # TDK-Lambda GENESYS 8-300, filament heating
 drvAsynIPPortConfigure("TDK","sim-hv:5001")
 

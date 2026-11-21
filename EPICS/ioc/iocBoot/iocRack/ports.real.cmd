@@ -13,6 +13,24 @@
 # reach into this file, so without it a failing line here would not stop the startup.
 on error break
 
+# Matsusada AU supplies, optical chain behind the USB-OPT adapter (source, puller)
+drvAsynSerialPortConfigure("mat_opt","/dev/mist2/usb-opt")
+asynSetOption("mat_opt",-1,"baud","9600")
+asynSetOption("mat_opt",-1,"bits","8")
+asynSetOption("mat_opt",-1,"parity","none")
+asynSetOption("mat_opt",-1,"stop","1")
+asynSetOption("mat_opt",-1,"clocal","Y")
+asynSetOption("mat_opt",-1,"crtscts","N")
+
+# Matsusada AU supplies, optical chain behind the CO-U32 adapter (lenses)
+drvAsynSerialPortConfigure("mat_co","/dev/mist2/co-u32")
+asynSetOption("mat_co",-1,"baud","9600")
+asynSetOption("mat_co",-1,"bits","8")
+asynSetOption("mat_co",-1,"parity","none")
+asynSetOption("mat_co",-1,"stop","1")
+asynSetOption("mat_co",-1,"clocal","Y")
+asynSetOption("mat_co",-1,"crtscts","N")
+
 # Edwards nAIM ion gauge, RS-232
 drvAsynSerialPortConfigure("AIM","/dev/mist2/naim")
 asynSetOption("AIM",-1,"baud","9600")

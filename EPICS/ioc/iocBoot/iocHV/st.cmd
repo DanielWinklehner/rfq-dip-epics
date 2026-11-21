@@ -28,6 +28,10 @@ dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-HV")
 # Filament heating: TDK-Lambda GENESYS 8-300 (address 6)
 dbLoadRecords("$(MIST2_DB)/tdk.db",            "PORT=TDK,DEVICE=TDK,ADR=6")
 
+# Filament discharge: Matsusada REK150-24, unit 1. For the REK150-55 add IFS=55.
+# PERMIT (default interlock_open) is a PV of the rack IOC, read over Channel Access.
+dbLoadRecords("$(MIST2_DB)/rek.db",            "PORT=REK,UNITNUM=1")
+
 # Thermocouple board (libcom1)
 dbLoadRecords("$(MIST2_DB)/thermocouples.db",  "PORT=thermo,DEVICE=THM")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=thermo,DEVICE=THM")

@@ -2,8 +2,9 @@
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
 **G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
-T1, T2, T4, T5, T6, T9 and T14 are merged. T3 (Matsusada supplies) is running. The lead is
-wiring the merged devices into the two IOCs (T7).
+All device tasks (T3 to T6) and T1, T2, T9 and T14 are merged, and **every device of the
+table is loaded by the two emulated IOCs (T7 done)**. Running: T10 (plan and registry) and a
+follow-up of T3 on even polling.
 
 ## Done
 
@@ -30,9 +31,14 @@ wiring the merged devices into the two IOCs (T7).
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
-- **T7 done as far as the merged devices go** (by the lead): both IOCs load every device except
-  the Matsusada supplies. `make -C emulation up` starts two IOCs and two simulator containers.
-  Both IOC logs are free of errors and a PV of every device was read.
+- **T7 done** (by the lead): `make -C emulation up` starts two IOCs and two simulator containers
+  with every device. Both IOC logs are free of errors. Checked by hand on the running system:
+  a PV of every device, high voltage on with read-back, the interlock door switching off the AU
+  supplies (rack IOC) and the REK (platform IOC, through Channel Access between the IOCs), and
+  "all off".
+- **T3 merged** (acceptance run by the lead: 74 unit tests, 22 device tests): `matsusada_co`
+  bus simulator, `matsusada_au20p7.db`, `rek.db`, `au_alloff.db`. Lab PV names kept. New PVs:
+  `AU:alloff:set` and, per supply, `:output:init` (internal).
 - **T5 merged** (acceptance run by the lead: 9 MFC, 6 Faraday cup, 9 turbopump tests):
   `mfc.db`, `faradaycup.db`, `turbo.db`, `turbo_pump.db`, `nt20_monitor.db` with their protocol
   files and simulators. The MKS RS-485 supplement (1046411-001 Rev. A) was found, so the MFC
@@ -131,6 +137,12 @@ both IOCs, expected in the week of 2026-11-23.
 | P13 | Turbopump Opta: its firmware does not exist. The channel map is defined in `turbo.db` (`r1 r2 r3 r4 n1 a1 f1 n2 a2 f2`), and the firmware has to be written to match | Firmware, later |
 | P14 | NT 20 monitor port: the record format is invented (`NT20 f=0833Hz I=1.25A ACC`). `TURBO<n>:raw:get` and `:age:get` work with any one-line format | A capture from a unit |
 | P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Planned: stop listening instead | Lead, after T3 |
+| P16 | **Outputs come back on by themselves.** When the interlock opens, the AU and REK outputs are forced off, but the request stays set. When the interlock closes again, the outputs switch back on without anyone doing anything. That is how the lab's 2023 database works, and I kept it. Your interlock rules in the plan say that a trip latches. One record more would clear the request on permit loss | You |
+| P17 | **Enabling an output sets the current limit to 100 %.** The lab's sequence sends `ICN 100` on enable, so `current:setpoint` is overwritten: I set 10 mA, enabled, and the echo read 15 mA. Kept, with the percentage as macro `ICN_ON` | You |
+| P18 | **Update rates on a chain are uneven.** With two supplies on a chain the first one gets about 9 Hz and the second one 5 to 9 Hz, at 16 ms turnaround 8 Hz and 5 Hz. Cause: each monitor record is scanned at 10 Hz on its own, and a record that is still waiting for the line misses its turn. The bus arithmetic assumes an even share. Follow-up given to T3: poll each chain in one fair round | T3 follow-up |
+| P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
+| P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
+| P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
 
 ## Found in RAS V8.1.0
