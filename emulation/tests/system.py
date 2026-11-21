@@ -208,8 +208,8 @@ def put(name, value, wait=True, timeout=10.0):
         pytest.fail("caput %s = %r did not complete within %g s" % (name, value, timeout))
 
 
-def put_field(name, fld, value):
-    if epics.caput("%s.%s" % (name, fld), value, wait=True, timeout=5.0) != 1:
+def put_field(name, fld, value, wait=True):
+    if epics.caput("%s.%s" % (name, fld), value, wait=wait, timeout=5.0) != 1 and wait:
         pytest.fail("caput %s.%s = %r did not complete" % (name, fld, value))
 
 
