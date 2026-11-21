@@ -11,13 +11,15 @@
 #   R1 ... R8           request PVs of the supplies, e.g. R1=AU-20P7-1:SetToggleOutput.
 #                       Unused ones point at AU:alloff:spare.
 #
-# AU:alloff:set returns to 0 by itself after one second; writing 0 does nothing.
+# AU:alloff:set returns to 0 by itself after one second; writing 0 does nothing. It and the
+# records it drives show no alarm before their first use (UDFS).
 
 record(bo, "AU:alloff:set") {
     field(DESC, "All AU supplies off")
     field(ZNAM, "IDLE")
     field(ONAM, "ALL OFF")
     field(HIGH, "1")
+    field(UDFS, "NO_ALARM")
     field(FLNK, "AU:alloff:fanout")
 }
 
@@ -32,6 +34,7 @@ record(fanout, "AU:alloff:fanout") {
 }
 
 record(bo, "AU:alloff:chain1") {
+    field(UDFS, "NO_ALARM")
     field(DESC, "#AL SW0 on $(PORT1=mat_opt)")
     field(DTYP, "stream")
     field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) all_off $(PORT1=mat_opt)")
@@ -39,6 +42,7 @@ record(bo, "AU:alloff:chain1") {
 }
 
 record(bo, "AU:alloff:chain2") {
+    field(UDFS, "NO_ALARM")
     field(DESC, "#AL SW0 on $(PORT2=mat_co)")
     field(DTYP, "stream")
     field(OUT,  "@$(PROTO=matsusada_co_ctrl.proto) all_off $(PORT2=mat_co)")
@@ -46,6 +50,7 @@ record(bo, "AU:alloff:chain2") {
 }
 
 record(dfanout, "AU:alloff:requests") {
+    field(UDFS, "NO_ALARM")
     field(DESC, "Output requests := 0")
     field(VAL,  "0")
     field(OUTA, "$(R1=AU:alloff:spare) PP")
@@ -59,5 +64,6 @@ record(dfanout, "AU:alloff:requests") {
 }
 
 record(bo, "AU:alloff:spare") {
+    field(UDFS, "NO_ALARM")
     field(DESC, "Target of the unused outputs")
 }

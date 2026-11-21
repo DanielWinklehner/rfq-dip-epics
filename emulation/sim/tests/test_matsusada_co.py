@@ -240,6 +240,20 @@ class OverTheLine(unittest.TestCase):
             self.assertGreater(time.monotonic() - t, 0.0235)
             c.close()
 
+    def test_back_to_back_transactions_keep_the_line_timing(self):
+        """A full line: each reply comes at its computed time, not up to 1 ms later."""
+        with SimThread([self.sim]):
+            c = LineClient(self.sim.port, term=b"\r")
+            c.send(b"#1 MN1\r")
+            c.readline(1)
+            n, t0 = 50, time.monotonic()
+            for _ in range(n):
+                c.send(b"#1 MN1\r")
+                self.assertIsNotNone(c.readline(1))
+            per = (time.monotonic() - t0) / n
+            self.assertLess(per, 0.02375 + 0.0005)        # 18 characters + 5 ms turnaround
+            c.close()
+
     def test_silent_unit_and_turnaround_knob(self):
         with SimThread([self.sim]):
             c = LineClient(self.sim.port, term=b"\r")
