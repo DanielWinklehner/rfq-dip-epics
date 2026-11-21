@@ -1,139 +1,138 @@
 # Status
 
-Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
-**G2 is decided** (2026-11-21): layout B, with each device opening in a window of its own
-([gui/LAYOUT.md](gui/LAYOUT.md), section "Decision").
-All device tasks (T3 to T6) and T1, T2, T9, T10 and T14 are merged, and **every device of the
-table is loaded by the two emulated IOCs (T7 done)**. T8 (system test suite) and T12 (plant model) are merged as well. Running: a follow-up of T8
-that adapts the suite to the corrected registry. Running after the owner's answers: the GUI (T11), a second rework of the Matsusada databases,
-and the plant model on the real arrangement and working point.
+Last update: 2026-11-22. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
+nothing is pushed.
+
+Everything is built and merged. **Running:** two follow-ups that adapt the system tests and the
+GUI to the reworked Matsusada databases (four supplies, current limit, latch). Until they are
+merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the databases.
+
+## "Done" as the task defines it
+
+| # | Criterion | State | Evidence |
+|---|---|---|---|
+| 1 | `docs/emulation/README.md` explains start, stop and test | Done | Every command of it was run by the lead, the two fault one-liners on 2026-11-22. Not tried on a fresh WSL installation |
+| 2 | Both IOCs start without a database or protocol error | Done | `make -C emulation up` and `ca-proof` (16 checks) on the merged tree. No connection complaint in either IOC log after start and after restart |
+| 3 | A test reads every PV, writes every set point, and an unacknowledged set ends in an alarm | Being adapted | Last full run on the state before the rework: 214 passed, 3 expected failures, twice. The suite is with the subagent |
+| 4 | A silent simulator turns its PVs INVALID within seconds, recovery without IOC restart | Done for every device alone, system suite being adapted | Device cases (below). By hand on the full system: TDK silent, INVALID within 6 s, valid again 6 s after clearing, neighbours unaffected |
+| 5 | AU update rate reported and matching the bus arithmetic | Measured before the rework, to be repeated | 9.0 to 9.1 Hz against 9.65 Hz predicted (94 %) with two polled supplies per chain |
+| 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Being adapted | 191 browser checks passed on the registry before the rework |
+| 7 | `plan/controls.yaml` matches what was built, `plan/build.py` runs without warnings | Done | Revision 0.9. `make -C emulation plan-check` passes on the merged tree, the registry regenerates without a difference |
+| 8 | This file lists every assumption that needs confirmation | Done | Sections "Assumptions" and "Open points" |
 
 ## Done
 
-- Branch `emulated-iocs` created from `origin/libcom1-robustness-fixes` (`99beb4f`). Nothing pushed.
-- `plan/` added from `mist2-controls.zip` (revision 0.6). `plan/build.py` runs without warnings
-  in a container: 27 devices, 86 existing PVs, 44 proposed PVs, 9 sketches.
-- `reference/lab-2023/` added from `latest.zip`.
-- Read: repository documentation, all databases and protocol files, libcom1 README, tests and
-  device sketches, `RAS/IsoDAR`, the plan, the 2023 lab snapshot.
-- Checked against manuals:
-  - Leybold NT 20 operating instructions GA 05.208/8 (remote inputs, relays, RS-232).
-  - Matsusada CO series manual rev 0.4 (reply formats, `#AL`, sets are unanswered).
-- Checked on this machine: Docker 29.9.2 and Compose 5.6.1 work without `sudo`, RAS tag
-  `V8.1.0` and the example project are reachable.
+**Emulated IOCs**
+- Image `mist2-ioc:dev`: EPICS base R7.0.10, asyn R4-46, StreamDevice 2.8.26, autosave R5-11,
+  all unmodified release tags, and the EPICS top `EPICS/ioc`.
+- One `st.cmd` per IOC, the same for emulation and reality. Only `ports.sim.cmd` and
+  `ports.real.cmd` differ. An IOC without a valid mode stops instead of starting.
+- `emulation/compose.yaml`: rack IOC `172.30.0.11`, platform IOC `.12`, their simulators `.21`
+  and `.22`, plant model `.30` on request. `make -C emulation build up ca-proof restart down`.
+- Channel Access proof, 16 checks: both IOCs answer a broadcast from the bridge network and
+  from the WSL host, and each answers a unicast search for its own PVs only.
+- Start order (2026-11-22): the IOCs start only after their simulators listen. `restart`
+  restarts the two IOCs and leaves the simulators and their state alone. Before, a restart
+  could leave a Matsusada chain unreachable for 20 s (found by the lead by hand).
 
-- **T1 merged** (acceptance sequence run by the lead): image `mist2-ioc:dev` with EPICS base
-  R7.0.10, asyn R4-46 and StreamDevice 2.8.26, the EPICS top `EPICS/ioc` with one `st.cmd` and
-  two port files per IOC, `emulation/compose.yaml` with two IOCs at `172.30.0.11` and `.12`, the
-  Channel Access proof and the device test harness. `make -C emulation build up ca-proof down`.
-- **Channel Access proof, 16 checks, all pass**: both IOCs answer a broadcast from the bridge
-  network and from the WSL host network, and each answers a unicast search for its own PVs only.
-- **T2 merged** (acceptance test run by the lead): simulator core and libcom1 simulator. The
-  Python libcom1 engine gives the same 122-line transcript as the real library for
-  `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
-- **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
-  of both IOCs on `172.30.0.0/24`.
-- **T11 merged** (acceptance sequence run by the lead: 191 browser checks passed, nothing left
-  running): the GUI in layout B with device windows, on the phase 1 arrangement. Screenshots of
-  every page are in `RAS/mist2/tools/screenshots/`. `RAS/mist2/tools/gui-check.sh` repeats the
-  checks. Open: the registry gaps it found (words for valve states, the confirmation rule,
-  names of the sensor box channels), and the change to four supplies and the current limit.
-- **Plant model on the real arrangement** (merged, unit tests and step-response tool run by the
-  lead): one chamber and one pump, pumping speed from the TURBOVAC 1000 C data sheet (1150 l/s
-  for nitrogen, hydrogen estimated), NT 20 rated speed 600 Hz. It predicts 7.0e-6 torr on the
-  nAIM at the working point, a factor 1.4 below your range of 1e-5 to 5e-5 torr.
-- **T8 merged** (run twice by the lead from nothing: 214 passed, 3 expected failures, both
-  runs alike, about 7 min 40 s each, nothing left running): `make -C emulation test`.
-  The three expected failures were two findings, both fixed and merged since:
-  an NT 20 record that does not parse now turns speed and current INVALID, and the registry
-  now has two fault lists (`fails_with` for a silent device, `fails_closed` for a closed
-  connection) that follow from how each record is processed.
-- **Update rate, measured by the suite in the lead's runs**: all four polled AU supplies 9.0 to
-  9.1 Hz against a predicted 9.65 Hz (94 %), TDK 9.99 Hz against 10.0 Hz.
-- **`docs/emulation/README.md`** is written: start, stop, test, faults, plant, GUI, the step to
-  the real computers.
-- **T12 merged** (run by the lead: 122 unit tests including the plant with the real simulators
-  in-process, and the step-response tool; the check on the full emulation is still to do):
-  `python -m mist2sim.plant`, started with `make -C emulation up-plant`. Without that, the
-  emulation behaves as before. `emulation/sim/tools/plant_step_response.py` prints gain, dead
-  time and time constant of the model for loop tuning. Every parameter in
-  `emulation/sim/config/plant.yaml` says whether it is a physical law, an estimate or a free
-  choice. Nothing in it is measured on MIST-2.
-- **T10 merged** (checked by the lead, including three negative checks): `plan/controls.yaml`
-  is revision 0.7 and describes what was built. `make -C emulation plan-check` now compares the
-  plan with the databases and both `st.cmd` files and fails on any difference. The device
-  registry `RAS/mist2/ReactApp/src/registry/registry.json` is generated from the same sources:
-  19 devices, 2 IOCs, 219 PVs, 15 simulators. `plan/out` keeps only the PDFs and the Word file
-  under version control (D8), `plan/epics_db` is gone.
-- **T7 done** (by the lead): `make -C emulation up` starts two IOCs and two simulator containers
-  with every device. Both IOC logs are free of errors. Checked by hand on the running system:
-  a PV of every device, high voltage on with read-back, the interlock door switching off the AU
-  supplies (rack IOC) and the REK (platform IOC, through Channel Access between the IOCs), and
-  "all off".
-- **T3 merged** (acceptance run by the lead: 74 unit tests, 22 device tests): `matsusada_co`
-  bus simulator, `matsusada_au20p7.db`, `rek.db`, `au_alloff.db`. Lab PV names kept. New PVs:
-  `AU:alloff:set` and, per supply, `:output:init` (internal).
-- **T5 merged** (acceptance run by the lead: 9 MFC, 6 Faraday cup, 9 turbopump tests):
-  `mfc.db`, `faradaycup.db`, `turbo.db`, `turbo_pump.db`, `nt20_monitor.db` with their protocol
-  files and simulators. The MKS RS-485 supplement (1046411-001 Rev. A) was found, so the MFC
-  protocol is from the vendor's document. New PVs: `MFC:getFlow`, `FC:current:get`, and the
-  `TURBO1:*` and `TURBO2:*` sets of the G1 note.
-- **T4 merged** (acceptance run by the lead: 13 TDK tests, 11 nAIM tests): `tdk.db` and
-  `aim.db` on the lab's names. New PVs: `TDK:power:get`, `TDK:mode:get`, `TDK:fault:get`.
-  All three TDK sets and the nAIM enable are acknowledged, and a missing or negative answer
-  ends in an alarm. The TDK recovers by itself after a power cycle (1.4 s in the test).
-  TDK update rate: predicted 10.0 Hz, measured 9.6 Hz by Channel Access.
-- **T6 merged** (acceptance test run by the lead, 81 tests): `thermocouples.db`,
-  `solenoidbox.db`, `pressure.db`, `sensorbox.db` and `interlockbox.db` carry the lab's names
-  and meanings and keep this branch's acknowledged sets, identity and alarm propagation.
-  New PVs: `THM:j<n>:get` and `THM:f<n>:get`. A faulted thermocouple now reads INVALID.
-- **T9 merged** (acceptance test run by the lead): `RAS/mist2/` is a running application shell
-  on RAS V8.1.0 (submodule). `make -C RAS/mist2 dev-up`, then `http://localhost:3000/` in the
-  Windows browser. Three containers (nginx, Vite, pvServer), no database: with login disabled
-  the pvServer does not need MongoDB.
-- **Proven**: a pvServer on the host network reads PVs from IOCs on a Docker bridge network
-  through the subnet broadcast address. Shown with stand-in IOCs on `172.31.0.0/24`. The same
-  check against the emulated IOCs follows when T1 is merged (`RAS/mist2/tools/pv-proof.sh`).
-- **T14 merged**: three layout options with wireframes in `gui/`.
+**Devices: databases, protocol files, simulators** (each with a test case run by the lead)
+- Matsusada AU and REK (`matsusada_au20p7.db`, `rek.db`, `au_alloff.db`), reworked after your
+  answers. The device case passed 28 of 28 in five runs in a row.
+  - Four AU supplies: units 1 and 2 on the USB-OPT chain, 3 and 4 on the CO-U32 chain.
+  - The permit latches: losing `interlock_open` switches the output off and clears the request.
+  - `<supply>:current:limit` is a PV of its own, with the lab's name `current:setpoint` as an
+    alias. It is restored at IOC start from `EPICS/ioc/iocBoot/<ioc>/limits.defaults` and then
+    from the file saved at run time, which wins. It is sent at the first contact, on every
+    write and with every switch-on. A change is saved within 5 s.
+  - Remote mode (`REN`) is sent at the first contact and with every switching only.
+    `status:read` shows local control (`OFF, LOCAL`, `ON, LOCAL`, MINOR).
+  - First contact: the IOC takes over the output state and the voltage set point of a supply
+    without sending anything, also when the supply is reached only later.
+  - Each supply reads its two monitors as one cycle and waits its turn on the line, so all
+    supplies of a chain update at the same rate.
+- TDK GENESYS (`tdk.db`): all sets acknowledged, new PVs `TDK:power:get`, `TDK:mode:get`,
+  `TDK:fault:get`. 13 tests.
+- Edwards nAIM (`aim.db`): 11 tests. MKS mass flow controller (`mfc.db`, new `MFC:getFlow`): 9
+  tests, protocol from the vendor's RS-485 supplement.
+- Faraday cup (`faradaycup.db`): 6 tests. Turbopumps (`turbo.db`, `turbo_pump.db`,
+  `nt20_monitor.db`): 10 tests.
+- libcom1 devices (`thermocouples.db`, `solenoidbox.db`, `pressure.db`, `sensorbox.db`,
+  `interlockbox.db`): 82 tests. New PVs `THM:j<n>:get`, `THM:f<n>:get`.
+- Simulator core `mist2sim`: baud-rate-true reply delay, signals, faults `silent`, `close`,
+  `garbage`, `slow`, `trip`, one control interface for all. 129 unit tests. The libcom1
+  simulator gives the same 122-line transcript as the real library, in both number formats.
+
+**System tests** (`make -C emulation test`, see `emulation/tests/README.md`)
+- Merged and run twice by the lead on the state before the Matsusada rework. The follow-up for
+  the rework is running.
+
+**Plan and registry**
+- `plan/controls.yaml` revision 0.9 describes what is built, with your answers in it.
+  `make -C emulation plan-check` compares it with `EPICS/Db` and both `st.cmd` and fails on any
+  difference.
+- Registry `RAS/mist2/ReactApp/src/registry/registry.json`, generated from the same sources:
+  18 devices, 2 IOCs, 279 PVs, 15 simulators. It carries roles, read-backs, safe test ranges,
+  state words, the vent valve confirmation, spare channels, aliases, and which simulator fault
+  turns which PV INVALID.
+
+**GUI** (`RAS/mist2/`, React Automation Studio V8.1.0 as a submodule)
+- Layout B on the phase 1 arrangement: overview drawing, one tab per subsystem, every device in
+  a browser window of its own. Dark theme, no login, confirmation only for opening the vent
+  valve. Every device, PV name and word comes from the registry.
+- `RAS/mist2/tools/gui-check.sh`: headless browser checks, 191 passed in the lead's run before
+  the rework. The follow-up for the new registry is running.
+
+**Plant model** (`make -C emulation up-plant`)
+- Filament, discharge, gas and vacuum, extraction, heat. Calibrated to your working point,
+  pumping speed from the TURBOVAC 1000 C data sheet.
+- Checked by the lead on the full emulation (2026-11-22): the pump runs up in about 70 s and
+  the pressure falls; with gas, filament and discharge on, the discharge current, the nAIM
+  reading (7.0e-6 torr), the Faraday cup current (3.4 mA with the cup in, nothing with it out)
+  and the back plate temperature respond; 80 A instead of 90 A on the filament takes the
+  discharge from the supply's limit to 4 A; closing the gas valve ends it. After `plant-stop`
+  every device is back on its own behaviour.
+
+## Running
+
+- **T8 follow-up:** the system suite for four supplies, the latch, the limit, local control and
+  the start order.
+- **T11 follow-up:** the GUI on the new registry (limit instead of set point, state words,
+  confirmation and spare channels from the registry) and the Faraday cup number format.
+- Then the lead runs the suite twice and the GUI check on the merged state.
 
 ## Open
 
-- The GUI pages (T11), now that the layout is decided.
-- The questions of gui/LAYOUT.md section 6 that were not answered: where the three gauges and the
-  vent valve sit, names of the temperature and flow channels, confirmation dialogs, theme. They
-  are built with the defaults named there.
 - Turbopump 2 is not in the system in phase 1. Its records, simulator and tests stay, and the
-  plan flags it as not installed, so that the GUI does not draw it. Say so if the rack IOC
-  should not load it at all.
-- Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
-- Briefs for T8 (system tests) and T10 (plan and registry) are written. T10 starts when T3 is
-  merged, T8 after T10, because the tests take their PV names from the registry.
+  plan flags it as not installed, so the GUI does not draw it. Say so if the rack IOC should
+  not load it at all.
+- Two gauges you want to add are in the plan as planned devices only: foreline, gas injection.
+- The dipole second cross, the emittance scanners and the new interlock system are out of scope.
+- Worktrees and branches of the subagents (`emu/t*`) are still there. They go when you have
+  looked at the result.
 
 ## Answers of the owner, 2026-11-21
 
-Given one by one after G2. They overrule the assumptions and open points below where they touch
-them. "Work" says what each answer changes and who does it.
-
-| # | Question | Answer | Work |
+| # | Question | Answer | State |
 |---|---|---|---|
-| 1 | Where the gauges sit | nAIM and APG side by side on a side flange of the six-way cross. The AIM of the homemade controller goes to the second six-way behind the dipole in phase 2. The foreline has a gauge that is not in the control system yet and should be added. A pressure measurement on the gas injection is wanted too | Plan: done, two new planned gauges. GUI synoptic, plant model |
-| 2 | Valve channels, vent valve | 1 foreline, 2 MFC shutoff, 3 vent, 4 Faraday cup, 5 to 8 unused. The vent valve vents the turbopump through its side port, and the cross only a little | Plan: done. Plant model |
-| 3 | Turbopump 2 until it exists | Keep its records, hide it in the GUI | Plan flag: done. GUI |
-| 4 | Thermocouples | 1 back plate, 2 filament feedthrough, 3 isolation transformer 1, 4 isolation transformer 2 | Plan labels and simulator: done |
-| 5 | Cooling water | The Opta flow readout replaces the sensor box | Sensor box stays as a stand-in, flagged as assumed: done |
-| 6 | Confirmation dialogs | Only before opening the vent valve. HV is interlocked anyway | GUI |
-| 7 | Theme | Dark | GUI |
-| 8 | Login | None, everyone may operate and open expert views | GUI |
-| 9 | Outputs after the interlock closes again | Latch: stay off, switch on again by hand | Matsusada databases (closes P16) |
-| 10 | Current limit of AU and REK | A PV of its own, not a set point. Limits are read from a defaults file at start, can be changed from the GUI, and the change is saved to that file | Matsusada databases, IOC image, GUI (closes P17) |
-| 11 | Remote mode (REN) | Only at IOC start and on switching, as in the lab | Matsusada databases (closes P19) |
-| 12 | AU supplies | Four, not five: 1 source and 2 puller on USB-OPT, 3 lens 1 and 4 lens 2 on CO-U32. Lens 3 is grounded mechanically and has no supply on the chain | Matsusada startup lines, simulator, plan, tests (closes A2, A3) |
-| 13 | Gauge controller board | Teensy | Simulator and real port file (closes P2) |
-| 14 | nAIM unit | torr | None (closes P8) |
-| 15 | Turbopump | RS-232 port fitted. Added later the same day: "a big one", probably a TURBOVAC 1000 C with a DN 250 ISO-K flange | Plan note: done. Simulator rated speed and plant pumping speed from the pump's data sheet |
-| 16 | Mass flow controller | 5 sccm full scale, hydrogen | Simulator: done. Plant model |
-| 17 | Old interlock box | In use, its two relays switch nothing | Plan note: done (closes P4, A18 for this box) |
-| 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross (added later: it may have been nearer 5e-5 torr), MFC at about 20 % of 5 sccm | TDK simulator load: done. Plant model |
+| 1 | Where the gauges sit | nAIM and APG side by side on a side flange of the six-way cross. The AIM of the homemade controller goes to the second six-way behind the dipole in phase 2. The foreline has a gauge that is not in the control system yet and should be added. A pressure measurement on the gas injection is wanted too | In plan, GUI drawing and plant model |
+| 2 | Valve channels, vent valve | 1 foreline, 2 MFC shutoff, 3 vent, 4 Faraday cup, 5 to 8 unused. The vent valve vents the turbopump through its side port, and the cross only a little | In plan, registry (words, spare) and plant model |
+| 3 | Turbopump 2 until it exists | Keep its records, hide it in the GUI | Done |
+| 4 | Thermocouples | 1 back plate, 2 filament feedthrough, 3 isolation transformer 1, 4 isolation transformer 2 | Done |
+| 5 | Cooling water | The Opta flow readout replaces the sensor box | Sensor box kept as a stand-in, flagged as assumed |
+| 6 | Confirmation dialogs | Only before opening the vent valve. HV is interlocked anyway | In registry and GUI |
+| 7 | Theme | Dark | Done |
+| 8 | Login | None, everyone may operate and open expert views | Done |
+| 9 | Outputs after the interlock closes again | Latch: stay off, switch on again by hand | Done in the databases, seen by hand on the full system |
+| 10 | Current limit of AU and REK | A PV of its own, not a set point. Limits are read from a defaults file at start, can be changed from the GUI, and the change is saved | Done in the databases (my reading: A27). GUI follow-up running |
+| 11 | Remote mode (REN) | Only at IOC start and on switching, as in the lab | Done |
+| 12 | AU supplies | Four, not five: 1 source and 2 puller on USB-OPT, 3 lens 1 and 4 lens 2 on CO-U32. Lens 3 is grounded mechanically, the fifth supply is not on the chain | Done |
+| 13 | Gauge controller board | Teensy | Done |
+| 14 | nAIM unit | torr | No change needed |
+| 15 | Turbopump | RS-232 port fitted. "A big one", probably a TURBOVAC 1000 C with a DN 250 ISO-K flange | In plan, simulator (600 Hz) and plant model |
+| 16 | Mass flow controller | 5 sccm full scale, hydrogen | Done |
+| 17 | Old interlock box | In use, its two relays switch nothing | Done |
+| 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross (later: maybe nearer 5e-5 torr), MFC at about 20 % of 5 sccm | Plant model calibrated to it |
+| 19 | nAIM calibration (2026-11-22) | "I believe the nAIM is calibrated for N2" | Noted in the plan as your belief. It is what the plant model assumes |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -142,131 +141,140 @@ them. "Work" says what each answer changes and who does it.
   loop through the filament current can only act downward there (model: gain 3.6 A/A for a step
   down, 0.007 A/A for a step up). Either the loop runs at a set point below 24 A, or it waits
   for the REK150-55.
-- **The pumping speed is large.** 1 sccm of hydrogen at a reading of 1e-5 torr means about
-  1270 l/s for hydrogen, or about 730 l/s if the nAIM is calibrated for nitrogen and reads
-  hydrogen at 0.46 of its true pressure. Which TURBOVAC is on the cross is not known. If the
-  pump is smaller, the remembered flow or pressure is off.
+- **The predicted pressure is below your range.** With the data sheet speed of the TURBOVAC
+  1000 C (1150 l/s for nitrogen, about 1170 l/s estimated for hydrogen) and 1 sccm of hydrogen,
+  the model predicts 7.0e-6 torr on the nAIM. Your range is 1e-5 to 5e-5 torr, a factor 1.4 to 7
+  higher. The gauge calibration does not explain it, if the nAIM is calibrated for nitrogen as
+  you believe. Remaining candidates: the gauge sits on a side flange away from the pump;
+  something between the cross and the pump lowers the effective speed (valve, reducer, screen);
+  the flow was higher than 20 %; the pump is a smaller one.
 - The model's filament: 720 W, 2820 K, 6.7 cm2 of tungsten (a wire of about 1.4 mm by 16 cm).
+
+## Questions for you
+
+1. Is there anything between the six-way cross and the turbopump (valve, reducer, screen)?
+2. The real current limits of the four AU supplies and the REK. The defaults files hold the full
+   scales (A23).
+3. The discharge current loop: a set point below 24 A, or wait for the REK150-55?
+4. `status:read` of the AU and REK supplies is now a multi-state record (P27). Does a script of
+   yours depend on its type?
+5. The emulation's saved REK limit is 20 A, not the default 24 A (P30). Did you set it from the
+   GUI on 2026-11-21?
+6. The lab files (databases, protocol files, both `st.cmd`, `dbl` of both IOCs) settle A1, A4,
+   A7 to A12 and A22.
 
 ## Not verified
 
 - The steps of `docs/emulation/README.md` on a fresh WSL2 installation: Docker was already
   installed on the machine used.
 - Anything against real hardware, including `ports.real.cmd` and `run-ioc.sh ... real` on a real
-  Linux computer.
-- The GUI in a browser on Windows: it was checked with a headless browser inside WSL (191
-  checks) and by looking at screenshots, not by a person clicking through it.
-- The plant model on the full emulation (unit tests with the real simulators pass).
-- The branch is local. Nothing is pushed, so the `git clone` step of the README works only
-  after a push.
+  Linux computer, and autosave's directory `~/.local/state/mist2` there.
+- The GUI in a browser on Windows by a person. It was checked with a headless browser inside
+  WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
+  was in the middle of a merge.
+- The `git clone` step of the README works only after a push.
 
 ## Subagents
 
 - All subagents report the model ID `claude-opus-5-5`.
 - The Agent tool's own worktree isolation cuts worktrees from `master`, not from the current
-  branch. The first four subagents noticed this at their setup check and stopped without
-  changing anything. The lead now creates each worktree from `emulated-iocs` under
-  `.claude/worktrees/<task>` (ignored by git) and names it in the brief.
+  branch. The lead creates each worktree from `emulated-iocs` under `.claude/worktrees/<task>`
+  (ignored by git) and names it in the brief (`briefs/`).
+- A subagent's experiment script from the first hours kept starting a stray IOC container
+  (`docker run` without a terminal never ends). Stopped on 2026-11-22.
 
 ## Decisions taken, with reasons
 
 | Decision | Reason |
 |---|---|
-| `plan/` committed in two commits: sources, then `out/` | `out/` is 10 MB of generated files. Whether it stays under version control is D8, and a separate commit is easy to drop before the first push |
-| `latest.zip` committed as `reference/lab-2023/`, not merged into `EPICS/Db` | It is a 2023 state and the lab has moved on. Subagents in worktrees can read it, and the merge into `EPICS/Db` happens per device with a visible diff |
+| `plan/` committed in two commits: sources, then `out/` | `out/` is 10 MB of generated files. A separate commit is easy to drop before the first push |
+| `latest.zip` committed as `reference/lab-2023/`, not merged into `EPICS/Db` | It is a 2023 state and the lab has moved on. The merge into `EPICS/Db` happened per device with a visible diff |
 | `plan/build.py` and all tooling run in containers | `sudo` needs a password, and Graphviz, python-docx and pytest are not installed on the host |
 | Simulators in their own containers | See DESIGN.md section 2 |
-| EPICS base R7.0.10, not R7.0.11 | StreamDevice 2.8.26, the latest release, does not build against R7.0.11. The fix is on StreamDevice's master branch but in no release. With R7.0.10 everything is an unmodified release tag |
-| Each port file starts with the line `on error break` | Without it an error inside a file loaded with `iocshLoad` is ignored and the IOC starts half-configured. It is the one line in the port files that is not port configuration |
+| EPICS base R7.0.10, not R7.0.11 | StreamDevice 2.8.26, the latest release, does not build against R7.0.11. With R7.0.10 everything is an unmodified release tag |
+| Each port file starts with the line `on error break` | Without it an error inside a file loaded with `iocshLoad` is ignored and the IOC starts half-configured |
 | An IOC with an unset or wrong `MIST2_PORTS` exits instead of starting | A real computer must never come up on simulator ports by accident, or the other way round |
+| The limits are saved with autosave, not with a script of our own | It is the standard EPICS module for this, it writes atomically and keeps backups. The defaults file has autosave's format, so one mechanism restores both |
+| Saved limits live outside the repository (`mist2emu-save` volume, `$MIST2_SAVE/<ioc>` on a real computer) | A file that the IOC rewrites must not be a tracked file |
+| IOC containers wait for healthy simulator containers; `restart` restarts the IOCs only | asyn retries a failed first connection only after 20 s. An IOC restart with the devices still running is also the case that matters on the real machine |
+| Subagents share the one emulation through a lock file | The Compose project uses fixed names and a fixed network, so only one copy can run |
 
 ## Assumptions that need your confirmation
 
 "Lab files" means the current databases, protocol files, both `st.cmd` and `dbl` output from
-both IOCs, expected in the week of 2026-11-23.
+both IOCs, expected in the week of 2026-11-23. Settled by your answers and removed from this
+table: A2, A3 (AU units and chains), A14 (valve channels), A18 (sensor box, old interlock box),
+A19 (the output gate is wanted, and it latches).
 
 | # | Assumption | Source | Settled by |
 |---|---|---|---|
 | A1 | The lab's PV names are those of the 2023 snapshot | `latest.zip`, lab GUI | Lab files |
-| A2 | AU units: 1 source, 2 puller, 3 lens 1, 4 lens 3, 5 lens 2 | 2023 `st.cmd` for 1 to 4, unit 5 is a guess | Lab files, front panels |
-| A3 | Source and puller on the USB-OPT chain, lenses on the CO-U32 chain | Prompt, plan | You |
-| A4 | AU20P15: 20 kV and 15 mA full scale, same 16-bit set and 12-bit monitor scaling as the P7.5 | Model name. The local scaling fix is not in `latest.zip` either | Lab files |
+| A4 | AU20P15: 20 kV and 15 mA full scale, same 16-bit set and 12-bit monitor scaling as the P7.5 | Model name. The local scaling fix is not in `latest.zip` | Lab files |
 | A5 | Negative supplies show positive numbers | 2023 database has no sign handling | You (D3) |
 | A6 | Turnaround time of the Matsusada adapters: 5 ms in the simulator | Not in the manual | Measurement on hardware |
 | A7 | REK150-24 on its own port, unit 1, 9600 baud | Repository `st.cmd` | Lab files |
 | A8 | TDK at address 6, 19200 baud | `tdk.proto`, repository `st.cmd` | Lab files |
 | A9 | Thermocouple board at 19200 baud | Firmware says 19200, both `st.cmd` say 9600 | Lab files |
-| A10 | Gauge controller at 115200 baud, no parity | Firmware. Both `st.cmd` say even parity | Lab files |
+| A10 | Gauge controller (Teensy) at 115200 baud. The real port file sets even parity as the lab's `st.cmd` did | Firmware, lab `st.cmd` | Lab files |
 | A11 | MFC at address 254, 9600 baud. The snapshot's files are a draft: set point only, no flow read-back, commented out in `st.cmd` | `latest.zip` | Lab files |
 | A12 | `MFC:getFlow` as the name of the flow read-back | My proposal in the lab's style | Lab files |
-| A13 | Faraday cup Opta speaks libcom1 over TCP and serves one current channel. The cup actuator is valve channel s4 | Lab GUI labels s4 "Faraday Cup" | Firmware source |
-| A14 | One valve box with 8 channels: s1 foreline valve, s2 MFC shutoff, s3 vent valve, s4 Faraday cup | Lab GUI | You |
-| A15 | nAIM answers `!C752` as in the Edwards manual. The pressure is in torr | Snapshot database says torr | Lab files, manual |
-| A16 | Both NT 20 have the RS-232 port fitted. One Opta drives both, wired as "ON/OFF switch" (Fig. 6) | Manual lists the port without calling it an option | You, rear panels |
+| A13 | Faraday cup Opta speaks libcom1 over TCP and serves one current channel | Nothing: the firmware is not known | Firmware source |
+| A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
+| A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
-| A18 | Sensor box and old interlock box are still connected to the rack IOC | 2023 `st.cmd`. Not in your device table | You (D5) |
-| A19 | The AU and REK output gate on `interlock_open` is still wanted | 2023 databases | You |
-| A20 | Emulation subnet `172.30.0.0/24`. Nothing depends on the switch model or the real address plan | Free choice | You, if it collides with a network of yours |
+| A20 | Emulation subnet `172.30.0.0/24` | Free choice | You, if it collides with a network of yours |
 | A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | udev rules do not exist yet | Work package WP4 |
 | A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
+| A23 | The defaults of the current limits are the full scales: 15, 7.5, 7.5, 7.5 mA and 24 A | No source for the real limits | You |
+| A24 | A Matsusada supply in local control still answers queries (status, monitors) | The CO manual does not say | Hardware |
+| A25 | The turbopump is a TURBOVAC 1000 C with a DN 250 ISO-K inlet. Its hydrogen speed is estimated from the neighbouring model in the data sheet | Your "I think", Leybold GA 05.118/14.02 | The pump's type plate |
+| A26 | The nAIM is calibrated for nitrogen | Your "I believe" | The gauge |
+| A27 | My reading of your answer 10: the limit PV is `current:limit`, the lab's name stays as an alias, the defaults file is `limits.defaults` per IOC, and a change from the GUI is saved to a second file that overrides the defaults at the next start. The defaults file itself is not rewritten | Your answer, autosave's way of working | You |
+| A28 | The turbopump reaches its speed in 60 s in the simulator. The data sheet says about 9 minutes | Free choice, so that a desk session does not wait | Say so if you want the real time |
 
-## Open points from the device tasks
+## Open points
+
+Closed by your answers or by later work and removed from this table: P1, P2, P4, P8, P16, P17,
+P18, P19, P20, P22.
 
 | # | Point | Needs |
 |---|---|---|
-| P1 | Done: `<DEVICE>:channels` is a long-string record with up to 255 characters. A client reads the whole text from the field `VAL$` (`caget -S THM:channels.VAL$`). A plain read of `THM:channels` still ends after 39 characters, which is a limit of Channel Access strings. `id` and `firmware` are still limited to 39 characters, and no device comes near that | Closed |
-| P2 | Which gauge controller firmware runs in the lab: `IonGaugeController` (Arduino Mega, 8N1) or `IonGaugeController_Teensy`? The lab's `st.cmd` calls it a Teensy and sets even parity. The emulator follows the Mega sketch | You |
-| P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is left empty | You |
-| P4 | The interlock box has two relay channels (`s1`, `s2`) that no database uses. What do they switch? | You |
-| P5 | The door PVs `INTLK:i1:get_interlock` and `i2` are binary records with the states Open and Closed now. The lab's were analog records with the same numbers (1 = closed). A client that reads the number sees no difference, a client that reads the type does | You, if a script depends on it |
-| P7 | The nAIM instruction manual was not found. Its protocol (`?V752` answered by pressure and a 4-digit hexadecimal status word, `!C752` answered by `*C752 0`) is taken from INFICON's description of the "Edwards nAIM protocol" (tira83e1-e) and from the Edwards TIC manual for the message structure. To be checked on the gauge | You, with the gauge |
-| P8 | The nAIM reports in the unit configured in the gauge (status bits 4 and 5). The lab's database says torr and nothing checks it | You, with the gauge |
-| P9 | `AIM:getpressure` is INVALID while the gauge is off or striking, by decision of T4 from the status word. It keeps the number the gauge sent | Tell me if you prefer another display |
-| P10 | After a TDK power cycle the supply comes back with its output off (safe start), while `TDK:status:setpoint` still shows ON until it is written again. `TDK:status:get` shows the truth | GUI and loop design |
-| P11 | MFC: the supplement does not show the reply to a set (with or without the value) or a literal example of a negative reply. The protocol file accepts both forms of the positive reply. `MFC:getFlow` reads in flow units (sccm), the set point stays in percent of full scale as in the lab's draft | Lab files |
-| P12 | Faraday cup: everything but the hardware is assumed (libcom1 over TCP, one channel in A, identity `FaradayCupOpta`) | Firmware source |
-| P13 | Turbopump Opta: its firmware does not exist. The channel map is defined in `turbo.db` (`r1 r2 r3 r4 n1 a1 f1 n2 a2 f2`), and the firmware has to be written to match | Firmware, later |
-| P14 | NT 20 monitor port: the record format is invented (`NT20 f=0833Hz I=1.25A ACC`). `TURBO<n>:raw:get` and `:age:get` work with any one-line format | A capture from a unit |
-| P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Planned: stop listening instead | Lead, after T3 |
-| P16 | **Outputs come back on by themselves.** When the interlock opens, the AU and REK outputs are forced off, but the request stays set. When the interlock closes again, the outputs switch back on without anyone doing anything. That is how the lab's 2023 database works, and I kept it. Your interlock rules in the plan say that a trip latches. One record more would clear the request on permit loss | You |
-| P17 | **Enabling an output sets the current limit to 100 %.** The lab's sequence sends `ICN 100` on enable, so `current:setpoint` is overwritten: I set 10 mA, enabled, and the echo read 15 mA. Kept, with the percentage as macro `ICN_ON` | You |
-| P18 | Done: each supply reads its two monitors as one cycle and waits its turn, so all supplies of a chain update at the same rate, whatever the load order. Measured in the lead's run: 9.1 Hz with two supplies at 5 ms turnaround (bus arithmetic 9.65), 6.1 Hz at 16 ms (6.34), 5.8 Hz with three polled supplies (6.14). The 4 to 6 % below the arithmetic is about 1 ms of idle line per transaction | Closed |
-| P24 | A supply that does not answer now gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until the dead supply answers again or is taken out of the polling. Polling a silent supply less often would avoid this | Later, if wanted |
-| P19 | The supplies are put into remote mode (`REN`) with every status poll, so that a supply that was switched off and on comes back by itself. Side effect: the front panel cannot take local control while the IOC runs. The lab sent `REN` only at start and on switching | You |
-| P20 | A set-point write in the first 5 s after an IOC start is not sent to the supply (the databases first take over the supply's own settings, so that a restart changes nothing) | Know it |
-| P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command, and P15 | Lead, later |
-| P22 | Done: the database parser handles records in any layout, and an independent count of record statements fails the check if the parser misses one | Closed |
-| P23 | `make -C emulation plan` still changes the tracked PDFs on every run: Graphviz embeds the build time and ignores the usual setting for reproducible builds. The Word file is reproducible now. A fix needs one more tool (`qpdf`) in the tools image | Later, if it annoys |
-| P6 | The gauge controller keeps sending the last pressure after a gauge is switched off. A pressure value does not prove that the gauge is on | Firmware, later |
+| P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is empty. The seven temperatures have no names in any source | Nothing, if the Opta replaces the box |
+| P5 | The door PVs `INTLK:i1:get_interlock` and `i2` are binary records with the states Open and Closed. The lab's were analog records with the same numbers (1 = closed) | You, if a script depends on the type |
+| P6 | The gauge controller keeps sending the last pressure after a gauge is switched off | Firmware, later |
+| P7 | The nAIM instruction manual was not found. Its protocol is taken from INFICON's description of the "Edwards nAIM protocol" and from the Edwards TIC manual | You, with the gauge |
+| P9 | `AIM:getpressure` is INVALID while the gauge is off or striking. It keeps the number the gauge sent | Tell me if you prefer another display |
+| P10 | After a TDK power cycle the supply comes back with its output off, while `TDK:status:setpoint` still shows ON until it is written again. `TDK:status:get` shows the truth | GUI and loop design |
+| P11 | MFC: the supplement does not show the reply to a set or a literal example of a negative reply. The protocol file accepts both forms of the positive reply | Lab files |
+| P12 | Faraday cup: everything but the hardware is assumed (libcom1 over TCP, one channel in A) | Firmware source |
+| P13 | Turbopump Opta: its firmware does not exist. The channel map in `turbo.db` is its specification | Firmware, later |
+| P14 | NT 20 monitor port: the record format is invented. `TURBO<n>:raw:get` and `:age:get` work with any one-line format | A capture from a unit |
+| P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Better: stop listening | Later |
+| P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command | Later |
+| P23 | `make -C emulation plan` changes the tracked PDFs on every run, because Graphviz embeds the build time. PDFs that differ only by the time stamp are left as they are by hand | Later, if it annoys |
+| P24 | A supply that does not answer gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until it answers again | Later, if wanted |
+| P25 | Set records without a first value start as INVALID (undefined) until they are written once: `VALVE:s<n>:set`, `TURBO<n>:start:set`, `AIM:enable`. Writing an initial value at IOC start is not an option (it would close the foreline valve). The clean way is to take over the device's state at the first contact, as the Matsusada databases now do | Later |
+| P26 | The RAS pvServer was seen giving a long text (`TURBO<n>:raw:get` through `VAL$`) a time stamp that did not belong to that text. The GUI check tolerates it. Not investigated | Later |
+| P27 | `status:read` of the AU and REK supplies is a multi-state record now. 0 OFF and 1 ON as before, 2 and 3 are new (local control). A client that reads the number sees no difference in remote mode | You, if a script depends on the type |
+| P28 | A client that writes `<supply>:ToggleOutput` directly bypasses the permit, the remote command and the limit. In the lab's database it bypassed the permit too. The operator's PV is `SetToggleOutput` | Access security, later |
+| P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
+| P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it | You |
 
 ## Found in RAS V8.1.0
 
-- No RAS component colors severity INVALID. `TextOutput`, `TextInput` and the others handle
-  MINOR and MAJOR only, so an INVALID record shows its last value in plain style. The new GUI
-  needs its own thin wrappers for this. A lost Channel Access connection is handled by RAS.
-- The pvServer sends severity and time stamp but not the alarm status (STAT). The expert pages
+- No RAS component colours severity INVALID. The GUI has its own fields for this, built on
+  RAS's `Widget`. A lost Channel Access connection is handled by RAS.
+- The pvServer sends severity and time stamp but not the alarm status (STAT). The expert views
   read `<record>.STAT` as a PV of its own.
 - The boilerplate has no lock file for its Node packages, so the frontend image is not exactly
   reproducible from one build to the next.
+- With login disabled the pvServer does not need MongoDB.
 
 ## Found while reading, not yet acted on
 
-- The lab's `toggle_output` sends `ICN 100` when an AU or REK output is enabled. That sets the
-  current limit to 100 % of full scale, whatever `current:setpoint` holds. T3 keeps the behaviour,
-  makes the percentage a macro and documents it in a test. Whether it is wanted is your call.
-- The lab's and this branch's interlock databases disagree in their comments on which input
-  value means "door closed". T6 settles it from the firmware.
-- New PVs that were not in the G1 note: `IOC-RACK:heartbeat`, `IOC-RACK:mode` and the same for
-  `IOC-HV`. `mode` shows `sim` or `real`, so that the GUI can label the emulator on every page.
-
-- `thermocouples.db` exposes 4 of the board's 16 channels. Junction temperatures and fault
-  codes have no PVs (proposal in DESIGN.md).
-- `rek.db` labels the current read-backs mA, the values are in A.
+- `thermocouples.db` exposes 4 of the board's 16 channels.
 - The CO manual says a supply sends an unsolicited `!` when its output is off or its power is
-  off (RS-232, RS-485 and USB adapters). The protocol files do not expect it. The simulator
-  gets a switch for it, default off, until it is seen on hardware.
-- `plan/controls.yaml` assumes unit 2 is lens 1. The 2023 `st.cmd` says unit 2 is the puller.
-- `plan/build.py` reads the snapshot in `plan/epics_db/`. Inside this repository it should read
-  `EPICS/Db`, otherwise new databases never show up as existing.
+  off. The protocol files do not expect it. The simulator has a switch for it, default off,
+  until it is seen on hardware.
 - The plan proposes `REK-1:mode:read` and `REK-1:alarm:read`. The CO protocol has no command
   for either.
