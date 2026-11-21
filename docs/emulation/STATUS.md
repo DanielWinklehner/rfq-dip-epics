@@ -33,6 +33,15 @@ and the plant model on the real arrangement and working point.
   `AVR/libcom1/tests/script.hpp`, in the AVR and in the `%g` number format.
 - **pvServer proof against the emulated IOCs passed**: the RAS pvServer reads heartbeat and mode
   of both IOCs on `172.30.0.0/24`.
+- **T11 merged** (acceptance sequence run by the lead: 191 browser checks passed, nothing left
+  running): the GUI in layout B with device windows, on the phase 1 arrangement. Screenshots of
+  every page are in `RAS/mist2/tools/screenshots/`. `RAS/mist2/tools/gui-check.sh` repeats the
+  checks. Open: the registry gaps it found (words for valve states, the confirmation rule,
+  names of the sensor box channels), and the change to four supplies and the current limit.
+- **Plant model on the real arrangement** (merged, unit tests and step-response tool run by the
+  lead): one chamber and one pump, pumping speed from the TURBOVAC 1000 C data sheet (1150 l/s
+  for nitrogen, hydrogen estimated), NT 20 rated speed 600 Hz. It predicts 7.0e-6 torr on the
+  nAIM at the working point, a factor 1.4 below your range of 1e-5 to 5e-5 torr.
 - **T8 merged** (run twice by the lead from nothing: 214 passed, 3 expected failures, both
   runs alike, about 7 min 40 s each, nothing left running): `make -C emulation test`.
   The three expected failures were two findings, both fixed and merged since:
@@ -145,8 +154,8 @@ them. "Work" says what each answer changes and who does it.
   installed on the machine used.
 - Anything against real hardware, including `ports.real.cmd` and `run-ioc.sh ... real` on a real
   Linux computer.
-- The GUI in a browser on Windows: checked with `curl` and with a script that reads the PVs
-  through the GUI's server.
+- The GUI in a browser on Windows: it was checked with a headless browser inside WSL (191
+  checks) and by looking at screenshots, not by a person clicking through it.
 - The plant model on the full emulation (unit tests with the real simulators pass).
 - The branch is local. Nothing is pushed, so the `git clone` step of the README works only
   after a push.
