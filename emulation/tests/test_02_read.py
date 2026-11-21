@@ -24,11 +24,13 @@ def exception_reason(name, d):
     return None
 
 
-@pytest.mark.parametrize("device", DEVICES)
-def test_every_pv_reads_and_is_not_invalid(device):
-    entry = reg.devices.get(device) or reg.iocs[device]
-    # A fault test before this one may still be recovering when tests are selected with -k.
-    names = list(entry["pvs"])
+# The slowest source sends every 8 s (NT 20 data output, listen only): right after an IOC start a
+# PV may wait that long for its first value. Each device gets this long to have no unexplained
+# INVALID PV.
+FIRST_VALUE_LIMIT = 10.0
+
+
+def unexplained(names):
     problems, excused = [], []
     for name in names:
         d = S.read(name)
@@ -40,7 +42,16 @@ def test_every_pv_reads_and_is_not_invalid(device):
             excused.append("%s: %s" % (name, why))
         else:
             problems.append(S.describe([name]))
-    assert problems == [], "INVALID without a reason the registry gives: %s" % problems
+    return problems, excused
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_every_pv_reads_and_is_not_invalid(device):
+    entry = reg.devices.get(device) or reg.iocs[device]
+    names = list(entry["pvs"])
+    S.wait_for(lambda: unexplained(names)[0] == [], FIRST_VALUE_LIMIT,
+               lambda: "INVALID without a reason the registry gives: %s" % unexplained(names)[0])
+    excused = unexplained(names)[1]
     if excused:
         print("\n".join(["%s, INVALID (UDF) as allowed:" % device] + excused))
 

@@ -10,6 +10,7 @@ from system import reg
 # Records whose value or alarm the suite changes only through their own tests; the snapshot keeps
 # what they were, and the clean-up writes them back.
 snapshot = {}
+SETTLED = 15          # seconds after an IOC start
 
 
 def pytest_configure(config):
@@ -48,9 +49,11 @@ def restore_writes(names=None):
 @pytest.fixture(scope="session", autouse=True)
 def system():
     """Both IOCs answer and are past their GRACE time; every PV of the registry has a monitor."""
+    # Past GRACE, and long enough for the slowest source (NT 20 data output, one record every
+    # 8 s) to have sent: the snapshot then shows the system as it runs, not as it starts.
     for ioc, hb in reg.heartbeats().items():
-        S.wait_for(lambda: S.connected(hb) and S.get(hb) >= S.GRACE + 2, 90,
-                   "%s (%s) answers and has run for %d s" % (ioc, hb, S.GRACE + 2))
+        S.wait_for(lambda: S.connected(hb) and S.get(hb) >= SETTLED, 90,
+                   "%s (%s) answers and has run for %d s" % (ioc, hb, SETTLED))
     S.watch(list(reg.pvs))
     for name in reg.pvs:
         if S.connected(name):

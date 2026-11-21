@@ -103,7 +103,11 @@ class Registry:
         """(simulator, unit or None) that a written PV talks to."""
         ref = self.pvs[pv].get("sim")
         if not ref:
-            return None, None
+            # a soft record (AU SetToggleOutput) acts on the device's one simulator
+            sims = self.devices.get(self.pvs[pv]["device"], {}).get("simulators", [])
+            if len(sims) != 1:
+                return None, None
+            ref = sims[0]
         name, _, unit = ref.partition(":")
         return name, (int(unit) if unit else None)
 
@@ -242,6 +246,16 @@ def wait_for(cond, timeout, what, interval=0.1):
         if time.monotonic() - t0 > timeout:
             pytest.fail("not within %g s: %s" % (timeout, what() if callable(what) else what))
         time.sleep(interval)
+
+
+def wait_fresh(name, since, cond, timeout, what):
+    """Wait until the record has been processed after `since` (wall clock, time.time()) and
+    cond(value) holds: a read-back that was already right before a write proves nothing."""
+    def ok():
+        d = read(name)
+        return d["timestamp"] > since and d["severity"] != INVALID and cond(d["value"])
+    return wait_for(ok, timeout, lambda: "%s, processed after the write: %s" % (
+        what, describe([name])))
 
 
 def severities(names):

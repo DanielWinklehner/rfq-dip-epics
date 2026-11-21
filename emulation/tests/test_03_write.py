@@ -1,6 +1,8 @@
 """Write: every set point and switch of the registry is written inside its safe test range and its
 read-back follows within a stated time; the set record ends without alarm (an acknowledged set
 was acknowledged, a Matsusada set found its echo). Afterwards each device is back where it was."""
+import time
+
 import pytest
 
 import system as S
@@ -86,7 +88,11 @@ class OutputOn:
     def __exit__(self, *exc):
         if not self.needed:
             return
-        S.put(reg.role(self.device, "out_cmd"), write_target(reg.role(self.device, "out_cmd")))
+        cmd = reg.role(self.device, "out_cmd")
+        S.put(cmd, write_target(cmd))
+        state = reg.role(self.device, "out_state")
+        S.wait_for(lambda: S.get(state) == write_target(cmd), ECHO_LIMIT,
+                   lambda: "output back to %r: %s" % (write_target(cmd), S.describe([state])))
         if self.other:
             S.put(self.other, write_target(self.other))
 
@@ -104,19 +110,21 @@ def test_write_and_read_back(name):
     try:
         with OutputOn(name):
             for value in write_values(name):
+                t_put = time.time()
                 S.put(name, value)
                 assert S.sevr(name) == S.NO_ALARM, "after writing %r: %s" % (value, S.describe([name]))
                 if rb is None:
                     continue
-                took = S.wait_for(lambda: abs(S.get(rb) - value) <= tol, limit,
-                                  lambda: "%s = %r follows %s := %r (tolerance %g): %s" % (
-                                      rb, S.get(rb), name, value, tol, S.describe([rb])))
+                took = S.wait_fresh(rb, t_put, lambda v: abs(v - value) <= tol, limit,
+                                    "%s follows %s := %r (tolerance %g)" % (rb, name, value, tol))
                 print("%s := %r: %s follows after %.2f s" % (name, value, rb, took))
     finally:
         target = write_target(name)
+        changed = S.get(name) != target        # the sequence may already end on it
+        t_put = time.time()
         S.put(name, target)
-    if rb is not None and not measured:
-        S.wait_for(lambda: abs(S.get(rb) - target) <= tol, limit,
-                   lambda: "%s back to %r: %s" % (rb, target, S.describe([rb])))
+    if rb is not None and not measured and changed:
+        S.wait_fresh(rb, t_put, lambda v: abs(v - target) <= tol, limit,
+                     "%s back to %r" % (rb, target))
     S.wait_for(lambda: baseline_ok(device_pvs(device)), RECOVER_LIMIT,
                lambda: "%s after the test: %s" % (device, S.describe(device_pvs(device))))
