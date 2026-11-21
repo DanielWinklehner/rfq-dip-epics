@@ -1,0 +1,55 @@
+# mfc.proto - MKS G-series mass flow controller (GV50A) on RS-485
+#
+# Protocol: "G-Series MFC RS-485 Digital Interface Supplement", MKS P/N 1046411-001 Rev. A (2013):
+#   request  @@@<address><function>?<data>;FF   query
+#            @@@<address><function>!<data>;FF   set
+#   reply    @@@000ACK<data>;FF  or  @@@000NAK<code>;FF   (codes: Table 4 of the supplement)
+# "FF" in place of the checksum means "do not check", and the device then answers with "FF" too.
+# Nothing follows the checksum: no CR, no LF. So ";FF" is the terminator in both directions.
+# (The lab's draft of 2023 used CR, which is why it logged: got "-20.00;FF" where " " was expected.)
+#
+# Argument $1: the 3-digit address, 001 to 253, or 254 (the initial address; with several units
+# on one bus every unit answers 254, so give each its own address first).
+#
+# A NAK, or no answer, puts the record into alarm (StreamDevice: mismatch or timeout).
+#
+# Author: Philip Weigel (2023 draft), completed from the supplement in 2026
+
+Terminator = ";FF";
+ReplyTimeout = 500;        # ASSUMED: the supplement gives no reply time
+ReadTimeout = 100;
+
+# Set point in percent of full scale, -20.00 to +140.00 (S, Sup p.18). -20 % closes the valve.
+getSP {
+    out "@@@\$1S?";
+    in "@@@000ACK%f";
+}
+
+# The reply to a set is "@@@000ACK" with or without the value echoed (the supplement does not
+# show it), so whatever follows ACK is ignored. @init reads the device's set point at iocInit.
+setSP {
+    extrainput = ignore;
+    out "@@@\$1S!%.2f";
+    in "@@@000ACK";
+    @init { out "@@@\$1S?"; in "@@@000ACK%f"; }
+}
+
+# Wink: the power LED blinks once a second (WK, Sup p.16)
+getWink {
+    out "@@@\$1WK?";
+    in "@@@000ACK%{OFF|ON}";
+}
+
+setWink {
+    extrainput = ignore;
+    out "@@@\$1WK!%{OFF|ON}";
+    in "@@@000ACK";
+    @init { out "@@@\$1WK?"; in "@@@000ACK%{OFF|ON}"; }
+}
+
+# Measured flow in the flow units of the programmed gas, SCCM or SLM (FX, Sup p.24).
+# (F? would give it in percent of full scale.)
+getFlow {
+    out "@@@\$1FX?";
+    in "@@@000ACK%f";
+}

@@ -1,0 +1,19 @@
+# Two RS-485 lines with MKS G-series MFCs (simulator mks_rs485).
+# mfc_lab: one unit at address 254 as in the lab (2023 files). Full scale and gas are ASSUMED.
+# mfc_bus: two units with their own addresses on one bus, to show that they do not disturb
+#          each other.
+- name: mfc_lab
+  type: mks_rs485
+  port: 5000                  # control port 6000
+  baud: 9600
+  turnaround_ms: 5            # ASSUMED, not in the supplement
+  options:
+    units:
+      - {address: 254, full_scale: 50.0, flow_units: SCCM, gas: H2, tau_s: 1.0}
+- name: mfc_bus
+  type: mks_rs485
+  port: 5001                  # control port 6001
+  options:
+    units:
+      - {address: 1, full_scale: 100.0, tau_s: 0.5}
+      - {address: 2, full_scale: 200.0, tau_s: 0.5}
