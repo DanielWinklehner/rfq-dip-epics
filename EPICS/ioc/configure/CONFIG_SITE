@@ -1,0 +1,6 @@
+# CONFIG_SITE
+
+# Only the host architecture is built.
+CROSS_COMPILER_TARGET_ARCHS =
+
+CHECK_RELEASE = YES

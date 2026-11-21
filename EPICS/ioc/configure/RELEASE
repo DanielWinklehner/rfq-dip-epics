@@ -1,0 +1,15 @@
+# RELEASE - Location of external support modules
+#
+# The defaults are the paths in the mist2-ioc image (emulation/docker/ioc.Dockerfile).
+# On another host, put the local paths into configure/RELEASE.local (not in git).
+
+SUPPORT = /opt/epics/support
+ASYN = $(SUPPORT)/asyn
+STREAM = $(SUPPORT)/StreamDevice
+EPICS_BASE = /opt/epics/base
+
+# These lines allow developers to override these RELEASE settings
+# without having to modify this file directly.
+-include $(TOP)/../RELEASE.local
+-include $(TOP)/../RELEASE.$(EPICS_HOST_ARCH).local
+-include $(TOP)/configure/RELEASE.local

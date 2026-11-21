@@ -1,0 +1,21 @@
+# ioc_info.db - identity of one MIST-2 IOC, loaded by st.cmd with macro P (IOC-RACK, IOC-HV)
+#
+# <P>:heartbeat  counts up once per second: a client sees that the IOC is alive
+# <P>:mode       value of the environment variable MIST2_PORTS ("sim" or "real")
+#
+# (No macros in these comments: dbLoadRecords expands them there too.)
+
+record(calc, "$(P):heartbeat") {
+    field(DESC, "Counts up once per second")
+    field(SCAN, "1 second")
+    field(INPA, "$(P):heartbeat NPP")
+    field(CALC, "A+1")
+    field(PREC, "0")
+}
+
+record(stringin, "$(P):mode") {
+    field(DESC, "Port configuration in use")
+    field(DTYP, "getenv")
+    field(INP, "@MIST2_PORTS")
+    field(PINI, "YES")
+}
