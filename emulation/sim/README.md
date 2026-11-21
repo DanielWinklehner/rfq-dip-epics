@@ -208,7 +208,7 @@ box stands in for the future cooling water readout.
 | `rek.1.vset`, `rek.1.iset`, `rek.1.output` | `rek.1.load_ohm` = V / I of the discharge operating point |
 | `mfc.254.flow` (% of 5 sccm H2) | `aim.pressure` nAIM reading of the cross (torr) |
 | `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent (turbopump), `s4` Faraday cup | `gauges.p1` APG reading of the cross (torr) |
-| `nt20_1.speed` / 1200 Hz | `faradaycup.c1` cup current (A) |
+| `nt20_1.speed` / 600 Hz | `faradaycup.c1` cup current (A) |
 | `mat_opt.1.vset`, `.iset`, `.output` (ion source supply) | `mat_opt.1.load_ohm` = V / I of the source supply |
 | `mat_opt.2.vout`, `.output` (puller supply) | `thermocouple.t1`..`t4`, `sensorbox.t1`..`t7` (degC) |
 
@@ -217,12 +217,16 @@ Model inputs, in this order in `config/plant.yaml`: `filament_current`, `rek_vse
 `source_vset`, `source_iset`, `source_on`, `puller_voltage`, `puller_on`. A missing one is 0
 (off, closed, stopped).
 
-### Calibration: the owner's working point
+### Calibration: the owner's working point, and the pump's data
 
 "Typical operating point: 8 V, 90 A on the filament, 150 V, 24 A on the discharge, pressure in the
-6-way around 1e-5 Torr, MFC flow around 20 % open (at 5 SCCM max)." These six numbers are the
-parameters `wp_*`. At construction the model derives from them (`PlantModel.derived`, also
-`info` on the plant's control port, and printed by the step response tool):
+6-way around 1e-5 Torr, MFC flow around 20 % open (at 5 SCCM max)." Later: "It could be that at
+20% we were more in the 5e-5 Torr range, but the turbopump we have is a big one. I think it's a
+1000C with a 250 ISO-K flange." The filament and discharge numbers and the flow are calibration
+inputs (`wp_*`). The pumping speed comes from the pump's data sheet, so the pressure at the
+working point is a PREDICTION, compared with the owner's range (`wp_cross_reading_low_torr`,
+`wp_cross_reading_high_torr`), not fitted to it. At construction the model derives
+(`PlantModel.derived`, also `info` on the plant's control port, printed by the step response tool):
 
 | Derived | Value | How |
 |---|---|---|
@@ -232,9 +236,18 @@ parameters `wp_*`. At construction the model derives from them (`PlantModel.deri
 | emission at the point | 24.5 A | 24 A = smooth minimum of emission and plasma limit |
 | filament temperature | 2820 K | Richardson emission x area = 24.5 A, with the area that 720 W holds at T by radiation |
 | filament area | 6.7 cm2 | as a check: a tungsten hairpin of 1.36 mm x 15.6 cm has 0.089 ohm hot |
-| true H2 pressure in the cross | 2.2e-5 torr | nAIM reading / `aim_h2_factor` |
-| pumping speed for H2 | 730 l/s | 1 sccm / (true pressure - true base pressure) |
-| plasma constant k | 0.073 A/V^1.5 | plasma limit at 150 V and the chamber pressure at 1 sccm |
+| pumping speed for H2 | 1171 l/s | 1150 l/s N2 (data sheet) x 1.018 (H2/N2, estimate) |
+| true H2 pressure in the cross | 1.52e-5 torr | (outgassing + 1 sccm) / pumping speed |
+| nAIM reading, PREDICTED | 7.0e-6 torr | true pressure x `aim_h2_factor` (0.46) |
+| plasma constant k | 0.074 A/V^1.5 | plasma limit at 150 V and the chamber pressure at 1 sccm |
+
+The pump: Leybold, Operating Instructions GA 05.118/14.02 (05/2005), "TURBOVAC 35 LS ... 1000 C",
+section 1.3 Technical Data, TURBOVAC 1000 C with 250 ISO-K inlet: pumping speed N2 1150 l/s,
+36,000 rpm (600 Hz, now the `rated_speed_hz` of the `nt20_*` simulators), run-up time with the
+frequency converter about 9 min. The table gives no He or H2 speed for the 1000 C; the H2/N2
+ratio is taken from the TURBOVAC 600 C in the same table (570 / 560). Copy used:
+https://www.ajvs.com/library/Turbovac%2035_to_1000c_Manual.pdf. The pump model itself is the
+owner's "I think".
 
 What the point implies:
 
@@ -243,13 +256,13 @@ What the point implies:
   discharge current, the voltage falls instead (149.2 V at the point). A discharge current loop
   through the filament current only acts downward here; it needs a set point below 24 A or a
   supply with more current (REK150-55). The model does not hide this.
-- **The pumping speed is large.** 1 sccm at 1e-5 torr would need 1270 l/s for hydrogen. Two
-  things in the model bring it down, and both are stated as assumptions: the nAIM is calibrated
-  for N2 and reads hydrogen at about 0.46 of the true pressure (a tabulated gas correction of
-  ionisation gauges, not measured on this gauge), and the base reading of 2e-6 torr is residual
-  gas. That leaves 730 l/s for H2: plausible for a turbopump on a DN 200 / CF 10" flange, but the
-  pump model is not known (answer 15). If the real pump is smaller, either the pressure or the
-  flow of the point is lower than remembered; correct `wp_*` or `aim_h2_factor` then.
+- **The predicted pressure is BELOW the owner's range.** The model predicts a nAIM reading of
+  7.0e-6 torr at 1 sccm, a factor 1.4 under the low end of 1e-5 to 5e-5 torr. Possible reasons,
+  none chosen: the gauge's calibration for hydrogen (without the H2 factor of 0.46 the reading
+  would be 1.5e-5 torr, inside the range); the gauge sits on a side flange, away from the pump;
+  a conductance between pump and chamber (ISO-K flange, valve, screen) lowers the effective
+  speed below the data sheet value; the remembered flow; a different pump; the base pressure
+  (a free choice of 2e-6 torr reading).
 - **It is one point.** The slopes around it (discharge current per filament current, per sccm)
   follow from Richardson's law, Stefan-Boltzmann and the free choices; they are properties of the
   model. `tools/plant_step_response.py` says so in its output.
@@ -329,7 +342,8 @@ gauge heads switched off (the nAIM simulator still decides what it reports when 
 | `wp_filament_current_a` | 90 | A | owner's working point, 2026-11-21: filament 90 A |
 | `wp_discharge_voltage_v` | 150 | V | owner's working point, 2026-11-21: discharge 150 V |
 | `wp_discharge_current_a` | 24 | A | owner's working point, 2026-11-21: discharge 24 A (the full scale of the REK150-24) |
-| `wp_cross_reading_torr` | 1e-05 | torr | owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading) |
+| `wp_cross_reading_low_torr` | 1e-05 | torr | owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading); compared with the model, not used by it |
+| `wp_cross_reading_high_torr` | 5e-05 | torr | owner's working point, 2026-11-21 (second answer): 'it could be that at 20% we were more in the 5e-5 Torr range'; compared with the model, not used by it |
 | `wp_gas_sccm` | 1 | sccm | owner's working point, 2026-11-21: MFC about 20 % of 5 sccm H2 |
 | `filament_tau_s` | 1 | s | free choice: 'about a second, which matches a thermal filament' (plan/controls.yaml, software.loops) |
 | `filament_r_exponent` | 1.2 | 1 | law (fit): tungsten resistivity rises about as T^1.2 between 300 and 3000 K |
@@ -352,8 +366,10 @@ gauge heads switched off (the nAIM simulator still decides what it reports when 
 | `cross_base_reading_torr` | 2e-06 | torr | free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas |
 | `apg_floor_torr` | 0.001 | torr | free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that |
 | `apg_ceiling_torr` | 944.06 | torr | free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml) |
+| `turbo_speed_n2_l_s` | 1150 | l/s | law (data sheet): Leybold TURBOVAC 1000 C, 250 ISO-K inlet, N2 (GA 05.118/14.02, 1.3 Technical Data); the pump model is the owner's 'I think it's a 1000C with a 250 ISO-K flange' |
+| `turbo_h2_n2_ratio` | 1.018 | 1 | estimate: the data sheet gives no H2 speed for the 1000 C; ratio H2/N2 of the TURBOVAC 600 C in the same table (570 / 560 l/s) |
 | `turbo_stopped_fraction` | 0.01 | 1 | estimate: what a stopped turbopump still pumps (through to the foreline) |
-| `turbo_p_limit_torr` | 0.01 | torr | estimate: inlet pressure at which a turbopump has lost half its speed |
+| `turbo_p_limit_torr` | 0.01 | torr | estimate: inlet pressure at which the turbopump has lost half its speed (data sheet: max. permanent inlet pressure 1e-3 to 1e-2 mbar) |
 | `foreline_base_torr` | 0.03 | torr | free choice: the APG simulator's constant before phase 1 (no foreline gauge in the control system yet) |
 | `foreline_volume_l` | 2 | l | estimate: turbopump outlet, foreline up to the foreline valve |
 | `rough_speed_l_s` | 5 | l/s | estimate: roughing pump (make and model not known) |

@@ -200,7 +200,7 @@
   out_terminator: "\r\n"      # ASSUMED
   options: &pump
     period_s: 8.0
-    rated_speed_hz: 1200.0    # ASSUMED: depends on the TURBOVAC model
+    rated_speed_hz: 600.0     # TURBOVAC 1000 C (owner: "I think"): 36,000 rpm, GA 05.118/14.02
     ramp_up_s: 60.0           # ASSUMED
     run_down_s: 120.0         # ASSUMED
     brake_s: 30.0             # ASSUMED

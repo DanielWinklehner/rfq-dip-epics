@@ -35,15 +35,21 @@ class ModelTest(unittest.TestCase):
     # --- the owner's working point ------------------------------------------------------
 
     def test_working_point(self):
-        """8 V at 90 A on the filament, 24 A at 150 V on the discharge, 1e-5 torr in the cross
-        at 1 sccm: reproduced within 10 %."""
-        p = self.params
+        """8 V at 90 A on the filament, 24 A at 150 V on the discharge: reproduced within 10 %.
+        The pressure is predicted: the reading the documented pumping speed gives."""
+        p, d = self.params, self.m.derived
         _, o = self.m.settle(self.m.initial_state(), working_point_inputs(p), 60.0, dt=0.02)
         checks = {"filament_voltage": 8.0, "discharge_current": 24.0, "discharge_voltage": 150.0,
-                  "aim_reading": 1.0e-5, "gas_into_source": 1.0}
+                  "gas_into_source": 1.0}
         for key, want in checks.items():
             self.assertAlmostEqual(o[key] / want, 1.0, delta=0.10, msg=key)
         self.assertAlmostEqual(o["filament_power"], 720.0, delta=72.0)
+        # the pressure: what 1 sccm H2 and the data sheet pumping speed give, nothing else
+        self.assertAlmostEqual(d["turbo_speed_l_s"], p["turbo_speed_n2_l_s"] * p["turbo_h2_n2_ratio"])
+        true = (d["outgassing_torr_l_s"] + p["wp_gas_sccm"] * p["sccm_to_torr_l_s"]) / d["turbo_speed_l_s"]
+        self.assertAlmostEqual(d["cross_wp_torr"] / true, 1.0, delta=0.01)   # p_lim fall-off < 1 %
+        self.assertAlmostEqual(o["aim_reading"] / d["aim_wp_reading_torr"], 1.0, delta=0.01)
+        self.assertAlmostEqual(o["aim_reading"], p["aim_h2_factor"] * true, delta=0.02 * o["aim_reading"])
         # the REK is at its current limit there: 24 A is its full scale
         self.assertAlmostEqual(o["rek_current"], 24.0, places=3)
         # the APG cannot see 1e-5 torr: it shows its floor
@@ -299,6 +305,14 @@ class ConfigTest(unittest.TestCase):
         mfc = [e for e in load_config(os.path.join(HERE, "..", "config", "rack.yaml")) if e["name"] == "mfc"][0]
         full_scale = mfc["options"]["units"][0]["full_scale"]
         self.assertAlmostEqual(cfg["inputs"]["gas_flow"]["scale"] * 100.0, full_scale)
+
+    def test_turbo_scale_matches_the_rated_speed(self):
+        import yaml
+        from mist2sim.core import load_config
+        with open(CONFIG) as f:
+            cfg = yaml.safe_load(f)
+        pump = [e for e in load_config(os.path.join(HERE, "..", "config", "rack.yaml")) if e["name"] == "nt20_1"][0]
+        self.assertAlmostEqual(cfg["inputs"]["turbo_speed"]["scale"] * pump["options"]["rated_speed_hz"], 1.0, places=6)
 
     def test_bad_parameters(self):
         with self.assertRaises(ValueError):

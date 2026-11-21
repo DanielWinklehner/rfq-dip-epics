@@ -10,8 +10,10 @@
 #
 # NOTHING IN THE SECTION `model` IS A MEASURED PROPERTY OF MIST-2 except the working point the
 # owner gave from memory (wp_*, source "owner's working point, 2026-11-21"). The model derives
-# its unknowns from that point (README.md, "Calibration"). Every other number is a physical law,
-# an order-of-magnitude estimate or a free choice, and `source` says which.
+# the filament and discharge unknowns from that point. The pumping speed comes from the data sheet
+# of the turbopump (TURBOVAC 1000 C, the owner thinks), so the pressure at the working point is a
+# prediction (README.md, "Calibration"). Every other number is a physical law (or data sheet), an
+# order-of-magnitude estimate or a free choice, and `source` says which.
 
 rate_hz: 10              # model steps per second
 log_period_s: 10.0       # one status line every so many seconds; the plant never logs more than one line per second
@@ -46,7 +48,7 @@ inputs:
   shutoff_open:     {signal: valvebox.s2}
   vent_open:        {signal: valvebox.s3}                # vents the turbopump
   cup_in:           {signal: valvebox.s4}
-  turbo_speed:      {signal: nt20_1.speed, scale: 8.333333e-4}   # Hz -> fraction of 1200 Hz (rack.yaml)
+  turbo_speed:      {signal: nt20_1.speed, scale: 1.6666667e-3}  # Hz -> fraction of 600 Hz (36,000 rpm, rack.yaml)
   source_vset:      {signal: mat_opt.1.vset}             # V, ion source supply AU20P15
   source_iset:      {signal: mat_opt.1.iset}             # A
   source_on:        {signal: mat_opt.1.output}
@@ -80,7 +82,8 @@ model:
   wp_filament_current_a:   {value: 90.0, unit: A, source: "owner's working point, 2026-11-21: filament 90 A"}
   wp_discharge_voltage_v:  {value: 150.0, unit: V, source: "owner's working point, 2026-11-21: discharge 150 V"}
   wp_discharge_current_a:  {value: 24.0, unit: A, source: "owner's working point, 2026-11-21: discharge 24 A (the full scale of the REK150-24)"}
-  wp_cross_reading_torr:   {value: 1.0e-5, unit: torr, source: "owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading)"}
+  wp_cross_reading_low_torr:  {value: 1.0e-5, unit: torr, source: "owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading); compared with the model, not used by it"}
+  wp_cross_reading_high_torr: {value: 5.0e-5, unit: torr, source: "owner's working point, 2026-11-21 (second answer): 'it could be that at 20% we were more in the 5e-5 Torr range'; compared with the model, not used by it"}
   wp_gas_sccm:             {value: 1.0, unit: sccm, source: "owner's working point, 2026-11-21: MFC about 20 % of 5 sccm H2"}
   # --- 1. filament ----------------------------------------------------------------------------
   filament_tau_s:          {value: 1.0, unit: s, source: "free choice: 'about a second, which matches a thermal filament' (plan/controls.yaml, software.loops)"}
@@ -106,8 +109,10 @@ model:
   cross_base_reading_torr: {value: 2.0e-6, unit: torr, source: "free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas"}
   apg_floor_torr:          {value: 1.0e-3, unit: torr, source: "free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that"}
   apg_ceiling_torr:        {value: 944.06, unit: torr, source: "free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml)"}
+  turbo_speed_n2_l_s:      {value: 1150.0, unit: l/s, source: "law (data sheet): Leybold TURBOVAC 1000 C, 250 ISO-K inlet, N2 (GA 05.118/14.02, 1.3 Technical Data); the pump model is the owner's 'I think it's a 1000C with a 250 ISO-K flange'"}
+  turbo_h2_n2_ratio:       {value: 1.018, unit: "1", source: "estimate: the data sheet gives no H2 speed for the 1000 C; ratio H2/N2 of the TURBOVAC 600 C in the same table (570 / 560 l/s)"}
   turbo_stopped_fraction:  {value: 0.01, unit: "1", source: "estimate: what a stopped turbopump still pumps (through to the foreline)"}
-  turbo_p_limit_torr:      {value: 0.01, unit: torr, source: "estimate: inlet pressure at which a turbopump has lost half its speed"}
+  turbo_p_limit_torr:      {value: 0.01, unit: torr, source: "estimate: inlet pressure at which the turbopump has lost half its speed (data sheet: max. permanent inlet pressure 1e-3 to 1e-2 mbar)"}
   foreline_base_torr:      {value: 3.0e-2, unit: torr, source: "free choice: the APG simulator's constant before phase 1 (no foreline gauge in the control system yet)"}
   foreline_volume_l:       {value: 2.0, unit: l, source: "estimate: turbopump outlet, foreline up to the foreline valve"}
   rough_speed_l_s:         {value: 5.0, unit: l/s, source: "estimate: roughing pump (make and model not known)"}

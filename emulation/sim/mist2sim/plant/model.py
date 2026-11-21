@@ -11,8 +11,9 @@ flange. nAIM and APG both measure the cross. The vent valve vents the turbopump 
 it, a little, the cross). See README.md, section "Plant model", for the equations.
 
 Calibration: the owner's working point (parameters wp_*) fixes the hot filament resistance, the
-filament temperature and area, the plasma limit and the pumping speed. PlantModel computes them
-at construction (`derived`); nothing in step() depends on anything else.
+filament temperature and area and the plasma limit. The pumping speed comes from the data sheet
+of the turbopump, so the pressure at the working point is a PREDICTION (`derived`), compared with
+the owner's range. PlantModel computes all this at construction.
 
 `step` never changes the state it is given; it returns a new one. Units: SI except pressures
 (torr, as the gauges), flows (sccm) and sensor temperatures (deg C).
@@ -92,7 +93,8 @@ def params_from(section):
 # Every parameter the model uses. The values, units and sources are in config/plant.yaml.
 PARAMETERS = (
     "wp_filament_voltage_v", "wp_filament_current_a", "wp_discharge_voltage_v",
-    "wp_discharge_current_a", "wp_cross_reading_torr", "wp_gas_sccm",
+    "wp_discharge_current_a", "wp_cross_reading_low_torr", "wp_cross_reading_high_torr",
+    "wp_gas_sccm", "turbo_speed_n2_l_s", "turbo_h2_n2_ratio",
     "filament_tau_s", "filament_r_exponent", "filament_emissivity", "room_temperature_k",
     "richardson_a_per_cm2_k2", "work_function_ev",
     "discharge_v_min_v", "discharge_exponent", "discharge_p_min_torr", "discharge_p_half_torr",
@@ -189,16 +191,17 @@ class PlantModel:
         d["filament_t_hot_k"] = bisect(lambda t: self._richardson(t) * area_cm2(t) - d["emission_a"],
                                        1000.0, 4000.0)
         d["filament_area_cm2"] = area_cm2(d["filament_t_hot_k"])
-        # pumping: the nAIM reads hydrogen low by aim_h2_factor; the base reading is residual gas
+        # pumping: the speed of the turbopump comes from its data sheet (N2) and the H2/N2
+        # ratio; the outgassing gives today's base reading with the pump at speed (the nAIM is
+        # calibrated for N2 and reads hydrogen low by aim_h2_factor)
         q = p["wp_gas_sccm"] * p["sccm_to_torr_l_s"]
-        d["cross_wp_torr"] = p["wp_cross_reading_torr"] / p["aim_h2_factor"]
+        d["turbo_speed_l_s"] = p["turbo_speed_n2_l_s"] * p["turbo_h2_n2_ratio"]
         d["cross_base_torr"] = p["cross_base_reading_torr"] / p["aim_h2_factor"]
-        if d["cross_wp_torr"] <= d["cross_base_torr"]:
-            raise ValueError("working point pressure must be above the base pressure")
-        # S at the working point includes the fall-off at high inlet pressure
-        s_wp = q / (d["cross_wp_torr"] - d["cross_base_torr"])
-        d["turbo_speed_l_s"] = s_wp * (1.0 + d["cross_wp_torr"] / p["turbo_p_limit_torr"])
         d["outgassing_torr_l_s"] = d["cross_base_torr"] * self.turbo_pumping(1.0, d["cross_base_torr"], d)
+        # PREDICTED pressure at the working point: S(p) p = Q0 + Q
+        d["cross_wp_torr"] = bisect(
+            lambda x: self.turbo_pumping(1.0, x, d) * x - d["outgassing_torr_l_s"] - q, 0.0, 1.0)
+        d["aim_wp_reading_torr"] = p["aim_h2_factor"] * d["cross_wp_torr"]
         # the plasma limit at the working point voltage and chamber pressure
         d["chamber_wp_torr"] = d["cross_wp_torr"] + q / p["aperture_conductance_l_s"]
         shape = self._plasma_shape(p["wp_discharge_voltage_v"], d["chamber_wp_torr"])

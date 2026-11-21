@@ -94,7 +94,7 @@ class PlantProcessTest(unittest.TestCase):
 
         # turbopump 1: run relay on the turbopump Opta, fast run-up
         self.device("turbo_opta", "Sr11")
-        self.assertTrue(wait_until(lambda: values(self.ctl("nt20_1"), "speed")[0] >= 1199, 5))
+        self.assertTrue(wait_until(lambda: values(self.ctl("nt20_1"), "speed")[0] >= 0.999 * self.sims["nt20_1"].options["rated_speed_hz"], 5))
         self.assertTrue(wait_until(lambda: aim() < 2.2e-6, 5))
         pumped = aim()
         self.assertAlmostEqual(pumped, 2.0e-6, delta=2e-7)
@@ -105,9 +105,10 @@ class PlantProcessTest(unittest.TestCase):
         self.device("mfc", "@@@254S!20")
         time.sleep(1.5)
         self.assertAlmostEqual(aim(), pumped, delta=2e-7)
-        # foreline valve and shutoff valve open: the cross goes to about 1e-5 torr (nAIM)
+        # foreline valve and shutoff valve open: the cross goes to the predicted reading
         self.device("valvebox", "Ss11", "Ss21")
-        self.assertTrue(wait_until(lambda: abs(aim() / 1e-5 - 1) < 0.1, 4))
+        predicted = self.plant.model.derived["aim_wp_reading_torr"]
+        self.assertTrue(wait_until(lambda: abs(aim() / predicted - 1) < 0.1, 4))
         self.assertGreater(self.plant_get("foreline_pressure"), 3e-2)
 
         # the owner's working point: filament 8 V / 90 A, discharge 150 V with the limit at 24 A
