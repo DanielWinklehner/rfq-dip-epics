@@ -1,7 +1,30 @@
+# thermocouples.db - thermocouple board on the high-voltage platform (AVR/Thermocouple)
+#
 # Author: Philip Weigel
+#
+# Macros: DEVICE (PV prefix, THM in the lab), PORT (asyn port, thermo in the lab).
+# Load libcom1_device.db with the same macros for the identity records.
+#
+# Four MAX31856 type K boards. The firmware sends 16 channels with "A", in this order:
+#   t1..t4  thermocouple temperatures, degrees Celsius (readThermocouple(CELSIUS))
+#   j1..j4  cold-junction temperatures, degrees Celsius (readJunction(CELSIUS))
+#   f1..f4  thermocouple fault codes, from check_fault(t<n>)
+#   a1..a4  junction fault codes, from check_fault(j<n>) (not exposed as PVs)
+# Fault codes: 0 no fault, 1 no MAX31856 chip, 2 under/over voltage, 3 open thermocouple.
+# When a fault is present, the temperature channel itself carries the library's error value
+# instead of a temperature (MAX31856.h: FAULT_OPEN 10000, FAULT_VOLTAGE 10001, NO_MAX31856
+# 10002). A type K thermocouple never reads above 1372 degC, so HIHI = 9999 marks exactly
+# these values and the temperature PV goes INVALID instead of showing 10000 as a reading.
+#
+# In the lab (RAS/Devices.js, 2023) the channels were labelled t1 "Temp Sensor 1", t2 "Back
+# Plate Temp", t3 "Magnet Plate Temp", t4 "Temp Sensor 4". That is where the thermocouples
+# were mounted, not a property of the board, so the descriptions below stay generic.
+#
+# The element records read the array through CA links with MS: when the board stops
+# answering, :data goes INVALID and so does every value record.
 
 record(aai, "$(DEVICE):data") {
-    field(DESC, "All solenoid statuses")
+    field(DESC, "All thermocouple board channels")
     field(DTYP, "stream")
     field(INP, "@libcom1.proto read_all_array $(PORT)")
     field(SCAN, ".5 second")
@@ -16,25 +39,169 @@ record(fanout, "$(DEVICE):int:fanout") {
     field(LNK1, "$(DEVICE):t2:get")
     field(LNK2, "$(DEVICE):t3:get")
     field(LNK3, "$(DEVICE):t4:get")
+    field(LNK4, "$(DEVICE):j1:get")
+    field(LNK5, "$(DEVICE):j2:get")
+    field(LNK6, "$(DEVICE):j3:get")
+    field(LNK7, "$(DEVICE):j4:get")
+    field(LNK8, "$(DEVICE):f1:get")
+    field(LNK9, "$(DEVICE):f2:get")
+    field(LNKA, "$(DEVICE):f3:get")
+    field(LNKB, "$(DEVICE):f4:get")
 }
 
+# Thermocouple temperatures. INVALID (HIHI) while the firmware reports a fault code instead.
 record(ai, "$(DEVICE):t1:get") {
-    field(DESC, "Get t1")
+    field(DESC, "Thermocouple 1 temperature")
     field(INP, "$(DEVICE):data.VAL[0] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 record(ai, "$(DEVICE):t2:get") {
-    field(DESC, "Get t2")
+    field(DESC, "Thermocouple 2 temperature")
     field(INP, "$(DEVICE):data.VAL[1] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 record(ai, "$(DEVICE):t3:get") {
-    field(DESC, "Get t3")
+    field(DESC, "Thermocouple 3 temperature")
     field(INP, "$(DEVICE):data.VAL[2] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
 }
 record(ai, "$(DEVICE):t4:get") {
-    field(DESC, "Get t4")
+    field(DESC, "Thermocouple 4 temperature")
     field(INP, "$(DEVICE):data.VAL[3] CA MS")
     field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
+}
+
+# Cold-junction temperatures of the four MAX31856. readJunction() returns NO_MAX31856 (10002)
+# when the chip does not answer, so the same HIHI limit applies.
+record(ai, "$(DEVICE):j1:get") {
+    field(DESC, "Cold junction 1 temperature")
+    field(INP, "$(DEVICE):data.VAL[4] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
+}
+record(ai, "$(DEVICE):j2:get") {
+    field(DESC, "Cold junction 2 temperature")
+    field(INP, "$(DEVICE):data.VAL[5] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
+}
+record(ai, "$(DEVICE):j3:get") {
+    field(DESC, "Cold junction 3 temperature")
+    field(INP, "$(DEVICE):data.VAL[6] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
+}
+record(ai, "$(DEVICE):j4:get") {
+    field(DESC, "Cold junction 4 temperature")
+    field(INP, "$(DEVICE):data.VAL[7] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "degC")
+    field(PREC, "2")
+    field(HIHI, "9999")
+    field(HHSV, "INVALID")
+}
+
+# Thermocouple fault codes as named states (check_fault() in the sketch). "Raw Soft Channel"
+# matches the code against ZRVL..THVL, so a code the firmware does not define gives INVALID
+# (UNSV) instead of an unnamed state without alarm.
+record(mbbi, "$(DEVICE):f1:get") {
+    field(DESC, "Thermocouple 1 fault")
+    field(DTYP, "Raw Soft Channel")
+    field(INP, "$(DEVICE):data.VAL[8] CA MS")
+    field(SCAN, "Passive")
+    field(ZRVL, "0")
+    field(ZRST, "No fault")
+    field(ZRSV, "NO_ALARM")
+    field(ONVL, "1")
+    field(ONST, "No sensor chip")
+    field(ONSV, "MAJOR")
+    field(TWVL, "2")
+    field(TWST, "Voltage fault")
+    field(TWSV, "MAJOR")
+    field(THVL, "3")
+    field(THST, "Open thermocouple")
+    field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+record(mbbi, "$(DEVICE):f2:get") {
+    field(DESC, "Thermocouple 2 fault")
+    field(DTYP, "Raw Soft Channel")
+    field(INP, "$(DEVICE):data.VAL[9] CA MS")
+    field(SCAN, "Passive")
+    field(ZRVL, "0")
+    field(ZRST, "No fault")
+    field(ZRSV, "NO_ALARM")
+    field(ONVL, "1")
+    field(ONST, "No sensor chip")
+    field(ONSV, "MAJOR")
+    field(TWVL, "2")
+    field(TWST, "Voltage fault")
+    field(TWSV, "MAJOR")
+    field(THVL, "3")
+    field(THST, "Open thermocouple")
+    field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+record(mbbi, "$(DEVICE):f3:get") {
+    field(DESC, "Thermocouple 3 fault")
+    field(DTYP, "Raw Soft Channel")
+    field(INP, "$(DEVICE):data.VAL[10] CA MS")
+    field(SCAN, "Passive")
+    field(ZRVL, "0")
+    field(ZRST, "No fault")
+    field(ZRSV, "NO_ALARM")
+    field(ONVL, "1")
+    field(ONST, "No sensor chip")
+    field(ONSV, "MAJOR")
+    field(TWVL, "2")
+    field(TWST, "Voltage fault")
+    field(TWSV, "MAJOR")
+    field(THVL, "3")
+    field(THST, "Open thermocouple")
+    field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+record(mbbi, "$(DEVICE):f4:get") {
+    field(DESC, "Thermocouple 4 fault")
+    field(DTYP, "Raw Soft Channel")
+    field(INP, "$(DEVICE):data.VAL[11] CA MS")
+    field(SCAN, "Passive")
+    field(ZRVL, "0")
+    field(ZRST, "No fault")
+    field(ZRSV, "NO_ALARM")
+    field(ONVL, "1")
+    field(ONST, "No sensor chip")
+    field(ONSV, "MAJOR")
+    field(TWVL, "2")
+    field(TWST, "Voltage fault")
+    field(TWSV, "MAJOR")
+    field(THVL, "3")
+    field(THST, "Open thermocouple")
+    field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
 }
