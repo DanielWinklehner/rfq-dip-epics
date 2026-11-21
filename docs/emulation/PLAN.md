@@ -55,6 +55,8 @@ T1, T2, T9 and T14 run in parallel. T3 to T6 run in parallel after T1 and T2.
 
 ## What every brief contains
 
+The briefs as sent are in [briefs/](briefs/).
+
 Goal, owned files, interfaces to respect (simulator core API, macro names, PV names from
 DESIGN.md), the manual or reference files to read, the acceptance test as a command, and the
 report format: what was built, what was verified and how, what was assumed, what is open.
