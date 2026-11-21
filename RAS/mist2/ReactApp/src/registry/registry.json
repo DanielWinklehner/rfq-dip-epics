@@ -2425,6 +2425,16 @@
       "nt20_1"
      ]
     },
+    "TURBO1:int:speedok": {
+     "type": "calcout",
+     "access": "r",
+     "internal": true
+    },
+    "TURBO1:int:curok": {
+     "type": "calcout",
+     "access": "r",
+     "internal": true
+    },
     "TURBO1:int:fresh": {
      "type": "calcout",
      "access": "r",
@@ -2442,6 +2452,18 @@
      "type": "calc",
      "access": "r",
      "desc": "1 when the last record is too old",
+     "internal": true
+    },
+    "TURBO1:int:speedoff": {
+     "type": "calc",
+     "access": "r",
+     "desc": "1 when speed:get is not current",
+     "internal": true
+    },
+    "TURBO1:int:curoff": {
+     "type": "calc",
+     "access": "r",
+     "desc": "1 when current:get is not current",
      "internal": true
     },
     "TURBO1:int:refresh": {
@@ -2659,6 +2681,16 @@
       "nt20_2"
      ]
     },
+    "TURBO2:int:speedok": {
+     "type": "calcout",
+     "access": "r",
+     "internal": true
+    },
+    "TURBO2:int:curok": {
+     "type": "calcout",
+     "access": "r",
+     "internal": true
+    },
     "TURBO2:int:fresh": {
      "type": "calcout",
      "access": "r",
@@ -2676,6 +2708,18 @@
      "type": "calc",
      "access": "r",
      "desc": "1 when the last record is too old",
+     "internal": true
+    },
+    "TURBO2:int:speedoff": {
+     "type": "calc",
+     "access": "r",
+     "desc": "1 when speed:get is not current",
+     "internal": true
+    },
+    "TURBO2:int:curoff": {
+     "type": "calc",
+     "access": "r",
+     "desc": "1 when current:get is not current",
      "internal": true
     },
     "TURBO2:int:refresh": {

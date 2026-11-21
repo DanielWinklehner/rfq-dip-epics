@@ -32,7 +32,7 @@ section "Plant model".
 | `make -C emulation up-plant` | Start the emulation with the plant model |
 | `make -C emulation plant-stop` | Stop only the plant: every device goes back to its own behaviour |
 | `make -C emulation plant-logs` | The plant's log (status every 10 s, events) |
-| `make -C emulation down-plant` | Stop everything, the plant included (`down` does not know the profile) |
+| `make -C emulation down-plant` | Stop everything, the plant included (`down` does the same) |
 
 `make -C emulation up` starts the emulation without the plant, exactly as before.
 Disturbances for loop tests (emission drift, pressure burst): the plant's control port,

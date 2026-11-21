@@ -1058,8 +1058,10 @@ databases:
       current: "current:get"
       age: "age:get"
       raw: {record: "raw:get", note: "full text in the field VAL$"}
-    internal: ["int:raw", "int:speed", "int:current", "int:fresh", "int:stale", "int:refresh"]
-    invalid_on:                # disabled with DISS INVALID once no record came for AGE_LIMIT seconds
+    internal: ["int:raw", "int:speed", "int:current", "int:fresh", "int:stale", "int:refresh",
+               "int:speedok", "int:curok", "int:speedoff", "int:curoff"]
+    invalid_on:                # disabled with DISS INVALID once no record came for AGE_LIMIT seconds;
+                               # speed and current also when a record came that did not parse
       "speed:get": [silent, closed]
       "current:get": [silent, closed]
       "raw:get": [silent, closed]
