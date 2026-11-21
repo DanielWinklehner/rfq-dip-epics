@@ -13,6 +13,13 @@
 #
 # When no record arrived for more than AGE_LIMIT seconds, age:get is in MAJOR alarm and raw:get,
 # speed:get and current:get turn INVALID (they are disabled with DISS INVALID).
+#
+# A record that arrives but does not parse (garbled, or a format other than the one in
+# nt20_monitor.proto) refreshes raw:get and age:get, but StreamDevice ignores the mismatch in
+# int:speed and int:current. So each value keeps its own age (field E of int:speedoff and
+# int:curoff), reset by every parsed value. When it is older than the last record by more than
+# 1 s for two seconds in a row, speed:get or current:get is disabled (INVALID) until the next
+# record that parses. This needs a record period above 2 s (NT 20: 8 s).
 
 # --- input, one record per line ---
 
@@ -29,12 +36,33 @@ record(ai, "$(P):int:speed") {
     field(DTYP, "stream")
     field(INP, "@nt20_monitor.proto speed($(EOL=10)) $(PORT)")
     field(SCAN, "I/O Intr")
+    field(FLNK, "$(P):int:speedok")
 }
 
 record(ai, "$(P):int:current") {
     field(DTYP, "stream")
     field(INP, "@nt20_monitor.proto current($(EOL=10)) $(PORT)")
     field(SCAN, "I/O Intr")
+    field(FLNK, "$(P):int:curok")
+}
+
+# A value was parsed (not a failed read): its age, field E of int:speedoff / int:curoff, = 0
+record(calcout, "$(P):int:speedok") {
+    field(INPA, "$(P):int:speed.SEVR NPP")
+    field(CALC, "A<3")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "0")
+    field(OUT, "$(P):int:speedoff.E NPP")
+}
+
+record(calcout, "$(P):int:curok") {
+    field(INPA, "$(P):int:current.SEVR NPP")
+    field(CALC, "A<3")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "0")
+    field(OUT, "$(P):int:curoff.E NPP")
 }
 
 # --- age: a counter that each record resets ---
@@ -68,6 +96,26 @@ record(calc, "$(P):int:stale") {
     field(INPA, "$(P):age:get NPP")
     field(B, "$(AGE_LIMIT=20)")
     field(CALC, "A>B")
+    field(FLNK, "$(P):int:speedoff")
+}
+
+# 1 = disable speed:get: stale (B), or records arrive that give no speed. A age of the last
+# record, E age of the last parsed speed (counted here, reset by int:speedok), F how many
+# seconds in a row E was more than 1 s older than A (two in a row: not just the order in which
+# int:raw and int:speed of one line were processed)
+record(calc, "$(P):int:speedoff") {
+    field(DESC, "1 when speed:get is not current")
+    field(INPA, "$(P):age:get NPP")
+    field(INPB, "$(P):int:stale NPP")
+    field(CALC, "E:=E+1;F:=(E-A>1)?F+1:0;B||F>=2")
+    field(FLNK, "$(P):int:curoff")
+}
+
+record(calc, "$(P):int:curoff") {
+    field(DESC, "1 when current:get is not current")
+    field(INPA, "$(P):age:get NPP")
+    field(INPB, "$(P):int:stale NPP")
+    field(CALC, "E:=E+1;F:=(E-A>1)?F+1:0;B||F>=2")
     field(FLNK, "$(P):int:refresh")
 }
 
@@ -78,7 +126,7 @@ record(fanout, "$(P):int:refresh") {
     field(LNK2, "$(P):current:get")
 }
 
-# --- the public records, refreshed every second, INVALID when stale ---
+# --- the public records, refreshed every second, INVALID when stale or not parsed ---
 
 record(lsi, "$(P):raw:get") {
     field(DESC, "Last record from $(P), unparsed")
@@ -95,7 +143,7 @@ record(ai, "$(P):speed:get") {
     field(EGU, "Hz")
     field(PREC, "0")
     field(HOPR, "1500")
-    field(SDIS, "$(P):int:stale NPP")
+    field(SDIS, "$(P):int:speedoff NPP")
     field(DISV, "1")
     field(DISS, "INVALID")
 }
@@ -106,7 +154,7 @@ record(ai, "$(P):current:get") {
     field(EGU, "A")
     field(PREC, "2")
     field(HOPR, "5")
-    field(SDIS, "$(P):int:stale NPP")
+    field(SDIS, "$(P):int:curoff NPP")
     field(DISV, "1")
     field(DISS, "INVALID")
 }

@@ -201,6 +201,26 @@ def test_monitor_silent_and_closed(pumps):
             wait_for("TURBO%d:%s" % (p, rec), lambda v, s: s == 0, timeout=3.0)
 
 
+def test_record_that_does_not_parse(pumps):
+    """Records arrive but do not parse: speed and current INVALID, raw shows the line, age low."""
+    pumps[1].fault("garbage")
+    raw, _ = wait_for("TURBO1:raw:get", lambda v, s: v and not v.startswith("NT20 f="), timeout=12.0)
+    t0 = time.time()
+    for rec in ("speed:get", "current:get"):
+        wait_for("TURBO1:" + rec, lambda v, s: s == INVALID, timeout=3.0)
+    print("speed and current INVALID %.1f s after the first garbled record %r" % (time.time() - t0, raw))
+    assert read("TURBO1:raw:get")[1] == 0
+    assert read("TURBO1:age:get")[1] == 0 and read("TURBO1:age:get")[0] < 10
+    wait_for("TURBO1:age:get", lambda v, s: v < 3, timeout=10.0)    # a second garbled record
+    assert read("TURBO1:speed:get")[1] == INVALID                     # still not trusted
+    for rec in MONITOR_PVS:                                           # pump 2 is not affected
+        assert read("TURBO2:" + rec)[1] == 0
+    pumps[1].clear()
+    wait_for("TURBO1:raw:get", lambda v, s: v.startswith("NT20 f=") and s == 0, timeout=12.0)
+    for rec in ("speed:get", "current:get", "age:get"):
+        wait_for("TURBO1:" + rec, lambda v, s: s == 0, timeout=2.0)
+
+
 def test_log_has_only_communication_messages():
     bad = [l for l in log_lines()
            if ERROR.search(l) and not l.startswith("on error ") and not COMMUNICATION.search(l)]
