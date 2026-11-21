@@ -10,7 +10,40 @@ FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are run
 - You need two things running, and each can exist only once on this machine: the emulation (`make -C emulation up`, fixed network 172.30.0.0/24) and the GUI development stack (`make -C RAS/mist2 dev-up`, host ports 3000, 3001 and 9001). Check with `docker ps` that neither is running before you start them, and stop both when you are done.
 
 # The decision you build to
-THE LEAD FILLS IN THIS SECTION BEFORE THE TASK STARTS.
+The owner decided on 2026-11-21 (`docs/emulation/gui/LAYOUT.md`, section "Decision", and `docs/emulation/STATUS.md`, section "Answers of the owner"). Where this section and LAYOUT.md or the wireframes differ, this section wins.
+
+**Layout: option B, with windows instead of a panel.**
+- The synoptic is the console. The main window has the app bar with tabs: Overview, one tab per subsystem, Trends, Infrastructure.
+- **Clicking an element of a drawing opens that device in a browser window of its own** (not a docked panel, not a dialog inside the page). The window stays until the operator closes it or the main window is closed. Several device windows can be open at the same time. Clicking a device whose window is already open brings that window to the front and does not open a second one. When the main window closes or reloads, the device windows it opened close too.
+- The lab computer has **three monitors of about 24 inch** (design for 1920 x 1080 each): the main window fills one, device windows live on the others. The drawing therefore always has the full window. A device window is small (about 480 x 760), complete in itself (device name, the emulator banner, its own severity), and has the three parts of the B panel: Controls, Trend, Expert. It is an ordinary route of the application, so that it can also be opened by its address.
+- Subsystem tabs show a larger drawing of that subsystem, with the same click behaviour. Where a subsystem has nothing that a drawing would make clearer (cooling: a list of temperatures and flows), a generated list of the same clickable elements is right. Say where you chose which.
+- The expert view is the Expert part of the device window. An overview of all devices with identity and communication state is the Infrastructure tab.
+
+**The machine (drawing: `docs/emulation/gui/reference/mist2-source-and-cross.webp`, look at it):**
+- Ion source with a hairpin filament, on the high-voltage platform.
+- A conical high-voltage break, then ONE vacuum chamber at ground: a CF 10 inch six-way cross.
+- The extraction system sits in the upstream flange of the cross: puller, lens 1, lens 2, lens 3 along the beam. Lens 3 is grounded mechanically and has no supply.
+- The Faraday cup comes in from the top flange (valve channel 4 moves it).
+- Turbopump 1 is on the bottom flange. Turbopump 2 does not exist in phase 1: the registry flags it `not_installed`. A device with that flag is not drawn and gets no place on a subsystem page. It appears on the Infrastructure tab only, marked as not installed.
+- The nAIM and the APG sit side by side on a side flange of the cross. The second channel of the gauge controller (`diag_box`, an AIM gauge) belongs to phase 2 and measures nothing now: show it only in the gauge controller's device window, labelled as in the registry.
+- The foreline has no gauge in the control system yet. The vent valve vents the turbopump through its side port. Gas comes from the mass flow controller through the shutoff valve to the source.
+- There is no "diagnostic box" and no second chamber. The wireframes are wrong on this point.
+- Keep the geometry of every drawing in data, not in code.
+
+**Answers to the open questions of LAYOUT.md section 6:**
+- Confirmation dialog ONLY before opening the vent valve. No dialog for high voltage, discharge or turbopump: the high voltage is interlocked. (This replaces requirement 10 below.)
+- Dark theme by default.
+- No login. Expert views are open to everyone.
+- Valve channels 5 to 8 are unused: show them in the valve box's device window only, as spare.
+- Labels come from the registry (thermocouples: back plate, filament feedthrough, isolation transformer 1 and 2).
+- The cooling water is read by a device whose firmware is not known yet. The sensor box stands in for it and the registry flags it `assumed`: the cooling page says so.
+
+**Changes that are on their way while you work.** Another engineer is reworking the Matsusada supplies on the owner's answers. When that is merged I will tell you, and you take it with `git merge emulated-iocs`. Build so that it costs you nothing:
+- There will be four AU supplies (1 source, 2 puller, 3 lens 1, 4 lens 2), not five. Today's registry still has five. Do not write a number of supplies anywhere.
+- The current of an AU or REK supply is a LIMIT, not a set point. The registry roles `iset` and `iget` of these supplies will be renamed to `ilimit` and `ilimit_get`. The TDK keeps `iset`: its current really is a set point. Build the Supply widget from the roles a device has: a "current limit" field for `ilimit`, a "current set point" field for `iset`.
+- After the interlock opened, the outputs will stay off when it closes again, and their requests will be cleared. Today they still come back by themselves.
+
+**The emulation is yours** for this task: nobody else starts or stops it until you report, except when I ask you to free it for a test run.
 
 # Read first
 1. `docs/emulation/gui/LAYOUT.md` in full, with the wireframes in `docs/emulation/gui/wireframes/` (render the SVG files to look at them): the layout options, the parts shared by all options (frame, alarm rules, emulator banner, widget classes, page-to-device map, what is kept from the old GUI), the lead's review at the top, and section 7 on React Automation Studio V8.1.0.
