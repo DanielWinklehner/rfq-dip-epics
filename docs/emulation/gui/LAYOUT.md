@@ -19,6 +19,19 @@ grayscale, with alarm colours only where they show a severity. All values are ma
 The wireframes all show one machine state: Lens 2 (AU unit 5) has stopped answering, so its
 read-backs are INVALID, and the magnet plate thermocouple is in MINOR. Everything else is normal.
 
+## Review by the lead (2026-11-21)
+
+I agree with the recommendation in section 5. Three corrections to what the wireframes show:
+
+- **IOC status PVs** now have names: `IOC-RACK:heartbeat`, `IOC-RACK:mode`, `IOC-HV:heartbeat`,
+  `IOC-HV:mode`.
+- **"Inject fault" and "Clear fault" buttons are not planned.** RAS reaches EPICS PVs only, and
+  the simulators' control port is not a PV. The tests use that port directly. The buttons would
+  need a small bridge that serves the control interface as PVs, which can be added later.
+- **"Poll rate (measured)" and "last good reply"** in the expert views have no PV behind them
+  yet. The expert page will show what exists: value, SEVR, STAT and time stamp of every record,
+  and the identity of the device. The poll rate can be added once a statistics record exists.
+
 ## 1. Shared by all options
 
 ### 1.1 Frame

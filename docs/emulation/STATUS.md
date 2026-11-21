@@ -1,7 +1,8 @@
 # Status
 
 Last update: 2026-11-21. **G1 is approved** (D1 to D8 as proposed in [DESIGN.md](DESIGN.md)).
-Phase A is running: T1, T2, T9 and the layout study, one subagent and one worktree each.
+**G2 is open**: the layout proposal [gui/LAYOUT.md](gui/LAYOUT.md) waits for your choice.
+T1, T2 and T9 are running, one subagent and one worktree each. T14 is merged.
 
 ## Done
 
@@ -19,7 +20,8 @@ Phase A is running: T1, T2, T9 and the layout study, one subagent and one worktr
 
 ## Open
 
-- Everything in [PLAN.md](PLAN.md) from T1 on. Next gate: G2, the GUI layout proposal.
+- G2: choice of the GUI layout, and the questions about the machine in gui/LAYOUT.md section 6.
+- Everything in [PLAN.md](PLAN.md) from T1 on, except T14.
 - Briefs for T3 to T6 are written (`briefs/`). They start when T1 and T2 are merged.
 
 ## Subagents
