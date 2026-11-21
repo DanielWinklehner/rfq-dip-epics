@@ -181,11 +181,11 @@ class Plant:
             return "no step yet"
         down = [n for n, lk in self.links.items() if not lk.up]
         return ("If %.1f A, T %.0f K, emission %.3g A, discharge %.3g A at %.1f V, "
-                "p source %.2e, diag %.2e, foreline %.2e torr, beam %.3g mA, cup %.3g mA, "
+                "cross %.2e (nAIM %.2e), foreline %.2e torr, beam %.3g mA, cup %.3g mA, "
                 "links %d/%d up%s" % (
                     self.inputs.get("filament_current", 0.0), o["filament_temperature"],
                     o["emission"], o["discharge_current"], o["discharge_voltage"],
-                    o["source_pressure"], o["diag_pressure"], o["foreline_pressure"],
+                    o["cross_pressure"], o["aim_reading"], o["foreline_pressure"],
                     o["beam_current"] * 1e3, o["cup_current"] * 1e3,
                     len(self.links) - len(down), len(self.links),
                     (" (down, last known values used: %s)" % ", ".join(down)) if down else ""))
@@ -317,7 +317,6 @@ class Plant:
                 sig[k] = v
         for k in DISTURBANCES:
             sig[k] = self.state[k]
-        sig["chamber_pressure"] = self.state["chamber_pressure"]
         return sig
 
     def command(self, req):
@@ -327,7 +326,7 @@ class Plant:
         if cmd == "info":
             return {"name": "plant", "type": "plant", "control_port": self.control_port,
                     "signals": sorted(self.signals()), "settable": sorted(DISTURBANCES),
-                    "rate_hz": 1.0 / self.period}
+                    "rate_hz": 1.0 / self.period, "derived": dict(self.model.derived)}
         if cmd == "get":
             sig = self.signals()
             if "signal" in req:
