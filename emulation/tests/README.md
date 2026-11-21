@@ -43,6 +43,8 @@ state found, restore at the end, also after a failure).
 | NT 20 garbage seen | 13 | one record period (8 s), then two 1 s scans with a record that does not parse |
 | Recovery after clear | 20 | asyn reconnect plus next poll |
 | Other devices keep updating | 5 | every PV processed at least every 2 s (found by observation) |
+| Listed PVs stay INVALID | 1; 8 for Matsusada `close` | two watchdog restarts of the monitor cycle (POLL_LIMIT 30 x 0.1 s) |
+| No INVALID before a fault | 1 | the previous test's device has settled |
 | Door to output off / back | 3 / 5 | permit CP link, OutputIntlk scan 1 s, switching protocol PRIO HIGH |
 
 Identity records are scanned every 10 s; the fault tests process them once after injecting and
@@ -51,8 +53,13 @@ minutes.
 
 ## Expected failures
 
-None. The registry's two fault lists are checked in both directions: every PV of
-`fails_with` turns INVALID under `silent` and `garbage` (except the NT 20 `raw` record, which takes
-any line and must stay valid), every PV of `fails_closed` under `close`
-(`test_05_faults.py::test_*`), and no PV of a faulted device turns INVALID without being in the
-list of that fault (`test_05_faults.py::test_registry_fault_lists_name_every_pv_that_fails`).
+The registry's two fault lists are checked in both directions. Every PV of `fails_with` must turn
+INVALID under `silent` and `garbage` and stay INVALID while the fault lasts. The exception is the
+NT 20 `raw` record, which takes any line and must stay valid under `garbage`. The same holds for
+every PV of `fails_closed` under `close` (`test_05_faults.py::test_*`). No PV of a faulted device
+may stay INVALID without being in the list of that fault
+(`test_05_faults.py::test_registry_fault_lists_name_every_pv_that_fails`).
+
+| Test | Reason |
+|---|---|
+| `test_05_faults.py::test_fault_turns_its_pvs_invalid_and_recovers[mat_opt-close]`, `[mat_co-close]`, `[rek-close]` (strict) | FINDING (registry): `fails_closed` lists `<supply>:_poll:gate`. On a closed port this record is INVALID (LINK) only while a monitor cycle fails to start, so it alternates between INVALID and NO_ALARM with each watchdog restart (3 s). It was measured INVALID for 0 to 62 percent of 8 s. It does not stay INVALID through two restarts (8 s hold) |
