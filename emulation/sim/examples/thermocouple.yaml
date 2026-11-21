@@ -1,0 +1,33 @@
+# AVR/Thermocouple: four MAX31856 boards, Serial.println at 19200 baud, 16 channels in the order
+# of the sketch: t1..t4 thermocouple, j1..j4 junction, f1..f4 thermocouple fault,
+# a1..a4 junction fault (fault codes: 0 ok, 1 no MAX31856, 2 voltage, 3 open).
+# Every channel has dummy_set() in the sketch, so all are writable and a write is ignored.
+- name: thermocouple
+  type: libcom1
+  port: 5020
+  baud: 19200
+  turnaround_ms: 1
+  out_terminator: "\r\n"
+  options:
+    identity: Thermocouple
+    firmware: "Nov 21 2026"   # __DATE__ placeholder
+    number_format: avr
+    out_buffer: 512
+    in_buffer: 128
+    channels:
+      - {id: t1, access: rw, behaviour: analog, value: 22.0, noise: 0.05, step: 0.0078125}
+      - {id: t2, access: rw, behaviour: analog, value: 22.5, noise: 0.05, step: 0.0078125}
+      - {id: t3, access: rw, behaviour: analog, value: 23.0, noise: 0.05, step: 0.0078125}
+      - {id: t4, access: rw, behaviour: analog, value: 23.5, noise: 0.05, step: 0.0078125}
+      - {id: j1, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j2, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j3, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: j4, access: rw, behaviour: analog, value: 24.0, noise: 0.02, step: 0.015625}
+      - {id: f1, access: rw, behaviour: constant, value: 0}
+      - {id: f2, access: rw, behaviour: constant, value: 0}
+      - {id: f3, access: rw, behaviour: constant, value: 0}
+      - {id: f4, access: rw, behaviour: constant, value: 0}
+      - {id: a1, access: rw, behaviour: constant, value: 0}
+      - {id: a2, access: rw, behaviour: constant, value: 0}
+      - {id: a3, access: rw, behaviour: constant, value: 0}
+      - {id: a4, access: rw, behaviour: constant, value: 0}
