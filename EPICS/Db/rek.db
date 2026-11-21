@@ -3,12 +3,18 @@
 # The same records as matsusada_au20p7.db (see there for the details), with other defaults:
 #   DEV (REK), VFS (150) V, IFS (24) A (55 for the REK150-55), EGUI (A), PDIV (1): power in W,
 #   PROTO (rek.proto). Other macros and defaults as in matsusada_au20p7.db: UNITNUM, PORT, POL,
-#   VDRVL, VDRVH, PERMIT (interlock_open), ICN_ON (100), SCAN_MON (.1 second),
-#   SCAN_GET (5 second), SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
+#   VDRVL, VDRVH, PERMIT (interlock_open), SCAN_MON (.1 second), SCAN_GET (5 second),
+#   SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
 # Keep both files in step: the record part is matsusada_au20p7.db with these defaults.
 #
 # Author: Philip Weigel; reworked for MIST-2 in 2026 (current in A, not mA; power in W).
 
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
+# Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
+# setting after the first contact; a write before that is not sent.
 record(ao, "$(DEV=REK)-$(UNITNUM):voltage:setpoint") {
     field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
@@ -29,11 +35,11 @@ record(ai, "$(DEV=REK)-$(UNITNUM):voltage:get") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) get_voltage($(UNITNUM)) $(PORT)")
     field(SCAN, "$(SCAN_GET=5 second)")
-    field(PINI, "YES")
     field(EGU,  "V")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(POL=)$(VFS=150)")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):_init:vtake")
 }
 
 record(ai, "$(DEV=REK)-$(UNITNUM):voltage:read") {
@@ -47,8 +53,11 @@ record(ai, "$(DEV=REK)-$(UNITNUM):voltage:read") {
     field(FLNK, "$(DEV=REK)-$(UNITNUM):current:read")
 }
 
-record(ao, "$(DEV=REK)-$(UNITNUM):current:setpoint") {
-    field(DESC, "Set current of $(PORT):$(UNITNUM)")
+# NEW. The current limit (CH1). Restored by autosave, sent at the first contact and on every
+# write, saved on every change.
+record(ao, "$(DEV=REK)-$(UNITNUM):current:limit") {
+    alias("$(DEV=REK)-$(UNITNUM):current:setpoint")
+    field(DESC, "Current limit of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
     field(OUT,  "@$(PROTO=rek.proto) set_current($(UNITNUM)) $(PORT)")
     field(PRIO, "HIGH")
@@ -58,16 +67,16 @@ record(ao, "$(DEV=REK)-$(UNITNUM):current:setpoint") {
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(IFS=24)")
-    field(SIMM, "YES")
     field(FLNK, "$(DEV=REK)-$(UNITNUM):current:get")
+    info(autosaveFields, "VAL")
 }
 
-# Read after every current set and by the FLNK of read_output_status (every SCAN_GET).
+# The limit the supply reports. Read after every limit write and by the FLNK of
+# read_output_status (every SCAN_GET).
 record(ai, "$(DEV=REK)-$(UNITNUM):current:get") {
     field(DESC, "Get current of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) get_current($(UNITNUM)) $(PORT)")
-    field(PINI, "YES")
     field(EGU,  "$(EGUI=A)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
@@ -104,6 +113,7 @@ record(calc, "$(DEV=REK)-$(UNITNUM):power:read") {
 # about the other supplies of the chain needs to be known.
 # Watchdog: if a cycle has not finished after POLL_LIMIT ticks, the next tick starts a new one
 # (and _poll:tick shows MINOR while it is late), so a lost forward link cannot stop the polling.
+# None of these records turns INVALID when the port is closed (the monitors do).
 
 # Every SCAN_MON: due := 1. VAL counts the ticks the current cycle has been running.
 record(calcout, "$(DEV=REK)-$(UNITNUM):_poll:tick") {
@@ -128,7 +138,15 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_poll:gate") {
     field(INPD, "$(DEV=REK)-$(UNITNUM):_poll:tick.E NPP")
     field(CALC, "K:=A&&(!C||D>$(POLL_LIMIT=30));A:=K?0:A;C:=K?1:C;K")
     field(OOPT, "When Non-zero")
-    field(OUT,  "$(DEV=REK)-$(UNITNUM):voltage:read.PROC PP")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):_poll:start PP")
+}
+
+# The gate starts the cycle through this soft record: a monitor that fails at once (closed port)
+# then does not raise a link alarm in the gate.
+record(fanout, "$(DEV=REK)-$(UNITNUM):_poll:start") {
+    field(DESC, "Starts the monitor reads (internal)")
+    field(UDFS, "NO_ALARM")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):voltage:read")
 }
 
 # End of a cycle: running := 0, and the gate looks whether the next one is due.
@@ -138,6 +156,102 @@ record(dfanout, "$(DEV=REK)-$(UNITNUM):_poll:done") {
     field(VAL,  "0")
     field(OUTA, "$(DEV=REK)-$(UNITNUM):_poll:tick.E NPP")
     field(OUTB, "$(DEV=REK)-$(UNITNUM):_poll:gate.C PP")
+}
+
+# --- first contact (internal records, _init) --------------------------------------------------
+
+# Until the first answer after the IOC start: REN and SW? every SCAN_STS (and once at PINI).
+# Then disabled by :output:init (STAT DISABLE, no alarm).
+record(bi, "$(DEV=REK)-$(UNITNUM):_init:probe") {
+    field(DESC, "First contact: REN, SW? (internal)")
+    field(DTYP, "stream")
+    field(INP,  "@$(PROTO=rek.proto) probe($(UNITNUM)) $(PORT)")
+    field(SCAN, "$(SCAN_STS=1 second)")
+    field(PINI, "YES")
+    field(UDFS, "NO_ALARM")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+    field(DISV, "1")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):output:init")
+}
+
+# Takes over the output state the probe read: ToggleOutput (in simulation mode: nothing sent),
+# the request and OutputIntlk's previous value, so that its first evaluation sends nothing.
+# Stops the probe, reads the voltage echo (the set point takes it over, _init:vtake), sends the
+# current limit (_limit:apply). GRACE seconds later (permit link connected) OutputIntlk starts.
+# Runs only on a valid answer of the probe (disabled otherwise: STAT DISABLE, no alarm).
+record(seq, "$(DEV=REK)-$(UNITNUM):output:init") {
+    field(DESC, "First contact: take over output state")
+    field(SDIS, "$(DEV=REK)-$(UNITNUM):_init:probe.SEVR NPP")
+    field(DISV, "3")
+    field(SELM, "All")
+    field(DO1,  "1")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):_init:probe.DISA NPP")
+    field(DO2,  "1")
+    field(LNK2, "$(DEV=REK)-$(UNITNUM):ToggleOutput.SIMM NPP")
+    field(DOL3, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
+    field(LNK3, "$(DEV=REK)-$(UNITNUM):ToggleOutput PP")
+    field(DO4,  "0")
+    field(LNK4, "$(DEV=REK)-$(UNITNUM):ToggleOutput.SIMM NPP")
+    field(DOL5, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
+    field(LNK5, "$(DEV=REK)-$(UNITNUM):SetToggleOutput PP")
+    field(DOL6, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
+    field(LNK6, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PVAL NPP")
+    field(DO7,  "1")
+    field(LNK7, "$(DEV=REK)-$(UNITNUM):voltage:get.PROC CA")
+    field(DO8,  "1")
+    field(LNK8, "$(DEV=REK)-$(UNITNUM):_limit:apply.PROC NPP")
+    field(DLY9, "$(GRACE=5)")
+    field(DO9,  "0")
+    field(LNK9, "$(DEV=REK)-$(UNITNUM):OutputIntlk.DISA NPP")
+    field(DOA,  "1")
+    field(LNKA, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PROC NPP")
+}
+
+# After the first contact, at the first valid echo: the voltage set point takes over the
+# supply's setting (_init:vcopy). Evaluated after every read of voltage:get.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_init:vtake") {
+    field(DESC, "Voltage set point takes over (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(DEV=REK)-$(UNITNUM):voltage:get.SEVR NPP")
+    field(INPB, "$(DEV=REK)-$(UNITNUM):voltage:setpoint.SIMM NPP")
+    field(INPC, "$(DEV=REK)-$(UNITNUM):_init:probe.DISA NPP")
+    field(CALC, "A<3&&B&&C")
+    field(OOPT, "When Non-zero")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):_init:vcopy PP")
+}
+
+# Set point := echo, processed in simulation mode (nothing sent), then normal mode.
+record(seq, "$(DEV=REK)-$(UNITNUM):_init:vcopy") {
+    field(DESC, "Copies the voltage echo (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SELM, "All")
+    field(DOL1, "$(DEV=REK)-$(UNITNUM):voltage:get NPP")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):voltage:setpoint PP")
+    field(DO2,  "0")
+    field(LNK2, "$(DEV=REK)-$(UNITNUM):voltage:setpoint.SIMM NPP")
+}
+
+# Sends the current limit while it is not applied (never sent since the start: STAT UDF, also
+# after autosave restored it; or the supply did not answer or did not take it: INVALID), from
+# the first contact on, every SCAN_GET.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_limit:apply") {
+    field(DESC, "Sends a limit not yet applied (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SCAN, "$(SCAN_GET=5 second)")
+    field(INPA, "$(DEV=REK)-$(UNITNUM):current:limit.SEVR NPP")
+    field(INPB, "$(DEV=REK)-$(UNITNUM):_init:probe.DISA NPP")
+    field(INPC, "$(DEV=REK)-$(UNITNUM):current:limit.STAT NPP")
+    field(CALC, "(A>=3||C=17)&&B")
+    field(OOPT, "When Non-zero")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):_limit:send PP")
+}
+
+# Through a soft record, so that a failing send does not raise a link alarm in _limit:apply.
+record(fanout, "$(DEV=REK)-$(UNITNUM):_limit:send") {
+    field(DESC, "Sends the current limit (internal)")
+    field(UDFS, "NO_ALARM")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):current:limit")
 }
 
 # --- output ------------------------------------------------------------------------------------
@@ -150,7 +264,8 @@ record(bo, "$(DEV=REK)-$(UNITNUM):SetToggleOutput") {
 
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
 # input A raises to INVALID through MS or a broken link), otherwise the request. Writes the
-# ToggleOutput only when the result changes. Disabled during the first GRACE seconds.
+# ToggleOutput only when the result changes. Disabled until GRACE seconds after the first
+# contact (:output:init).
 record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
     field(INPA, "$(PERMIT=interlock_open) CP MS")
@@ -163,60 +278,53 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(OUT,  "$(DEV=REK)-$(UNITNUM):ToggleOutput PP")
     field(DISV, "1")
     field(DISA, "1")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):_permit:latch")
 }
 
+# The latch: while the permit is lost the request is cleared, so that nothing switches on when
+# the permit comes back, and a request made while the permit is lost is cleared at once.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
+    field(DESC, "Permit lost: request := 0 (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(DEV=REK)-$(UNITNUM):OutputIntlk.A NPP")
+    field(INPB, "$(DEV=REK)-$(UNITNUM):OutputIntlk.C NPP")
+    field(CALC, "A||B>=3")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "0")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):SetToggleOutput PP")
+}
+
+# Sends REN, RST (cancel a cut-off) and SW, reads SW? back and compares it. The current limit
+# is not touched. ToggleOutput is in simulation mode only while :output:init takes it over.
 record(bo, "$(DEV=REK)-$(UNITNUM):ToggleOutput") {
     field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")
-    field(OUT,  "@$(PROTO=rek.proto) toggle_output($(UNITNUM),$(ICN_ON=100)) $(PORT)")
+    field(OUT,  "@$(PROTO=rek.proto) toggle_output($(UNITNUM)) $(PORT)")
     field(PRIO, "HIGH")
     field(ZNAM, "DISABLED")
     field(ONAM, "ENABLED")
     field(FLNK, "$(DEV=REK)-$(UNITNUM):read_output_status.PROC CA")
 }
 
-# NEW. At the start: request := output state read by the @init of ToggleOutput, and the same
-# into OutputIntlk's previous value, so that the first evaluation sends nothing. After GRACE
-# seconds (links connected) OutputIntlk is enabled and evaluated once, and the set points take
-# the settings read from the supply (their :get records, read at PINI). The set points are in
-# simulation mode until then (SIMM=YES: processed, nothing sent), so this sends nothing either.
-# A write to a set point in the first GRACE seconds is therefore not sent.
-record(seq, "$(DEV=REK)-$(UNITNUM):output:init") {
-    field(DESC, "Request := output state at start")
-    field(PINI, "YES")
-    field(SELM, "All")
-    field(DOL1, "$(DEV=REK)-$(UNITNUM):ToggleOutput NPP")
-    field(LNK1, "$(DEV=REK)-$(UNITNUM):SetToggleOutput PP")
-    field(DOL2, "$(DEV=REK)-$(UNITNUM):ToggleOutput NPP")
-    field(LNK2, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PVAL NPP")
-    field(DLY3, "$(GRACE=5)")
-    field(DO3,  "0")
-    field(LNK3, "$(DEV=REK)-$(UNITNUM):OutputIntlk.DISA NPP")
-    field(DO4,  "1")
-    field(LNK4, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PROC NPP")
-    field(DOL5, "$(DEV=REK)-$(UNITNUM):voltage:get NPP MS")
-    field(LNK5, "$(DEV=REK)-$(UNITNUM):voltage:setpoint PP MS")
-    field(DO6,  "0")
-    field(LNK6, "$(DEV=REK)-$(UNITNUM):voltage:setpoint.SIMM NPP")
-    field(DOL7, "$(DEV=REK)-$(UNITNUM):current:get NPP MS")
-    field(LNK7, "$(DEV=REK)-$(UNITNUM):current:setpoint PP MS")
-    field(DO8,  "0")
-    field(LNK8, "$(DEV=REK)-$(UNITNUM):current:setpoint.SIMM NPP")
-}
-
-# Output really on (STS: CO) or off (CF). Differs from read_output_status after a cut-off.
-record(bi, "$(DEV=REK)-$(UNITNUM):status:read") {
+# STS: output really on (CO) or off (CF), and remote (RM) or local (LO). 0 and 1 are the lab's
+# OFF and ON in remote mode; in local mode (front panel) 2 and 3, MINOR. Differs from
+# read_output_status after a cut-off.
+record(mbbi, "$(DEV=REK)-$(UNITNUM):status:read") {
     field(DESC, "Read status of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) read_status($(UNITNUM)) $(PORT)")
     field(SCAN, "$(SCAN_STS=1 second)")
-    field(ZNAM, "OFF")
-    field(ONAM, "ON")
+    field(ZRST, "OFF")
+    field(ONST, "ON")
+    field(TWST, "OFF, LOCAL")
+    field(THST, "ON, LOCAL")
+    field(TWSV, "MINOR")
+    field(THSV, "MINOR")
 }
 
 # The SW setting (SW?). It changes only by a switching command, so it is read after each one
-# (FLNK of ToggleOutput) and otherwise slowly. Its FLNK reads the current setting, which the
-# ICN of every switching changes.
+# (FLNK of ToggleOutput) and otherwise slowly. Its FLNK reads the current limit back.
 record(bi, "$(DEV=REK)-$(UNITNUM):read_output_status") {
     field(DESC, "Read output status of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")

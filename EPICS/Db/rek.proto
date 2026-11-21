@@ -11,8 +11,7 @@
 # ASLO only, not ESLO (devaoStream.c, readData). After an IOC start the :setpoint records start
 # at 0 as in the lab; the :get records show the supply's settings.
 #
-# Argument $1 is the unit number (the UNIT switch of the CO-HV), $2 (toggle_output only) the
-# percentage sent with ICN when the output is switched on.
+# Argument $1 is the unit number (the UNIT switch of the CO-HV).
 #
 # Authors: Ryan Yang (ryang2@mit.edu), 2021; reworked for MIST-2 in 2026.
 # rek.proto is the same file for the REK supply (loaded by rek.db): keep both in step.
@@ -70,17 +69,22 @@ read_current {
     in "MONI2=%XH";
 }
 
-# Output. On: REN, ICN <$2>, RST (cancel a cut-off), SW1 as in manual 6-7. Off: the same with
-# ICN 0 and SW0 (as the lab did). The SW setting is read back and compared.
-# @init reads the SW setting, so that after an IOC restart the record shows the real state.
+# Output. REN (remote control, as the lab did with every switching), RST (cancel a cut-off),
+# SW1 or SW0, as in manual 6-7 without "ICN": switching does not touch the current limit.
+# The SW setting is read back and compared.
 toggle_output {
     out "#\$1 REN";
-    out "#\$1 ICN %{0|\$2}";
     out "#\$1 RST";
     out "#\$1 SW%{0|1}";
     out "#\$1 SW?";
     in "SW%={0|1}";
-    @init { out "#\$1 REN"; out "#\$1 SW?"; in "SW%{0|1}"; }
+}
+
+# First contact after the IOC start: remote control on, and the SW setting.
+probe {
+    out "#\$1 REN";
+    out "#\$1 SW?";
+    in "SW%d";
 }
 
 get_output_status {
@@ -88,12 +92,11 @@ get_output_status {
     in "SW%d";
 }
 
-# Output really on (CO) or off (CF): differs from SW? after a cut-off. REN first, so that a
-# supply that was switched off and on again comes back into remote control by itself.
+# Output really on (CO) or off (CF), differs from SW? after a cut-off; remote (RM) or local
+# (LO). Values 0 to 3 for the mbbi. No REN: the front panel may have taken local control.
 read_status {
-    out "#\$1 REN";
     out "#\$1 STS";
-    in "#\$1 %{CF|CO} %*{LO|RM}";
+    in "#\$1 %{CF RM|CO RM|CF LO|CO LO}";
 }
 
 # All units of the chain off (manual 5-2, multiple command). No reply.

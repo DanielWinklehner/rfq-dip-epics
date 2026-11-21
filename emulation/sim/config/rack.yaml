@@ -7,13 +7,15 @@
 # Values marked ASSUMED are not from a document. They are listed in docs/emulation/STATUS.md.
 
 # --- Matsusada AU supplies, optical chain behind the USB-OPT adapter (asyn port mat_opt) ---------
-# Unit numbers: units 1 to 4 from the lab's st.cmd of 2023, unit 5 ASSUMED. Chain split ASSUMED.
+# Four supplies (owner, 2026-11-21): 1 ion source and 2 puller here, 3 lens 1 and 4 lens 2 on mat_co.
 - name: mat_opt
   type: matsusada_co
   port: 5008
   baud: 9600
   turnaround_ms: 5            # ASSUMED: not in the CO manual, to be measured on the adapter
   options:
+    # ASSUMED: a unit in local control (front panel) still answers queries; STS reports LO then
+    queries_without_remote: true
     units:
       - {address: 1, vfs: 20000, ifs: 0.015, load_ohm: 4.0e+6}                  # ion source, AU20P15
       - {address: 2, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # puller, AU20N7.5
@@ -25,10 +27,10 @@
   baud: 9600
   turnaround_ms: 5            # ASSUMED
   options:
+    queries_without_remote: true   # ASSUMED, as above
     units:
       - {address: 3, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 1, AU20P7.5
-      - {address: 5, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # lens 2, AU20N7.5
-      - {address: 4, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 3, not polled
+      - {address: 4, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # lens 2, AU20N7.5
 
 # --- Edwards nAIM ion gauge, RS-232 (asyn port AIM) ---------------------------------------------
 - name: aim

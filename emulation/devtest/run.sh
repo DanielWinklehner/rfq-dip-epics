@@ -11,6 +11,9 @@
 #   test_*.py  pytest files. Environment: SIM_HOST, IOC_HOST, DEVTEST_BUILD (the build/ directory
 #              of the case) and Channel Access variables that point at this case's IOC only
 #
+# A test restarts the IOC by writing a new content into $DEVTEST_BUILD/ioc-restart (for example
+# a counter): the IOC process stops and starts again in the same container (compose.yaml).
+#
 # Every run is its own Compose project on its own Docker network, so runs in parallel (also from
 # different worktrees) do not collide. The IOC and simulator logs are written to
 # <case>/build/ioc.log and <case>/build/sim.log while the test runs (colour codes removed).
@@ -42,6 +45,7 @@ COMPOSE=(docker compose -p "$PROJECT" -f "$HERE/compose.yaml")
 BUILD=$CASE/build
 mkdir -p "$BUILD"
 { echo "on error break"; cat "$CASE/ioc.cmd"; } > "$BUILD/ioc.cmd"   # loaded by st.cmd
+: > "$BUILD/ioc-restart"
 : > "$BUILD/ioc.log"
 : > "$BUILD/sim.log"
 

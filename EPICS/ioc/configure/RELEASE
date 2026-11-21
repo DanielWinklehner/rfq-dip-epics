@@ -6,6 +6,7 @@
 SUPPORT = /opt/epics/support
 ASYN = $(SUPPORT)/asyn
 STREAM = $(SUPPORT)/StreamDevice
+AUTOSAVE = $(SUPPORT)/autosave
 EPICS_BASE = /opt/epics/base
 
 # These lines allow developers to override these RELEASE settings

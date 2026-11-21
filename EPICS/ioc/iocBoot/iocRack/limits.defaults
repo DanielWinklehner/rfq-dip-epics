@@ -1,0 +1,14 @@
+# limits.defaults - defaults of the limits of the rack IOC, in autosave's file format.
+#
+# Restored at every IOC start, before the file that autosave writes at run time
+# ($MIST2_SAVE/iocRack/limits.sav), whose values win. So these values apply at the first start and
+# whenever the saved file is missing; a limit changed from the GUI is kept in the saved file.
+# One line per PV: <PV name> <value>, in the unit of the PV.
+#
+# OWNER: these are the full scales of the supplies, not limits for operation. Put the real limits
+# here (or set them from the GUI, which saves them).
+AU-20P7-1:current:limit 15
+AU-20P7-2:current:limit 7.5
+AU-20P7-3:current:limit 7.5
+AU-20P7-4:current:limit 7.5
+<END>

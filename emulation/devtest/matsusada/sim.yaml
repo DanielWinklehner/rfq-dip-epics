@@ -1,25 +1,31 @@
-# The two AU chains of the rack and two REK supplies, as in docs/emulation/DESIGN.md (D2).
-# Unit 5 (lens 2) starts with its output on, as a previous IOC left it: the IOC start of this
-# case is the "IOC restart with an output on". Loads: 4 MOhm for the AU (5 mA at 20 kV).
+# The two AU chains of the rack with the four supplies of the owner's decision (2026-11-21), one
+# more AU unit for the "loaded but not polled" macros, and two REK supplies.
+# Unit 4 (lens 2) starts with its output on, as a previous IOC left it: the IOC start of this
+# case is an "IOC restart with an output on". Unit 2 (puller) is switched off for the first 25 s:
+# a supply that comes on after the IOC started. Loads: 4 MOhm for the AU (5 mA at 20 kV).
+# queries_without_remote as in config/rack.yaml: STS reports LO while the front panel has control.
 - name: mat_opt
   type: matsusada_co
   port: 5001
   turnaround_ms: 5
   options:
+    queries_without_remote: true
     units:
       - {address: 1, vfs: 20000, ifs: 0.015, load_ohm: 4.0e+6}                 # ion source AU20P15
-      - {address: 2, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # puller AU20N7.5
+      - {address: 2, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6, # puller AU20N7.5
+         silent_for_s: 25}
 
 - name: mat_co
   type: matsusada_co
   port: 5002
   turnaround_ms: 5
   options:
+    queries_without_remote: true
     units:
       - {address: 3, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 1 AU20P7.5
-      - {address: 5, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6,  # lens 2 AU20N7.5
+      - {address: 4, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6,  # lens 2 AU20N7.5
          output_on: true, vset: 3000, iset: 0.0075}
-      - {address: 4, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # lens 3, not polled
+      - {address: 6, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}                 # test only, not polled
 
 - name: rek
   type: matsusada_co

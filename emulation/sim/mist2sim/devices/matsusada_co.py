@@ -29,12 +29,14 @@ Signals per unit <a> (all magnitudes, SI units, also for negative supplies):
     <a>.vset V, <a>.iset A        programmed set points (CH0/VCN, CH1/ICN)
     <a>.vout V, <a>.iout A        output (what MN1/MN2 measure)
     <a>.output 0/1                output really on (SW1, not cut off)
-    <a>.sw 0/1, <a>.cutoff 0/1, <a>.remote 0/1, <a>.load_ohm
+    <a>.sw 0/1, <a>.cutoff 0/1, <a>.remote 0/1 (set 0 = front panel takes local control; it
+                                  stays local after release until REN), <a>.load_ohm
 and line.turnaround_ms (a test knob: `set` changes the turnaround of the line at run time).
 """
 
 import asyncio
 import re
+import time
 
 from ..core import ALL, REQUIRED, ConfigError, Simulator, register
 
@@ -48,6 +50,8 @@ UNIT_KEYS = {
     "remote": None,        # start state: in remote control (default: same as output_on)
     "vset": 0.0,           # start set points, V and A (manual default CH0 0000, CH1 0000)
     "iset": 0.0,
+    "silent_for_s": 0.0,   # the unit is switched off for this long after the simulator starts:
+                           # it neither answers nor executes (a supply that comes on later)
 }
 
 MULTIPLE = {"CH0", "CH1", "VCN", "ICN", "SW", "RST", "REN", "GTL", "PL"}   # manual 5-2
@@ -148,7 +152,7 @@ class MatsusadaCO(Simulator):
             }
             self.unit[a] = {"vfs": vfs, "ifs": ifs, "negative": u["polarity"] == "-",
                             "pl": 0, "icn": code16(u["iset"], ifs), "ch1": code16(u["iset"], ifs),
-                            "sig": sig}
+                            "silent_until": float(u["silent_for_s"]), "sig": sig}
         self.turnaround = self.add_signal("line.turnaround_ms", self.turnaround_ms, lo=0)
         self.add_coupling(self._model)
         self._parsed = None
@@ -172,7 +176,7 @@ class MatsusadaCO(Simulator):
         for k in ("vfs", "ifs"):
             if isinstance(u[k], bool) or not isinstance(u[k], (int, float)) or u[k] <= 0:
                 raise ConfigError("%s: %s must be a positive number" % (where, k))
-        for k in ("load_ohm", "vset", "iset"):
+        for k in ("load_ohm", "vset", "iset", "silent_for_s"):
             if isinstance(u[k], bool) or not isinstance(u[k], (int, float)) or u[k] < 0:
                 raise ConfigError("%s: %s must be a number >= 0" % (where, k))
         if u["polarity"] not in ("+", "-"):
@@ -185,6 +189,10 @@ class MatsusadaCO(Simulator):
         self.turnaround_ms = self.turnaround.value
         for u in self.unit.values():
             s = u["sig"]
+            if s["remote"].external:
+                # Front panel (plant model or test): the unit stays in that mode after release,
+                # local until the next REN.
+                s["remote"].target = s["remote"].value
             on = s["sw"].value >= 0.5 and s["cutoff"].value < 0.5
             s["output"].target = 1.0 if on else 0.0
             v = s["vset"].value if on else 0.0
@@ -208,12 +216,15 @@ class MatsusadaCO(Simulator):
     async def _sleep_until(self, t):
         """The core waits with asyncio.sleep, which wakes up to about 1 ms late (epoll counts in
         whole milliseconds). On a full chain that is idle line after every reply, about 5 % of a
-        19 ms transaction. Sleep to 1 ms before the time and then yield to the loop until it."""
+        19 ms transaction. Sleep to 1 ms before the time with asyncio, then the rest with
+        time.sleep: that blocks the loop for at most 1 ms but, unlike yielding in a loop, costs no
+        CPU and leaves the GIL to other threads (plant model in the same process)."""
         delay = t - self._loop.time() - 0.001
         if delay > 0:
             await asyncio.sleep(delay)
-        while self._loop.time() < t:
-            await asyncio.sleep(0)
+        rest = t - self._loop.time()
+        if rest > 0:
+            time.sleep(rest)
 
     # --- protocol ----------------------------------------------------------------------------
 
@@ -244,6 +255,8 @@ class MatsusadaCO(Simulator):
             return "SRQ OFF"
         d = self.unit[unit]
         s = d["sig"]
+        if self.now() < d["silent_until"]:
+            return None                  # switched off
         if cmd == "REN" and not param:
             s["remote"].target = 1.0
             return None

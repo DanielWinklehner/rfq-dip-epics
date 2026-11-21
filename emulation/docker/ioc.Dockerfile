@@ -1,4 +1,4 @@
-# mist2-ioc:dev - EPICS base, asyn, StreamDevice and the MIST-2 IOC application.
+# mist2-ioc:dev - EPICS base, asyn, StreamDevice, autosave and the MIST-2 IOC application.
 #
 # Build from the repository root (the build context):
 #   docker build -f emulation/docker/ioc.Dockerfile -t mist2-ioc:dev .
@@ -46,6 +46,14 @@ RUN git clone --depth 1 --branch ${STREAM_TAG} https://github.com/paulscherrerin
     && printf 'EPICS_BASE=%s\nASYN=%s\n' "${EPICS_BASE}" "${SUPPORT}/asyn" > ${SUPPORT}/StreamDevice/configure/RELEASE \
     && make -C ${SUPPORT}/StreamDevice -f Makefile DIRS="configure src" -j"$(nproc)" \
     && make -C ${SUPPORT}/StreamDevice -f Makefile DIRS="configure src" clean
+
+# autosave, unmodified: saves and restores the current limits of the HV supplies. The latest
+# release (2026-11-21). Declared here, not at the top, so that the layers above stay cached.
+ARG AUTOSAVE_TAG=R5-11
+RUN git clone --depth 1 --branch ${AUTOSAVE_TAG} https://github.com/epics-modules/autosave.git ${SUPPORT}/autosave \
+    && printf 'EPICS_BASE=%s\n' "${EPICS_BASE}" > ${SUPPORT}/autosave/configure/RELEASE \
+    && make -C ${SUPPORT}/autosave -j"$(nproc)" \
+    && make -C ${SUPPORT}/autosave clean
 
 # The repository's EPICS tree at the same relative layout, then the IOC application.
 COPY EPICS /opt/mist2/EPICS

@@ -13,6 +13,9 @@ EPICS/ioc/db/
 EPICS/ioc/include/
 EPICS/ioc/iocBoot/*/envPaths
 
+# Files the IOCs write at run time (autosave), see EPICS/ioc/iocBoot/run-ioc.sh
+/save/
+
 # Local build and test output
 build/
 *.log
