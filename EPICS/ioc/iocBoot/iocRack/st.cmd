@@ -42,6 +42,9 @@ dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P7
 dbLoadRecords("$(MIST2_DB)/pressure.db",       "PORT=AVR6,DEVICE=PRESSURE")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR6,DEVICE=PRESSURE")
 dbLoadRecords("$(MIST2_DB)/aim.db",            "PORT=AIM,DEVICE=AIM")
+# The requests take over the state of their device at its first answer, sending nothing
+# (first_contact.db): the cold cathode, the valves, the pumps
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=AIM,N=enable,REQ=AIM:enable,RB=AIM:_enable:get")
 
 # Sensor box: temperatures and water flows (libcom1)
 dbLoadRecords("$(MIST2_DB)/sensorbox.db",      "PORT=AVR10,DEVICE=SENSOR")
@@ -54,6 +57,14 @@ dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR11,DEVICE=INTLK")
 # Solenoid valve box, 8 channels (libcom1)
 dbLoadRecords("$(MIST2_DB)/solenoidbox.db",    "PORT=AVR12,DEVICE=VALVE")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR12,DEVICE=VALVE")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s1,REQ=VALVE:s1:set,RB=VALVE:s1:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s2,REQ=VALVE:s2:set,RB=VALVE:s2:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s3,REQ=VALVE:s3:set,RB=VALVE:s3:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s4,REQ=VALVE:s4:set,RB=VALVE:s4:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s5,REQ=VALVE:s5:set,RB=VALVE:s5:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s6,REQ=VALVE:s6:set,RB=VALVE:s6:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s7,REQ=VALVE:s7:set,RB=VALVE:s7:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s8,REQ=VALVE:s8:set,RB=VALVE:s8:get")
 
 # Mass flow controller MKS GV50A (RS-485, address 254)
 dbLoadRecords("$(MIST2_DB)/mfc.db",            "PORT=MFC,DEVICE=MFC,ADDR=254")
@@ -67,6 +78,8 @@ dbLoadRecords("$(MIST2_DB)/turbo.db",          "PORT=TURBO,DEVICE=TURBO")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=TURBO,DEVICE=TURBO")
 dbLoadRecords("$(MIST2_DB)/turbo_pump.db",     "P=TURBO1,DEVICE=TURBO,PORT=TURBO,RELAY=r1,RUN=0,NORMAL=4,ACCEL=5,FAILURE=6")
 dbLoadRecords("$(MIST2_DB)/turbo_pump.db",     "P=TURBO2,DEVICE=TURBO,PORT=TURBO,RELAY=r2,RUN=1,NORMAL=7,ACCEL=8,FAILURE=9")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=TURBO1,N=start,REQ=TURBO1:start:set,RB=TURBO1:start:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=TURBO2,N=start,REQ=TURBO2:start:set,RB=TURBO2:start:get")
 dbLoadRecords("$(MIST2_DB)/nt20_monitor.db",   "P=TURBO1,PORT=NT20_1")
 dbLoadRecords("$(MIST2_DB)/nt20_monitor.db",   "P=TURBO2,PORT=NT20_2")
 

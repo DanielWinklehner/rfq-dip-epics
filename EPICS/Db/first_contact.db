@@ -1,0 +1,60 @@
+# first_contact.db - a request record takes over the state of its device at the first contact
+#
+# Loaded once per request record (st.cmd), beside the database of the device:
+#   dbLoadRecords("db/first_contact.db", "P=VALVE,N=s1,REQ=VALVE:s1:set,RB=VALVE:s1:get")
+#
+# Macros:
+#   P     device prefix; the two records here are $(P):_take:$(N) and $(P):_take:$(N):copy
+#   N     short name of the request (s1, start, enable), unique under P
+#   REQ   the request record: a bo or ao written by an operator, with an acknowledged set
+#   RB    the record that shows the device's state: valid (not INVALID) only after the device
+#         has answered since the IOC start, and whose value is what REQ would be set to
+#
+# Why: a request record that is only written by an operator stands at 0 with STAT UDF, SEVR
+# INVALID after every IOC start, while the device keeps its state (an open valve, a running
+# pump). A first value at the start (PINI) is not possible: it would be sent to the device and
+# close the valve or stop the pump.
+#
+# How, and why nothing is sent:
+#   1. _take is evaluated whenever RB posts a value or an alarm change (CP link), and once when
+#      the link connects. It acts only when all of these hold:
+#        RB is valid (the device answered since the IOC start),
+#        REQ has never been processed since the IOC start (STAT UDF): no client wrote it,
+#        REQ is not busy (PACT 0: no client's write waiting for its acknowledgement).
+#   2. Then it processes _take:copy, which in ONE run, without delays (SELM All, every DLY 0):
+#        REQ.SIMM := YES               simulation mode: device support is not called
+#        REQ := RB, processed          VAL takes the device's state, UDF and the alarm clear;
+#                                      in simulation mode nothing is sent (SIOL is empty)
+#        REQ.SIMM := NO                every later write is sent as before
+#   _take, _take:copy and REQ are in one lock set (database links), so a client's write to REQ
+#   cannot come between the check and the end of the copy. The copy does not wait for anything
+#   (no device I/O, no delay), so it cannot stop half way: REQ cannot be left in simulation mode.
+#   3. Afterwards REQ is never UDF again (it has been processed): _take does nothing, the
+#      read-back never overwrites the request. A client's write before the take-over clears UDF
+#      as well (sent as before, also when it fails): the take-over does not happen after it.
+#   Without an answer RB stays INVALID, so REQ stays INVALID/UDF: its state is not known. The
+#   take-over happens when the device answers, however late.
+
+record(calcout, "$(P):_take:$(N)") {
+    field(DESC, "Take-over check of $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(RB) CP")
+    field(INPB, "$(RB).SEVR NPP")
+    field(INPC, "$(REQ).STAT NPP")
+    field(INPD, "$(REQ).PACT NPP")
+    field(CALC, "B<3&&C=17&&D=0")
+    field(OOPT, "When Non-zero")
+    field(OUT,  "$(P):_take:$(N):copy.PROC PP")
+}
+
+record(seq, "$(P):_take:$(N):copy") {
+    field(DESC, "Take-over copy into $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SELM, "All")
+    field(DO1,  "1")
+    field(LNK1, "$(REQ).SIMM NPP")
+    field(DOL2, "$(RB) NPP")
+    field(LNK2, "$(REQ) PP")
+    field(DO3,  "0")
+    field(LNK3, "$(REQ).SIMM NPP")
+}

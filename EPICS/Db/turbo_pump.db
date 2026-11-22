@@ -20,6 +20,13 @@
 #   stop, ACCEL                                          -> inconsistent (MAJOR)
 # "inconsistent" shows only after it lasted DEBOUNCE updates: after a start or a stop the contacts
 # follow the relay with a delay.
+#
+# First contact: after an IOC start start:set takes over the state of the run relay (start:get)
+# without sending anything: first_contact.db, loaded per pump in the st.cmd with
+# REQ=$(P):start:set and RB=$(P):start:get, copies the relay's first valid state into start:set,
+# processed in simulation mode (no command to the Opta), and only if no client has written
+# start:set since the start. Until the Opta has answered start:set stays INVALID (UDF). Writing
+# a first value at the start instead (PINI) would stop a running pump at every IOC start.
 
 record(bo, "$(P):start:set") {
     field(DESC, "Run $(P): 1 run, 0 stop and reset")
