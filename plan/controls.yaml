@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.11"
+  revision: "0.12"
   date: "2026-11-22"
   author: "D. Winklehner"
   basis:
@@ -31,6 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
     - "Revision 0.9: the Matsusada rework (four AU supplies, current limit with autosave, latching permit, remote/local status) and the owner's answers of 2026-11-21 (docs/emulation/STATUS.md)"
@@ -222,7 +223,7 @@ devices:
       - "Holds the discharge current (REK-1:current:read) at LOOP-DIS:value:setpoint through the filament heating current (TDK:current:setpoint). Step 1 of WP10: plain PID with output limits, slew limit, anti-windup, bumpless switching and hand-back to MANUAL."
       - "Two layers (owner's decision, 2026-11-22). The service loops/mist2loop (Python, pyepics) runs the PID and decides hand-backs and refusals. The records in this IOC are the interface and the backstop: they write the actuator only in PID, only within the output limits and the slew limit, and go to MANUAL with an alarm when the service's counter stands still (LOOP-DIS:service:get)."
       - "Hands back to MANUAL by itself (the request returns to MANUAL, latched): a permit fails (interlock open, REK not on in remote control, TDK output off), a PV it uses is INVALID or not connected, the IOC's heartbeat stops for longer than LOOP-DIS:stale:setpoint, someone else wrote the TDK current set point, the TDK did not accept a set, the service stops or hangs (LOOP-DIS:watchdog:setpoint), and at every start of the IOC or the service. Refuses PID for the same reasons, and while the TDK set point is outside the output limits."
-      - "At the owner's working point the REK is at 24 A, its full scale: there the loop can only act downward. Owner, 2026-11-22 (question 3): \"set point below 24 A for now. 22 oughta do it.\" The loop runs at 22 A (default set point), below the full scale of the REK150-24, until the REK150-55 is there. The set point maximum (LOOP-DIS:value:setpoint.DRVH) is 23 A by default, our free choice, to be confirmed."
+      - "At the owner's working point the REK is at 24 A, its full scale: there the loop can only act downward. Owner, 2026-11-22 (question 3): \"set point below 24 A for now. 22 oughta do it.\" The loop runs at 22 A (default set point), below the full scale of the REK150-24, until the REK150-55 is there. The set point maximum (LOOP-DIS:spmax:setpoint) is 23 A by default, our free choice, to be confirmed."
     questions:
       - "Set point maximum 23 A (our choice, leaves 22 A a little room): right? Which output limits for the filament current (defaults 80 to 90 A, 90 A from the working point)?"
 
@@ -939,7 +940,7 @@ software:
     - "Built (step 1): the discharge current loop LOOP-DIS. Measured value: the discharge supply current (REK-1:current:read), actuator: the filament heating current (TDK:current:setpoint), both polled at 10 Hz. Service and writer run every 0.2 s, a seventh of the model's time constant of about 1.4 s."
     - "Plain PID in parallel form, derivative on the filtered measurement, output limits, slew limit, anti-windup by conditional integration, bumpless switching between MANUAL and PID and bumpless gain changes. A second loop is one more dbLoadRecords line of loop.db and one more prefix in the service's configuration."
     - "The loop hands back to MANUAL by itself when a permit condition fails (interlock, REK on in remote, TDK on), when a PV it uses is INVALID or not connected, when the IOC's heartbeat stops (stale data), when someone else writes the actuator, when the actuator does not accept a set, and (the IOC alone) when the service stops or hangs. The request returns to MANUAL (latched) and the reason is shown. A request for PID is refused for the same reasons."
-    - "PVs per loop: mode request and mode, reason, the three permit conditions, service alive, limit flag, set point (its drive limits are the set point limits), measured value, output, error, the three terms; settings Kp, Ki, Kd, derivative filter time, output minimum and maximum, slew, stale time, watchdog time, saved by autosave."
+    - "PVs per loop: mode request and mode, reason, the three permit conditions, service alive, limit flag, set point, measured value, output, error, the three terms; settings: set point minimum and maximum, Kp, Ki, Kd, derivative filter time, output minimum and maximum, slew, stale time, watchdog time, saved by autosave."
     - "Step 2, not built: the neural network as an advisor. It would be one more part of the service: gain scheduling (writing the Kp, Ki, Kd settings) or a feed-forward term added to the PID output before the limits, trained on tier 1 data. Its output passes the same limits as the PID output (and the IOC's backstop), and a bad or late answer means plain PID. No records exist for it yet."
   questions:
     - "Which values belong on the printout, and is one page per subsystem the right grouping?"
@@ -1148,18 +1149,22 @@ databases:
       mode: {record: "mode:get", note: "PID only while requested, accepted by the service and the service alive"}
       reason: {record: "reason:get", note: "why the loop last handed back or refused, until the next request"}
       service: {record: "service:get", note: "1 while the loop service's counter changes within the watchdog time, else 0 (MAJOR)"}
-      permit1: {record: "permit1:get", note: "permit condition 1 (DESC names it): 0 fulfilled, 1 not (MAJOR), 2 no data (INVALID)"}
+      permit1: {record: "permit1:get", note: "permit condition 1 as words: fulfilled, the condition's words (not fulfilled, no alarm), no data (INVALID: its PV INVALID or not connected)"}
       permit2: {record: "permit2:get", note: "permit condition 2, as permit 1"}
       permit3: {record: "permit3:get", note: "permit condition 3, as permit 1"}
       limit: {record: "limit:get", note: "free, at minimum, at maximum (MINOR) or slew limited"}
       pv: {record: "value:read", note: "the measured value as the loop reads it"}
       out: {record: "output:get", note: "in PID the service's output, in MANUAL the actuator's set point"}
       error: "error:get"
-      p: "p:get"
-      i: "i:get"
-      d: "d:get"
-      sp: {record: "value:setpoint", readback: null, test: [10, 20], ack: true,
-           note: "soft setting of the IOC (no device: accepted by the IOC itself). Its drive limits DRVL and DRVH are the set point limits, saved with it"}
+      pterm: "p:get"
+      iterm: "i:get"
+      dterm: "d:get"
+      sp_cmd: {record: "value:setpoint", readback: null, test: [10, 20], ack: true,
+               note: "soft setting of the IOC (no device: accepted by the IOC itself), saved by autosave; clamped to [spmin, spmax]"}
+      spmin: {record: "spmin:setpoint", readback: null, test: [0, 5], ack: true,
+              note: "set point minimum, saved by autosave; moved above the set point, it brings the set point up to it"}
+      spmax: {record: "spmax:setpoint", readback: null, test: [22.5, 24], ack: true,
+              note: "set point maximum, saved by autosave (default 23 A, our choice, to be confirmed); moved below the set point, it brings the set point down to it"}
       kp: {record: "kp:setpoint", readback: null, test: [0.1, 1], ack: true, note: "soft setting, saved by autosave"}
       ki: {record: "ki:setpoint", readback: null, test: [0.05, 1], ack: true, note: "soft setting, saved by autosave"}
       kd: {record: "kd:setpoint", readback: null, test: [0, 0.5], ack: true, note: "soft setting, saved by autosave"}
@@ -1169,7 +1174,7 @@ databases:
       slew: {record: "slew:setpoint", readback: null, test: [0.2, 2], ack: true, note: "soft setting, saved by autosave"}
       stale: {record: "stale:setpoint", readback: null, test: [2, 10], ack: true, note: "soft setting, saved by autosave"}
       watchdog: {record: "watchdog:setpoint", readback: null, test: [1, 5], ack: true, note: "soft setting, saved by autosave"}
-    internal: [_mode, _active, _count, _dead, _drop, _act, _hb, _out, _target, _write]
+    internal: [_mode, _active, _count, _dead, _drop, _c1, _s1, _c2, _s2, _c3, _s3, _act, _hb, _out, _target, _write]
     invalid_on:
       _write: []               # writes the actuator only in PID; the suite's fault tests run in MANUAL
 
