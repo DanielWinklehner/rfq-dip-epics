@@ -185,6 +185,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | 17 | Old interlock box | In use, its two relays switch nothing | Done |
 | 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross (later: maybe nearer 5e-5 torr), MFC at about 20 % of 5 sccm | Plant model calibrated to it |
 | 19 | nAIM calibration (2026-11-22) | "I believe the nAIM is calibrated for N2" | Noted in the plan as your belief. It is what the plant model assumes |
+| 20 | Set point of the discharge current loop (2026-11-22) | "set point below 24 A for now. 22 oughta do it." | Passed to the loop task T15: default set point 22 A |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -192,7 +193,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
   working point the model sits at the edge of constant-current operation, so a discharge current
   loop through the filament current can only act downward there (model: gain 3.6 A/A for a step
   down, 0.007 A/A for a step up). Either the loop runs at a set point below 24 A, or it waits
-  for the REK150-55.
+  for the REK150-55. Your answer (20): 22 A for now.
 - **The predicted pressure is below your range.** With the data sheet speed of the TURBOVAC
   1000 C (1150 l/s for nitrogen, about 1170 l/s estimated for hydrogen) and 1 sccm of hydrogen,
   the model predicts 7.0e-6 torr on the nAIM. Your range is 1e-5 to 5e-5 torr, a factor 1.4 to 7
@@ -207,7 +208,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 1. Is there anything between the six-way cross and the turbopump (valve, reducer, screen)?
 2. The real current limits of the four AU supplies and the REK. The defaults files hold the full
    scales (A23).
-3. The discharge current loop: a set point below 24 A, or wait for the REK150-55?
+3. Answered on 2026-11-22: the discharge current loop runs at 22 A for now (answer 20).
 4. `status:read` of the AU and REK supplies is now a multi-state record (P27). Does a script of
    yours depend on its type?
 5. The emulation's saved REK limit is 20 A, not the default 24 A (P30). Did you set it from the
