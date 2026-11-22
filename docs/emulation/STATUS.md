@@ -172,7 +172,8 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
   4. Smaller: the permit records were in MAJOR alarm with the supplies simply off; three role
      names collided with the GUI's; the set point limits were fields the GUI cannot show; the
      service counted a cycle before it had done its work.
-- T16, the loop in the GUI (`briefs/T16-loop-gui.md`), and T17, the logger
+- T16, the GUI round (`briefs/T16-loop-gui.md`: the loop's widget, values set in place on the
+  drawings, tabs as windows; your answers 23 and 24), and T17, the logger
   (`briefs/T17-logger.md`), start when the loop is merged. They run side by side in two
   worktrees and share the emulation through the lock `/tmp/mist2emu.lock`.
 - The logger is built on TimescaleDB, my recommendation, unless you answer question 9 otherwise
@@ -214,6 +215,9 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | 20 | Set point of the discharge current loop (2026-11-22) | "set point below 24 A for now. 22 oughta do it." | Passed to the loop task T15: default set point 22 A |
 | 21 | Where the PID runs (2026-11-22) | "Could we just use PyEPICS and run the PID in python", then chosen from three variants: Python service, the loop's records in the platform IOC | Brief T15b. The plan document said "soft IOC": the subagent brings it to this decision |
 | 22 | Operating system of the platform mini PC (2026-11-22) | "one of the light ubuntu variants, I don't recall which one" | Passed to T15: the loop service's installation is written for Ubuntu. Variant and version still open (A22) |
+| 23 | Setting values on the drawings (2026-11-22) | "On the main screen/tabs, all the PVs are read-only. Only if I click on it and the pop-up appears can I change a value. I would like to be able to set values in place on the main screen." | Changes the decision of gate G2 (the drawing was read-only). In brief T16 as requirement R10: set points and requests in the tags, saved settings stay in the device window, the vent valve still asks first |
+| 24 | Tabs as windows (2026-11-22) | "Would it be possible to pop out individual tabs as separate windows and re-attach them if the user wants to?" | Yes, as browser windows opened by a control on the tab (a browser cannot dock). In brief T16 as requirement R11 |
+| 25 | Comments on the drawings (2026-11-22) | "The filament should be vertically centered, attached to the left wall of the plasma chamber and have its tip point to the right. Stuff like that. I have a number of them." | The geometry is data (`RAS/mist2/ReactApp/src/config/drawings.json`). I apply them myself after T16 is merged: your list first, then a session with the GUI open in your browser |
 
 ## What the working point implies (from the plant model, for you to check)
 

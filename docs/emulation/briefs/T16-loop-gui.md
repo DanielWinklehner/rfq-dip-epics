@@ -1,4 +1,4 @@
-You are a front-end engineer on the MIST-2 ion source control system (EPICS, React Automation Studio V8.1.0). You have one task, T16: the operator's view of the discharge current loop in the MIST-2 GUI. A lead engineer wrote this brief, will run your checks himself, look at the pages, and merge your branch.
+You are a front-end engineer on the MIST-2 ion source control system (EPICS, React Automation Studio V8.1.0). You have one task, T16, in three parts: the operator's view of the discharge current loop in the MIST-2 GUI, values that are set in place on the drawings, and tabs that open as windows of their own. The second and third part are wishes of the owner of 2026-11-22. A lead engineer wrote this brief, will run your checks himself, look at the pages, and merge your branch.
 
 FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are running as>`.
 
@@ -19,6 +19,13 @@ FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are run
 # Where things stand
 The loop is built and merged: records `LOOP-DIS:*` in the platform IOC, the PID in the container `loop`. The registry has it as a device of the new class `loop` on the page "Plasma generator". The GUI has no widget for that class: it falls back to the widget of a controller, which shows nothing of the loop, and `gui-check.sh` fails on it.
 
+# The owner's wishes of 2026-11-22, in his words
+1. "It looks like on the main screen/tabs, all the PVs are read-only. Only if I click on it and the pop-up appears can I change a value. I would like to be able to set values in place on the main screen."
+2. "Would it be possible to pop out individual tabs as separate windows and re-attach them if the user wants to?"
+3. He also has a number of comments on the drawings themselves (example: "the filament should be vertically centered, attached to the left wall of the plasma chamber and have its tip point to the right"). These are NOT yours: the lead applies them with the owner after your branch is merged. So rearrange what your changes force you to rearrange, and do not redraw the machine.
+
+Wish 1 changes the decision of gate G2 ("clicking an element opens the device in a window of its own" stays, but the drawing is no longer read-only). It is the owner's to change.
+
 # Goal
 The operator runs the loop from the GUI. On the plasma generator page he sees at one glance whether the loop is in MANUAL or PID, and why it last handed back. In the loop's device window he switches it, sets the set point, sees every condition, and has what he needs to tune it.
 
@@ -33,15 +40,33 @@ R7. **Alarm severity as everywhere** (LAYOUT.md 1.2): the fields follow the seve
 R8. **Role words.** The labels of the new roles come from the role table (`roles.js`) or from the registry, in operator's words. If a role of the loop collides with the meaning of an existing role, do not bend the existing one: report it.
 R9. **No confirmation dialog** for PID (the owner's rule: a dialog only before opening the vent valve). The loop has its own permits.
 
+R10. **Values set in place (wish 1).** Every tag on the Overview and on the subsystem tabs shows, beside the read-backs it shows today, what the operator sets in normal operation, as fields that work where they stand: a number is typed and sent with Enter; a request (output on or off, valve, pump, mode of the loop) is switched there.
+   - Which roles: the set points and requests of the widget's operation group. The saved settings (current limits, gains, the loop's limits and times) stay in the device window. One table per class beside the one that says what a tag reads (`synoptic/tagRows.js`), driven by the registry (`access`, role, `confirm`): nothing coded per page or per device.
+   - A number that was typed and not sent is not left standing: Escape or leaving the field shows the IOC's value again. The mouse wheel and the arrow keys do not change a value. Say how a field shows that it holds an unsent entry.
+   - The vent valve asks first, as it does in its window. No other dialog (the owner's rule).
+   - Alarm look as everywhere. A field whose record is INVALID or not connected looks dead; say whether it still accepts an entry and why.
+   - A click on the tag outside its fields still opens the device window. The context menu stays.
+   - The loop's tag has its mode request and its set point in place.
+   - The tags grow. Rearrange the drawings (`config/drawings.json`) so that nothing overlaps on a 1920 x 1080 monitor. The box "Reserved: control loop" on the plasma generator page goes: the loop is there now.
+   - The tags are drawn in SVG today (`synoptic/TagRow.jsx`). How an input gets in there (an HTML layer, `foreignObject`, or something else) is yours: choose what stays sharp and aligned at every window size and say why.
+R11. **Tabs as windows (wish 2).** Each tab (Overview, the subsystems, Trends, Infrastructure) can be opened as a browser window of its own and brought back.
+   - A browser cannot dock or drag a tab out, so: a small control on the tab opens the page in its own window. That window is complete in itself (page name, the emulator banner, its own severity) and is an ordinary route of the application, so it can also be opened by its address.
+   - While a page is out, its tab stays in the bar, marked as open in a window, and still shows the page's worst severity. A click on it brings that window to the front. A control in the window ("attach") closes it and shows the page in the main window again; closing the window by the browser's own button does the same.
+   - Windows opened this way close with the main window, as device windows do. A device opened from such a window gets the same one window per device as from the main window.
+   - With every page out, the main window still shows the tab bar, the status strip and ALL HV OFF.
+   - Say what happens on a reload of the main window, and keep it simple.
+
+Order of work: first the loop's widget with the tags settable in place (they belong together: the loop's tag is the first that needs it), then the tabs. Commit the two parts separately, so that the first can be merged alone if the second runs late.
+
 # Files you own
 - `RAS/mist2/ReactApp/src/` and `RAS/mist2/tools/` (checks and screenshots), `RAS/mist2/README.md`
-- `docs/emulation/gui/LAYOUT.md`: one short section on the loop widget (what it shows and why)
+- `docs/emulation/gui/LAYOUT.md`: one short section on the loop widget (what it shows and why), and under "Decision" a dated note of the owner's two wishes and how they are built
 Not yours: `plan/`, the registry (generated: if it lacks something the widget needs, a label, words, a role, say exactly what in your report under NEEDS THE LEAD and work with a clear stand-in until then), `EPICS/`, `loops/`, `emulation/`, `docs/emulation/STATUS.md`, `PLAN.md`, `DESIGN.md`, `LOOP.md`.
 
 # Deliverables
-1. The widget, the tag, the place on the drawing, the role words.
-2. `gui-check.sh` extended and passing as a whole: the loop's records are shown with the values Channel Access reads (check 2 as for every device), and one new check of the loop by the browser: PID requested with the supplies off is refused and the reason is on the screen; with the conditions fulfilled the mode shows PID; a typed set point arrives; MANUAL again. The check leaves the loop in MANUAL and everything as it found it. Without the plant model the measured value does not follow the actuator: the check is about the switching and the display, not about control.
-3. Screenshots in `RAS/mist2/tools/screenshots/`: the plasma generator page with the loop in MANUAL and in PID, the device window in PID, the device window after a refusal.
+1. The widget, the tag, the place on the drawing, the role words; the tags settable in place on every drawing; the tabs as windows.
+2. `gui-check.sh` extended and passing as a whole: the loop's records are shown with the values Channel Access reads (check 2 as for every device), and one new check of the loop by the browser: PID requested with the supplies off is refused and the reason is on the screen; with the conditions fulfilled the mode shows PID; a typed set point arrives; MANUAL again. The check leaves the loop in MANUAL and everything as it found it. Without the plant model the measured value does not follow the actuator: the check is about the switching and the display, not about control. For wish 1: on the Overview, a set point typed into a tag arrives at the IOC, an unsent entry is given up with Escape, an output is switched on and off from its tag, and the vent valve asks first from its tag; check 5 of today (the same through the device window) stays. For wish 2: a tab opened as a window shows the values Channel Access reads, its tab in the main window is marked and brings the window to the front, attaching brings the page back, and the windows close with the main window. Check 2 (every device record shown with the value Channel Access reads) and check 6 stay true.
+3. Screenshots in `RAS/mist2/tools/screenshots/`: the plasma generator page with the loop in MANUAL and in PID, the device window in PID, the device window after a refusal; every drawing with its new tags (the existing `normal-*.png` renewed), a tag with an unsent entry, a page in its own window beside the main window that marks it.
 
 # Acceptance test (the lead runs exactly this from the repository root of your worktree)
 
@@ -61,6 +86,8 @@ Exit 0, and nothing is left running. The lead then starts the emulation with the
     BRANCH: emu/t16-loop-gui @ <commit>
     BUILT: one line per part
     SHOWN: where each role of the loop appears (tag, Controls, Trend, Settings, Expert)
+    IN PLACE: per class, which roles a tag sets, and how an entry is sent, given up and shown
+    WINDOWS: how a tab goes out and comes back, and what a reload does
     VERIFIED: the acceptance command with exit code and the count of checks, and how you saw the new check fail
     DECISIONS: choices the brief left open, each with one reason
     NEEDS THE LEAD: what the registry or the plan lacks, text for STATUS.md, open questions
