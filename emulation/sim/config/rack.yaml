@@ -49,7 +49,9 @@
   type: libcom1
   port: 5006
   baud: 115200
-  bits_per_char: 10           # USB serial of the Teensy: only sets the reply delay here
+  bits_per_char: 11           # 8 bits, even parity, 1 stop, as ports.real.cmd opens the port (the
+                              # lab's st.cmd). On the Teensy's USB serial the setting changes
+                              # nothing on the wire; here it only sets the reply delay
   turnaround_ms: 1            # ASSUMED
   in_terminator: "\n"
   out_terminator: "\r\n"      # Serial.println

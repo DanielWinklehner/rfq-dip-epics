@@ -58,9 +58,8 @@ minutes.
 
 ## Expected failures
 
-| Test | Reason |
-|---|---|
-| `test_01_startup.py::test_simulator_line_matches_the_real_port[gauges]` (strict) | FINDING: `ports.real.cmd` opens AVR6, the gauge controller (a Teensy since the owner's answer 13), with 8 bits, even parity and 1 stop bit, which is 11 bits per character. The simulator times 10 bits (`rack.yaml`: "USB serial of the Teensy: only sets the reply delay"). One of the two files is wrong, or the real port file should say that the setting has no effect on a USB serial |
+None. A test that shows something wrong in a database, a simulator, the registry or a startup
+file is marked as a strict expected failure with its reason, and listed here.
 
 The registry's two fault lists are checked in both directions. Every PV of `fails_with`
 must turn INVALID under `silent` and `garbage` and stay INVALID while the fault lasts. The
