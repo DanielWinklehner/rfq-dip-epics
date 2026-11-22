@@ -56,6 +56,10 @@ database edit plus one regeneration.
 - **The loop service** (`loops/mist2loop`, added 2026-11-22) is one more container, `loop`. On
   the real platform computer it runs beside the IOC. Its records are in `ioc-hv`
   (`docs/emulation/LOOP.md`).
+- **The data logger** (`logger/`, added 2026-11-22) is not part of the emulation's Compose
+  project: database, logger and Grafana are a project of their own on the host network, and the
+  logger is a Channel Access client like the GUI. Its state records are in `ioc-rack`
+  (`docs/emulation/LOGGER.md`).
 - **One image for both IOCs**: EPICS base 7, asyn, unmodified StreamDevice, and one IOC
   application built from a new EPICS top in `EPICS/ioc/`. `EPICS/Db` is mounted into the
   containers, so a database edit needs an IOC restart, not an image build.

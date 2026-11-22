@@ -6,9 +6,12 @@ nothing is pushed.
 Everything is built and merged. The system suite and the GUI check pass on the final state.
 Nothing is running.
 
-Second round: the discharge current loop is built and merged (2026-11-22). The GUI round
-(the loop's widget and two changes you asked for) and the logger are running (see "Running").
-The GUI check does not pass in between: the GUI has no widget for the loop yet.
+Second round (2026-11-22): the discharge current loop, the GUI round (the loop's widget, values
+set in place, tabs as windows) and the data logger are built and merged. In my own runs the
+system suite and the logger's tests pass on the logger's branch, and the GUI check passes on
+the merged whole. The full suite was not run again after the last merge. Three follow-up tasks
+are running (see "Running"): the fix round of the logger, the logger in the GUI, and the
+request records after an IOC start.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -188,20 +191,81 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   tried); the GUI widget (running, T16); gains measured on the machine (`LOOP.md` section 7
   says how).
 
+**GUI round** (`RAS/mist2/`, `gui/LAYOUT.md`; subagent, task T16, merged 2026-11-22)
+- The loop: a widget for the class `loop` built from its roles (mode request beside the mode,
+  the reason of the last hand-back or refusal right below, set point and measured value, output
+  and error, limit flag, service, the three permits, the three terms, the saved settings). Its
+  tag stands between the filament heating supply and the discharge supply on the Overview and
+  on the Plasma generator page. Trend: the set point in the graph of the measured value, the
+  output in a second graph, redrawn every 0.2 s in the device windows.
+- Values set in place (your answer 23): a tag carries the set points and requests of its device
+  as fields. Supplies: voltage, current (TDK), output. Valves, ion gauge, turbopump: the
+  request. MFC and loop: the set point; the loop also its mode. Enter sends, Escape or leaving
+  the field gives the entry up, an entry not sent is marked, mouse wheel and arrow keys change
+  nothing. The vent valve asks first, nothing else does. Saved settings (current limits, the
+  loop's gains and limits) stay in the device window. The drawings were rearranged for the
+  taller tags, and the "Reserved: control loop" box is gone.
+- Tabs as windows (your answer 24): a control on each tab opens the page as a browser window
+  of its own (`/page/<name>`). The tab stays and is marked. "Attach to the main window" or
+  closing the window brings the page back. All windows close with the main window.
+- Verified by me on the branch: `gui-check.sh` exit 0 with 270 checks (new: the loop, values
+  set in place, tabs as windows), and a session in a headless browser with the plant model at
+  20 A: set point 21 A typed into the loop's tag and PID from the tag (21 A after about 8 s,
+  no window opened by the clicks); a filament current typed into the supply's tag while in PID
+  (hand-back "written by someone else"); the Plasma generator page out, PID from there, the
+  same values in both windows, attached again; an entry given up by leaving the field; wheel
+  and arrow keys. On the merged whole with the logger: `gui-check.sh` exit 0, 273 checks.
+- Fixed by me after the merge: the loop's reason, limit flag, output, error and terms were
+  INVALID after an IOC start until they were written (records never processed). They are now
+  processed once at the start, and the IOC restart test checks it.
+- Known: the request buttons of valves, turbopumps and ion gauge are drawn INVALID after an
+  IOC start (P25, running as T18). With values set in place a filament current typed on the
+  Overview takes the source out of PID at once (question 12).
+
+**Data logger** (`logger/`, `EPICS/Db/logger_status.db`, design and operation in `LOGGER.md`; subagent, task T17, merged 2026-11-22, fix round running)
+- What it is: a Channel Access logger of our own (`logger/mist2log`, Python with pyepics) in
+  front of TimescaleDB, with Grafana, as a Compose project of its own (`make -C logger up`,
+  `down`, `test`, `read`). It subscribes with monitors, never polls, and logs 180 PVs: 44 raw
+  (30 days), means, minima and maxima per second (2 years) and per minute (for ever), and an
+  event log kept for ever (set commands, alarm changes, states, the interlock, the loop's
+  mode, the logger's own events). Which PV goes where is in the plan (section `logging`, rules
+  with reasons); a PV without a tier is a warning of `build.py`.
+- A constant value costs nothing and a gap is a row of its own, so a reader never holds a
+  value across a disconnect. The reading tool and the database functions hide both.
+- While the database is away the logger buffers (2 000 000 rows, about 4 hours of the
+  emulation) and writes when it returns. Its state is in the rack IOC (`LOGGER:*`): a dead
+  logger or a lost database is a MAJOR alarm.
+- Measured on the emulation: 103 raw rows and 36 second rows per second, 1.5 % of one core,
+  about 370 GB of disk after two years (the per-second tier is 322 GB of it), then about 5 GB
+  per year. The arithmetic is in `LOGGER.md` section 10.
+- Verified by me on the branch: plan check, system suite (271 passed in 697 s) and the
+  logger's tests (28 passed in 332 s), each exit 0, saved settings unchanged, nothing left
+  running. And a session with the plant model in PID at 22 A: my own Channel Access monitor
+  of `REK-1:current:read` for 90 s, the database stopped for 32 s of it, the door opened.
+  533 updates, 533 raw rows, none missing, extra or different. The per-second tier equals my
+  own time-weighted means in 87 of 87 seconds. The event log has the trip in the right order.
+- Found in that session, in the fix round now (T17b): the loop's writes of the filament
+  current fill the event log (63 set commands in 78 s of PID, kept for ever); the mode event
+  of a hand-back carries the reason from before it; Grafana never shows finer than one value
+  per minute; the dashboards lack the loop's graphs; a batch the database rejects is tried
+  again for ever.
+- Not done: where it runs (the plan's question), a backup timer, synchronised clocks (P33).
+
 ## Running
 
-Second round, ordered by you on 2026-11-22 (work plan: `PLAN.md`, tasks T15 to T17). Two
-subagents on Opus 5.5 work side by side in the worktrees `.claude/worktrees/t16` and `t17` and
-share the emulation through the lock `/tmp/mist2emu.lock`.
+Third step of the second round, started 2026-11-22. Three subagents on Opus 5.5 work side by
+side in the worktrees `.claude/worktrees/t16`, `t17` and `t18` and share the emulation with
+me through the lock `/tmp/mist2emu.lock`.
 
-- T16, the GUI round (`briefs/T16-loop-gui.md`): the loop's widget and its place on the plasma
-  generator page; set points and requests set in place in the tags of every drawing; tabs that
-  open as windows of their own and come back (your answers 23 and 24).
-- T17, the logger (`briefs/T17-logger.md`): TimescaleDB behind a Channel Access logger of our
-  own, Grafana, the three tiers and the event log of the plan, status records in the rack IOC.
-  Built on my recommendation of question 9, which you did not answer otherwise.
-- After both: the GUI check on the merged whole, then your comments on the drawings
-  (answer 25).
+- T17b, fix round of the logger (`briefs/T17b-logger-fixes.md`): the five findings above.
+- T16b, the logger in the GUI (`briefs/T16b-gui-logger.md`): on the Infrastructure page only,
+  with a widget of its own, and a chip in the status strip that shows a dead logger on every
+  page; the loop's permits by their names; the list of trends from the registry.
+- T18, request records (`briefs/T18-first-contact.md`): after an IOC start the requests of
+  valves, turbopumps and ion gauge take over the device's state at the first contact, without
+  anything being sent (P25).
+- After each: my own runs of its acceptance commands and a session by hand, then the merge.
+  Then your comments on the drawings (answer 25).
 
 ## Open
 
@@ -239,8 +303,8 @@ share the emulation through the lock `/tmp/mist2emu.lock`.
 | 20 | Set point of the discharge current loop (2026-11-22) | "set point below 24 A for now. 22 oughta do it." | Passed to the loop task T15: default set point 22 A |
 | 21 | Where the PID runs (2026-11-22) | "Could we just use PyEPICS and run the PID in python", then chosen from three variants: Python service, the loop's records in the platform IOC | Brief T15b. The plan document said "soft IOC": the subagent brings it to this decision |
 | 22 | Operating system of the platform mini PC (2026-11-22) | "one of the light ubuntu variants, I don't recall which one" | Passed to T15: the loop service's installation is written for Ubuntu. Variant and version still open (A22) |
-| 23 | Setting values on the drawings (2026-11-22) | "On the main screen/tabs, all the PVs are read-only. Only if I click on it and the pop-up appears can I change a value. I would like to be able to set values in place on the main screen." | Changes the decision of gate G2 (the drawing was read-only). In brief T16 as requirement R10: set points and requests in the tags, saved settings stay in the device window, the vent valve still asks first |
-| 24 | Tabs as windows (2026-11-22) | "Would it be possible to pop out individual tabs as separate windows and re-attach them if the user wants to?" | Yes, as browser windows opened by a control on the tab (a browser cannot dock). In brief T16 as requirement R11 |
+| 23 | Setting values on the drawings (2026-11-22) | "On the main screen/tabs, all the PVs are read-only. Only if I click on it and the pop-up appears can I change a value. I would like to be able to set values in place on the main screen." | Changes the decision of gate G2 (the drawing was read-only). In brief T16 as requirement R10: set points and requests in the tags, saved settings stay in the device window, the vent valve still asks first. Built and merged on 2026-11-22 (T16) |
+| 24 | Tabs as windows (2026-11-22) | "Would it be possible to pop out individual tabs as separate windows and re-attach them if the user wants to?" | Yes, as browser windows opened by a control on the tab (a browser cannot dock). In brief T16 as requirement R11. Built and merged on 2026-11-22 (T16) |
 | 25 | Comments on the drawings (2026-11-22) | "The filament should be vertically centered, attached to the left wall of the plasma chamber and have its tip point to the right. Stuff like that. I have a number of them." | The geometry is data (`RAS/mist2/ReactApp/src/config/drawings.json`). I apply them myself after T16 is merged: your list first, then a session with the GUI open in your browser |
 
 ## What the working point implies (from the plant model, for you to check)
@@ -284,10 +348,18 @@ share the emulation through the lock `/tmp/mist2emu.lock`.
    minimum and maximum per second and per minute, each with its own life time), and the
    history is one SQL query away from Python. The Archiver Appliance is the community
    standard and RAS has a viewer for it, but it reduces data with one operator per store, and
-   it is more to install. The first is being built now (T17), as announced.
+   it is more to install. The first is built (T17, see "Done"), as announced.
 10. The loop's settings that are not yours (A30 to A35): set point maximum 23 A, filament
     current between 80 and 90 A, at most 1 A/s, hand-back times, the 5 s Channel Access
     timeout of the platform IOC. And the Ubuntu version of the mini PC (`lsb_release -a`).
+11. The logger: is the tier of each PV group right (table in `LOGGER.md` section 1, A36), and
+    are about 370 GB of disk after two years acceptable (A37)? And on which computer should it
+    run (lab computer, rack computer, a small server)? What it needs is in `LOGGER.md`
+    section 10.
+12. With values set in place, a filament current typed into the supply's tag while the loop
+    is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
+    Should the supply's tag mark that the loop holds this set point while in PID, or refuse
+    the entry?
 
 ## Not verified
 
@@ -307,6 +379,14 @@ share the emulation through the lock `/tmp/mist2emu.lock`.
   3.12), and its systemd unit.
 - A lost permit link for the AU supplies: their permit is in their own IOC, where a link
   cannot be lost. They carry the same records as the REK, which is tested.
+- Tabs as windows and values set in place in a real browser by a person: checked in a headless
+  browser. Whether a window really comes to the front is the browser's decision and cannot be
+  seen there.
+- The logger on a real computer and over days: the life times were tested with shortened
+  times, the disk estimate is an extrapolation of 10 minutes, and of the Grafana dashboards I
+  looked at one.
+- The full system suite after the last merge (it ran on the logger's branch, which lacked the
+  GUI round and one fix of `loop.db`; the two tests of that fix were run).
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
   keeps its last 3000 values, which is 5 minutes of a value that changes ten times a second.
 
@@ -343,6 +423,10 @@ share the emulation through the lock `/tmp/mist2emu.lock`.
 | A permit of a loop or of a supply is read by a scanned record of its own, not directly by the calculation | EPICS does not process a record when its CP link disconnects, and a calc keeps its last value when an input fails. A scanned reader turns INVALID at its next scan |
 | `EPICS_CA_CONN_TMO` of the platform IOC is 5 s, not the default 30 s | A rack computer that dies without closing its connections is noticed after about 8 s instead of about a minute. On the one fiber between two computers nothing speaks against it |
 | The loop's permit conditions carry no alarm while they are simply not fulfilled | An off supply is a normal state everywhere else in the system. The reason of a hand-back says when a condition mattered |
+| The logger was merged with five known defects, which are in a fix round | The two other follow-up tasks need its plan (a tier for every PV) and its records as their base. What I measured myself, that nothing is lost, holds. `emulated-iocs` is the integration branch and nothing is pushed |
+| The logger is shown on the Infrastructure page only, with a chip in the status strip | It is infrastructure like the IOCs, and a dead logger must be seen from every page, also from a page in a window of its own |
+| P25 is done now, not later | Values set in place put the request buttons on the Overview, where INVALID after every IOC start reads as a fault of half the machine |
+| The roles drawn as trends are in the plan (section `trends`), not in the GUI's sources | The GUI and the Grafana dashboards each had a list, and they differed within a day (the loop's graphs) |
 
 ## Assumptions that need your confirmation
 
@@ -383,6 +467,10 @@ A19 (the output gate is wanted, and it latches).
 | A33 | Hand-back after 3 s of stale data, MANUAL after 2 s without the service, period 0.2 s | Free choices; the period from the model's time constant and the TDK line's load | You, the machine |
 | A34 | Channel Access timeout of the platform IOC: 5 s | Free choice (default 30 s) | You, the network between the two computers |
 | A35 | The loop service installs on the mini PC: Python 3.8 or later, pyepics 3.5.8, user `mist2`, `/opt/mist2` | Written for Ubuntu, not tried. Variant and version unknown (A22) | `lsb_release -a` on the mini PC, then the steps of `loops/README.md` |
+| A36 | The logging tier of each PV group: measured values raw, supply power per second, cold-junction temperatures per minute, everything written and every state on change, heartbeats and internal records not at all | Proposal of the logger task, rules with reasons in the plan (section `logging`) | You, table in `LOGGER.md` section 1 |
+| A37 | Disk for the logger: about 370 GB after two years, 1 TB with headroom | Measured on the emulation, where every analog value is noisy and changes in every second. Assumes the real ADCs are as noisy | You; the first weeks of real data |
+| A38 | Logger settings: a time stamp more than 10 s from the logger's clock is replaced, an interval closes 2 s after its end, "not alive" after 5 s without a count, buffer alarms at 50 % and 90 %, 2 000 000 rows of buffer | Free choices of the logger task | You |
+| A39 | Grafana lets everybody on the network read without a login, as the GUI does. Its port and the database's are open to the logger's own computer only unless a setting opens them | Free choice; you said "no login" for the GUI | You |
 
 ## Open points
 
@@ -406,17 +494,20 @@ P18, P19, P20, P22, P35 (the REK output with the rack IOC stopped: fixed with th
 | P21 | Simulator core, wishes from the device tasks: several input terminators, line settings changeable at run time, transaction counts per command | Later |
 | P23 | `make -C emulation plan` changes the tracked PDFs on every run, because Graphviz embeds the build time. PDFs that differ only by the time stamp are left as they are by hand | Later, if it annoys |
 | P24 | A supply that does not answer gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until it answers again | Later, if wanted |
-| P25 | Set records without a first value start as INVALID (undefined) until they are written once: `VALVE:s<n>:set`, `TURBO<n>:start:set`, `AIM:enable`. Writing an initial value at IOC start is not an option (it would close the foreline valve). The clean way is to take over the device's state at the first contact, as the Matsusada databases now do | Later |
+| P25 | Set records without a first value start as INVALID (undefined) until they are written once: `VALVE:s<n>:set`, `TURBO<n>:start:set`, `AIM:enable`. Writing an initial value at IOC start is not an option (it would close the foreline valve). The clean way is to take over the device's state at the first contact, as the Matsusada databases now do | Running as T18: with values set in place these requests stand on the Overview |
 | P26 | The RAS pvServer was seen giving a long text (`TURBO<n>:raw:get` through `VAL$`) a time stamp that did not belong to that text. The GUI check tolerates it. Not investigated | Later |
 | P27 | `status:read` of the AU and REK supplies is a multi-state record now. 0 OFF and 1 ON as before, 2 and 3 are new (local control). A client that reads the number sees no difference in remote mode | You, if a script depends on the type |
 | P28 | A client that writes `<supply>:ToggleOutput` directly bypasses the permit, the remote command and the limit. In the lab's database it bypassed the permit too. The operator's PV is `SetToggleOutput` | Access security, later |
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
-| P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
-| P32 | The system suite takes about 11.5 minutes with the loop tests. The limit set for it is now 13 | Later, if it grows: the NT 20 and Matsusada fault tests are the slowest |
+| P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver. The logger subscribes with monitors and never polls |
+| P32 | The system suite takes 11.6 to 12.2 minutes with the loop tests and the logger's records. The limit set for it is 13 | Later, if it grows: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 | P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
+| P37 | The logger needs its database when it starts (it registers its PVs there). After that a lost database is buffered | Later, if the two start in the wrong order on the real computer |
+| P38 | The saved settings of the emulated IOCs are one Docker volume for every checkout. A set point changed by hand stays for the next user: my session of T16 left the loop's set point at 21 A, found and written back the same hour | The suite prints at its start what differs from the defaults. Write back by hand |
+| P39 | The Grafana dashboards have their own small table of words for the trend titles, beside the GUI's | Later, with the role words in the plan |
 
 ## Found in RAS V8.1.0
 

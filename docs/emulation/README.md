@@ -95,6 +95,7 @@ defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them a
 | `make -C emulation test-loop` | The discharge current loop closed on the plant model: bumpless switching, set point steps, a disturbance, limits, a hand-back. Prints a table (`docs/emulation/LOOP.md` section 6) | 5 min |
 | `python3 -m unittest discover -s loops/tests -t loops` | The loop's algorithm and logic alone, without EPICS, including a closed loop on a small plant in Python | 1 s |
 | `make -C emulation plan-check` | `plan/controls.yaml`, the databases and both `st.cmd` files agree | 10 s |
+| `make -C logger test` | The data logger against the emulation: every logged PV subscribed, the rows of a 10 Hz PV against a second client's count, seconds and minutes against values computed independently, gaps, an IOC and the database stopped and started, life times, the state alarm | 6 min |
 
 The system tests take devices and PV names from the registry. What each test module proves and
 which time limits it uses: [../../emulation/tests/README.md](../../emulation/tests/README.md).
@@ -150,8 +151,11 @@ Open <http://localhost:3000/> in a browser on Windows. The GUI uses the ports 30
 
 **What you see:** an overview drawing of the source and the six-way cross, one tab per
 subsystem (plasma, extraction, vacuum and gas, cooling and interlock, infrastructure), and
-trends. A click on any element of a drawing opens that device in a browser window of its own,
-which stays until you close it. Colour follows the EPICS alarm severity, and a record that is
+trends. Set points and requests are set where they stand, in the tags of the drawings: type a
+value and press Enter (Escape or leaving the field gives it up), or press a request button. A
+click on a tag outside its fields opens that device in a browser window of its own, which stays
+until you close it. The small control on a tab opens that page as a window of its own, and
+"Attach to the main window" or closing it brings it back. Colour follows the EPICS alarm severity, and a record that is
 INVALID shows that instead of a stale number. A trend line ends where its record is INVALID or
 not connected, and a zoom into a trend stays until a double click. Expert information (PV names, alarm status, raw
 values) is in each device window. There is no login. Only opening the vent valve asks first.
@@ -159,7 +163,7 @@ values) is in each device window. There is no login. Only opening the vent valve
 **Check it:** with the emulation and the GUI running, `RAS/mist2/tools/gui-check.sh` drives a
 headless browser through every page and device window, compares what is shown with Channel
 Access, injects faults and writes set points. It saves screenshots to
-`RAS/mist2/tools/screenshots/`. It takes about 5 minutes.
+`RAS/mist2/tools/screenshots/`. It takes about 9 minutes.
 
 Every device, PV name and state word in the GUI comes from the registry
 (`RAS/mist2/ReactApp/src/registry/registry.json`, generated from `plan/controls.yaml`). How the
@@ -206,9 +210,27 @@ Matsusada CO-U32 has its udev rule and a read-only probe, both not tested on har
 | `EPICS/ioc/` | EPICS application and the startup files of both IOCs |
 | `EPICS/ioc/host/` | Setup of the real rack computer on Linux: udev rule and probe for the Matsusada adapter |
 | `loops/` | The loop service (Python): algorithm, service, unit tests, systemd unit. Design and operation: `docs/emulation/LOOP.md` |
+| `logger/` | The data logger: Channel Access logger (Python), TimescaleDB and Grafana as a Compose project of its own. Design and operation: `docs/emulation/LOGGER.md` |
 | `emulation/` | Images, Compose file, simulators, test cases, system tests |
 | `emulation/sim/config/` | Which simulator stands behind which port, with all assumed values marked |
 | `plan/` | `controls.yaml`, the single source of truth, and its generators |
 | `RAS/mist2/` | The new GUI. `RAS/IsoDAR/` is the old one |
 | `reference/lab-2023/` | The lab's files of 2023, read-only |
-| `docs/emulation/` | This file, design, status, plan, briefs, GUI layout proposal, the control loop (`LOOP.md`) |
+| `docs/emulation/` | This file, design, status, plan, briefs, GUI layout proposal, the control loop (`LOOP.md`), the data logger (`LOGGER.md`) |
+
+## 11. The data logger (optional)
+
+It records the PVs in a database of its own and runs beside the emulation, as it will run beside
+the real IOCs. Nothing else depends on it. Without it the rack IOC's records `LOGGER:*` say so:
+`LOGGER:alive:get` is 0 with a MAJOR alarm, which is the truth.
+
+| Command | What it does |
+|---|---|
+| `make -C logger up` | Builds its image if needed and starts database, logger and Grafana. Works whether or not the IOCs run |
+| `make -C logger down` | Stops them. The data stays in Docker volumes |
+| `make -C logger read ARGS="REK-1:current:read --last 10m"` | Reads logged data as CSV; `--events --last 1d` reads the event log |
+
+Grafana: <http://localhost:3300/>, one dashboard per page of the GUI. The database listens on
+port 5434 of the WSL machine only. Settings are in `logger/.env`, created from `env.template` on
+first use. What is logged in which tier, how to read it, sizing and backup:
+[LOGGER.md](LOGGER.md).
