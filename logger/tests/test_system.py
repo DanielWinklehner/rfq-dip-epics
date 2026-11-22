@@ -356,7 +356,7 @@ def test_database_stopped_for_a_minute_nothing_lost_order_kept():
 
 
 def test_database_stopped_longer_than_the_buffer_the_loss_is_counted_and_logged():
-    request("buffer 3000")        # rows: about 23 s of the full emulation (130 rows per second)
+    request("buffer 3000")        # rows: about 20 s of the full emulation (140 rows per second)
     S.wait_for(lambda: status("alive") == 1 and status("connected") == len(LOGGED), 30, "the logger with the small buffer")
     try:
         counter, t0, t1, fill = outage(45, 3000)
