@@ -79,6 +79,7 @@ Exit 0, and nothing is left running. The lead then starts the emulation with the
 - Do not rename or change any PV. No dead code, no component that is used once and wraps nothing.
 - Keep the code as small as the existing widgets are: they are a few lines each because the role fields do the work.
 - Verify by running, not by reading. Show that the new check fails when the widget is broken (for example with the reason field removed).
+- The machine is shared with the logger engineer's test runs. A check that fails once on a time limit and passes when you run it again alone is to be reported with both results, not cured by a wider limit.
 - If a requirement turns out to be wrong or two of them collide, do the sensible thing, and say so in the report under DECISIONS.
 
 # Final report (plain text, this format)

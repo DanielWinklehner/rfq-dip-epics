@@ -64,7 +64,8 @@ Not yours: `RAS/` except the generated registry, `docs/emulation/STATUS.md`, `PL
    - the reading tool returns the same numbers as a direct query, and marks gaps;
    - Grafana answers and has one dashboard per GUI page.
    State each time limit and where it comes from.
-3. `make -C emulation plan-check` passes, the registry is regenerated, and the whole system suite (`make -C emulation test`) still passes.
+3. `make -C emulation plan-check` passes, the registry is regenerated, and the whole system suite (`make -C emulation test`) still passes and stays under 13 minutes (it takes about 11.5 now). The suite fails a run that changes an IOC's saved settings (`limits.sav`, see the header of `emulation/tests/run.sh`): your tests leave them as they find them.
+4. **The GUI is not yours, but it reads the registry.** It draws every device of the registry by its class and its check (`RAS/mist2/tools/gui-check.sh`) demands that every device record is shown. Model the logger's status records in the plan so that the GUI shows them without new code where that is possible (look at how the IOCs' own records and the existing classes are handled in `plan/README.md` and `RAS/mist2/ReactApp/src/registry/README.md`), on the Infrastructure page. The lead runs the GUI check after your branch and the GUI branch are merged. Say in your report what the GUI needs from its side, if anything.
 
 # Acceptance test (the lead runs exactly this from the repository root of your worktree)
 
@@ -79,6 +80,7 @@ All exit 0, and nothing is left running. The lead then starts the emulation with
 - Do not rename or change any existing PV. No placeholder PVs, no dead code.
 - Simple first: the logger is code the lab will maintain. Standard library, pyepics and one PostgreSQL driver; say why if you need more.
 - Verify by running, not by reading. Show for each new test that it fails when the behaviour is broken, where that is cheap.
+- The machine is shared with the GUI engineer's builds. A time limit that fails once and passes when you run it again alone is to be reported with both results, not cured by a wider limit.
 - If a requirement turns out to be wrong or two of them collide, do the sensible thing, and say so in the report under DECISIONS.
 
 # Final report (plain text, this format)
