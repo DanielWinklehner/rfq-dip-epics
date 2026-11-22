@@ -1,4 +1,4 @@
-import { connectedChannels, roleLabel, rolesOf } from "./registry";
+import { connectedChannels, roleLabel, rolesOf, trends } from "./registry";
 
 // What each registry role means to the operator. Roles are the contract
 // between the registry and the widget classes; the registry's own labels win.
@@ -66,27 +66,31 @@ const roleWords = {
   slew: "output slew limit",
   stale: "stale after",
   watchdog: "watchdog time",
+  // The data logger's state (docs/emulation/LOGGER.md section 6).
+  alive: "alive",
+  db: "database",
+  connected: "PVs connected",
+  disconnected: "PVs not connected",
+  rows: "rows written",
+  buffer: "buffer in use",
+  dropped: "rows lost",
+  count: "counter",
 };
 
 export const roleWord = (role) => roleWords[role] ?? role;
 export const roleText = (id, role) => roleLabel(id, role) ?? roleWord(role);
 
-// Read-back roles that are drawn as a trend: on the subsystem pages, in the
-// device windows and in the choice of the Trends page.
-const trendRoles = ["vread", "iread", "value", "p", "speed", "current", "flow", "pv", "out"];
-
-// A set point drawn in the graph of the read-back it is for (the loop's set
-// point with its measured value), where the device has both.
-const trendBeside = { pv: "sp_cmd" };
+// The trend PVs of a device (its connected channels too) or of one channel:
+// the registry's trend roles, each with the set point drawn beside it where
+// the device has both.
 export const trendGraph = (role) =>
-  Object.keys(trendBeside).find((graph) => trendBeside[graph] === role) ?? role;
+  Object.keys(trends.beside).find((graph) => trends.beside[graph] === role) ?? role;
 
-// The trend PVs of a device (its connected channels too) or of one channel.
 export const trendPvs = (id, channel) =>
   (channel ? [channel] : [undefined, ...connectedChannels(id)]).flatMap((ch) => {
     const roles = rolesOf(id, ch);
-    return trendRoles
+    return trends.roles
       .filter((role) => roles[role])
-      .flatMap((role) => [roles[role], roles[trendBeside[role]]])
+      .flatMap((role) => [roles[role], roles[trends.beside[role]]])
       .filter(Boolean);
   });

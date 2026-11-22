@@ -6,8 +6,11 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/EpicsPV";
 import { alarmColors, alarmState, marker } from "../alarm/severity";
-import { channelLabel, connectedChannels, devices, installedDevices, iocs, rolesOf, wordsOf } from "../registry";
+import { channelLabel, connectedChannels, devices, infrastructureDevices, installedDevices, iocs, rolesOf, wordsOf } from "../registry";
+import { roleText } from "../roles";
+import { openDeviceWindow } from "../windows";
 import PvLamp from "./fields/PvLamp";
+import useReading from "./fields/useReading";
 import RoleField from "./RoleField";
 
 const beatTimeout = 5000;
@@ -48,6 +51,42 @@ const IocChip = ({ ioc, onMode }) => {
   );
 };
 
+// A service of the control system (the data logger) by its role `alive`, in
+// the shared alarm look: dead (0, MAJOR) shows on every window. A click opens
+// its device window.
+const AliveChip = ({ id }) => {
+  const theme = useTheme();
+  const pv = rolesOf(id).alive;
+  const words = wordsOf(id, undefined, "alive");
+  const { state, text, menu, openMenu } = useReading(pv, words);
+  const colors = alarmColors(theme, state);
+  const name = words ? devices[id].name : `${devices[id].name} ${roleText(id, "alive")}`;
+  return (
+    <>
+      <Chip
+        size="small"
+        variant="outlined"
+        data-service={id}
+        data-pv={pv}
+        data-alarm={state}
+        label={`${name}: ${text}`}
+        onClick={() => openDeviceWindow(id)}
+        onContextMenu={openMenu}
+        sx={{
+          background: colors.fill,
+          borderColor: state === "ok" ? undefined : colors.stroke,
+          borderStyle: colors.dashed ? "dashed" : "solid",
+          borderWidth: state === "ok" ? 1 : 2,
+          fontWeight: state === "ok" ? undefined : 700,
+        }}
+      />
+      {menu}
+    </>
+  );
+};
+
+const services = infrastructureDevices.filter((id) => rolesOf(id).alive);
+
 // The banner text (LAYOUT.md 1.3), or null when every IOC reports "real".
 const bannerText = (modes) => {
   const entries = Object.keys(iocs).map((ioc) => [iocs[ioc].name, modes[ioc]]);
@@ -79,8 +118,8 @@ const InterlockSummary = () =>
       </Stack>
     ));
 
-// Below the app bar of every window: the emulator banner, the IOC chips and
-// the interlock summary. Sets the window title, with [SIM] while the banner
+// Below the app bar of every window: the emulator banner, the IOC chips, the
+// chips of the services (the data logger) and the interlock summary. Sets the window title, with [SIM] while the banner
 // shows. `compact` (device windows) leaves out the interlock summary.
 const StatusStrip = ({ title, compact = false }) => {
   const theme = useTheme();
@@ -115,6 +154,9 @@ const StatusStrip = ({ title, compact = false }) => {
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
         {Object.keys(iocs).map((ioc) => (
           <IocChip key={ioc} ioc={ioc} onMode={onMode} />
+        ))}
+        {services.map((id) => (
+          <AliveChip key={id} id={id} />
         ))}
       </Stack>
       {!compact && <InterlockSummary />}

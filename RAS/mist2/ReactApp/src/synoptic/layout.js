@@ -1,5 +1,5 @@
 import drawings from "../config/drawings.json";
-import { alarmPvs, installedDevices } from "../registry";
+import { alarmPvs, drawnDevices, installedDevices } from "../registry";
 import { tagHeight } from "./Tag";
 
 export const overview = "Overview";
@@ -7,8 +7,9 @@ const defaultTagWidth = 210;
 
 export const drawingOf = (page) => drawings.pages[page];
 
-// The devices a page is about: all of them on the overview, else its own.
-const devicesOf = (page) => (page === overview ? installedDevices() : installedDevices(page));
+// The devices a page is about: on the Overview every device of a page, else
+// the page's own (infrastructure is on the Infrastructure page only).
+const devicesOf = (page) => (page === overview ? drawnDevices : installedDevices(page));
 
 // Tags for the devices of a page that its drawing does not place, in the
 // drawing's list area, column after column. A device added to the registry

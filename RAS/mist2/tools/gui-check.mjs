@@ -31,6 +31,11 @@
 //                        that is not fulfilled, in the window and in the tag
 //   loop <id> pid        PID from the loop's tag, the mode shows PID; a set point
 //                        typed in the device window; MANUAL again there
+//   logger <alive>       each service of the control system (the data logger):
+//                        its chip in the strip of the main window, a page window
+//                        and its device window shows `alive` as Channel Access
+//                        reads it (1: plain, 0: MAJOR); its widget on the
+//                        Infrastructure page; on no drawing and in no list area
 //   windows <tab>        the page in a window of its own: complete, its values
 //                        (<work>/window.json), its tab marked and bringing it to
 //                        the front, one window per device from it, "attach" and
@@ -45,7 +50,9 @@ const registry = JSON.parse(fs.readFileSync(registryPath, "utf8"));
 const devices = registry.devices;
 const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 const installed = Object.keys(devices).filter((id) => !devices[id].flags.not_installed);
-const tabs = ["Overview", ...new Set(installed.map((id) => devices[id].page)), "Trends", "Infrastructure"].map(slug);
+// Pages of the main window; a device without a page is infrastructure (Infrastructure page only).
+const tabs = ["Overview", ...new Set(installed.map((id) => devices[id].page).filter(Boolean)), "Trends", "Infrastructure"].map(slug);
+const services = installed.filter((id) => !devices[id].page && devices[id].roles.alive);
 
 let failures = 0;
 const fail = (message) => {
@@ -191,11 +198,10 @@ const testValue = (id, role, share) => {
 // string (or its index), a number with an SI prefix in the record's unit.
 const sevrNames = { ok: "NO_ALARM", minor: "MINOR", major: "MAJOR", invalid: "INVALID" };
 const prefixes = { p: 1e-12, n: 1e-9, "µ": 1e-6, m: 1e-3, k: 1e3, M: 1e6 };
-const standInStates = { service: ["not alive", "alive"] }; // as registry.js
 const pvInfo = Object.fromEntries(Object.values(devices).flatMap((d) => Object.entries(d.pvs)));
 const pvWords = Object.fromEntries(
   Object.values(devices).flatMap((d) => [
-    ...Object.entries(d.roles).map(([role, pv]) => [pv, d.states?.[role] ?? d.pvs[pv].states ?? standInStates[role]]),
+    ...Object.entries(d.roles).map(([role, pv]) => [pv, d.states?.[role] ?? d.pvs[pv].states]),
     ...Object.values(d.channels ?? {}).flatMap((c) => Object.values(c.roles).map((pv) => [pv, c.states ?? d.pvs[pv].states])),
   ])
 );
@@ -242,10 +248,17 @@ const faultSpecs = (specs) => {
 
 // The main pages against the baseline: the PVs in `changed` must be in state
 // `state`, every other one as before; each tab dot the worst it shows.
-const comparePages = async (label, changed, state, extra = async () => {}, unprocessed = new Set()) => {
+// A running logger counts the logged PVs that are not connected: while an IOC
+// is stopped, and until it has reconnected after its start, that record of
+// the logger may be MINOR (it is OK when no logger runs).
+const loggerTolerance = () =>
+  Object.fromEntries(services.filter((id) => devices[id].roles.disconnected).map((id) => [devices[id].roles.disconnected, "minor"]));
+
+// `tolerated`: { pv: state } a PV may show besides its baseline state.
+const comparePages = async (label, changed, state, extra = async () => {}, tolerated = {}) => {
   const baseline = JSON.parse(fs.readFileSync(`${work}/normal.json`, "utf8")).baseline;
   const touched = new Set();
-  const showsUnprocessed = new Set();
+  const showsTolerated = new Map();
   for (const tab of tabs.filter((t) => t !== "trends")) {
     const page = await openMain(tab);
     const els = await settle(page, (all) =>
@@ -255,11 +268,11 @@ const comparePages = async (label, changed, state, extra = async () => {}, unpro
     const wrong = Object.entries(now).filter(
       ([pv, alarm]) =>
         alarm !== (changed.has(pv) ? state : (baseline.pages[tab]?.[pv] ?? alarm)) &&
-        !(unprocessed.has(pv) && alarm === "invalid")
+        tolerated[pv] !== alarm
     );
     if (Object.keys(now).some((pv) => changed.has(pv))) touched.add(tab);
-    const newlyInvalid = ([pv, alarm]) => unprocessed.has(pv) && alarm === "invalid" && baseline.pages[tab]?.[pv] !== "invalid";
-    if (Object.entries(now).some(newlyInvalid)) showsUnprocessed.add(tab);
+    const shownTolerated = Object.entries(now).filter(([pv, alarm]) => tolerated[pv] === alarm && baseline.pages[tab]?.[pv] !== alarm);
+    if (shownTolerated.length) showsTolerated.set(tab, shownTolerated.map(([, alarm]) => alarm));
     check(
       wrong.length === 0,
       `${label}, ${tab}: ${Object.keys(now).length} PVs, the affected ones ${state}, the others as before${
@@ -273,13 +286,19 @@ const comparePages = async (label, changed, state, extra = async () => {}, unpro
   // The dots, in a main window of their own: each dot is the worst of every
   // PV of its page, hidden pages included, so it settles once all of them
   // have reported (later with an IOC down: pvServer waits for its PVs).
-  // A record not processed since its IOC's start counts on the tabs that show
-  // it, and on Infrastructure, whose dot is the worst of every record.
-  if (showsUnprocessed.size) showsUnprocessed.add("infrastructure");
+  // A tolerated state counts on the tabs that showed it, and on
+  // Infrastructure, whose dot is the worst of every record: their dot may be
+  // that state too.
+  const rank = ["ok", "minor", "major", "invalid", "disconnected"];
+  const worse = (a, b) => (rank.indexOf(b) > rank.indexOf(a) ? b : a);
+  const seen = [...showsTolerated.values()].flat();
+  if (seen.length) showsTolerated.set("infrastructure", [...(showsTolerated.get("infrastructure") ?? []), ...seen]);
   const want = Object.fromEntries(
     Object.keys(baseline.tabs).map((tab) => [
       tab,
-      touched.has(tab) ? state : showsUnprocessed.has(tab) && baseline.tabs[tab] === "ok" ? "invalid" : baseline.tabs[tab],
+      touched.has(tab)
+        ? [state]
+        : [baseline.tabs[tab], ...(showsTolerated.get(tab) ?? []).map((alarm) => worse(baseline.tabs[tab], alarm))],
     ])
   );
   const page = await openMain("overview");
@@ -287,14 +306,14 @@ const comparePages = async (label, changed, state, extra = async () => {}, unpro
   let waited = 0;
   for (; waited < 30; waited += 1) {
     dots = await tabStates(page);
-    if (Object.keys(want).every((tab) => dots[tab] === want[tab])) break;
+    if (Object.keys(want).every((tab) => want[tab].includes(dots[tab]))) break;
     await page.waitForTimeout(1000);
   }
   await page.close();
   // How long an operator who opens a window in this state sees other dots.
   console.log(`note: ${label}: tab dots as expected after ${waited} s`);
   for (const tab of Object.keys(want)) {
-    check(dots[tab] === want[tab], `${label}: tab ${tab} shows ${dots[tab]}, expected ${want[tab]}`);
+    check(want[tab].includes(dots[tab]), `${label}: tab ${tab} shows ${dots[tab]}, expected ${[...new Set(want[tab])].join(" or ")}`);
   }
 };
 
@@ -399,10 +418,16 @@ const phases = {
   },
 
   async recovered() {
-    const reads = args[0] ? JSON.parse(fs.readFileSync(`${work}/${args[0]}`, "utf8")) : {};
-    const unprocessed = new Set(Object.keys(reads).filter((pv) => reads[pv].severity === 3 && reads[pv].status === 17));
-    if (unprocessed.size) console.log(`note: INVALID (UDF) through Channel Access, not processed since the IOC start: ${[...unprocessed].join(", ")}`);
-    await comparePages("after clearing", new Set(), "ok", undefined, unprocessed);
+    // After an IOC start (args: a Channel Access read of the moment, then the
+    // records still expected unprocessed): those of them that Channel Access
+    // reads INVALID with status UDF may show INVALID. The note names every
+    // record that is INVALID/UDF at that moment.
+    const [read, ...expectedUdf] = args;
+    const reads = read ? JSON.parse(fs.readFileSync(`${work}/${read}`, "utf8")) : {};
+    const udf = Object.keys(reads).filter((pv) => reads[pv].severity === 3 && reads[pv].status === 17);
+    if (udf.length) console.log(`note: INVALID (UDF) through Channel Access, not processed since the IOC start: ${udf.join(", ")}`);
+    const tolerated = Object.fromEntries(udf.filter((pv) => expectedUdf.includes(pv)).map((pv) => [pv, "invalid"]));
+    await comparePages("after clearing", new Set(), "ok", undefined, { ...loggerTolerance(), ...tolerated });
   },
 
   async iocdown() {
@@ -420,7 +445,7 @@ const phases = {
         await shot(page, "iocdown-overview", false);
       }
       if (tab === "plasma-generator") await pageShot(page, "iocdown-plasma-generator");
-    });
+    }, loggerTolerance());
     const id = installed.find((d) => devices[d].ioc === ioc);
     const page = await openDevice(id);
     await page.waitForTimeout(3000);
@@ -613,6 +638,49 @@ const phases = {
     await main.close();
     fs.writeFileSync(`${work}/setpoint.txt`, `${roles.sp_cmd} ${value}\n`);
     pass(`typed ${value} into the set point of ${id} in PID`);
+  },
+
+  async logger() {
+    const want = Number(args[0]) === 1 ? "ok" : "major";
+    const word = Number(args[0]) === 1 ? "alive" : "dead";
+    for (const id of services) {
+      const chipState = async (page) => {
+        const chip = page.locator(`[data-service="${id}"]`);
+        const [state] = await until(() => chip.getAttribute("data-alarm"), (s) => s === want, 10);
+        return [state, await chip.innerText()];
+      };
+      const main = await openMain("infrastructure");
+      await settle(main);
+      const [state, text] = await chipState(main);
+      check(state === want, `${id} ${word}: its chip in the main window's strip is ${state} ("${text}"), expected ${want}`);
+      check(
+        (await main.locator(`svg[data-page] g[data-device="${id}"]`).count()) === 0,
+        `${id}: on no drawing and in no list area of the main window's pages`
+      );
+      const card = main.locator(`[data-service-card="${id}"]`);
+      const shown = await card.locator("[data-pv]").evaluateAll((els) => els.map((el) => el.dataset.pv));
+      const missing = expected(id).filter((pv) => !shown.includes(pv));
+      check(
+        (await card.isVisible()) && missing.length === 0,
+        `${id}: its widget on the Infrastructure page shows all ${expected(id).length} records${missing.length ? ` (missing: ${missing.join(", ")})` : ""}`
+      );
+      const alive = await card.locator(`[data-pv="${devices[id].roles.alive}"]`).getAttribute("data-alarm");
+      check(alive === want, `${id} ${word}: its widget shows alive ${alive}`);
+      await pageShot(main, `logger-${word}-infrastructure`);
+      await main.close();
+      const win = await open("/page/diagnostics");
+      await settle(win);
+      const [winState] = await chipState(win);
+      check(winState === want, `${id} ${word}: its chip in a page window is ${winState}`);
+      await shot(win, `logger-${word}-page-window`, false);
+      await win.close();
+      const device = await openDevice(id);
+      await settle(device);
+      const [deviceState] = await chipState(device);
+      check(deviceState === want, `${id} ${word}: its chip in its device window is ${deviceState}`);
+      await shot(device, `logger-${word}-device`, false);
+      await device.close();
+    }
   },
 
   async windows() {

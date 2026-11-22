@@ -10,9 +10,10 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { AlarmChip } from "../alarm/AlarmMarks";
 import { useWorstAlarm } from "../alarm/AlarmStore";
+import { widgetOf } from "../components/devices";
 import { flagTitles } from "../components/Flags";
 import PvText from "../components/fields/PvText";
-import { alarmPvs, devices, iocOf, iocs, isLongString, rolesOf } from "../registry";
+import { alarmPvs, devices, infrastructureDevices, iocOf, iocs, isLongString, rolesOf } from "../registry";
 import { openDeviceWindow } from "../windows";
 
 const identityRoles = ["id", "firmware", "channel_list"];
@@ -32,7 +33,7 @@ const DeviceRow = ({ id }) => {
         </Typography>
       </TableCell>
       <TableCell>{device.class ?? "none"}</TableCell>
-      <TableCell>{device.page}</TableCell>
+      <TableCell>{device.page ?? "none: infrastructure"}</TableCell>
       <TableCell>{iocOf(id).name}</TableCell>
       <TableCell>{alarmPvs(id).length > 0 && <AlarmChip state={state} />}</TableCell>
       {identityRoles.map((role) => (
@@ -51,10 +52,33 @@ const DeviceRow = ({ id }) => {
   );
 };
 
-// Every IOC and every device of the registry, installed or not, with its
-// identity and the state of its communication.
+// A service of the control system (a device whose subsystem has no page):
+// here only, with its widget.
+const Service = ({ id }) => {
+  const DeviceWidget = widgetOf(devices[id].class);
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, width: 480 }} data-service-card={id}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+        <Link component="button" variant="subtitle1" onClick={() => openDeviceWindow(id)}>
+          {devices[id].name}
+        </Link>
+        <AlarmChip state={useWorstAlarm(alarmPvs(id))} />
+      </Stack>
+      <DeviceWidget id={id} />
+    </Paper>
+  );
+};
+
+// The services of the control system, then every IOC and every device of the
+// registry, installed or not, with its identity and the state of its
+// communication.
 const InfrastructurePage = () => (
   <Stack spacing={2} sx={{ p: 1 }}>
+    <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+      {infrastructureDevices.map((id) => (
+        <Service key={id} id={id} />
+      ))}
+    </Stack>
     <Paper variant="outlined">
       <Table size="small">
         <TableHead>

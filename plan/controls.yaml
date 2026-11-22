@@ -142,7 +142,7 @@ subsystems:
   - {id: diag, name: "Beam diagnostics", phase: 1, page: "Diagnostics"}
   # The services of the control system that have records. Shown on the Diagnostics page until the
   # GUI can show a subsystem without a page on the Infrastructure page alone (T17 report).
-  - {id: services, name: "Control system services", phase: 1, page: "Diagnostics"}
+  - {id: services, name: "Control system services", phase: 1}   # no page: Infrastructure page only (T16b)
   - {id: scan, name: "Dipole scan and emittance scanners", phase: 2}
 
 devices:
