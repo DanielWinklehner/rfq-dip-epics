@@ -1,16 +1,14 @@
 #!/bin/sh
 # run-ioc.sh - start one MIST-2 IOC
 #
-#   run-ioc.sh <iocRack|iocHV|iocLoop> <sim|real>
-#
-# iocLoop has no ports: for it the mode only shows in IOC-LOOP:mode.
+#   run-ioc.sh <iocRack|iocHV> <sim|real>
 #
 # Used by the container entrypoint (emulation/compose.yaml) and on the real Linux computer,
 # from the same EPICS top. The top is found from the location of this script, so no generated
 # envPaths file is needed (a bind mount of iocBoot would hide it).
 set -eu
 
-usage() { echo "usage: $0 <iocRack|iocHV|iocLoop> <sim|real>" >&2; exit 2; }
+usage() { echo "usage: $0 <iocRack|iocHV> <sim|real>" >&2; exit 2; }
 [ $# -eq 2 ] || usage
 IOC=$1
 if [ -n "${MIST2_PORTS:-}" ] && [ "$MIST2_PORTS" != "$2" ]; then

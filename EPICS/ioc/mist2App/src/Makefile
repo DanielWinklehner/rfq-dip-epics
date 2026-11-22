@@ -15,15 +15,9 @@ mist2_DBD += drvAsynIPPort.dbd
 mist2_DBD += drvAsynSerialPort.dbd
 mist2_DBD += stream.dbd
 mist2_DBD += asSupport.dbd
-mist2_DBD += pidLoop.dbd
 
 mist2_SRCS += mist2_registerRecordDeviceDriver.cpp
 mist2_SRCS_DEFAULT += mist2Main.cpp
-
-# The PID loop (EPICS/Db/loop.db): the algorithm in plain C (pid.c, tested alone by pidTest.mk)
-# and the subroutine of its aSub record (pidLoop.c)
-mist2_SRCS += pid.c
-mist2_SRCS += pidLoop.c
 
 mist2_LIBS += autosave
 mist2_LIBS += stream

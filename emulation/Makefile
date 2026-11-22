@@ -26,7 +26,7 @@ down:
 # The IOCs only: the simulators keep running and keep their state, as the devices do when a
 # control computer restarts. After a change of a simulator or its configuration: down, up.
 restart:
-	$(COMPOSE) restart ioc-rack ioc-hv ioc-loop
+	$(COMPOSE) restart ioc-rack ioc-hv
 	$(COMPOSE) up -d --wait
 
 ps:

@@ -1,5 +1,4 @@
-# MIST-2 emulation: two control computers, the rack IOC and the platform IOC each with its own
-# address, and the loop IOC, which runs on the platform computer in reality (docs/emulation/LOOP.md).
+# MIST-2 emulation: two control computers, each one IOC with its own address.
 # Use through the Makefile (make -C emulation up), see README.md.
 name: mist2emu
 
@@ -82,24 +81,6 @@ services:
       start_interval: 1s
       retries: 3
 
-  # The loop IOC: no hardware, Channel Access only. It starts whether or not the other IOCs run,
-  # so it waits for nobody. On the real platform computer it shares the host with iocHV.
-  ioc-loop:
-    <<: *ioc
-    hostname: ioc-loop
-    command: ["iocLoop", "sim"]
-    networks:
-      mist2ctl:
-        ipv4_address: ${MIST2_SUBNET:-172.30.0}.13
-    healthcheck:
-      test: ["CMD", "env", "EPICS_CA_AUTO_ADDR_LIST=NO", "EPICS_CA_ADDR_LIST=127.0.0.1",
-             "caget", "-w", "2", "IOC-LOOP:heartbeat"]
-      interval: 10s
-      timeout: 5s
-      start_period: 30s
-      start_interval: 1s
-      retries: 3
-
   # One simulator container per emulated computer: everything that is cabled to that computer.
   # Address .30 is reserved for the plant model.
   sim-rack:
@@ -135,6 +116,31 @@ services:
       mist2ctl:
         ipv4_address: ${MIST2_SUBNET:-172.30.0}.30
 
+  # The loop service (loops/mist2loop): the PID of the control loops, a Channel Access client of
+  # the platform IOC, where the loops' records are. On the real platform computer it runs beside
+  # iocHV (systemd, loops/README.md). It starts whether or not the IOC runs, so it waits for
+  # nobody; SIGTERM (docker stop) leaves every loop in MANUAL.
+  loop:
+    image: mist2-tools:dev
+    init: true
+    restart: "no"
+    hostname: loop
+    user: "${MIST2_UID:-1000}:${MIST2_GID:-1000}"
+    working_dir: /repo/loops
+    entrypoint: []
+    command: ["python", "-m", "mist2loop", "--config", "config/mist2.yaml"]
+    environment:
+      HOME: /tmp
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      EPICS_CA_AUTO_ADDR_LIST: "NO"
+      EPICS_CA_ADDR_LIST: ${MIST2_SUBNET:-172.30.0}.255
+    volumes:
+      - ..:/repo:ro
+    networks:
+      mist2ctl:
+        ipv4_address: ${MIST2_SUBNET:-172.30.0}.40
+
   tools:
     profiles: ["tools"]
     image: mist2-tools:dev
@@ -165,5 +171,5 @@ networks:
       config:
         - subnet: ${MIST2_SUBNET:-172.30.0}.0/24
           # Containers without a fixed address get one from the upper half, so .1 to .127
-          # stay free for fixed addresses (IOCs .11 .12 .13, simulators .21 .22 .30).
+          # stay free for fixed addresses (IOCs .11 .12, simulators .21 .22 .30, loop service .40).
           ip_range: ${MIST2_SUBNET:-172.30.0}.128/25

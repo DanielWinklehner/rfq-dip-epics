@@ -67,39 +67,6 @@
      "role": "mode"
     }
    }
-  },
-  "ioc_loop": {
-   "name": "Loop IOC",
-   "st_cmd": "EPICS/ioc/iocBoot/iocLoop/st.cmd",
-   "container": "ioc-loop",
-   "class": "ioc",
-   "roles": {
-    "heartbeat": "IOC-LOOP:heartbeat",
-    "mode": "IOC-LOOP:mode"
-   },
-   "simulators": [],
-   "loads": [
-    {
-     "db": "ioc_info.db",
-     "macros": {
-      "P": "IOC-LOOP"
-     }
-    }
-   ],
-   "pvs": {
-    "IOC-LOOP:heartbeat": {
-     "type": "calc",
-     "access": "r",
-     "desc": "Counts up once per second",
-     "role": "heartbeat"
-    },
-    "IOC-LOOP:mode": {
-     "type": "stringin",
-     "access": "r",
-     "desc": "Port configuration in use",
-     "role": "mode"
-    }
-   }
   }
  },
  "devices": {
@@ -583,11 +550,11 @@
   },
   "dis_loop": {
    "name": "Discharge current loop",
-   "model": "PID loop (EPICS/Db/loop.db, algorithm EPICS/ioc/mist2App/src/pid.c)",
+   "model": "PID loop: records EPICS/Db/loop.db, algorithm in the service loops/mist2loop",
    "class": "loop",
    "subsystem": "source",
    "page": "Plasma generator",
-   "ioc": "ioc_loop",
+   "ioc": "ioc_hv",
    "status": "new",
    "flags": {
     "assumed": "The default gains come from the plant model of the emulation, not from MIST-2 (docs/emulation/LOOP.md)"
@@ -596,14 +563,18 @@
     "mode_cmd": "LOOP-DIS:mode:setpoint",
     "mode": "LOOP-DIS:mode:get",
     "reason": "LOOP-DIS:reason:get",
-    "limit": "LOOP-DIS:limit:get",
-    "sp": "LOOP-DIS:value:setpoint",
+    "service": "LOOP-DIS:service:get",
+    "permit1": "LOOP-DIS:permit1:get",
+    "permit2": "LOOP-DIS:permit2:get",
+    "permit3": "LOOP-DIS:permit3:get",
     "pv": "LOOP-DIS:value:read",
+    "limit": "LOOP-DIS:limit:get",
     "out": "LOOP-DIS:output:get",
     "error": "LOOP-DIS:error:get",
     "p": "LOOP-DIS:p:get",
     "i": "LOOP-DIS:i:get",
     "d": "LOOP-DIS:d:get",
+    "sp": "LOOP-DIS:value:setpoint",
     "kp": "LOOP-DIS:kp:setpoint",
     "ki": "LOOP-DIS:ki:setpoint",
     "kd": "LOOP-DIS:kd:setpoint",
@@ -611,7 +582,8 @@
     "outmin": "LOOP-DIS:outmin:setpoint",
     "outmax": "LOOP-DIS:outmax:setpoint",
     "slew": "LOOP-DIS:slew:setpoint",
-    "stale": "LOOP-DIS:stale:setpoint"
+    "stale": "LOOP-DIS:stale:setpoint",
+    "watchdog": "LOOP-DIS:watchdog:setpoint"
    },
    "simulators": [],
    "loads": [
@@ -636,7 +608,8 @@
       "OLO": "0",
       "OHI": "300",
       "RES": "0.01",
-      "SCAN": ".2 second"
+      "SCAN": ".2 second",
+      "DT": "0.2"
      }
     }
    ],
@@ -655,8 +628,14 @@
       0
      ],
      "ack": false,
-     "note": "the operator's request; the loop sets it back to MANUAL when it hands back or refuses (latch). A test writes only MANUAL: PID would act on the filament heating",
+     "note": "the operator's request; cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating",
      "readback": "LOOP-DIS:mode:get"
+    },
+    "LOOP-DIS:_mode": {
+     "type": "calc",
+     "access": "r",
+     "desc": "Mode (internal)",
+     "internal": true
     },
     "LOOP-DIS:mode:get": {
      "type": "bi",
@@ -666,7 +645,14 @@
       "MANUAL",
       "PID"
      ],
-     "role": "mode"
+     "role": "mode",
+     "note": "PID only while requested, accepted by the service and the service alive"
+    },
+    "LOOP-DIS:_active": {
+     "type": "bo",
+     "access": "w",
+     "desc": "PID accepted by the service (internal)",
+     "internal": true
     },
     "LOOP-DIS:reason:get": {
      "type": "mbbi",
@@ -675,6 +661,7 @@
      "states": [
       "none",
       "IOC start",
+      "service start",
       "interlock open",
       "REK not on in remote",
       "TDK output off",
@@ -686,37 +673,75 @@
       "measurement stale",
       "written by someone else",
       "set not accepted",
-      "outside output limits"
+      "outside output limits",
+      "service stopped"
      ],
      "role": "reason",
      "note": "why the loop last handed back or refused, until the next request"
     },
-    "LOOP-DIS:limit:get": {
-     "type": "mbbi",
-     "access": "r",
-     "desc": "Output held back by a limit",
-     "states": [
-      "free",
-      "at minimum",
-      "at maximum",
-      "slew limited"
-     ],
-     "role": "limit",
-     "note": "free, at minimum, at maximum (MINOR) or slew limited"
-    },
-    "LOOP-DIS:value:setpoint": {
-     "type": "ao",
+    "LOOP-DIS:_count": {
+     "type": "longout",
      "access": "w",
-     "egu": "A",
-     "desc": "Set point",
-     "role": "sp",
-     "test": [
-      10,
-      20
+     "desc": "Service counter (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:service:get": {
+     "type": "calc",
+     "access": "r",
+     "desc": "Loop service alive",
+     "role": "service",
+     "note": "1 while the loop service's counter changes within the watchdog time, else 0 (MAJOR)"
+    },
+    "LOOP-DIS:_dead": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Service not alive: drop (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:_drop": {
+     "type": "seq",
+     "access": "r",
+     "desc": "Request and acceptance off (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:permit1:get": {
+     "type": "calc",
+     "access": "r",
+     "desc": "interlock open?",
+     "role": "permit1",
+     "note": "permit condition 1 (DESC names it): 0 fulfilled, 1 not (MAJOR), 2 no data (INVALID)",
+     "fails_with": [
+      "interlockbox"
      ],
-     "ack": true,
-     "note": "soft setting of the loop IOC (no device: accepted by the IOC itself). Its drive limits DRVL and DRVH are the set point limits, saved with it",
-     "readback": null
+     "fails_closed": [
+      "interlockbox"
+     ]
+    },
+    "LOOP-DIS:permit2:get": {
+     "type": "calc",
+     "access": "r",
+     "desc": "REK not on in remote?",
+     "role": "permit2",
+     "note": "permit condition 2, as permit 1",
+     "fails_with": [
+      "rek:1"
+     ],
+     "fails_closed": [
+      "rek:1"
+     ]
+    },
+    "LOOP-DIS:permit3:get": {
+     "type": "calc",
+     "access": "r",
+     "desc": "TDK output off?",
+     "role": "permit3",
+     "note": "permit condition 3, as permit 1",
+     "fails_with": [
+      "tdk"
+     ],
+     "fails_closed": [
+      "tdk"
+     ]
     },
     "LOOP-DIS:value:read": {
      "type": "ai",
@@ -732,13 +757,56 @@
       "rek:1"
      ]
     },
+    "LOOP-DIS:_act": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Actuator set point (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:_hb": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Heartbeat of the IOC (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:_out": {
+     "type": "ao",
+     "access": "w",
+     "desc": "Output of the service (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:_target": {
+     "type": "calc",
+     "access": "r",
+     "desc": "Next actuator value (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:_write": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Writes the actuator (internal)",
+     "internal": true
+    },
+    "LOOP-DIS:limit:get": {
+     "type": "mbbi",
+     "access": "r",
+     "desc": "Output held back by a limit",
+     "states": [
+      "free",
+      "at minimum",
+      "at maximum",
+      "slew limited"
+     ],
+     "role": "limit",
+     "note": "free, at minimum, at maximum (MINOR) or slew limited"
+    },
     "LOOP-DIS:output:get": {
      "type": "ai",
      "access": "r",
      "egu": "A",
      "desc": "Output (actuator set point)",
      "role": "out",
-     "note": "in PID what the loop sends to the actuator, in MANUAL the actuator's set point"
+     "note": "in PID the service's output, in MANUAL the actuator's set point"
     },
     "LOOP-DIS:error:get": {
      "type": "ai",
@@ -767,6 +835,20 @@
      "egu": "A",
      "desc": "Derivative term",
      "role": "d"
+    },
+    "LOOP-DIS:value:setpoint": {
+     "type": "ao",
+     "access": "w",
+     "egu": "A",
+     "desc": "Set point",
+     "role": "sp",
+     "test": [
+      10,
+      20
+     ],
+     "ack": true,
+     "note": "soft setting of the IOC (no device: accepted by the IOC itself). Its drive limits DRVL and DRVH are the set point limits, saved with it",
+     "readback": null
     },
     "LOOP-DIS:kp:setpoint": {
      "type": "ao",
@@ -880,65 +962,19 @@
      "note": "soft setting, saved by autosave",
      "readback": null
     },
-    "LOOP-DIS:_act": {
-     "type": "ai",
-     "access": "r",
-     "desc": "Actuator set point (internal)",
-     "internal": true
-    },
-    "LOOP-DIS:_hb": {
-     "type": "ai",
-     "access": "r",
-     "desc": "Heartbeat of the owner (internal)",
-     "internal": true
-    },
-    "LOOP-DIS:_c1": {
-     "type": "calc",
-     "access": "r",
-     "desc": "Permit condition 1 (internal)",
-     "internal": true,
-     "fails_with": [
-      "interlockbox"
+    "LOOP-DIS:watchdog:setpoint": {
+     "type": "ao",
+     "access": "w",
+     "egu": "s",
+     "desc": "Service silent longer: MANUAL",
+     "role": "watchdog",
+     "test": [
+      1,
+      5
      ],
-     "fails_closed": [
-      "interlockbox"
-     ]
-    },
-    "LOOP-DIS:_c2": {
-     "type": "calc",
-     "access": "r",
-     "desc": "Permit condition 2 (internal)",
-     "internal": true,
-     "fails_with": [
-      "rek:1"
-     ],
-     "fails_closed": [
-      "rek:1"
-     ]
-    },
-    "LOOP-DIS:_c3": {
-     "type": "calc",
-     "access": "r",
-     "desc": "Permit condition 3 (internal)",
-     "internal": true,
-     "fails_with": [
-      "tdk"
-     ],
-     "fails_closed": [
-      "tdk"
-     ]
-    },
-    "LOOP-DIS:_pid": {
-     "type": "aSub",
-     "access": "r",
-     "desc": "PID loop (internal)",
-     "internal": true
-    },
-    "LOOP-DIS:_write": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Writes the actuator (internal)",
-     "internal": true
+     "ack": true,
+     "note": "soft setting, saved by autosave",
+     "readback": null
     }
    }
   },

@@ -1,0 +1,12 @@
+# mist2loop configuration: the loops the service runs, by the prefix of their records
+# (EPICS/Db/loop.db, loaded by EPICS/ioc/iocBoot/iocHV/st.cmd). The same file for the emulation and
+# the platform computer. The settings of each loop (set point, gains, limits, times) are records
+# of the IOC, saved by its autosave, not entries here.
+
+# Cycle of the service, s. The same as the period of the IOC's writer (macros SCAN, DT of
+# loop.db): a seventh of the plant's time constant (about 1.4 s in the model), at most 5 sets
+# per second on the TDK's serial line (docs/emulation/LOOP.md, "Period").
+period_s: 0.2
+
+loops:
+  - prefix: LOOP-DIS        # discharge current through the filament heating current

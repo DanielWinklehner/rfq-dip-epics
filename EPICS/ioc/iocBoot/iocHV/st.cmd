@@ -37,7 +37,17 @@ dbLoadRecords("$(MIST2_DB)/rek.db",            "PORT=REK,UNITNUM=1")
 dbLoadRecords("$(MIST2_DB)/thermocouples.db",  "PORT=thermo,DEVICE=THM")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=thermo,DEVICE=THM")
 
-## Limits (the current limits of the HV supplies): autosave. At the start the defaults file of
+## Control loops: the records of each loop (EPICS/Db/loop.db). The algorithm is the Python
+## service loops/mist2loop beside this IOC; these records also enforce, without it, the output
+## and slew limits and that the actuator is written only in PID (docs/emulation/LOOP.md).
+
+# Discharge current (REK, measured) through the filament heating current (TDK, actuator).
+# Permits: interlock closed (rack IOC), REK output on in remote control, TDK output on. RES: the
+# TDK takes the current with two decimals (tdk.proto, PC %.2f). SCAN .2 second: a seventh of the
+# plant's time constant (about 1.4 s, model), at most 5 sets per second on the TDK's line.
+dbLoadRecords("$(MIST2_DB)/loop.db",           "P=LOOP-DIS,MEAS=REK-1:current:read,ACT=TDK:current:setpoint,HB=IOC-HV:heartbeat,C1=interlock_open,R1=0,W1=interlock open,C2=REK-1:status:read,R2=1,W2=REK not on in remote,C3=TDK:status:get,R3=1,W3=TDK output off,EGU=A,OEGU=A,OLO=0,OHI=300,RES=0.01,SCAN=.2 second,DT=0.2")
+
+## Limits (the current limits of the HV supplies) and the settings of the loops: autosave. At the start the defaults file of
 ## this IOC is restored, then the file saved at run time in $(MIST2_SAVE)/$(IOC), which
 ## overrides it (missing at the first start: the defaults apply). Every PV of a record with
 ## info(autosaveFields, ...) is saved within 5 s of a change. run-ioc.sh creates the directory.

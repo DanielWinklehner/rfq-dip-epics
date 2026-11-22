@@ -1,21 +1,28 @@
-"""The control loops of the loop IOC (docs/emulation/LOOP.md), without the plant: the measured value
-does not follow the actuator here, so a loop in PID ramps its output at the slew rate. What is
-tested is the switching, not the control (that is test C, `make -C emulation test-loop`):
+"""The control loops (docs/emulation/LOOP.md), without the plant: records in the platform IOC, the
+PID in the loop service (container `loop`). The measured value does not follow the actuator
+here, so a loop in PID ramps its output at the slew rate and writes every period. What is tested
+is the switching and the backstop, not the control (that is test C, `make -C emulation
+test-loop`):
 
 - every setting is written and read back, the set point limits clamp the set point;
-- a request for PID while a condition is not fulfilled is refused, with its reason (R5);
-- each hand-back from PID, with its reason, within its time limit, the request back at MANUAL
-  (latch) and the actuator left at its last set point (R4 a to e);
-- a restart of the loop IOC in PID starts in MANUAL, reason "IOC start", settings kept (R4 f);
-- the platform IOC's container stopped and started: hand-back, the loop IOC keeps running, it
-  reconnects, PID works again.
-The module ends with every loop in MANUAL and its devices as they were.
+- a request for PID while a condition is not fulfilled, or while the service does not run, is
+  refused with its reason (R5);
+- each hand-back from PID with its reason, within its time limit, the request back at MANUAL
+  (latch) and the actuator left at its last set point (R4 a to e); the service killed in PID
+  (R4 f, the IOC alone);
+- a start of the IOC and a start of the service end in MANUAL (R4 g);
+- the backstop without the service: a test client in its place writes wrong values, and the
+  actuator never gets a value outside the limits, never moves faster than the slew limit, and is
+  never written in MANUAL.
+The module ends with every loop in MANUAL, the service running, and the devices as they were.
 
 Everything comes from the registry: the loop's roles, and from its database load the PVs of the
-measurement (MEAS), the actuator (ACT), the heartbeat (HB) and the permit conditions (C1 to C3,
-required values R1 to R3, words W1 to W3)."""
+measurement (MEAS), the actuator (ACT), the heartbeat (HB), the permit conditions (C1 to C3,
+required values R1 to R3, words W1 to W3) and the writer's period (DT)."""
+import threading
 import time
 
+import epics
 import pytest
 
 import system as S
@@ -24,24 +31,22 @@ from conftest import restore_writes, snapshot
 from test_03_write import write_values
 
 LOOPS = [d for d, dev in reg.devices.items() if dev["class"] == "loop"]
-PERIOD = 0.2           # s, SCAN of the loop (macro SCAN)
+SERVICE = "loop"       # the Compose service of the loop service (run.sh may stop and start it)
 
 # Time limits, seconds from the cause to MANUAL (or to the refusal):
-REFUSE_LIMIT = 1.0     # the request is read once per period (0.2 s), plus Channel Access
-PERMIT_LIMIT = {       # the condition's PV changes, then one loop period:
+REFUSE_LIMIT = 1.0     # the service reads the request by monitor and decides in its next cycle
+                       # (0.2 s), plus Channel Access
+PERMIT_LIMIT = {       # the condition's PV changes, then one cycle:
     "interlock": 1.0,  #   interlock box polled every 0.1 s, interlock_open processed with it
     "supply": 2.5,     #   supply output state polled every 1 s (REK STS, TDK OUT?), the switching
 }                      #   protocol before it (PRIO HIGH)
-MEASUREMENT_LIMIT = 2.0  # REK monitors polled at 10 Hz, reply timeout 150 ms
+MEASUREMENT_LIMIT = 2.0   # REK monitors polled at 10 Hz, reply timeout 150 ms
 NODATA_LIMIT = 3.0     # interlock box polled every 0.1 s, libcom1 reply timeout 1 s
-OVERRIDE_LIMIT = 1.0   # the actuator's monitor reaches the mirror at once, then one period
-NOT_ACCEPTED_LIMIT = 1.0  # a garbled answer fails the set at once, then one period
-# docker stop: the container's network goes with it, and the loop IOC's Channel Access client
-# does not learn that the circuit is closed until its own echo timeout (tens of seconds). The
-# heartbeat stops at once, so the loop hands back as stale: within the stale time plus
-# STALE_SLACK (or earlier as "measurement no data", should the disconnect be seen first).
-RECONNECT_LIMIT = 30.0    # the platform IOC up again: its beacons, then CA reconnects the links
-STALE_SLACK = 1.5      # the heartbeat counts once per second, plus one period and Channel Access
+OVERRIDE_LIMIT = 1.0   # the actuator's monitor reaches the service at once, then one cycle
+NOT_ACCEPTED_LIMIT = 1.0  # a garbled answer fails the set at once, then one cycle
+STALE_SLACK = 1.5      # the heartbeat counts once per second, plus one cycle and Channel Access
+WATCHDOG_SLACK = 0.5   # service:get scans every 0.1 s, then _dead and _drop by CP links
+START_LIMIT = 30.0     # a container up again: the IOC's start, or the service's first contact
 SETTLE = 1.0           # s the actuator is watched after a hand-back: it must not change
 GARBLED = 0.5          # s of garbled answers for "set not accepted" (between two status polls 1 s
                        # apart). Not silence: sets would wait behind polls that time out (300 ms
@@ -54,13 +59,17 @@ class Loop:
         self.device = device
         self.role = dev["roles"]
         self.macros = dev["loads"][0]["macros"]
+        self.prefix = self.macros["P"]
         self.meas, self.act, self.hb = (self.macros[k] for k in ("MEAS", "ACT", "HB"))
+        self.dt = float(self.macros["DT"])
         self.conditions = [(self.macros["C%d" % n], float(self.macros["R%d" % n]),
                             self.macros["W%d" % n]) for n in (1, 2, 3)]
-        self.words = reg.pvs[self.role["reason"]]["states"]
 
     def __getitem__(self, role):
         return self.role[role]
+
+    def internal(self, suffix):
+        return "%s:%s" % (self.prefix, suffix)
 
     def settings(self):
         return [pv for pv in self.role.values() if reg.pvs[pv]["access"] == "w"
@@ -93,7 +102,7 @@ def fulfil(pv, required):
                lambda: "condition fulfilled: %s" % S.describe([pv]))
 
 
-def violate(pv, required):
+def violate(pv):
     if condition_kind(pv) == "interlock":
         sim, signal = door()
         S.sim_set(sim, signal, 0)                  # a door open
@@ -101,25 +110,30 @@ def violate(pv, required):
         S.put(reg.role(device_of(pv), "out_cmd"), 0)
 
 
-def involved(loop):
+def involved(lp):
     """The written PVs the module changes: the loop's, and those of the devices of its
     measurement, actuator and conditions."""
-    devices = {loop.device} | {device_of(pv) for pv in [loop.meas, loop.act] +
-                                [c for c, _, _ in loop.conditions]}
+    devices = {lp.device} | {device_of(pv) for pv in [lp.meas, lp.act] +
+                             [c for c, _, _ in lp.conditions]}
     return [n for n in reg.writes() if reg.pvs[n]["device"] in devices and n in snapshot]
+
+
+def service_alive(lp):
+    S.wait_for(lambda: S.get(lp["service"]) == 1, START_LIMIT,
+               lambda: "the loop service is alive: %s" % S.describe([lp["service"]]))
 
 
 @pytest.fixture(scope="module", params=LOOPS)
 def loop(request):
     lp = Loop(request.param)
+    service_alive(lp)
     yield lp
     S.put(lp["mode_cmd"], 0)
     sim, signal = door()
     if (sim, signal) in S.forced:
         S.sim_release(sim, signal)
-    hb = lp.hb
-    if S.field(hb, "DISA") != "0":
-        S.put_field(hb, "DISA", 0)
+    if S.field(lp.hb, "DISA") != "0":
+        S.put_field(lp.hb, "DISA", 0)
     restore_writes(involved(lp))
     S.wait_for(lambda: S.get(lp["mode"]) == 0, REFUSE_LIMIT, "the loop ends in MANUAL")
 
@@ -131,10 +145,11 @@ def start_value(lp):
 
 @pytest.fixture
 def ready(loop):
-    """MANUAL, every condition fulfilled, the actuator inside the output limits, the measured
-    value away from the set point, so that in PID the output ramps at the slew rate and the loop
-    writes every period. Afterwards: MANUAL again, the conditions fulfilled."""
+    """MANUAL, the service alive, every condition fulfilled, the actuator inside the output
+    limits, the measured value away from the set point, so that in PID the output ramps at the
+    slew rate and is written every period. Afterwards: MANUAL again."""
     lp = loop
+    service_alive(lp)
     S.put(lp["mode_cmd"], 0)
     S.wait_for(lambda: S.get(lp["mode"]) == 0, REFUSE_LIMIT, "MANUAL")
     if S.field(lp.hb, "DISA") != "0":
@@ -148,7 +163,6 @@ def ready(loop):
                5.0, lambda: "measured value valid: %s" % S.describe([lp["pv"]]))
     S.wait_for(lambda: S.get(lp["out"]) == S.get(lp.act), 2.0,
                lambda: "MANUAL follows the actuator: %s" % S.describe([lp["out"], lp.act]))
-    S.wait_for(lambda: S.sevr(lp.hb) != S.INVALID and S.get(lp.hb) > 0, 5.0, "heartbeat")
     time.sleep(1.5)                                 # a heartbeat change seen: not stale
     yield lp
     S.put(lp["mode_cmd"], 0)
@@ -161,7 +175,11 @@ def go_pid(lp):
     S.wait_for(lambda: S.get(lp["mode"]) == 1, REFUSE_LIMIT,
                lambda: "PID: %s" % S.describe([lp["mode"], lp["mode_cmd"], lp["reason"]]))
     S.wait_for(lambda: S.get(lp.act) != before, 2.0,
-               lambda: "the loop writes the actuator: %s" % S.describe([lp.act, lp["out"]]))
+               lambda: "the actuator is written: %s" % S.describe([lp.act, lp["out"]]))
+
+
+def reason(lp):
+    return S.get(lp["reason"], as_string=True)
 
 
 def expect_hand_back(lp, words, limit, t0):
@@ -171,16 +189,14 @@ def expect_hand_back(lp, words, limit, t0):
                lambda: "hand-back (%s): %s" % (words, S.describe(
                    [lp["mode"], lp["reason"], lp["pv"], lp.act])))
     took = time.monotonic() - t0
-    reason = S.get(lp["reason"], as_string=True)
-    assert reason == words, "reason %r, expected %r" % (reason, words)
+    assert reason(lp) == words, "reason %r, expected %r" % (reason(lp), words)
     assert S.get(lp["mode_cmd"]) == 0, "the request is back at MANUAL (latch)"
     held = S.read(lp.act)
     time.sleep(SETTLE)
     after = S.read(lp.act)
     assert (after["value"], after["timestamp"]) == (held["value"], held["timestamp"]), (
         "the actuator was written after the hand-back: %r then %r" % (held, after))
-    S.wait_for(lambda: S.get(lp["mode_cmd"]) == 0 and S.get(lp["mode"]) == 0, PERIOD * 3,
-               "nothing returns to PID by itself")
+    assert S.get(lp["mode_cmd"]) == 0 and S.get(lp["mode"]) == 0, "nothing returns to PID"
     print("%s: hand-back '%s' after %.2f s" % (lp.device, words, took))
     return took
 
@@ -223,6 +239,13 @@ def test_set_point_limits_clamp_the_set_point(loop):
         S.put(sp, value)
 
 
+def test_permit_records_show_each_condition(ready):
+    for n, (pv, required, words) in enumerate(ready.conditions, 1):
+        record = ready["permit%d" % n]
+        assert S.get(record) == 0 and S.sevr(record) == S.NO_ALARM, S.describe([record])
+        assert S.field(record, "DESC") == words + "?"
+
+
 # --- R5: refusal ---------------------------------------------------------------------------------
 
 def expect_refusal(lp, words):
@@ -237,7 +260,7 @@ def expect_refusal(lp, words):
     S.wait_for(refused, REFUSE_LIMIT, lambda: "refused: %s" % S.describe([lp["mode_cmd"], lp["reason"]]),
                interval=0.02)
     took = time.monotonic() - t0
-    assert S.get(lp["reason"], as_string=True) == words
+    assert reason(lp) == words
     assert set(modes) | {S.get(lp["mode"])} == {0}, "the mode stayed MANUAL: %s" % modes
     after = S.read(lp.act)
     assert (after["value"], after["timestamp"]) == (before["value"], before["timestamp"]), (
@@ -248,15 +271,15 @@ def expect_refusal(lp, words):
 @pytest.mark.parametrize("n", [1, 2, 3])
 def test_pid_refused_while_a_permit_is_not_fulfilled(ready, n):
     pv, required, words = ready.conditions[n - 1]
-    violate(pv, required)
+    violate(pv)
     S.wait_for(lambda: S.get(pv) != required, PERMIT_LIMIT[condition_kind(pv)],
                lambda: S.describe([pv]))
-    time.sleep(PERIOD * 2)
+    time.sleep(0.5)
     expect_refusal(ready, words)
 
 
 def test_pid_refused_with_stale_data(ready):
-    S.put_field(ready.hb, "DISA", 1)                # the owner's heartbeat stops counting
+    S.put_field(ready.hb, "DISA", 1)                # the IOC's heartbeat stops counting
     try:
         time.sleep(S.get(ready["stale"]) + STALE_SLACK)
         expect_refusal(ready, "measurement stale")
@@ -266,8 +289,20 @@ def test_pid_refused_with_stale_data(ready):
 
 def test_pid_refused_outside_the_output_limits(ready):
     S.put(ready.act, S.get(ready["outmin"]) - 1.0)
-    time.sleep(PERIOD * 2)
+    time.sleep(0.5)
     expect_refusal(ready, "outside output limits")
+
+
+def test_pid_refused_while_the_service_does_not_run(ready):
+    S.container("stop", SERVICE)
+    try:
+        S.wait_for(lambda: S.get(ready["service"]) == 0, S.get(ready["watchdog"]) + WATCHDOG_SLACK,
+                   "service:get 0 after the service stopped")
+        assert S.sevr(ready["service"]) == S.MAJOR, "an alarm: %s" % S.describe([ready["service"]])
+        expect_refusal(ready, "service stopped")    # cleared by the IOC alone
+    finally:
+        S.container("start", SERVICE)
+    service_alive(ready)
 
 
 def test_pid_is_accepted_and_bumpless(ready):
@@ -275,20 +310,20 @@ def test_pid_is_accepted_and_bumpless(ready):
     act = S.get(ready.act)
     S.put(ready["mode_cmd"], 1)
     S.wait_for(lambda: S.get(ready["mode"]) == 1, REFUSE_LIMIT, "PID")
-    assert S.get(ready["reason"], as_string=True) == "none"
-    # the ramp is slew limited from the actuator's value on: the first values are act + k slew dt
+    assert reason(ready) == "none"
+    # from the actuator's value on, slew limited: at most a few steps of slew x DT so far
     out = S.get(ready["out"])
-    assert act <= out <= act + 3 * 0.5 * PERIOD + 1e-6, (act, out)
+    assert act <= out <= act + 3 * 0.5 * ready.dt + 1e-6, (act, out)
 
 
-# --- R4 a to e: hand-back ------------------------------------------------------------------------
+# --- R4 a to f: hand-back ------------------------------------------------------------------------
 
 @pytest.mark.parametrize("n", [1, 2, 3])
 def test_hand_back_when_a_permit_fails(ready, n):
-    pv, required, words = ready.conditions[n - 1]
+    pv, _, words = ready.conditions[n - 1]
     go_pid(ready)
     t0 = time.monotonic()
-    violate(pv, required)
+    violate(pv)
     expect_hand_back(ready, words, PERMIT_LIMIT[condition_kind(pv)], t0)
 
 
@@ -316,7 +351,7 @@ def test_hand_back_when_the_data_is_stale(ready):
     S.put_field(ready.hb, "DISA", 1)
     try:
         took = expect_hand_back(ready, "measurement stale", stale + STALE_SLACK, t0)
-        assert took >= stale - 1.0 - PERIOD, "handed back before the stale time (%.2f s)" % took
+        assert took >= stale - 1.0 - ready.dt, "handed back before the stale time (%.2f s)" % took
     finally:
         S.put_field(ready.hb, "DISA", 0)
 
@@ -332,7 +367,7 @@ def test_hand_back_when_someone_else_writes_the_actuator(ready):
 
 def test_hand_back_when_the_actuator_does_not_accept_a_set(ready):
     """The actuator's simulator garbles its answers for GARBLED s right after a status poll: the
-    loop's set in that window ends INVALID (the answer is not OK), while the next status poll, 1 s
+    set in that window ends INVALID (the answer is not OK), while the next status poll, 1 s
     later, is answered."""
     act_dev = device_of(ready.act)
     sim = reg.devices[act_dev]["simulators"][0]
@@ -351,61 +386,192 @@ def test_hand_back_when_the_actuator_does_not_accept_a_set(ready):
     assert S.sevr(ready.act) == S.NO_ALARM
 
 
-# --- R4 f, and the platform IOC stopped ------------------------------------------------------------
+def test_hand_back_when_the_service_is_killed(ready):
+    """R4 f: the service's container killed (SIGKILL, no clean-up) in PID. The IOC alone sees its
+    counter stand still, takes the mode back and raises the alarm."""
+    go_pid(ready)
+    S.container("kill", SERVICE)
+    t0 = time.monotonic()                           # the kill request has returned
+    try:
+        limit = S.get(ready["watchdog"]) + WATCHDOG_SLACK
+        expect_hand_back(ready, "service stopped", limit, t0)
+        assert S.get(ready["service"]) == 0 and S.sevr(ready["service"]) == S.MAJOR
+    finally:
+        S.container("start", SERVICE)
+    service_alive(ready)
+    S.wait_for(lambda: reason(ready) == "service start", 5.0, "the service's start")
+    assert S.get(ready["mode"]) == 0
 
-def ioc_of(lp):
-    return reg.devices[lp.device]["ioc"]
+
+# --- R4 g: starts ----------------------------------------------------------------------------------
+
+def test_restart_of_the_service_starts_in_manual(ready):
+    go_pid(ready)
+    S.container("restart", SERVICE)                # SIGTERM: the service leaves MANUAL itself
+    service_alive(ready)
+    S.wait_for(lambda: reason(ready) == "service start", 5.0,
+               lambda: "after the start: %s" % S.describe([ready["reason"]]))
+    assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0
 
 
-def test_restart_of_the_loop_ioc_starts_in_manual(ready):
+def test_restart_of_the_ioc_starts_in_manual(ready):
+    ioc = reg.devices[ready.device]["ioc"]
+    hb = reg.iocs[ioc]["roles"]["heartbeat"]
     go_pid(ready)
     settings = {pv: S.get(pv) for pv in ready.settings()}
-    S.container("restart", S.ioc_container(ioc_of(ready)))
-    hb = reg.iocs[ioc_of(ready)]["roles"]["heartbeat"]
-    S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, 30.0, "loop IOC back")
-    held = S.read(ready.act)
-    assert S.get(ready["mode"]) == 0, "MANUAL after the start"
-    assert S.get(ready["mode_cmd"]) == 0
-    assert S.get(ready["reason"], as_string=True) == "IOC start"
-    time.sleep(SETTLE)
-    after = S.read(ready.act)
-    assert (after["value"], after["timestamp"]) == (held["value"], held["timestamp"])
+    S.container("restart", S.ioc_container(ioc))
+    S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
+    assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
+    assert reason(ready) == "IOC start"
     assert {pv: S.get(pv) for pv in settings} == settings, "settings kept (autosave)"
-
-
-def test_platform_ioc_stopped_and_started(ready):
-    """docker stop of the container of the IOC that owns the measurement: hand-back (stale data,
-    see above), the loop IOC keeps running; docker start: the loop reconnects and PID works
-    again."""
-    owner = reg.pvs[ready.meas]["ioc"]
-    loop_hb = reg.iocs[ioc_of(ready)]["roles"]["heartbeat"]
-    go_pid(ready)
-    t0 = time.monotonic()
-    S.container("stop", S.ioc_container(owner))
-    try:
-        limit = S.get(ready["stale"]) + STALE_SLACK
-        S.wait_for(lambda: S.get(ready["mode"]) == 0, limit - (time.monotonic() - t0),
-                   lambda: "hand-back: %s" % S.describe([ready["mode"], ready["reason"]]))
-        took = time.monotonic() - t0
-        reason = S.get(ready["reason"], as_string=True)
-        assert reason in ("measurement stale", "measurement no data"), reason
-        assert S.get(ready["mode_cmd"]) == 0
-        count = S.get(loop_hb)
-        time.sleep(2.0)
-        assert S.get(loop_hb) > count, "the loop IOC keeps running"
-        print("%s: hand-back '%s' %.2f s after docker stop of %s began" % (
-            ready.device, reason, took, owner))
-    finally:
-        S.container("start", S.ioc_container(owner))
-    hb = reg.iocs[owner]["roles"]["heartbeat"]
-    took = S.wait_for(lambda: S.connected(hb) and S.sevr(ready["pv"]) != S.INVALID, RECONNECT_LIMIT,
-                      lambda: "reconnected: %s" % S.describe([ready["pv"], hb]))
-    print("%s: measurement valid again %.1f s after docker start" % (ready.device, took))
-    # the platform IOC past its first contact (GRACE), then every condition back: PID again
-    gates = [g for g in (reg.gate_record(d) for d in reg.devices) if g and reg.pvs[g]["ioc"] == owner]
-    S.wait_for(lambda: all(S.field(g, "DISA") == "0" for g in gates), 30.0, "gates enabled")
+    service_alive(ready)
+    time.sleep(1.0)
+    assert reason(ready) == "IOC start", "the service leaves the reason of the IOC's start"
+    # past the supplies' first contact (GRACE), then PID works again
+    gates = [g for g in (reg.gate_record(d) for d in reg.devices) if g and reg.pvs[g]["ioc"] == ioc]
+    S.wait_for(lambda: all(S.field(g, "DISA") == "0" for g in gates), START_LIMIT, "gates enabled")
     for pv, required, _ in ready.conditions:
         fulfil(pv, required)
     S.put(ready.act, start_value(ready))
     time.sleep(1.5)
     go_pid(ready)
+
+
+# --- the backstop, without the service -------------------------------------------------------------
+
+class FakeService:
+    """In the service's place: counts _count (so that the IOC sees it alive), sets _active and
+    writes _out as told."""
+
+    def __init__(self, lp):
+        self.lp = lp
+        self.stop = threading.Event()
+        self.counting = True
+        self.thread = threading.Thread(target=self._count, daemon=True)
+
+    def _count(self):
+        count = 0
+        pv = epics.PV(self.lp.internal("_count"))
+        while not self.stop.wait(0.1):
+            if self.counting:
+                count += 1
+                pv.put(count, wait=False)
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        self.thread.join()
+        S.put(self.lp.internal("_active"), 0)
+
+    def out(self, value):
+        S.put(self.lp.internal("_out"), value)
+
+
+@pytest.fixture
+def backstop(ready):
+    """The service stopped and the test client in its place; the actuator's monitor records every
+    value it gets."""
+    S.container("stop", SERVICE)
+    events = []
+    act = epics.PV(ready.act, form="time", auto_monitor=True,
+                   callback=lambda value=None, timestamp=None, **kw: events.append((timestamp, value)))
+    act.wait_for_connection(5.0)
+    try:
+        with FakeService(ready) as fake:
+            S.wait_for(lambda: S.get(ready["service"]) == 1, 2.0, "the client counts: alive")
+            yield ready, fake, events
+    finally:
+        act.clear_callbacks()
+        S.container("start", SERVICE)
+        service_alive(ready)
+
+
+def written(events, since):
+    return [(t, v) for t, v in events if t is not None and t >= since]
+
+
+def test_backstop_limits_and_slew(backstop):
+    lp, fake, events = backstop
+    lo, hi, slew = (S.get(lp[r]) for r in ("outmin", "outmax", "slew"))
+    fake.out(S.get(lp.act))
+    S.put(lp["mode_cmd"], 1)
+    S.put(lp.internal("_active"), 1)
+    S.wait_for(lambda: S.get(lp["mode"]) == 1, 1.0, "PID with the client")
+    t0 = time.time()
+    for target in (hi + 50.0, lo - 50.0, hi + 50.0, 1e6, -1e6, hi + 50.0):
+        fake.out(target)
+        time.sleep(1.5)
+    S.put(lp["mode_cmd"], 0)
+    got = written(events, t0)
+    assert len(got) >= 10, "the actuator was written: %s" % got
+    values = [v for _, v in got]
+    assert all(lo - 1e-9 <= v <= hi + 1e-9 for v in values), "outside [%g, %g]: %s" % (lo, hi, values)
+    steps = [abs(b - a) for a, b in zip(values, values[1:])]
+    assert max(steps) <= slew * lp.dt + 1e-9, "a step above slew x DT = %g: %g" % (
+        slew * lp.dt, max(steps))
+    print("%s: backstop: %d writes within [%g, %g], largest step %.3f (slew x DT %.3f)" % (
+        lp.device, len(got), lo, hi, max(steps), slew * lp.dt))
+
+
+def test_backstop_never_writes_in_manual(backstop):
+    lp, fake, events = backstop
+    t0 = time.time()
+    S.put(lp.internal("_active"), 1)                # accepted, but not requested
+    for target in (S.get(lp.act) + 3.0, S.get(lp.act) - 3.0):
+        fake.out(target)
+        time.sleep(1.0)
+    S.put(lp["mode_cmd"], 1)                         # requested, but not accepted
+    S.put(lp.internal("_active"), 0)
+    fake.out(S.get(lp.act) + 3.0)
+    time.sleep(1.0)
+    assert S.get(lp["mode"]) == 0
+    assert written(events, t0) == [], "written in MANUAL: %s" % written(events, t0)
+    S.put(lp["mode_cmd"], 0)
+
+
+def test_backstop_never_writes_from_outside_the_limits(backstop):
+    """An actuator standing outside the output limits is not moved by the loop at all."""
+    lp, fake, events = backstop
+    S.put(lp.act, S.get(lp["outmin"]) - 5.0)
+    t0 = time.time()
+    S.put(lp["mode_cmd"], 1)
+    S.put(lp.internal("_active"), 1)
+    fake.out(S.get(lp["outmax"]))
+    time.sleep(1.5)
+    assert S.get(lp["mode"]) == 1
+    assert written(events, t0) == [], written(events, t0)
+    S.put(lp["mode_cmd"], 0)
+
+
+def test_backstop_takes_the_mode_back_when_the_client_stops_counting(backstop):
+    lp, fake, events = backstop
+    fake.out(S.get(lp.act))
+    S.put(lp["mode_cmd"], 1)
+    S.put(lp.internal("_active"), 1)
+    S.wait_for(lambda: S.get(lp["mode"]) == 1, 1.0, "PID with the client")
+    t0 = time.monotonic()
+    fake.counting = False
+    expect_hand_back(lp, "service stopped", S.get(lp["watchdog"]) + WATCHDOG_SLACK, t0)
+    assert S.sevr(lp["service"]) == S.MAJOR
+
+
+def test_backstop_stops_writing_after_someone_else_wrote(backstop):
+    """In PID, with the client still asking for more, an operator's write to the actuator is not
+    overwritten: the writer writes only while the actuator holds its own last value."""
+    lp, fake, events = backstop
+    fake.out(S.get(lp["outmax"]))
+    S.put(lp["mode_cmd"], 1)
+    S.put(lp.internal("_active"), 1)
+    S.wait_for(lambda: S.get(lp["mode"]) == 1, 1.0, "PID with the client")
+    time.sleep(1.0)
+    assert len(written(events, 0)) > 0, "the writer writes"
+    value = S.get(lp["outmin"]) + 0.5
+    S.put(lp.act, value)
+    t0 = time.time()
+    time.sleep(1.5)
+    assert S.get(lp.act) == value
+    assert [v for _, v in written(events, t0)] == [], "written after the operator"
+    S.put(lp["mode_cmd"], 0)

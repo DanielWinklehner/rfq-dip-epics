@@ -1,3 +1,0 @@
-# pidLoop.dbd - the subroutines of the loop's aSub record (pidLoop.c, EPICS/Db/loop.db)
-function(pidLoopInit)
-function(pidLoopProcess)
