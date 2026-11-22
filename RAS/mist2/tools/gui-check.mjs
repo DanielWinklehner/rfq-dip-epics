@@ -46,9 +46,10 @@ const watch = (page) => {
     if (!["error", "warning"].includes(message.type())) return;
     const text = `${message.text()} ${message.location().url ?? ""}`;
     if (!allowed.some((pattern) => pattern.test(text))) {
-      // The further arguments carry React's component stack.
+      // The further arguments carry React's component stack, where it gives
+      // one, and the JavaScript stack (init script below).
       const args = await Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "")));
-      problems.push(`${page.url()}: console ${message.type()}: ${JSON.stringify(args).slice(0, 1500)}`);
+      problems.push(`${page.url()}: console ${message.type()}: ${args.join(" ").slice(0, 4000)}`);
     }
   });
   page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
@@ -57,6 +58,15 @@ const watch = (page) => {
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 context.on("page", watch);
+// React gives no component stack with some errors ("Maximum update depth
+// exceeded" carries the message only), so every console error and warning
+// also carries the JavaScript stack of its call: it names the setState caller.
+await context.addInitScript(() => {
+  for (const level of ["error", "warn"]) {
+    const original = console[level].bind(console);
+    console[level] = (...args) => original(...args, `\nJS stack: ${new Error().stack}`);
+  }
+});
 
 // Every element that shows a PV: { pv, alarm, text, part, visible, row }.
 const collect = (page) =>

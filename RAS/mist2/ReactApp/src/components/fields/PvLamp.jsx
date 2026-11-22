@@ -2,9 +2,8 @@ import React from "react";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
-import { alarmColors, alarmState, displayText } from "../../alarm/severity";
-import { valueText } from "./format";
+import { alarmColors } from "../../alarm/severity";
+import useReading from "./useReading";
 
 // The lamp of a binary state (LAYOUT.md 1.2): filled when on, hollow when
 // off, in the colour of the record's severity; crossed out without connection.
@@ -31,23 +30,21 @@ export const Lamp = ({ state, on, size = 14, x, y }) => {
   );
 };
 
-const PvLampComponent = (props) => {
-  const state = alarmState(props.initialized, props.alarmSeverity);
+// A binary read-back as a lamp with its word; `words` are the registry's.
+const PvLamp = ({ pv, label, words }) => {
+  const { state, text, on, menu, openMenu } = useReading(pv, words);
   return (
-    <Stack direction="row" spacing={1} alignItems="center" data-pv={props.pv} data-alarm={state}>
-      <Lamp state={state} on={Number(props.value) !== 0} />
+    <Stack direction="row" spacing={1} alignItems="center" data-pv={pv} data-alarm={state} onContextMenu={openMenu}>
+      <Lamp state={state} on={on} />
       <Typography variant="body2" color="text.secondary" noWrap>
-        {props.label}
+        {label}
       </Typography>
       <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap data-value>
-        {displayText(state, valueText(props))}
+        {text}
       </Typography>
+      {menu}
     </Stack>
   );
 };
-
-// A binary read-back as a lamp with its word; `custom_selection_strings` are
-// the registry's words.
-const PvLamp = (props) => <Widget {...props} component={PvLampComponent} />;
 
 export default PvLamp;

@@ -2,10 +2,10 @@ import React from "react";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import GraphY from "React-Automation-Studio/components/BaseComponents/GraphY";
 import { channelLabel, deviceOfPv, devices, pvInfo } from "../registry";
 import { roleWord } from "../roles";
 import { spansDecades } from "./fields/format";
+import Trend from "./Trend";
 
 // What a trend line is called: the device, and the channel if it has one.
 export const pvLegend = (name) => {
@@ -32,17 +32,7 @@ const TrendSet = ({ pvs, size = { xs: 12, lg: 6 }, height = 260 }) => {
                 {roleWord(role)}
                 {egu ? ` (${egu})` : ""}
               </Typography>
-              <GraphY
-                pvs={group}
-                legend={group.map(pvLegend)}
-                useTimeStamp
-                xAxisTitle=""
-                yAxisTitle=""
-                maxLength={3000}
-                yScaleLog10={spansDecades(egu)}
-                yTickFormat={spansDecades(egu) ? ".1e" : undefined}
-                height={`${height}px`}
-              />
+              <Trend pvs={group} legend={group.map(pvLegend)} log={spansDecades(egu)} height={height} />
             </Paper>
           </Grid>
         );

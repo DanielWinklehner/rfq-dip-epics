@@ -4,9 +4,11 @@ import { alarmState, worst } from "./severity";
 
 // Holds the alarm state of a set of PVs, each subscribed once, and tells the
 // components that show a worst state (tabs, tags, symbols, device windows)
-// only when one of these states changes, not on every value. Changes are
-// told at most every 100 ms: hundreds of PVs connect at once when a window
-// opens, and a re-render per PV would nest too many updates.
+// only when one of these states changes, not on every value. The reports
+// come from the effects of the RAS EpicsPV components, so the readers are told
+// from a timer, outside React's effect phase (an update set there counts
+// toward React's limit of nested effect updates), and at most every 100 ms,
+// since hundreds of PVs connect at once when a window opens.
 const tellAfter = 100;
 
 const createStore = () => {

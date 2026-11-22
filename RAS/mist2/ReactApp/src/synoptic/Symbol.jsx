@@ -1,6 +1,6 @@
 import React from "react";
 import { useTheme } from "@mui/material/styles";
-import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
+import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/EpicsPV";
 import { useWorstAlarm } from "../alarm/AlarmStore";
 import { alarmColors } from "../alarm/severity";
 import { alarmPvs, rolesOf } from "../registry";
@@ -51,7 +51,10 @@ const SymbolShape = ({ type, x, y, rotate = 0, state, on }) => {
   );
 };
 
-const StateShape = (props) => <SymbolShape {...props} on={Number(props.value) !== 0} />;
+const StateShape = ({ pv, ...shape }) => {
+  const { value } = useEpicsPV({ pv });
+  return <SymbolShape {...shape} on={Number(value) !== 0} />;
+};
 
 // A symbol of the drawing: coloured by the worst alarm state of its device or
 // channel, filled while the record of its state role is not 0. A click opens
@@ -63,7 +66,7 @@ const Symbol = ({ id, channel, type, x, y, rotate, state: stateRole }) => {
   return (
     <g onClick={() => openDeviceWindow(id, channel)} style={{ cursor: "pointer" }} data-symbol={type}>
       {statePv ? (
-        <Widget pv={statePv} svgWidget component={StateShape} componentProps={shape} />
+        <StateShape pv={statePv} {...shape} />
       ) : (
         <SymbolShape {...shape} />
       )}
