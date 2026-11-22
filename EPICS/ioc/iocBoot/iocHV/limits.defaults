@@ -16,8 +16,8 @@ REK-1:current:limit 24
 # goes into constant current and the loop could only act downward: 23 A, which leaves 22 A a
 # little room, is our free choice, TO BE CONFIRMED by the owner.
 LOOP-DIS:value:setpoint 22
-LOOP-DIS:value:setpoint.DRVL 0
-LOOP-DIS:value:setpoint.DRVH 23
+LOOP-DIS:spmin:setpoint 0
+LOOP-DIS:spmax:setpoint 23
 # ASSUMED, from the plant MODEL of the emulation, not from MIST-2: SIMC rules at the model's
 # steepest point (gain 3.56 A/A, time constant 1.45 s, dead time about 0.3 s with the polling
 # and the period) for a closed-loop time constant of 0.5 s. Measure on the machine (LOOP.md).

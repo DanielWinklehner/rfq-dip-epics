@@ -6,19 +6,21 @@
 # its prefix and works on these records over Channel Access. These records are the interface the
 # operator sees and sets, and the backstop, which holds without any help from the service:
 #   - the actuator is written only in PID, and only by _write, at most once per SCAN;
-#   - what _write sends lies within the output limits and differs from the actuator's present
-#     set point by at most slew x DT;
+#   - what _write sends differs from the actuator's present set point by at most slew x DT;
+#   - what _write sends lies between the actuator's present set point and the output limits: it
+#     never moves the actuator away from the limits (after a limit change it brings it to the
+#     new limit at the slew rate);
 #   - once someone else has written the actuator in PID, _write does not write it again;
 #   - PID needs the service alive: its counter _count must change within the watchdog time,
 #     else the mode is MANUAL, the request is cleared (latch) and service:get alarms.
 #
 # Macros:
 #   P          PV prefix of the loop
-#   MEAS       measured value (PV)
-#   ACT        set point of the actuator (PV, a record of this IOC)
-#   HB         heartbeat of this IOC (a PV that counts up once per second)
-#   C1 R1 W1   permit condition 1: PV, the value it must have, and its words (at most 25
-#   C2 R2 W2   characters). A loop with fewer conditions repeats one of them.
+#   MEAS       measured value     } records of THIS IOC: a link in one IOC cannot be lost, and
+#   ACT        actuator set point } the writer's PP link must reach ACT directly
+#   HB         heartbeat of this IOC (a record that counts up once per second)
+#   C1 R1 W1   permit condition 1: PV (of any IOC), the value it must have, and its words when
+#   C2 R2 W2   it has not (at most 25 characters). A loop with fewer conditions repeats one.
 #   C3 R3 W3
 #   EGU        unit of the measured value                 PREC   its precision (3)
 #   OEGU       unit of the actuator                       OPREC  its precision (2)
@@ -128,36 +130,82 @@ record(seq, "$(P):_drop") {
 
 # --- permits, measurement, actuator ----------------------------------------------------------------
 
-# 0 fulfilled, 1 not fulfilled (MAJOR), 2 no data: its PV INVALID or not connected (the record's
-# own new severity, which the MS link raises; INVALID). 2 until the first value has come.
-record(calc, "$(P):permit1:get") {
-    field(DESC, "$(W1=permit 1 not met)?")
-    field(INPA, "$(C1) CP MS")
-    field(INPB, "$(P):permit1:get.NSEV NPP")
+# Permit conditions. For each: _cN reads the PV, on every change and every SCAN, so that a link
+# to another IOC that is lost turns it INVALID (LINK) at its next scan (a lost Channel Access
+# link does not process its record by itself). _sN: 0 fulfilled, 1 not fulfilled, 2 no data
+# (_cN INVALID: its PV INVALID, not connected, or never connected since the start).
+# permitN:get shows it as words for every client: "fulfilled", the condition's words, "no data"
+# (INVALID). Not fulfilled carries no alarm: an off supply is a normal state.
+record(ai, "$(P):_c1") {
+    field(DESC, "Permit condition 1, read (internal)")
+    field(INP,  "$(C1) CP MSI")
+    field(SCAN, "$(SCAN=.2 second)")
+    field(FLNK, "$(P):_s1")
+}
+
+record(calc, "$(P):_s1") {
+    field(DESC, "Permit condition 1, state (internal)")
+    field(INPA, "$(P):_c1 NPP MSI")
+    field(INPB, "$(P):_c1.SEVR NPP")
     field(CALC, "B>=3?2:(ABS(A-($(R1)))<0.5?0:1)")
-    field(VAL,  "2")
-    field(HIGH, "0.5")
-    field(HSV,  "MAJOR")
+    field(FLNK, "$(P):permit1:get")
 }
 
-record(calc, "$(P):permit2:get") {
-    field(DESC, "$(W2=permit 2 not met)?")
-    field(INPA, "$(C2) CP MS")
-    field(INPB, "$(P):permit2:get.NSEV NPP")
+record(mbbi, "$(P):permit1:get") {
+    field(DESC, "Permit condition 1")
+    field(INP,  "$(P):_s1 NPP MSI")
+    field(ZRST, "fulfilled")
+    field(ONST, "$(W1=permit 1 not met)")
+    field(TWST, "no data")
+    field(TWSV, "INVALID")
+}
+
+record(ai, "$(P):_c2") {
+    field(DESC, "Permit condition 2, read (internal)")
+    field(INP,  "$(C2) CP MSI")
+    field(SCAN, "$(SCAN=.2 second)")
+    field(FLNK, "$(P):_s2")
+}
+
+record(calc, "$(P):_s2") {
+    field(DESC, "Permit condition 2, state (internal)")
+    field(INPA, "$(P):_c2 NPP MSI")
+    field(INPB, "$(P):_c2.SEVR NPP")
     field(CALC, "B>=3?2:(ABS(A-($(R2)))<0.5?0:1)")
-    field(VAL,  "2")
-    field(HIGH, "0.5")
-    field(HSV,  "MAJOR")
+    field(FLNK, "$(P):permit2:get")
 }
 
-record(calc, "$(P):permit3:get") {
-    field(DESC, "$(W3=permit 3 not met)?")
-    field(INPA, "$(C3) CP MS")
-    field(INPB, "$(P):permit3:get.NSEV NPP")
+record(mbbi, "$(P):permit2:get") {
+    field(DESC, "Permit condition 2")
+    field(INP,  "$(P):_s2 NPP MSI")
+    field(ZRST, "fulfilled")
+    field(ONST, "$(W2=permit 2 not met)")
+    field(TWST, "no data")
+    field(TWSV, "INVALID")
+}
+
+record(ai, "$(P):_c3") {
+    field(DESC, "Permit condition 3, read (internal)")
+    field(INP,  "$(C3) CP MSI")
+    field(SCAN, "$(SCAN=.2 second)")
+    field(FLNK, "$(P):_s3")
+}
+
+record(calc, "$(P):_s3") {
+    field(DESC, "Permit condition 3, state (internal)")
+    field(INPA, "$(P):_c3 NPP MSI")
+    field(INPB, "$(P):_c3.SEVR NPP")
     field(CALC, "B>=3?2:(ABS(A-($(R3)))<0.5?0:1)")
-    field(VAL,  "2")
-    field(HIGH, "0.5")
-    field(HSV,  "MAJOR")
+    field(FLNK, "$(P):permit3:get")
+}
+
+record(mbbi, "$(P):permit3:get") {
+    field(DESC, "Permit condition 3")
+    field(INP,  "$(P):_s3 NPP MSI")
+    field(ZRST, "fulfilled")
+    field(ONST, "$(W3=permit 3 not met)")
+    field(TWST, "no data")
+    field(TWSV, "INVALID")
 }
 
 # The measured value as the loop reads it: INVALID while the measurement is.
@@ -203,10 +251,11 @@ record(calc, "$(P):_target") {
 }
 
 # Every SCAN: writes the target A to the actuator only in PID (F), with valid limits
-# (outmin < outmax), when A lies within the limits (not while the actuator stands outside them),
-# when it differs from the actuator's set point E by RES or more, and while E is still the value
-# this record wrote last (L; at the first scan in PID, K = 0, L is taken from E): once someone
-# else has written the actuator, the loop does not write it again (the operator has priority).
+# (outmin < outmax), when it differs from the actuator's set point E by RES or more, and while E
+# is still the value this record wrote last (L; at the first scan in PID, K = 0, L is taken from
+# E): once someone else has written the actuator, the loop does not write it again (the operator
+# has priority). A lies between E and a point within the limits (_target), so a write never
+# moves the actuator away from the limits.
 record(calcout, "$(P):_write") {
     field(DESC, "Writes the actuator (internal)")
     field(SCAN, "$(SCAN=.2 second)")
@@ -216,7 +265,7 @@ record(calcout, "$(P):_write") {
     field(INPE, "$(ACT) NPP")
     field(INPF, "$(P):_mode NPP")
     field(INPG, "$(RES)")
-    field(CALC, "L:=F&&!K?E:L;K:=F;F&&B<C&&A>=B&&A<=C&&ABS(A-E)>=G&&ABS(E-L)<1E-6")
+    field(CALC, "L:=F&&!K?E:L;K:=F;F&&B<C&&ABS(A-E)>=G&&ABS(E-L)<1E-6")
     field(OOPT, "When Non-zero")
     field(DOPT, "Use OCAL")
     field(OCAL, "L:=A;A")
@@ -276,13 +325,37 @@ record(ai, "$(P):d:get") {
 # PINI: processed once at the start, so that a value restored by autosave is a valid value, not
 # a record that was never processed (UDF).
 
-# Set point. Its drive limits DRVL and DRVH are the set point limits (settings, saved with it).
+# Set point. Its drive limits DRVL and DRVH are set by spmin and spmax: a write outside them is
+# clamped.
 record(ao, "$(P):value:setpoint") {
     field(DESC, "Set point")
     field(EGU,  "$(EGU)")
     field(PREC, "$(PREC=3)")
     field(PINI, "YES")
-    info(autosaveFields, "VAL DRVL DRVH")
+    info(autosaveFields, "VAL")
+}
+
+# The set point limits. Each writes its drive limit of the set point and processes the set point,
+# so that a limit moved inside the present set point brings the set point to the limit (the loop
+# follows through its slew limit).
+record(ao, "$(P):spmin:setpoint") {
+    field(DESC, "Set point minimum")
+    field(EGU,  "$(EGU)")
+    field(PREC, "$(PREC=3)")
+    field(OUT,  "$(P):value:setpoint.DRVL NPP")
+    field(FLNK, "$(P):value:setpoint")
+    field(PINI, "YES")
+    info(autosaveFields, "VAL")
+}
+
+record(ao, "$(P):spmax:setpoint") {
+    field(DESC, "Set point maximum")
+    field(EGU,  "$(EGU)")
+    field(PREC, "$(PREC=3)")
+    field(OUT,  "$(P):value:setpoint.DRVH NPP")
+    field(FLNK, "$(P):value:setpoint")
+    field(PINI, "YES")
+    info(autosaveFields, "VAL")
 }
 
 # Gains are not negative: the loop is for an actuator that raises the measured value.
