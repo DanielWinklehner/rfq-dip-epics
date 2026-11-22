@@ -65,9 +65,12 @@ record(bo, "$(P):_active") {
 
 # Why the loop last handed back or refused, until the next request. Written by the service and by
 # _drop. The order of the states is REASONS in loops/mist2loop/loop.py.
+# PINI: processed once at the start, so that "IOC start" is a valid value and not a record that
+# was never processed (UDF, INVALID) until the next request.
 record(mbbi, "$(P):reason:get") {
     field(DESC, "Last hand-back or refusal")
     field(INP,  "1")
+    field(PINI, "YES")
     field(ZRST, "none")
     field(ONST, "IOC start")
     field(TWST, "service start")
@@ -274,10 +277,13 @@ record(calcout, "$(P):_write") {
 }
 
 # --- what the service shows (written by it each cycle) ---------------------------------------------
+# PINI: processed once at the start, so that they are valid (0, "free") from the IOC's start on and
+# not undefined (UDF, INVALID) until the service has connected and written them.
 
 record(mbbi, "$(P):limit:get") {
     field(DESC, "Output held back by a limit")
     field(INP,  "0")
+    field(PINI, "YES")
     field(ZRST, "free")
     field(ONST, "at minimum")
     field(TWST, "at maximum")
@@ -289,6 +295,7 @@ record(mbbi, "$(P):limit:get") {
 record(ai, "$(P):output:get") {
     field(DESC, "Output (actuator set point)")
     field(INP,  "0")
+    field(PINI, "YES")
     field(EGU,  "$(OEGU)")
     field(PREC, "$(OPREC=2)")
 }
@@ -296,6 +303,7 @@ record(ai, "$(P):output:get") {
 record(ai, "$(P):error:get") {
     field(DESC, "Error: set point - measured")
     field(INP,  "0")
+    field(PINI, "YES")
     field(EGU,  "$(EGU)")
     field(PREC, "$(PREC=3)")
 }
@@ -303,6 +311,7 @@ record(ai, "$(P):error:get") {
 record(ai, "$(P):p:get") {
     field(DESC, "Proportional term")
     field(INP,  "0")
+    field(PINI, "YES")
     field(EGU,  "$(OEGU)")
     field(PREC, "$(OPREC=2)")
 }
@@ -310,6 +319,7 @@ record(ai, "$(P):p:get") {
 record(ai, "$(P):i:get") {
     field(DESC, "Integral term")
     field(INP,  "0")
+    field(PINI, "YES")
     field(EGU,  "$(OEGU)")
     field(PREC, "$(OPREC=2)")
 }
@@ -317,6 +327,7 @@ record(ai, "$(P):i:get") {
 record(ai, "$(P):d:get") {
     field(DESC, "Derivative term")
     field(INP,  "0")
+    field(PINI, "YES")
     field(EGU,  "$(OEGU)")
     field(PREC, "$(OPREC=2)")
 }
