@@ -31,6 +31,11 @@
 //                        that is not fulfilled, in the window and in the tag
 //   loop <id> pid        PID from the loop's tag, the mode shows PID; a set point
 //                        typed in the device window; MANUAL again there
+//   windows <tab>        the page in a window of its own: complete, its values
+//                        (<work>/window.json), its tab marked and bringing it to
+//                        the front, one window per device from it, "attach" and
+//                        the browser's close bring it back, every page out, a
+//                        reload of the main window closes them all
 // Prints PASS/FAIL lines; exit code 1 on any FAIL.
 import fs from "node:fs";
 import { chromium } from "playwright";
@@ -180,6 +185,35 @@ const testValue = (id, role, share) => {
   const [low, high] = devices[id].pvs[devices[id].roles[role]].test;
   return Number(((low + high) / 2 + (high - low) * share).toFixed(2));
 };
+
+// What a page shows of each PV in the terms of a Channel Access read, for
+// `gui_check_ca.py compare`: a word of the registry as the record's own state
+// string (or its index), a number with an SI prefix in the record's unit.
+const sevrNames = { ok: "NO_ALARM", minor: "MINOR", major: "MAJOR", invalid: "INVALID" };
+const prefixes = { p: 1e-12, n: 1e-9, "µ": 1e-6, m: 1e-3, k: 1e3, M: 1e6 };
+const standInStates = { service: ["not alive", "alive"] }; // as registry.js
+const pvInfo = Object.fromEntries(Object.values(devices).flatMap((d) => Object.entries(d.pvs)));
+const pvWords = Object.fromEntries(
+  Object.values(devices).flatMap((d) => [
+    ...Object.entries(d.roles).map(([role, pv]) => [pv, d.states?.[role] ?? d.pvs[pv].states ?? standInStates[role]]),
+    ...Object.values(d.channels ?? {}).flatMap((c) => Object.values(c.roles).map((pv) => [pv, c.states ?? d.pvs[pv].states])),
+  ])
+);
+const asRead = (pv, text) => {
+  const info = pvInfo[pv];
+  const bare = text.replace(/ [▲■?×]$/, "");
+  const index = pvWords[pv]?.indexOf(bare) ?? -1;
+  if (index >= 0) return info.states?.[index] ?? String(index);
+  const [number, unit] = bare.split(" ");
+  const factor = unit && info.egu && unit !== info.egu && unit.endsWith(info.egu) ? prefixes[unit.slice(0, -info.egu.length)] : undefined;
+  return factor && Number.isFinite(Number(number)) ? String(Number(number) * factor) : bare;
+};
+const shownValues = (els) =>
+  Object.fromEntries(
+    els
+      .filter((el) => el.text !== null && !el.row && el.alarm in sevrNames)
+      .map((el) => [el.pv, { value: asRead(el.pv, el.text), sevr: sevrNames[el.alarm] }])
+  );
 
 // A value field whose record is INVALID shows the word, not the number.
 const checkWords = (els, where) => {
@@ -579,6 +613,105 @@ const phases = {
     await main.close();
     fs.writeFileSync(`${work}/setpoint.txt`, `${roles.sp_cmd} ${value}\n`);
     pass(`typed ${value} into the set point of ${id} in PID`);
+  },
+
+  async windows() {
+    const [tab] = args;
+    const main = await openMain("overview");
+    await settle(main);
+    const label = (slug) => main.locator(`[data-tab="${slug}"]`);
+    const popOut = async (slug) => {
+      const [win] = await Promise.all([context.waitForEvent("page"), label(slug).locator("[data-popout]").click()]);
+      await win.waitForSelector("[data-banner]");
+      return win;
+    };
+    const isOut = (slug) => label(slug).getAttribute("data-out").then((out) => out === "true");
+    const shownHere = (slug) => main.locator(`[data-page-tab="${slug}"] svg[data-page], [data-page-tab="${slug}"] table`).first().isVisible();
+
+    // Out: an ordinary route, complete in itself, with the values Channel Access reads.
+    const dots = await tabStates(main);
+    const baselineTab = (slug) => dots[slug];
+    const win = await popOut(tab);
+    check(new URL(win.url()).pathname === `/page/${tab}`, `${tab} opens in a window of its own at ${new URL(win.url()).pathname}`);
+    const els = await settle(win);
+    check(els.length > 0 && els.every((el) => el.alarm !== "disconnected"), `${tab} window: ${els.length} PVs, all connected`);
+    checkWords(els, `${tab} window`);
+    const title = await win.title();
+    const name = await win.locator("[data-page-name]").innerText();
+    check(slug(name) === tab && title === `[SIM] ${name}`, `${tab} window: its page name "${name}", window title "${title}"`);
+    check((await win.locator("[data-banner]").innerText()).startsWith("EMULATOR"), `${tab} window: emulator banner`);
+    const own = await win.locator("[data-page-name] + [data-alarm]").getAttribute("data-alarm");
+    check(own === baselineTab(tab), `${tab} window: its own severity ${own}, as its tab in the main window`);
+    fs.writeFileSync(`${work}/window.json`, JSON.stringify({ expert: shownValues(els) }, null, 1));
+
+    // Marked in the main window, its dot kept; a click brings the window to the front.
+    const [marked] = await until(() => isOut(tab), (out) => out, 3);
+    check(marked && (await label(tab).locator("[data-alarm]").count()) === 1, `${tab}: its tab is marked as out and keeps its dot`);
+    await win.evaluate(() => {
+      window.mist2Front = 0;
+      window.focus = () => {
+        window.mist2Front += 1;
+      };
+    });
+    await label(tab).click();
+    await main.waitForTimeout(500);
+    check((await win.evaluate(() => window.mist2Front)) > 0, `${tab}: a click on its tab brings its window to the front`);
+    check(new URL(main.url()).searchParams.get("tab") !== tab, `${tab}: the main window stays on the page it showed`);
+    await win.waitForTimeout(3000);
+    const pictures = await Promise.all([main, win].map((p) => p.screenshot()));
+    const board = await context.newPage();
+    await board.setViewportSize({ width: 1920, height: 560 });
+    await board.setContent(
+      `<body style="margin:0;background:#111;display:flex;gap:8px">${pictures
+        .map((png) => `<img style="width:956px" src="data:image/png;base64,${png.toString("base64")}">`)
+        .join("")}</body>`
+    );
+    await board.screenshot({ path: `${shots}/windows-page-beside-main.png` });
+    await board.close();
+
+    // A device opened from the page window: the same one window as from the main window.
+    const device = await win.locator(`[data-page-tab="${tab}"] svg[data-page] g[data-device]`).first().getAttribute("data-device");
+    const [deviceWindow] = await Promise.all([
+      context.waitForEvent("page"),
+      win.locator(`[data-page-tab="${tab}"] g[data-device="${device}"]`).first().click({ position: { x: 20, y: 8 } }),
+    ]);
+    await deviceWindow.waitForLoadState();
+    const count = context.pages().length;
+    await main.locator(`[data-page-tab="overview"] g[data-device="${device}"]`).first().click({ position: { x: 20, y: 8 } });
+    await main.waitForTimeout(1500);
+    check(context.pages().length === count, `${device} opened from the ${tab} window, then from the main window: one window`);
+
+    // Attach, and the browser's own close: the page is back in the main window.
+    await Promise.all([win.waitForEvent("close"), win.locator("[data-attach]").click()]);
+    const [back] = await until(async () => !(await isOut(tab)) && (await shownHere(tab)), (ok) => ok, 3);
+    check(back, `${tab}: "attach" closes its window and the main window shows the page again`);
+    check(!deviceWindow.isClosed(), `the device window stays open when the page goes back`);
+    await shot(main, `windows-attached-${tab}`, false);
+    const again = await popOut(tab);
+    await again.close();
+    const [backAgain] = await until(async () => !(await isOut(tab)) && (await shownHere(tab)), (ok) => ok, 3);
+    check(backAgain, `${tab}: closing its window by the browser brings the page back too`);
+
+    // Every page out: the main window keeps its frame.
+    const out = [];
+    for (const slug of tabs) out.push(await popOut(slug));
+    await main.waitForTimeout(1500);
+    const allMarked = (await Promise.all(tabs.map(isOut))).every(Boolean);
+    check(
+      allMarked &&
+        (await main.locator("header button", { hasText: "ALL HV OFF" }).isVisible()) &&
+        (await main.locator("[data-banner]").isVisible()) &&
+        (await main.locator('[role="tab"]').count()) === tabs.length,
+      `every page out: the main window still shows the ${tabs.length} tabs, all marked, the status strip and ALL HV OFF`
+    );
+    await shot(main, "windows-all-out", false);
+
+    // A reload of the main window closes every window it opened.
+    await main.reload();
+    await main.waitForTimeout(1500);
+    check([...out, deviceWindow].every((p) => p.isClosed()), "a reload of the main window closes the page and device windows");
+    check(!(await isOut(tab)), "after the reload every page is in the main window");
+    await main.close();
   },
 
   async alloff() {

@@ -22,6 +22,9 @@
 #   8  values set in place on the Overview: a set point typed into a tag
 #      arrives, an unsent entry is given up with Escape, an output switches on
 #      and off from its tag, the vent valve asks first from its tag
+#   9  tabs as windows: a page opened in a window of its own shows the values
+#      Channel Access reads, its tab is marked and brings it to the front,
+#      "attach" and closing bring it back, the windows close with the main window
 # Screenshots go to tools/screenshots/. Exit code 1 on any failure.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -211,6 +214,13 @@ browser tagcommand overview valves s3 cmd 1 dialog; result $?
 ca wait "$vent" 1 15; result $?
 browser tagcommand overview valves s3 cmd 0 nodialog; result $?
 ca wait "$vent" 0 15; result $?
+
+# ---- 9: tabs as windows ----------------------------------------------------------------
+step "9: a page in a window of its own"
+ca read "$cwork/ca-a.json"
+browser windows plasma-generator; result $?
+ca read "$cwork/ca-b.json"
+ca compare "$cwork/ca-a.json" "$cwork/ca-b.json" "$cwork/window.json"; result $?
 
 # ---- 6: no PV names in the sources ---------------------------------------------
 step "6: no PV name or prefix in the application sources"

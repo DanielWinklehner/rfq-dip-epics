@@ -22,7 +22,10 @@ Settings, including all Channel Access settings, are in `RAS/mist2/.env`
 Layout B of `docs/emulation/gui/LAYOUT.md` with the owner's change (G2): the
 synoptic is the console, and a click on a device opens it in a browser window
 of its own (`/device/<registry id>`, Controls, Trend, Expert). Main window tabs:
-Overview, one per subsystem page of the registry, Trends, Infrastructure.
+Overview, one per subsystem page of the registry, Trends, Infrastructure. The
+control on a tab opens its page in a window of its own (`/page/<slug>`); its
+"attach" button, or closing it, brings the page back. A reload of the main window
+closes all windows it opened (`windows.js`).
 
 | Where | What |
 |---|---|
@@ -35,7 +38,7 @@ Overview, one per subsystem page of the registry, Trends, Infrastructure.
 | `components/devices/` | one widget per registry class, built from the device's roles |
 | `synoptic/` | drawings: symbols, tags, layout; devices a drawing does not place are listed |
 | `config/drawings.json` | the geometry of every drawing (edit numbers, not code) |
-| `pages/` | main window, subsystem, trends, infrastructure pages, device window |
+| `pages/` | the list of pages (`pages.jsx`), main window, page window, subsystem, trends, infrastructure pages, device window |
 
 Every tag also sets, in place, what the operator sets in normal operation (owner,
 2026-11-22): the set points and requests of its widget's operation group
@@ -78,7 +81,8 @@ SI unit (A, V, W, Hz, s) takes a prefix when a value is below 0.01 or from
 
 `tools/gui-check.sh` checks the GUI against the running emulation (pages,
 values against Channel Access, a silent simulator, a stopped IOC, writes,
-sources, the latch of the interlock permit, the loop, values set in place) with a
+sources, the latch of the interlock permit, the loop, values set in place, pages in
+windows of their own) with a
 headless browser and saves
 screenshots to `tools/screenshots/`.
 It needs `make -C emulation up` and `make dev-up`, takes about ten minutes and

@@ -171,6 +171,8 @@ def matches(shown, a, b):
     gui_text = shown["value"]
     if gui_text in (a["text"], b["text"]):
         return True
+    if gui_text == "INVALID":
+        return 3 in (a["severity"], b["severity"])
     if a["array"] is not None:
         try:
             g = [float(x) for x in gui_text.split(",")]
@@ -207,7 +209,7 @@ def compare(path_a, path_b, path_gui):
         if shown["sevr"] not in (sev_names[ra["severity"]], sev_names[rb["severity"]]):
             print(f"FAIL {name}: GUI severity {shown['sevr']}, Channel Access {sev_names[ra['severity']]}")
             failures += 1
-    print(f"compared {checked} PVs of the device windows with Channel Access: {failures} failures")
+    print(f"compared {checked} PVs shown by the GUI with Channel Access: {failures} failures")
     return 1 if failures else 0
 
 
