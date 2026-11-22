@@ -27,7 +27,9 @@ def write_target(name):
     gauge starts in, which the read test checks through the pressure)."""
     s = snapshot[name]
     spec = reg.pvs[name]
-    if s["status"] != S.UDF:
+    if s["status"] != S.UDF or spec.get("role") == "ilimit":
+        # a current limit is restored by autosave at the start: its value is the saved one,
+        # also while it is not yet applied to the supply (UDF)
         return s["value"]
     rb = spec.get("readback")
     if rb:
