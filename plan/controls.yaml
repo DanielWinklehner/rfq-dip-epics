@@ -1059,6 +1059,8 @@ logging:
 #             DISS). build.py names every such record that lacks it. Everything else follows from
 #             how the records are processed (build.py, "faults").
 #   macros    macros that every load of this database has (optional)
+#   drives    {macro, while: {role, value}}: a PV of another device (named by the macro) that this
+#             one writes by itself while its role reads the value (a control loop's actuator)
 #
 # A record that is neither a role nor internal stops build.py and registry.py: add it here.
 databases:
@@ -1222,6 +1224,9 @@ databases:
 
   loop.db:
     class: loop
+    # The PV the loop writes (macro ACT) while its mode role reads 1 (PID). The logger keeps those
+    # writes as a signal (raw, seconds, minutes), not as set commands (docs/emulation/LOGGER.md).
+    drives: {macro: ACT, while: {role: mode, value: 1}}
     roles:
       mode_cmd: {record: "mode:setpoint", readback: null, test: [0, 0], ack: true,
                  note: "the operator's request, accepted by the IOC itself (mode:get shows the mode, which needs more than the request); cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating"}

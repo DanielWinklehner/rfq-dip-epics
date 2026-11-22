@@ -169,6 +169,9 @@ def build(model):
         result["simulators"] = sorted({r["sim"] for r in records.values() if r["owner"] == owner["id"] and r["sim"]})
         result["loads"] = [{"db": l["db"], "macros": {k: str(v) for k, v in model.macros(l).items()}} for l in loads_of(owner)]
         result["pvs"] = pvs
+        drives = [{"pv": target, "while": {"pv": cond, "value": value}} for target, cond, value in model.drives(owner)]
+        if drives:
+            result["drives"] = drives
         return result
 
     registry = {

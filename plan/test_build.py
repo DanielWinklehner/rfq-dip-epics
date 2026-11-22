@@ -247,3 +247,36 @@ class LogTier(unittest.TestCase):
             warnings = Model(path, os.path.join(REPO, "EPICS", "Db")).warnings
         self.assertTrue(any("TDK:mode:get (mbbi, role mode) has no logging tier" in w for w in warnings), warnings)
         self.assertTrue(any("roles: power names tier 'hourly'" in w for w in warnings), warnings)
+
+
+class DrivesAndTrends(unittest.TestCase):
+    def model_with(self, change):
+        import yaml
+        with open(os.path.join(REPO, "plan", "controls.yaml"), encoding="utf-8") as handle:
+            data = yaml.safe_load(handle)
+        change(data)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "controls.yaml")
+            with open(path, "w", encoding="utf-8") as handle:
+                yaml.safe_dump(data, handle)
+            return Model(path, os.path.join(REPO, "EPICS", "Db"))
+
+    def test_the_loop_drives_its_actuator_while_in_pid(self):
+        model = Model(os.path.join(REPO, "plan", "controls.yaml"), os.path.join(REPO, "EPICS", "Db"))
+        loop = model.by_id["dis_loop"]
+        self.assertEqual(model.drives(loop), [("TDK:current:setpoint", "LOOP-DIS:mode:get", 1)])
+        self.assertEqual([w for w in model.warnings if "drives" in w or "trends" in w], [])
+
+    def test_a_trend_role_no_database_has_warns(self):
+        def change(data):
+            data["trends"]["roles"].append("nosuchrole")
+            data["trends"]["beside"]["pv"] = "nosuchsetpoint"
+        warnings = self.model_with(change).warnings
+        self.assertTrue(any("trends: role nosuchrole" in w for w in warnings), warnings)
+        self.assertTrue(any("trends: role nosuchsetpoint" in w for w in warnings), warnings)
+
+    def test_drives_a_pv_that_does_not_exist_warns(self):
+        def change(data):
+            data["databases"]["loop.db"]["drives"]["macro"] = "HB"     # the heartbeat: a calc, not written
+        warnings = self.model_with(change).warnings
+        self.assertTrue(any("drives IOC-HV:heartbeat, which is not a written record" in w for w in warnings), warnings)
