@@ -1,0 +1,74 @@
+# MIST-2 data logger: database, logger, Grafana. Its own Compose project, independent of the
+# emulation: it starts whether or not the IOCs run. Use through the Makefile (make -C logger up),
+# settings in .env (env.template). See README.md.
+name: mist2log
+
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mist2log
+      POSTGRES_USER: mist2log
+      POSTGRES_PASSWORD: ${MIST2LOG_DB_PASSWORD:?set in .env}
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - data:/var/lib/postgresql/data
+    ports:
+      - "${MIST2LOG_BIND:-127.0.0.1}:${MIST2LOG_DB_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mist2log", "-d", "mist2log"]
+      interval: 10s
+      timeout: 3s
+      start_period: 30s
+      start_interval: 1s
+      retries: 3
+
+  # Host network: Channel Access reaches the IOCs as any client of this computer does (the
+  # emulation's bridge network from WSL, the control network on a real computer). It reaches the
+  # database through the port published on this computer.
+  logger:
+    image: mist2log:1
+    build: .
+    restart: unless-stopped
+    init: true
+    network_mode: host
+    depends_on: {db: {condition: service_healthy}}
+    stop_grace_period: 15s
+    environment:
+      MIST2LOG_DB_HOST: 127.0.0.1
+      MIST2LOG_DB_PORT: ${MIST2LOG_DB_PORT:-5434}
+      MIST2LOG_DB_PASSWORD: ${MIST2LOG_DB_PASSWORD}
+      MIST2LOG_READER_PASSWORD: ${MIST2LOG_READER_PASSWORD}
+      MIST2LOG_BUFFER_ROWS: ${MIST2LOG_BUFFER_ROWS:-2000000}
+      MIST2LOG_CLOCK_SKEW_S: ${MIST2LOG_CLOCK_SKEW_S:-10}
+      EPICS_CA_AUTO_ADDR_LIST: ${EPICS_CA_AUTO_ADDR_LIST:-NO}
+      EPICS_CA_ADDR_LIST: ${EPICS_CA_ADDR_LIST}
+    volumes:
+      - ${MIST2LOG_REGISTRY_FILE:-../RAS/mist2/ReactApp/src/registry/registry.json}:/config/registry.json:ro
+
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    restart: unless-stopped
+    depends_on: {db: {condition: service_healthy}}
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"          # operators look without a login, as in the GUI
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      MIST2LOG_READER_PASSWORD: ${MIST2LOG_READER_PASSWORD}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./build/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana:/var/lib/grafana
+    ports:
+      - "${MIST2LOG_BIND:-127.0.0.1}:${MIST2LOG_GRAFANA_PORT:-3300}:3000"
+
+volumes:
+  data:
+    name: mist2log-data
+  grafana:
+    name: mist2log-grafana

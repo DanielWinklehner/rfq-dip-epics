@@ -1,0 +1,11 @@
+# The dashboards written by mist2log/dashboards.py from the registry (make -C logger up).
+# Read-only in Grafana: a change is made in the generator, never by hand.
+apiVersion: 1
+providers:
+  - name: mist2log
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

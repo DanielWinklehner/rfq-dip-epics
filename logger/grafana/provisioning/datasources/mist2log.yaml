@@ -1,0 +1,17 @@
+# The logger's database, read with the read-only role (logger/env.template)
+apiVersion: 1
+datasources:
+  - name: mist2log
+    uid: mist2log
+    type: grafana-postgresql-datasource
+    url: db:5432
+    user: mist2log_reader
+    isDefault: true
+    editable: false
+    jsonData:
+      database: mist2log
+      sslmode: disable
+      timescaledb: true
+      postgresVersion: 1600
+    secureJsonData:
+      password: ${MIST2LOG_READER_PASSWORD}
