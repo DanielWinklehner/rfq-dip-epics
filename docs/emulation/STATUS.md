@@ -6,6 +6,11 @@ nothing is pushed.
 Everything is built and merged. The system suite and the GUI check pass on the final state.
 Nothing is running.
 
+Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
+CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
+on hardware. Data logging, the control loops and the PDF printout are not built: the task
+named them as later additions.
+
 ## "Done" as the task defines it
 
 | # | Criterion | State | Evidence |
@@ -16,7 +21,7 @@ Nothing is running.
 | 4 | A silent simulator turns its PVs INVALID within seconds, recovery without IOC restart | Done | The same runs: every fault on every simulator, with all other devices unaffected and recovery without an IOC restart. By hand: TDK silent, INVALID within 6 s, valid again 6 s after clearing |
 | 5 | AU update rate reported and matching the bus arithmetic | Done | The same runs: all four AU supplies 9.19 Hz against 9.80 Hz predicted (94 %), TDK 9.99 Hz against 10.00 Hz. Table in `emulation/build/update-rate.md` after a run |
 | 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Done | `gui-check.sh`, run three times in a row from nothing by the lead on the final state: 199 of 199 checks each time, 275 displayed values equal to Channel Access, no console error or warning. The console error of the run before is fixed at its cause (see "GUI") |
-| 7 | `plan/controls.yaml` matches what was built, `plan/build.py` runs without warnings | Done | Revision 0.9. `make -C emulation plan-check` passes on the merged tree, the registry regenerates without a difference |
+| 7 | `plan/controls.yaml` matches what was built, `plan/build.py` runs without warnings | Done | Revision 0.10. `make -C emulation plan-check` passes on the merged tree, the registry regenerates without a difference |
 | 8 | This file lists every assumption that needs confirmation | Done | Sections "Assumptions" and "Open points" |
 
 ## Done
@@ -71,7 +76,7 @@ Nothing is running.
   after the two runs.
 
 **Plan and registry**
-- `plan/controls.yaml` revision 0.9 describes what is built, with your answers in it.
+- `plan/controls.yaml` revision 0.10 describes what is built, with your answers in it.
   `make -C emulation plan-check` compares it with `EPICS/Db` and both `st.cmd` and fails on any
   difference.
 - Registry `RAS/mist2/ReactApp/src/registry/registry.json`, generated from the same sources:
@@ -112,6 +117,24 @@ Nothing is running.
   and the back plate temperature respond; 80 A instead of 90 A on the filament takes the
   discharge from the supply's limit to 4 A; closing the gas valve ends it. After `plant-stop`
   every device is back on its own behaviour.
+
+**Matsusada CO-U32 on Linux** (`EPICS/ioc/host/`, by the lead, 2026-11-22)
+- Found: the CO-U32 holds an FTDI USB-serial chip under Matsusada's own USB ID `1192:1000`.
+  Sources: the INF files of Matsusada's driver CD rev. 1.7.0, which are FTDI's driver 2.08.28
+  with that ID, and your notes of about 2016, in which you opened the adapter under that ID on
+  a Raspberry Pi. The Linux driver `ftdi_sio` does not list the ID (kernel mainline of
+  2026-11-22). That is why the adapter gets no serial port by itself.
+- No new driver is needed: one udev rule names the ID to `ftdi_sio`, and the adapter is a
+  serial device that asyn opens as on Windows. No D2XX library, no root rights at run time.
+- `99-mist2-matsusada.rules`: that rule, ModemManager kept off the line, and the name
+  `/dev/mist2/co-u32` for the adapter with the serial number `CO001144` (from your notes).
+  It passes `udevadm verify` (systemd 255); a copy with a wrong operator fails it.
+- `matsusada_probe.py`: read-only first contact (STS, SW?, CH0?, CH1?, MN1, MN2; no set, no
+  REN), prints every reply, its time and whether it has the form the protocol file expects.
+  Run by the lead against the Matsusada simulator through a pseudo serial port: two units
+  answer (exit code 0, median reply time 24 ms), an absent unit and garbage replies are
+  reported (exit code 1), a missing device ends with a message (exit code 2).
+- Install and the five check steps with the adapter: `EPICS/ioc/host/README.md`.
 
 ## Running
 
@@ -182,6 +205,9 @@ Nothing.
 7. Two defects of React Automation Studio V8.1.0 are behind the GUI's console error (see
    "Found in RAS V8.1.0"). Do you want them reported to the RAS project? I have contacted
    nobody.
+8. Is the CO-U32 in the rack the adapter of your notes, serial number `CO001144` (A29)? And
+   the USB-OPT: does it have a driver CD of its own, or do you know its USB ID (P34)?
+   `lsusb` on any Linux computer, or "Hardware Ids" in the Windows Device Manager, shows both.
 
 ## Not verified
 
@@ -193,6 +219,9 @@ Nothing.
   WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
   was in the middle of a merge.
 - The `git clone` step of the README works only after a push.
+- The udev rule and the probe of `EPICS/ioc/host/` with the real adapter. The rule was checked
+  for its syntax only: whether `ftdi_sio` takes the adapter and `/dev/mist2/co-u32` appears
+  can only be seen with the adapter plugged in.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
   keeps its last 3000 values, which is 5 minutes of a value that changes ten times a second.
 
@@ -222,6 +251,7 @@ Nothing.
 | Read-backs and trends of the GUI do not use RAS `Widget` and `GraphY` | Both set React state in effects on every value. With every page mounted that ends in React's "Maximum update depth exceeded". The RAS submodule stays unmodified |
 | Trend lines are steps that end at INVALID and at a lost connection | A monitor sends a value when it changes. A straight line between two values, or a line through a time without valid data, would show a measurement that was not made |
 | Subagents share the one emulation through a lock file | The Compose project uses fixed names and a fixed network, so only one copy can run |
+| The CO-U32 on Linux through the kernel's FTDI driver and a udev rule, not through FTDI's D2XX library | The chip is a standard FTDI part under a vendor ID. With the kernel driver the adapter is a plain serial device: asyn, the protocol file and `ports.real.cmd` stay as they are, and nothing runs with root rights |
 
 ## Assumptions that need your confirmation
 
@@ -247,7 +277,7 @@ A19 (the output gate is wanted, and it latches).
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
 | A20 | Emulation subnet `172.30.0.0/24` | Free choice | You, if it collides with a network of yours |
-| A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | udev rules do not exist yet | Work package WP4 |
+| A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | Only `/dev/mist2/co-u32` has a udev rule, not tested (`EPICS/ioc/host/`). The others do not exist yet | Work package WP4 |
 | A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
 | A23 | The defaults of the current limits are the full scales: 15, 7.5, 7.5, 7.5 mA and 24 A | No source for the real limits | You |
 | A24 | A Matsusada supply in local control still answers queries (status, monitors) | The CO manual does not say | Hardware |
@@ -255,6 +285,7 @@ A19 (the output gate is wanted, and it latches).
 | A26 | The nAIM is calibrated for nitrogen | Your "I believe" | The gauge |
 | A27 | My reading of your answer 10: the limit PV is `current:limit`, the lab's name stays as an alias, the defaults file is `limits.defaults` per IOC, and a change from the GUI is saved to a second file that overrides the defaults at the next start. The defaults file itself is not rewritten | Your answer, autosave's way of working | You |
 | A28 | The turbopump reaches its speed in 60 s in the simulator. The data sheet says about 9 minutes | Free choice, so that a desk session does not wait | Say so if you want the real time |
+| A29 | The CO-U32 in the rack is the adapter of your notes of about 2016: serial number `CO001144`, USB ID `1192:1000` | Your notes, and Matsusada's driver CD rev. 1.7.0 for the ID | `lsusb -v` with the adapter plugged in |
 
 ## Open points
 
@@ -286,6 +317,7 @@ P18, P19, P20, P22.
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
 | P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
+| P34 | The USB-OPT has no udev rule: its USB ID, chip and serial number are not known. The driver CD of 2017 does not name it | The adapter, or its driver CD |
 
 ## Found in RAS V8.1.0
 

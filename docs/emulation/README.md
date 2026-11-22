@@ -179,7 +179,9 @@ On the real computer: build the top (`make -C EPICS/ioc`, local paths in
 an error. It cannot come up on the wrong set of ports by accident.
 
 Before that works, `ports.real.cmd` needs the real device names (the names under `/dev/mist2/`
-are placeholders), and the assumptions in [STATUS.md](STATUS.md) need your answers.
+are placeholders), and the assumptions in [STATUS.md](STATUS.md) need your answers. The
+Matsusada CO-U32 has its udev rule and a read-only probe, both not tested on hardware:
+[../../EPICS/ioc/host/README.md](../../EPICS/ioc/host/README.md).
 
 ## 9. Add or change a device
 
@@ -199,6 +201,7 @@ are placeholders), and the assumptions in [STATUS.md](STATUS.md) need your answe
 |---|---|
 | `EPICS/Db/` | Databases and protocol files, shared by emulation and reality |
 | `EPICS/ioc/` | EPICS application and the startup files of both IOCs |
+| `EPICS/ioc/host/` | Setup of the real rack computer on Linux: udev rule and probe for the Matsusada adapter |
 | `emulation/` | Images, Compose file, simulators, test cases, system tests |
 | `emulation/sim/config/` | Which simulator stands behind which port, with all assumed values marked |
 | `plan/` | `controls.yaml`, the single source of truth, and its generators |
