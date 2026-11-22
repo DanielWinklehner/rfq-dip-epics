@@ -184,12 +184,15 @@ const comparePages = async (label, changed, state, extra = async () => {}) => {
   );
   const page = await openMain("overview");
   let dots = {};
-  for (let waited = 0; waited < 30; waited += 1) {
+  let waited = 0;
+  for (; waited < 30; waited += 1) {
     dots = await tabStates(page);
     if (Object.keys(want).every((tab) => dots[tab] === want[tab])) break;
     await page.waitForTimeout(1000);
   }
   await page.close();
+  // How long an operator who opens a window in this state sees other dots.
+  console.log(`note: ${label}: tab dots as expected after ${waited} s`);
   for (const tab of Object.keys(want)) {
     check(dots[tab] === want[tab], `${label}: tab ${tab} shows ${dots[tab]}, expected ${want[tab]}`);
   }
