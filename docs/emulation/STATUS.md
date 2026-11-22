@@ -134,6 +134,10 @@ named them as later additions.
   Run by the lead against the Matsusada simulator through a pseudo serial port: two units
   answer (exit code 0, median reply time 24 ms), an absent unit and garbage replies are
   reported (exit code 1), a missing device ends with a message (exit code 2).
+- Matsusada's current driver package (rev. 2.12.36.20, which you downloaded on 2026-11-22) is
+  still FTDI's driver and names the same single ID, `1192:1000`. It does not name the
+  USB-OPT. If it is the USB-OPT's driver, as you believe, the USB-OPT reports that ID and the
+  rule covers it; only its serial number is missing for the name `/dev/mist2/usb-opt`.
 - Install and the five check steps with the adapter: `EPICS/ioc/host/README.md`.
 
 ## Running
@@ -206,8 +210,9 @@ Nothing.
    "Found in RAS V8.1.0"). Do you want them reported to the RAS project? I have contacted
    nobody.
 8. Is the CO-U32 in the rack the adapter of your notes, serial number `CO001144` (A29)? And
-   the USB-OPT: does it have a driver CD of its own, or do you know its USB ID (P34)?
-   `lsusb` on any Linux computer, or "Hardware Ids" in the Windows Device Manager, shows both.
+   what are the USB ID and the serial number of the USB-OPT (P34)? One PowerShell command on
+   the rack PC shows all of it without changing anything: `EPICS/ioc/host/README.md`, "Read
+   the IDs and serial numbers on the Windows IOC".
 
 ## Not verified
 
@@ -317,7 +322,7 @@ P18, P19, P20, P22.
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
 | P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
-| P34 | The USB-OPT has no udev rule: its USB ID, chip and serial number are not known. The driver CD of 2017 does not name it | The adapter, or its driver CD |
+| P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 
 ## Found in RAS V8.1.0
 
