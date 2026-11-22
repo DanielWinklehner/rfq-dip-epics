@@ -1234,7 +1234,16 @@
      "readback": null,
      "log": "events"
     }
-   }
+   },
+   "drives": [
+    {
+     "pv": "TDK:current:setpoint",
+     "while": {
+      "pv": "LOOP-DIS:mode:get",
+      "value": 1
+     }
+    }
+   ]
   },
   "thermo_hv": {
    "name": "Thermocouple readout",
