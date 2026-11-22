@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.9"
+  revision: "0.10"
   date: "2026-11-22"
   author: "D. Winklehner"
   basis:
@@ -31,6 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.10: Matsusada's driver CD rev. 1.7.0 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
     - "Revision 0.9: the Matsusada rework (four AU supplies, current limit with autosave, latching permit, remote/local status) and the owner's answers of 2026-11-21 (docs/emulation/STATUS.md)"
     - "Revision 0.7: the databases in EPICS/Db and the two st.cmd files of branch emulated-iocs (PV names of the lab's IOC of 2023), the design note docs/emulation/DESIGN.md (G1, approved 2026-11-21) and the assumptions A1 to A22 and open points in docs/emulation/STATUS.md"
 
@@ -72,7 +73,7 @@ hosts:
     st_cmd: EPICS/ioc/iocBoot/iocRack/st.cmd
     epics: {db: ioc_info.db, macros: {P: IOC-RACK}}
     notes:
-      - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4."
+      - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4. Found on 2026-11-22: Linux needs no driver for it, only a udev rule (EPICS/ioc/host), not yet tested with the adapter."
       - "EPICS/ioc/iocBoot/iocRack/st.cmd is the same file for the emulation and for this computer. The asyn ports come from ports.sim.cmd or ports.real.cmd. The Linux device names in ports.real.cmd are placeholders until the udev rules exist (assumption A21)."
       - "Saved limits: the IOC image has autosave R5-11 next to EPICS base, asyn and StreamDevice. Both st.cmd files restore the current limits of the HV supplies at the start from iocBoot/<ioc>/limits.defaults, then from limits.sav (which wins), and save every change within 5 s. The saved files live in $MIST2_SAVE/<ioc> on a real computer (default ~/.local/state/mist2/<ioc>) and in the Docker volume mist2emu-save in the emulation."
     questions:
@@ -106,7 +107,7 @@ adapters:
     name: "Matsusada CO-U32"
     text: "USB to optical fiber, up to 32 supplies"
     host: ioc_rack
-    link: "USB (virtual COM port, 9600 baud)"
+    link: "USB (FTDI chip under Matsusada's USB ID 1192:1000, serial port, 9600 baud)"
     status: modify
   - id: usb_opt
     name: "Matsusada USB-OPT"
@@ -808,10 +809,10 @@ work_packages:
     name: "Rack IOC on Linux and Matsusada communication"
     phase: 1
     items:
-      - "Find out which USB chip the CO-U32 uses (vendor and product ID). If it is a standard USB-serial chip with a custom ID, Linux needs a udev rule and no new driver."
-      - "Otherwise: user-space bridge (libusb) that exposes a serial or TCP port to asyn."
+      - "Answered on 2026-11-22 from Matsusada's driver CD rev. 1.7.0 and the owner's notes: the CO-U32 holds an FTDI chip under the USB ID 1192:1000, serial number CO001144. Linux needs a udev rule and no new driver. The rule and a read-only probe are in EPICS/ioc/host."
+      - "Open: test the rule and the probe with the adapter (EPICS/ioc/host/README.md), then the acceptance test of the driver brief."
       - "The Matsusada CO-E32 LAN adapter may come later. Its delivery time is too long for use before the winter break, so the CO-U32 has to work on Linux first."
-      - "The new USB-OPT adapter raises the same USB question as the CO-U32. Answer both together."
+      - "The new USB-OPT adapter raises the same USB question as the CO-U32. Not answered: the driver CD of 2017 does not name it (open point P34)."
       - "Split the AU supplies over the two optical chains (two asyn ports, polled in parallel)."
       - "Rework matsusada_au20p7.db: fast polling for the monitors only, set-point echo after a set, PRIO = HIGH on the set records, full-scale macros, one 'all off' PV."
       - "Stable device names (udev by serial number) instead of COM numbers."

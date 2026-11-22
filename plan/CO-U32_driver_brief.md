@@ -17,6 +17,15 @@ Run the rack IOC on Linux. The only thing that keeps it on Windows today is the 
 
 - A second adapter of a newer type, the Matsusada USB-OPT, will drive a second optical chain. Everything below applies to it as well. It may use a different USB chip than the CO-U32, so identify both.
 
+## Found on 2026-11-22, without the hardware
+
+From Matsusada's driver CD rev. 1.7.0 and the owner's notes of about 2016:
+
+- The CO-U32 holds an FTDI chip under Matsusada's USB ID: vendor `1192`, product `1000`. Its serial number is `CO001144`.
+- That is the second row of the decision tree: no driver, a udev rule.
+- The rule, a read-only probe and the check steps are in `EPICS/ioc/host/` of the repository. None of it is tested with the adapter: start there.
+- Still unknown: everything about the USB-OPT. Questions 1 and 2 below are open for it.
+
 ## What is not known (find out first, before writing any code)
 
 1. USB vendor ID and product ID of the CO-U32.
