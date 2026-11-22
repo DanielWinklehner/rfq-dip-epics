@@ -13,6 +13,7 @@ tuning: [../docs/emulation/LOOP.md](../docs/emulation/LOOP.md).
 | `mist2loop/service.py` | The Channel Access side: monitors, writes, the cycle (pyepics) |
 | `config/mist2.yaml` | The loops it runs (prefixes) and the period. The same file in the emulation and on the platform computer |
 | `tests/test_pid.py` | The algorithm alone: `python3 -m unittest discover -s loops/tests -t loops` from the repository root |
+| `tests/test_loop.py` | The loop's logic with a fake Channel Access side (start, refusal, bumpless start, hand-back order, counting), the same command |
 | `systemd/mist2loop.service` | The unit for the platform computer |
 
 Needs Python 3.8 or later (Ubuntu 20.04 has 3.8, 22.04 3.10, 24.04 3.12), PyYAML and pyepics.
@@ -25,7 +26,9 @@ python -m mist2loop --config config/mist2.yaml     # in loops/
 ```
 
 It starts whether or not the IOC runs and connects when the IOC appears; it logs one line per
-event (connection, mode changes with their reason), not one per cycle; SIGTERM or ctrl-c ends it
+event (connection, mode changes with their reason, a failing cycle once), not one per cycle; it
+counts `_count` only for a completed cycle, so the IOC's watchdog also catches a service whose
+cycles fail; SIGTERM or ctrl-c ends it
 with every loop in MANUAL.
 
 ## In the emulation
