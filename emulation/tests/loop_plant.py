@@ -1,0 +1,308 @@
+"""Test C: the discharge current loop closed on the plant model (`make -C emulation test-loop`).
+
+Not part of the system suite (its file name does not start with test_): run.sh runs it with the
+plant (MIST2_PLANT=1) and stops what it started. Steps, in this order, on every loop of the
+registry whose measurement is the discharge current the plant drives:
+
+  1. the source brought to about 20 A of discharge current in MANUAL (pump, gas, filament,
+     discharge supply), from the model's numbers;
+  2. MANUAL to PID: bumpless;
+  3. a set point step from 20 A to 22 A (the owner's set point): rise time, overshoot, settling
+     time, steady-state error;
+  4. an emission drift of the plant (-5 %/min for 30 s, then the emission back at once): the
+     largest deviation and the error at the end;
+  5. a set point the supply cannot reach (the REK's current limit lowered under the set point):
+     the output ends at its maximum with the flag, holds there, and comes back when the limit
+     is restored;
+  6. a hand-back in closed loop (the REK silent): the filament current stays where it was;
+  7. rates: writes per second to the TDK, read-back rates of TDK and REK in MANUAL and in PID.
+
+Pass limits and where they come from: LIMITS below. Every number of the plant is a property of
+the MODEL (emulation/sim/config/plant.yaml), not of MIST-2; so are the results.
+"""
+import threading
+import time
+
+import epics
+import pytest
+
+import system as S
+from system import reg
+from mist2sim.control import ControlClient
+
+PLANT = ("plant", 6090)              # the plant's control port (emulation/sim/README.md)
+START_A, STEP_A = 20.0, 22.0         # discharge current: start and the owner's set point
+SECONDS = {"step": 20.0, "drift": 30.0, "after_drift": 15.0, "unreachable": 15.0,
+           "back": 20.0, "rates": 5.0}
+
+# Pass limits. The model's discharge current answers a filament current step with a gain of
+# about 3.3 A/A and a time constant of 1.45 s (plant_step_response.py, 18 A and 24 A points).
+LIMITS = {
+    # +2 A needs about 0.6 A more filament current; at the slew limit of 1 A/s that alone takes
+    # 0.6 s. The design closed-loop time constant is 0.5 s (SIMC): 10 to 90 % in about 2.2 x 0.5
+    # s plus the slew time. Limit: 3 s, twice that.
+    "rise_s": 3.0,
+    # SIMC tuning with tau_c = 0.5 s gives a few per cent; 10 % is the usual limit for it.
+    "overshoot_pct": 10.0,
+    # within +-0.1 A (5 % of the step): within 4 open-loop time constants (5.8 s), i.e. at least
+    # as fast as the plant settles on its own. Limit: 6 s.
+    "settling_s": 6.0,
+    "band_a": 0.1,
+    # steady state: integral action, so the mean error is noise only (REK monitor 12 bit of
+    # 24 A, 6 mA per count, and the simulator's noise). Limit: 0.03 A.
+    "sse_a": 0.03,
+    # MANUAL to PID: in the 5 s after the switch the discharge current stays within +-0.2 A
+    # (noise and the small error at the switch) and the first set sent differs from the TDK's
+    # set point before by no more than slew x DT (the backstop's step).
+    "bump_a": 0.2,
+    # drift -5 %/min of the emission: a ramp disturbance; a PI loop follows it with a constant
+    # error of about the drift rate over Ki. Largest deviation 0.3 A, at the end of the 30 s
+    # within 0.15 A; after the emission returns at once (+ about 2.5 %), back within the band
+    # within 6 s.
+    "drift_max_a": 0.3,
+    "drift_end_a": 0.15,
+    # writes per second to the TDK: at most one per period of the writer (DT 0.2 s)
+    "writes_per_s": 5.0,
+    # read-back rates: the TDK keeps at least 90 % of its MANUAL rate in PID
+    "rate_ratio": 0.9,
+}
+
+
+def plant():
+    return ControlClient(*PLANT, timeout=5.0)
+
+
+def valve(label):
+    dev = next(d for d in reg.devices.values() if d["class"] == "valve")
+    ch = next(c for c in dev["channels"].values() if c.get("label") == label)
+    return ch["roles"]["cmd"]
+
+
+def device_with(role, value_pv):
+    return next(d for d, dev in reg.devices.items() if dev.get("roles", {}).get(role) == value_pv)
+
+
+class Recorder:
+    """Every processing of some records: (monotonic time, value), one entry per time stamp of the
+    record (a monitor may deliver the same processing twice)."""
+
+    def __init__(self, names):
+        self.events = {n: [] for n in names}
+        self.stamps = {n: None for n in names}
+        self.pvs = [epics.PV(n, form="time", auto_monitor=True, callback=self._cb) for n in names]
+        for pv in self.pvs:
+            pv.wait_for_connection(5.0)
+
+    def _cb(self, pvname=None, value=None, timestamp=None, **kw):
+        if timestamp is not None and timestamp == self.stamps[pvname]:
+            return
+        self.stamps[pvname] = timestamp
+        self.events[pvname].append((time.monotonic(), value))
+
+    def since(self, name, t0, t1=None):
+        return [(t, v) for t, v in self.events[name] if t >= t0 and (t1 is None or t <= t1)]
+
+    def rate(self, name, t0, t1):
+        return len(self.since(name, t0, t1)) / (t1 - t0)
+
+
+def mdel_all(names, value):
+    for n in names:
+        S.put_field(n, "MDEL", value)
+
+
+def step_metrics(samples, t_step, y0, y1, band):
+    """Rise time 10-90 %, overshoot %, settling time into +-band (stays), steady-state error."""
+    dy = y1 - y0
+    t10 = next(t for t, v in samples if (v - y0) / dy >= 0.1)
+    t90 = next(t for t, v in samples if (v - y0) / dy >= 0.9)
+    peak = max(v for _, v in samples) if dy > 0 else min(v for _, v in samples)
+    overshoot = max(0.0, (peak - y1) / dy * 100.0)
+    outside = [t for t, v in samples if abs(v - y1) > band]
+    settled = (outside[-1] if outside else t_step) - t_step
+    end = samples[-1][0]
+    tail = [v for t, v in samples if t >= end - 5.0]
+    sse = sum(tail) / len(tail) - y1
+    return {"rise_s": t90 - t10, "overshoot_pct": overshoot, "settling_s": settled, "sse_a": sse}
+
+
+def test_closed_loop(capsys):
+    lp = next(d for d in reg.devices.values() if d["class"] == "loop")
+    r, m = lp["roles"], lp["loads"][0]["macros"]
+    meas, act = m["MEAS"], m["ACT"]
+    rek, tdk = device_with("iread", meas), device_with("iset", act)
+    R, T = reg.devices[rek]["roles"], reg.devices[tdk]["roles"]
+    turbo = next(d for d, dev in reg.devices.items() if dev["class"] == "turbo"
+                 and "run_cmd" in dev["roles"] and not dev.get("flags", {}).get("not_installed"))
+    mfc = next(d for d, dev in reg.devices.items() if dev["class"] == "mfc")
+    rows, table = [], {}
+    S.wait_for(lambda: S.get(r["service"]) == 1, 30.0, "the loop service is alive")
+
+    # --- 1. the source in MANUAL --------------------------------------------------------------
+    S.put(r["mode_cmd"], 0)
+    S.put(reg.role(turbo, "run_cmd"), 1)
+    S.put(valve("Foreline Valve"), 1)
+    S.put(valve("MFC Shutoff Valve"), 1)
+    S.put(reg.role(mfc, "sp_cmd"), 20.0)            # 20 % of 5 sccm: the owner's working point
+    S.wait_for(lambda: S.get(reg.role(turbo, "atspeed")) == 1, 150.0, "turbopump at speed")
+    S.put(T["vset"], 8.0)                           # filament 8 V: CC below the working point
+    S.put(T["iset"], 88.0)
+    S.put(T["out_cmd"], 1)
+    S.put(R["vset"], 150.0)
+    S.put(R["out_cmd"], 1)
+    S.wait_for(lambda: S.get(R["status"]) == 1, 5.0, "REK on")
+    for _ in range(6):                              # the model's gain is about 3.3 A/A
+        time.sleep(8.0)
+        i = S.get(meas)
+        if abs(i - START_A) < 0.1:
+            break
+        S.put(T["iset"], round(S.get(T["iset"]) + (START_A - i) / 3.3, 2))
+    time.sleep(8.0)
+    assert abs(S.get(meas) - START_A) < 0.3, "discharge current near %g A in MANUAL: %s" % (
+        START_A, S.describe([meas, T["iset"]]))
+
+    rec = Recorder([meas, act, r["limit"], r["mode"], T["iread"], R["iread"]])
+    mdel_all([T["iread"], R["iread"]], -1)          # every processing posted: rates
+    try:
+        # --- 7a. rates in MANUAL ------------------------------------------------------------
+        t0 = time.monotonic()
+        time.sleep(SECONDS["rates"])
+        t1 = time.monotonic()
+        manual = {k: rec.rate(k, t0, t1) for k in (T["iread"], R["iread"])}
+
+        # --- 2. MANUAL to PID ---------------------------------------------------------------
+        S.put(r["sp"], round(S.get(meas), 3))
+        before = S.get(act)
+        y_before = S.get(meas)
+        S.put(r["mode_cmd"], 1)
+        S.wait_for(lambda: S.get(r["mode"]) == 1, 1.0, "PID")
+        t_pid = time.monotonic()
+        time.sleep(5.0)
+        sets = [v for _, v in rec.since(act, t_pid)]
+        first = sets[0] if sets else before
+        bump = max(abs(v - y_before) for _, v in rec.since(meas, t_pid))
+        slew_dt = S.get(r["slew"]) * float(m["DT"])
+        table["bump"] = (bump, abs(first - before))
+        assert abs(first - before) <= slew_dt + 1e-9, "first set %g after %g" % (first, before)
+        assert bump <= LIMITS["bump_a"], "discharge moved %.3f A at the switch" % bump
+
+        # --- 3. set point step to 22 A --------------------------------------------------------
+        y0 = sum(v for _, v in rec.since(meas, time.monotonic() - 2.0)) / max(
+            1, len(rec.since(meas, time.monotonic() - 2.0)))
+        t_step = time.monotonic()
+        S.put(r["sp"], STEP_A)
+        time.sleep(SECONDS["step"])
+        t_end = time.monotonic()
+        samples = rec.since(meas, t_step, t_end)
+        res = step_metrics(samples, t_step, y0, STEP_A, LIMITS["band_a"])
+        table["step"] = res
+        writes = rec.rate(act, t_step, t_end)
+        pid_rates = {k: rec.rate(k, t_step, t_end) for k in (T["iread"], R["iread"])}
+
+        # --- 4. emission drift ----------------------------------------------------------------
+        t_d = time.monotonic()
+        plant().set("emission_drift_per_min", -0.05)
+        time.sleep(SECONDS["drift"])
+        plant().release("emission_drift_per_min")
+        t_de = time.monotonic()
+        drift = rec.since(meas, t_d, t_de)
+        drift_max = max(abs(v - STEP_A) for _, v in drift)
+        drift_end = abs(sum(v for t, v in drift if t >= t_de - 3.0) /
+                        max(1, len([1 for t, _ in drift if t >= t_de - 3.0])) - STEP_A)
+        plant().release("emission_factor")          # the emission back at once
+        t_r = time.monotonic()
+        time.sleep(SECONDS["after_drift"])
+        back = rec.since(meas, t_r)
+        outside = [t for t, v in back if abs(v - STEP_A) > LIMITS["band_a"]]
+        recover = (outside[-1] - t_r) if outside else 0.0
+        table["drift"] = (drift_max, drift_end, recover)
+
+        # --- 5. a set point the supply cannot reach -------------------------------------------
+        limit_before = S.get(R["ilimit"])
+        out_max = S.get(r["outmax"])
+        t_u = time.monotonic()
+        S.put(R["ilimit"], STEP_A - 1.0)            # the REK cannot deliver 22 A any more
+        time.sleep(SECONDS["unreachable"])
+        at_max = S.get(act)
+        flag = S.get(r["limit"], as_string=True)
+        sets_u = [v for _, v in rec.since(act, t_u)]
+        S.put(R["ilimit"], limit_before)
+        t_b = time.monotonic()
+        time.sleep(SECONDS["back"])
+        back_u = rec.since(meas, t_b)
+        # the error changes sign when the measurement passes the set point: from then on the
+        # output must leave the maximum at once (no wound-up integral)
+        t_cross = next((t for t, v in back_u if v > STEP_A), None)
+        left = next((t for t, v in rec.since(act, t_b) if v < out_max - 1e-9), None)
+        outside = [t for t, v in back_u if abs(v - STEP_A) > LIMITS["band_a"]]
+        settle_back = (outside[-1] - t_b) if outside else 0.0
+        table["unreachable"] = (at_max, flag, max(sets_u),
+                                None if left is None or t_cross is None else left - t_cross,
+                                settle_back)
+
+        # --- 6. hand-back in closed loop ------------------------------------------------------
+        sim, unit = reg.sim_of(R["vset"])
+        fil_before = S.get(act)
+        iread_before = S.get(T["iread"])
+        with S.fault(sim, "silent", unit):
+            S.wait_for(lambda: S.get(r["mode"]) == 0, 2.0, "hand-back")
+            why = S.get(r["reason"], as_string=True)
+            time.sleep(5.0)
+            fil_after = S.get(act)
+            iread_after = S.get(T["iread"])
+        table["handback"] = (why, fil_before, fil_after, iread_before, iread_after)
+    finally:
+        S.put(r["mode_cmd"], 0)
+        mdel_all([T["iread"], R["iread"]], 0)
+        for name in ("emission_drift_per_min", "emission_factor"):
+            plant().release(name)
+
+    # --- the table ------------------------------------------------------------------------------
+    st = table["step"]
+    lines = [
+        "| Closed loop on the plant model (LOOP-DIS) | Result | Pass limit |",
+        "|---|---|---|",
+        "| MANUAL to PID: discharge moved / first set step | %.3f A / %.3f A | %.2f A / %.2f A |"
+        % (table["bump"][0], table["bump"][1], LIMITS["bump_a"], slew_dt),
+        "| Step %.1f to %.1f A: rise time 10-90 %% | %.2f s | %.1f s |" % (y0, STEP_A, st["rise_s"], LIMITS["rise_s"]),
+        "| overshoot | %.1f %% | %.0f %% |" % (st["overshoot_pct"], LIMITS["overshoot_pct"]),
+        "| settling time into +-%.2f A | %.2f s | %.1f s |" % (LIMITS["band_a"], st["settling_s"], LIMITS["settling_s"]),
+        "| steady-state error (mean of the last 5 s) | %+.4f A | +-%.2f A |" % (st["sse_a"], LIMITS["sse_a"]),
+        "| Emission drift -5 %%/min, 30 s: largest deviation | %.3f A | %.2f A |" % (table["drift"][0], LIMITS["drift_max_a"]),
+        "| deviation at the end of the drift | %.3f A | %.2f A |" % (table["drift"][1], LIMITS["drift_end_a"]),
+        "| emission back at once: back into the band after | %.2f s | %.1f s |" % (table["drift"][2], LIMITS["settling_s"]),
+        "| Unreachable (REK limit %.0f A): TDK set / flag / highest set | %.2f A / %s / %.2f A | %.2f A / at maximum / %.2f A |"
+        % (STEP_A - 1.0, table["unreachable"][0], table["unreachable"][1], table["unreachable"][2], out_max, out_max),
+        "| limit restored: leaves the maximum after the error changed sign / settles after | %s / %.2f s | 2 periods + 0.5 s / %.1f s |"
+        % ("-" if table["unreachable"][3] is None else "%.2f s" % table["unreachable"][3],
+           table["unreachable"][4], LIMITS["settling_s"] * 2),
+        "| Hand-back in closed loop (REK silent): reason / TDK set before, after 5 s | %s / %.3f, %.3f A | the same |"
+        % (table["handback"][0], table["handback"][1], table["handback"][2]),
+        "| TDK current read-back before, after 5 s | %.2f, %.2f A | within 0.5 A (noise) |"
+        % (table["handback"][3], table["handback"][4]),
+        "| Writes per second to the TDK in PID (during the step) | %.2f | at most %.0f |" % (writes, LIMITS["writes_per_s"]),
+        "| TDK current read-back rate, MANUAL / PID | %.2f / %.2f per s | PID >= %.0f %% of MANUAL |"
+        % (manual[T["iread"]], pid_rates[T["iread"]], LIMITS["rate_ratio"] * 100),
+        "| REK current read-back rate, MANUAL / PID | %.2f / %.2f per s | (reported) |"
+        % (manual[R["iread"]], pid_rates[R["iread"]]),
+    ]
+    text = "\n".join(lines)
+    S.report(text, capsys)
+    (S.BUILD / "loop-plant.md").write_text(text + "\n")
+
+    assert st["rise_s"] <= LIMITS["rise_s"]
+    assert st["overshoot_pct"] <= LIMITS["overshoot_pct"]
+    assert st["settling_s"] <= LIMITS["settling_s"]
+    assert abs(st["sse_a"]) <= LIMITS["sse_a"]
+    assert table["drift"][0] <= LIMITS["drift_max_a"]
+    assert table["drift"][1] <= LIMITS["drift_end_a"]
+    assert table["drift"][2] <= LIMITS["settling_s"]
+    assert table["unreachable"][0] == pytest.approx(out_max) and table["unreachable"][1] == "at maximum"
+    assert table["unreachable"][2] <= out_max + 1e-9, "no runaway beyond the maximum"
+    assert table["unreachable"][3] is not None and table["unreachable"][3] <= 2 * float(m["DT"]) + 0.5
+    assert table["unreachable"][4] <= 2 * LIMITS["settling_s"]
+    assert table["handback"][0] == "measurement no data"
+    assert table["handback"][1] == table["handback"][2], "the filament set point stayed"
+    assert abs(table["handback"][3] - table["handback"][4]) <= 0.5
+    assert writes <= LIMITS["writes_per_s"]
+    assert pid_rates[T["iread"]] >= LIMITS["rate_ratio"] * manual[T["iread"]]

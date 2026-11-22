@@ -1,0 +1,27 @@
+# mist2loop.service - the MIST-2 loop service on the HV platform computer (Ubuntu), beside iocHV.
+# Installation: loops/README.md. NOT VERIFIED on the real computer.
+#
+# The service is a Channel Access client of iocHV only (the loops' records are there), on the
+# same computer: it asks 127.0.0.1. SIGTERM (systemctl stop) leaves every loop in MANUAL; a crash
+# restarts it after 5 s, and a start is always MANUAL. While it is down the IOC holds MANUAL by
+# itself (watchdog).
+[Unit]
+Description=MIST-2 control loops (mist2loop)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mist2
+WorkingDirectory=/opt/mist2/rfq-dip-epics/loops
+Environment=EPICS_CA_AUTO_ADDR_LIST=NO
+Environment=EPICS_CA_ADDR_LIST=127.0.0.1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/mist2/venv-mist2loop/bin/python -m mist2loop --config config/mist2.yaml
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -14,6 +14,9 @@
 # "<stop|start|restart|kill> <service>" into emulation/build/docker-requests/<id>.req; this script
 # runs it with docker compose, writes "<exit code> <output>" into <id>.done, and follows the log
 # of a started container again. Only the IOC services and the loop service are accepted.
+#
+# MIST2_PLANT=1 (make -C emulation test-loop): with the plant model. A plant this script started
+# is stopped again, also when the rest of the emulation was running before.
 set -u
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)        # emulation/
 BUILD=$HERE/build
@@ -22,9 +25,13 @@ CONTROLLED=" ioc-rack ioc-hv loop "
 REQUESTS=$HERE/build/docker-requests
 export MIST2_UID=${MIST2_UID:-$(id -u)} MIST2_GID=${MIST2_GID:-$(id -g)}
 COMPOSE=(docker compose -f "$HERE/compose.yaml")
+PLANT=${MIST2_PLANT:-0}
+UP=()
+[ "$PLANT" = 1 ] && UP=(--profile plant) && SERVICES+=(plant)
+started_plant=0
 
 mkdir -p "$BUILD"
-rm -f "$BUILD/update-rate.md"
+rm -f "$BUILD/update-rate.md" "$BUILD/loop-plant.md"
 mkdir -p "$REQUESTS"
 rm -f "$REQUESTS"/*
 started=0
@@ -36,22 +43,31 @@ finish() {
     for pid in "${followers[@]}"; do wait "$pid" 2>/dev/null; done
     if [ "$started" = 1 ]; then
         echo "test: stopping the emulation (it was not running before)"
-        "${COMPOSE[@]}" --profile tools down --remove-orphans >/dev/null 2>&1
+        "${COMPOSE[@]}" --profile tools --profile plant down --remove-orphans >/dev/null 2>&1
+    elif [ "$started_plant" = 1 ]; then
+        echo "test: stopping the plant (it was not running before)"
+        "${COMPOSE[@]}" --profile plant stop plant >/dev/null 2>&1
+        "${COMPOSE[@]}" --profile plant rm -f plant >/dev/null 2>&1
     fi
 }
 trap finish EXIT
 trap 'exit 130' INT TERM
 
-if [ -n "$("${COMPOSE[@]}" ps -q --status running --status paused "${SERVICES[@]}" 2>/dev/null)" ]; then
+if [ -n "$("${COMPOSE[@]}" ps -q --status running --status paused ioc-rack ioc-hv 2>/dev/null)" ]; then
     echo "test: the emulation is running; it stays running after the tests"
+    if [ "$PLANT" = 1 ] && [ -z "$("${COMPOSE[@]}" --profile plant ps -q --status running plant 2>/dev/null)" ]; then
+        echo "test: starting the plant"
+        started_plant=1
+        "${COMPOSE[@]}" --profile plant up -d --wait plant || { echo "test: the plant did not start"; exit 99; }
+    fi
 else
     echo "test: starting the emulation"
     started=1
-    "${COMPOSE[@]}" up -d --wait || { echo "test: the emulation did not start"; exit 99; }
+    "${COMPOSE[@]}" "${UP[@]}" up -d --wait || { echo "test: the emulation did not start"; exit 99; }
 fi
 
 for s in "${SERVICES[@]}"; do
-    "${COMPOSE[@]}" logs -f --no-color --no-log-prefix "$s" > "$BUILD/$s.log" 2>&1 &
+    "${COMPOSE[@]}" "${UP[@]}" logs -f --no-color --no-log-prefix "$s" > "$BUILD/$s.log" 2>&1 &
     followers+=($!)
 done
 
@@ -95,10 +111,12 @@ t0=$(date +%s)
     python -m pytest -c emulation/tests/pytest.ini --rootdir emulation/tests "$@"
 status=$?
 
-if [ -f "$BUILD/update-rate.md" ]; then
-    echo
-    cat "$BUILD/update-rate.md"
-fi
+for table in update-rate.md loop-plant.md; do
+    if [ -f "$BUILD/$table" ]; then
+        echo
+        cat "$BUILD/$table"
+    fi
+done
 echo
 echo "test: pytest exit code $status after $(( $(date +%s) - t0 )) s; logs in emulation/build/"
 exit $status

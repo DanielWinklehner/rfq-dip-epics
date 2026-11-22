@@ -273,12 +273,15 @@ record(ai, "$(P):d:get") {
 }
 
 # --- settings (autosave) -------------------------------------------------------------------------
+# PINI: processed once at the start, so that a value restored by autosave is a valid value, not
+# a record that was never processed (UDF).
 
 # Set point. Its drive limits DRVL and DRVH are the set point limits (settings, saved with it).
 record(ao, "$(P):value:setpoint") {
     field(DESC, "Set point")
     field(EGU,  "$(EGU)")
     field(PREC, "$(PREC=3)")
+    field(PINI, "YES")
     info(autosaveFields, "VAL DRVL DRVH")
 }
 
@@ -288,6 +291,7 @@ record(ao, "$(P):kp:setpoint") {
     field(EGU,  "$(OEGU)/$(EGU)")
     field(PREC, "3")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -296,6 +300,7 @@ record(ao, "$(P):ki:setpoint") {
     field(EGU,  "$(OEGU)/$(EGU)/s")
     field(PREC, "3")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -304,6 +309,7 @@ record(ao, "$(P):kd:setpoint") {
     field(EGU,  "$(OEGU)s/$(EGU)")
     field(PREC, "3")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -312,6 +318,7 @@ record(ao, "$(P):dfilter:setpoint") {
     field(EGU,  "s")
     field(PREC, "2")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -321,6 +328,7 @@ record(ao, "$(P):outmin:setpoint") {
     field(PREC, "$(OPREC=2)")
     field(DRVL, "$(OLO)")
     field(DRVH, "$(OHI)")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -330,6 +338,7 @@ record(ao, "$(P):outmax:setpoint") {
     field(PREC, "$(OPREC=2)")
     field(DRVL, "$(OLO)")
     field(DRVH, "$(OHI)")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -339,6 +348,7 @@ record(ao, "$(P):slew:setpoint") {
     field(EGU,  "$(OEGU)/s")
     field(PREC, "3")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -347,6 +357,7 @@ record(ao, "$(P):stale:setpoint") {
     field(EGU,  "s")
     field(PREC, "1")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
 
@@ -355,5 +366,6 @@ record(ao, "$(P):watchdog:setpoint") {
     field(EGU,  "s")
     field(PREC, "1")
     field(DRVL, "0")
+    field(PINI, "YES")
     info(autosaveFields, "VAL")
 }
