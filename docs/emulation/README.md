@@ -149,7 +149,8 @@ Open <http://localhost:3000/> in a browser on Windows. The GUI uses the ports 30
 subsystem (plasma, extraction, vacuum and gas, cooling and interlock, infrastructure), and
 trends. A click on any element of a drawing opens that device in a browser window of its own,
 which stays until you close it. Colour follows the EPICS alarm severity, and a record that is
-INVALID shows that instead of a stale number. Expert information (PV names, alarm status, raw
+INVALID shows that instead of a stale number. A trend line ends where its record is INVALID or
+not connected, and a zoom into a trend stays until a double click. Expert information (PV names, alarm status, raw
 values) is in each device window. There is no login. Only opening the vent valve asks first.
 
 **Check it:** with the emulation and the GUI running, `RAS/mist2/tools/gui-check.sh` drives a

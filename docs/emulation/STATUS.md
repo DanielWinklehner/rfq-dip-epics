@@ -3,9 +3,8 @@
 Last update: 2026-11-22. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
 nothing is pushed.
 
-Everything is built and merged, and the system suite passes on the final state. **Running:**
-one follow-up on the GUI, for a console error that shows up on some loads of the main window
-(see "Running").
+Everything is built and merged. The system suite and the GUI check pass on the final state.
+Nothing is running.
 
 ## "Done" as the task defines it
 
@@ -16,7 +15,7 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
 | 3 | A test reads every PV, writes every set point, and an unacknowledged set ends in an alarm | Done | `make -C emulation test`, run twice from nothing by the lead on the final state: 220 passed, no expected failure, 8 min 47 s each, nothing left running, saved limits unchanged |
 | 4 | A silent simulator turns its PVs INVALID within seconds, recovery without IOC restart | Done | The same runs: every fault on every simulator, with all other devices unaffected and recovery without an IOC restart. By hand: TDK silent, INVALID within 6 s, valid again 6 s after clearing |
 | 5 | AU update rate reported and matching the bus arithmetic | Done | The same runs: all four AU supplies 9.19 Hz against 9.80 Hz predicted (94 %), TDK 9.99 Hz against 10.00 Hz. Table in `emulation/build/update-rate.md` after a run |
-| 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Done, with one open defect | `gui-check.sh` passed with 199 checks in the lead's acceptance run. On the final state a second run failed one check: a React console error on loading the main window, which appears on some loads. The other 198 checks passed. With the subagent |
+| 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Done | `gui-check.sh`, run three times in a row from nothing by the lead on the final state: 199 of 199 checks each time, 275 displayed values equal to Channel Access, no console error or warning. The console error of the run before is fixed at its cause (see "GUI") |
 | 7 | `plan/controls.yaml` matches what was built, `plan/build.py` runs without warnings | Done | Revision 0.9. `make -C emulation plan-check` passes on the merged tree, the registry regenerates without a difference |
 | 8 | This file lists every assumption that needs confirmation | Done | Sections "Assumptions" and "Open points" |
 
@@ -89,6 +88,20 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
   prove the latch and the vent valve confirmation in the GUI.
 - Values are formatted by unit: exponent form for pressures, a prefix for small currents and
   large voltages with the record's resolution (1.001 µA, 15.234 kV).
+- The console error "Maximum update depth exceeded" (one failed check on 2026-11-22) is fixed.
+  The subagent reproduced it on 11 of 30 loads (load, open a device window, reload) and on
+  none of 50 after the fix. Cause: the RAS components `Widget`/`PV` and `GraphY` set React
+  state in effects on every value, and with all pages mounted React's count of such updates
+  never returned to zero. Read-backs now use the RAS socket hook directly, and trends are
+  drawn by a component of our own (`Trend.jsx`, Plotly). RAS `Widget` stays for the fields
+  that write.
+- Trends (changed by the lead after the merge, each point seen in a browser test): a line is
+  drawn in steps and runs on to the present, so a value that does not change is a line and not
+  one dot. A line ends where its record turns INVALID or the connection is lost, and starts
+  again with the next valid value. A trend without any valid value says so. A zoom stays
+  until a double click; before, the redraw undid it within a second.
+- With an IOC stopped or a device silent, the tab dots of a freshly opened window are right
+  after 1 s (noted by the check in every run).
 
 **Plant model** (`make -C emulation up-plant`)
 - Filament, discharge, gas and vacuum, extraction, heat. Calibrated to your working point,
@@ -102,11 +115,7 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
 
 ## Running
 
-- **T11 follow-up 2:** on some loads of the main window the browser console shows "Maximum
-  update depth exceeded" (React). It failed one of 199 checks in the lead's run on the final
-  state, after passing in the acceptance run. The subagent has to reproduce it at a known rate,
-  find the component that causes it, fix it there and prove it with repeated loads. Then the
-  lead runs the GUI check three times in a row.
+Nothing.
 
 ## Open
 
@@ -170,6 +179,9 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
    GUI on 2026-11-21? If not, something wrote it that I have not found.
 6. The lab files (databases, protocol files, both `st.cmd`, `dbl` of both IOCs) settle A1, A4,
    A7 to A12 and A22.
+7. Two defects of React Automation Studio V8.1.0 are behind the GUI's console error (see
+   "Found in RAS V8.1.0"). Do you want them reported to the RAS project? I have contacted
+   nobody.
 
 ## Not verified
 
@@ -181,6 +193,8 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
   WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
   was in the middle of a merge.
 - The `git clone` step of the README works only after a push.
+- The GUI over hours. The checks keep a window open for a minute at most. Each trend line
+  keeps its last 3000 values, which is 5 minutes of a value that changes ten times a second.
 
 ## Subagents
 
@@ -205,6 +219,8 @@ one follow-up on the GUI, for a console error that shows up on some loads of the
 | The limits are saved with autosave, not with a script of our own | It is the standard EPICS module for this, it writes atomically and keeps backups. The defaults file has autosave's format, so one mechanism restores both |
 | Saved limits live outside the repository (`mist2emu-save` volume, `$MIST2_SAVE/<ioc>` on a real computer) | A file that the IOC rewrites must not be a tracked file |
 | IOC containers wait for healthy simulator containers; `restart` restarts the IOCs only | asyn retries a failed first connection only after 20 s. An IOC restart with the devices still running is also the case that matters on the real machine |
+| Read-backs and trends of the GUI do not use RAS `Widget` and `GraphY` | Both set React state in effects on every value. With every page mounted that ends in React's "Maximum update depth exceeded". The RAS submodule stays unmodified |
+| Trend lines are steps that end at INVALID and at a lost connection | A monitor sends a value when it changes. A straight line between two values, or a line through a time without valid data, would show a measurement that was not made |
 | Subagents share the one emulation through a lock file | The Compose project uses fixed names and a fixed network, so only one copy can run |
 
 ## Assumptions that need your confirmation
@@ -269,11 +285,17 @@ P18, P19, P20, P22.
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
 | P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
+| P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 
 ## Found in RAS V8.1.0
 
-- No RAS component colours severity INVALID. The GUI has its own fields for this, built on
-  RAS's `Widget`. A lost Channel Access connection is handled by RAS.
+- No RAS component colours severity INVALID. The GUI has its own fields for this.
+- `Widget` with `PV` hands every value on through three effects that each set state, and
+  `GraphY` re-arms its redraw from an effect every 100 ms. With a few hundred of them mounted,
+  React logs "Maximum update depth exceeded". The GUI avoids both for values that stream.
+  Fixes in RAS itself, proposed by the subagent and not tried: in `GraphY.tsx` (PlotData)
+  redraw from an interval instead of the effect and `setTrigger` pair; in `PV.tsx` derive `pv`
+  with `useMemo` instead of an effect with `SetPv`.
 - The pvServer sends severity and time stamp but not the alarm status (STAT). The expert views
   read `<record>.STAT` as a PV of its own.
 - The boilerplate has no lock file for its Node packages, so the frontend image is not exactly
