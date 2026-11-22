@@ -6,6 +6,8 @@ nothing is pushed.
 Everything is built and merged. The system suite and the GUI check pass on the final state.
 Nothing is running.
 
+A second round is running: the PID loop, then the logger (see "Running").
+
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
 on hardware. Data logging, the control loops and the PDF printout are not built: the task
@@ -142,7 +144,13 @@ named them as later additions.
 
 ## Running
 
-Nothing.
+Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work plan:
+`PLAN.md`, tasks T15 to T17).
+
+- T15, the loop IOC, is with a subagent on Opus 5.5 in the worktree `.claude/worktrees/t15`
+  (brief: `briefs/T15-loop-ioc.md`). It starts and stops the emulation under the lock
+  `/tmp/mist2emu.lock`, and it rebuilds the IOC image.
+- The logger waits for your choice of the archiver (question 9).
 
 ## Open
 
@@ -213,6 +221,13 @@ Nothing.
    what are the USB ID and the serial number of the USB-OPT (P34)? One PowerShell command on
    the rack PC shows all of it without changing anything: `EPICS/ioc/host/README.md`, "Read
    the IDs and serial numbers on the Windows IOC".
+9. The logger (WP9): a time-series database (TimescaleDB) behind a small Channel Access
+   logger of our own, or the EPICS Archiver Appliance? My recommendation is the first: its
+   retention and down-sampling rules are the three tiers of the plan as they stand (mean,
+   minimum and maximum per second and per minute, each with its own life time), and the
+   history is one SQL query away from Python. The Archiver Appliance is the community
+   standard and RAS has a viewer for it, but it reduces data with one operator per store, and
+   it is more to install. Without an answer I build the first when the loop is merged.
 
 ## Not verified
 
