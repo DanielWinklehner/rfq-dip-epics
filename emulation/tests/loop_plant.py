@@ -126,7 +126,47 @@ def step_metrics(samples, t_step, y0, y1, band):
     return {"rise_s": t90 - t10, "overshoot_pct": overshoot, "settling_s": settled, "sse_a": sse}
 
 
+def defaults(prefix):
+    """The loop's settings in limits.defaults of its IOC: the table is for those."""
+    path = S.REPO / "EPICS" / "ioc" / "iocBoot" / "iocHV" / "limits.defaults"
+    out = {}
+    for line in path.read_text().splitlines():
+        words = line.split()
+        if len(words) == 2 and words[0].startswith(prefix + ":"):
+            out[words[0]] = float(words[1])
+    return out
+
+
+def put_setting(name, value):
+    if "." in name:
+        record, fld = name.split(".")
+        S.put_field(record, fld, value)
+    else:
+        S.put(name, value)
+
+
+def get_setting(name):
+    if "." in name:
+        record, fld = name.split(".")
+        return float(S.field(record, fld))
+    return S.get(name)
+
+
 def test_closed_loop(capsys):
+    lp = next(d for d in reg.devices.values() if d["class"] == "loop")
+    settings = defaults(lp["loads"][0]["macros"]["P"])
+    found = {n: get_setting(n) for n in settings}
+    for n, v in settings.items():
+        put_setting(n, v)
+    try:
+        closed_loop(capsys)
+    finally:
+        for n, v in found.items():
+            put_setting(n, v)
+        time.sleep(6.0)                 # autosave saves within 5 s: before the emulation stops
+
+
+def closed_loop(capsys):
     lp = next(d for d in reg.devices.values() if d["class"] == "loop")
     r, m = lp["roles"], lp["loads"][0]["macros"]
     meas, act = m["MEAS"], m["ACT"]
@@ -297,7 +337,8 @@ def test_closed_loop(capsys):
     assert table["drift"][0] <= LIMITS["drift_max_a"]
     assert table["drift"][1] <= LIMITS["drift_end_a"]
     assert table["drift"][2] <= LIMITS["settling_s"]
-    assert table["unreachable"][0] == pytest.approx(out_max) and table["unreachable"][1] == "at maximum"
+    res = float(m["RES"])               # the last step to the maximum is not sent if smaller
+    assert out_max - res <= table["unreachable"][0] <= out_max and table["unreachable"][1] == "at maximum"
     assert table["unreachable"][2] <= out_max + 1e-9, "no runaway beyond the maximum"
     assert table["unreachable"][3] is not None and table["unreachable"][3] <= 2 * float(m["DT"]) + 0.5
     assert table["unreachable"][4] <= 2 * LIMITS["settling_s"]

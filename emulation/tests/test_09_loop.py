@@ -47,7 +47,8 @@ NOT_ACCEPTED_LIMIT = 1.0  # a garbled answer fails the set at once, then one cyc
 STALE_SLACK = 1.5      # the heartbeat counts once per second, plus one cycle and Channel Access
 WATCHDOG_SLACK = 0.5   # service:get scans every 0.1 s, then _dead and _drop by CP links
 START_LIMIT = 30.0     # a container up again: the IOC's start, or the service's first contact
-SETTLE = 1.0           # s the actuator is watched after a hand-back: it must not change
+SETTLE = 0.6           # s the actuator is watched after a hand-back: three periods of the writer
+AUTOSAVE = 6.0         # s: autosave saves a changed setting within 5 s (st.cmd)
 GARBLED = 0.5          # s of garbled answers for "set not accepted" (between two status polls 1 s
                        # apart). Not silence: sets would wait behind polls that time out (300 ms
                        # each) and be answered after the fault
@@ -136,6 +137,7 @@ def loop(request):
         S.put_field(lp.hb, "DISA", 0)
     restore_writes(involved(lp))
     S.wait_for(lambda: S.get(lp["mode"]) == 0, REFUSE_LIMIT, "the loop ends in MANUAL")
+    time.sleep(AUTOSAVE)               # the restored settings saved before the emulation may stop
 
 
 def start_value(lp):
@@ -163,10 +165,19 @@ def ready(loop):
                5.0, lambda: "measured value valid: %s" % S.describe([lp["pv"]]))
     S.wait_for(lambda: S.get(lp["out"]) == S.get(lp.act), 2.0,
                lambda: "MANUAL follows the actuator: %s" % S.describe([lp["out"], lp.act]))
-    time.sleep(1.5)                                 # a heartbeat change seen: not stale
+    if HEARTBEAT[0]:                   # after a stopped heartbeat or a start: one change seen
+        time.sleep(1.5)
+        HEARTBEAT[0] = False
     yield lp
     S.put(lp["mode_cmd"], 0)
     S.wait_for(lambda: S.get(lp["mode"]) == 0, REFUSE_LIMIT, "MANUAL after the test")
+
+
+HEARTBEAT = [True]     # the service has to see a change of the heartbeat before PID
+
+
+def needs_heartbeat():
+    HEARTBEAT[0] = True
 
 
 def go_pid(lp):
@@ -279,6 +290,7 @@ def test_pid_refused_while_a_permit_is_not_fulfilled(ready, n):
 
 
 def test_pid_refused_with_stale_data(ready):
+    needs_heartbeat()
     S.put_field(ready.hb, "DISA", 1)                # the IOC's heartbeat stops counting
     try:
         time.sleep(S.get(ready["stale"]) + STALE_SLACK)
@@ -294,6 +306,7 @@ def test_pid_refused_outside_the_output_limits(ready):
 
 
 def test_pid_refused_while_the_service_does_not_run(ready):
+    needs_heartbeat()
     S.container("stop", SERVICE)
     try:
         S.wait_for(lambda: S.get(ready["service"]) == 0, S.get(ready["watchdog"]) + WATCHDOG_SLACK,
@@ -348,6 +361,7 @@ def test_hand_back_when_the_data_is_stale(ready):
     go_pid(ready)
     stale = S.get(ready["stale"])
     t0 = time.monotonic()
+    needs_heartbeat()
     S.put_field(ready.hb, "DISA", 1)
     try:
         took = expect_hand_back(ready, "measurement stale", stale + STALE_SLACK, t0)
@@ -390,6 +404,7 @@ def test_hand_back_when_the_service_is_killed(ready):
     """R4 f: the service's container killed (SIGKILL, no clean-up) in PID. The IOC alone sees its
     counter stand still, takes the mode back and raises the alarm."""
     go_pid(ready)
+    needs_heartbeat()
     S.container("kill", SERVICE)
     t0 = time.monotonic()                           # the kill request has returned
     try:
@@ -407,6 +422,7 @@ def test_hand_back_when_the_service_is_killed(ready):
 
 def test_restart_of_the_service_starts_in_manual(ready):
     go_pid(ready)
+    needs_heartbeat()
     S.container("restart", SERVICE)                # SIGTERM: the service leaves MANUAL itself
     service_alive(ready)
     S.wait_for(lambda: reason(ready) == "service start", 5.0,
@@ -419,6 +435,7 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     hb = reg.iocs[ioc]["roles"]["heartbeat"]
     go_pid(ready)
     settings = {pv: S.get(pv) for pv in ready.settings()}
+    needs_heartbeat()
     S.container("restart", S.ioc_container(ioc))
     S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
     assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
@@ -474,6 +491,7 @@ class FakeService:
 def backstop(ready):
     """The service stopped and the test client in its place; the actuator's monitor records every
     value it gets."""
+    needs_heartbeat()
     S.container("stop", SERVICE)
     events = []
     act = epics.PV(ready.act, form="time", auto_monitor=True,

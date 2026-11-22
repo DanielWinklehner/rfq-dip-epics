@@ -1142,8 +1142,8 @@ databases:
   loop.db:
     class: loop
     roles:
-      mode_cmd: {record: "mode:setpoint", readback: mode, test: [0, 0], ack: false,
-                 note: "the operator's request; cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating"}
+      mode_cmd: {record: "mode:setpoint", readback: null, test: [0, 0], ack: true,
+                 note: "the operator's request, accepted by the IOC itself (mode:get shows the mode, which needs more than the request); cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating"}
       mode: {record: "mode:get", note: "PID only while requested, accepted by the service and the service alive"}
       reason: {record: "reason:get", note: "why the loop last handed back or refused, until the next request"}
       service: {record: "service:get", note: "1 while the loop service's counter changes within the watchdog time, else 0 (MAJOR)"}

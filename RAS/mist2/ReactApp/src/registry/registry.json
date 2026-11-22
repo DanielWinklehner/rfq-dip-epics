@@ -627,9 +627,9 @@
       0,
       0
      ],
-     "ack": false,
-     "note": "the operator's request; cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating",
-     "readback": "LOOP-DIS:mode:get"
+     "ack": true,
+     "note": "the operator's request, accepted by the IOC itself (mode:get shows the mode, which needs more than the request); cleared (MANUAL) by the service when it hands back or refuses and by the IOC when the service is not alive (latch). A test writes only MANUAL: PID would act on the filament heating",
+     "readback": null
     },
     "LOOP-DIS:_mode": {
      "type": "calc",
