@@ -30,7 +30,8 @@ Overview, one per subsystem page of the registry, Trends, Infrastructure.
 | `registry.js` | devices, roles, labels, state words, spare channels, flags, alarm records |
 | `roles.js` | what each registry role means to the operator, and which are trended |
 | `alarm/` | the one rule for how an alarm state looks (`severity.js`), the shared store of alarm states, dots and chips |
-| `components/fields/` | RAS `Widget` components: value, set point, request buttons, lamp, command, inline text; `format.js` formats every value |
+| `components/fields/` | value, lamp and inline text on the RAS socket hook (`useReading`), set point, request buttons and command as RAS `Widget` components; `format.js` formats every value |
+| `components/Trend.jsx` | time-stamped trend on monitors (Plotly), used by the pages and the device windows |
 | `components/devices/` | one widget per registry class, built from the device's roles |
 | `synoptic/` | drawings: symbols, tags, layout; devices a drawing does not place are listed |
 | `config/drawings.json` | the geometry of every drawing (edit numbers, not code) |
@@ -48,6 +49,12 @@ A Matsusada supply (AU, REK) has a current limit, not a current set point: its
 device window shows it under "Setting, saved by the IOC" beside the limit the
 supply reports. The IOC saves a change and sends the limit with every switch-on.
 The TDK keeps its current set point.
+
+Nothing that shows a streaming value sets React state in an effect: the RAS
+`Widget`/`PV` pair and RAS `GraphY` do, and with hundreds of them mounted React
+reports "Maximum update depth exceeded". Read-backs therefore use the RAS
+socket hook `useEpicsPV` directly, and trends are drawn by `Trend.jsx`; RAS
+`Widget` is kept for the fields that write.
 
 Values are shown in the record's precision and unit. Units that span decades
 (torr, mbar, Pa) are always in exponent format and trended on a log scale; an

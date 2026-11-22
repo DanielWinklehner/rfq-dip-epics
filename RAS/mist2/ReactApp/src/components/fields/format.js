@@ -1,11 +1,3 @@
-import { isText } from "../../registry";
-
-// Widget props of a read-back: with words (from the registry) the value is
-// the state index shown by its word; a text record by its string; a number
-// raw, formatted by valueText.
-export const readProps = (pv, words) =>
-  words ? { custom_selection_strings: words, usePvUnits: true } : { useStringValue: isText(pv), usePvUnits: true };
-
 // Units whose values span decades: always in exponent format, trends on a log scale.
 const decadeUnits = ["torr", "mbar", "pa"];
 export const spansDecades = (units) => decadeUnits.includes((units ?? "").toLowerCase());
@@ -29,17 +21,19 @@ const formatNumber = (value, prec, units) => {
   return [Number.isInteger(prec) ? value.toFixed(prec) : String(value), units];
 };
 
-// The text of a value from the props a Widget passes to its component: the
-// state word, the text, or the number in the record's precision, in exponent
-// format or with an SI prefix where the unit and the value call for it.
-// pvServer may send a number as a string, so a value that is not a text
-// record and reads as a finite number is a number.
-export const valueText = ({ value, enumStrs, units, pvData, useStringValue }) => {
-  if (enumStrs?.length) return enumStrs[Number(value)] ?? String(value);
-  const number = Number(pvData.value);
+// The text of a value of the RAS socket hook (useEpicsPV): the state word
+// (the registry's `words`, else the record's), the text of a text record, or
+// the number in the record's precision, in exponent format or with an SI
+// prefix where the unit and the value call for it. pvServer may send a number
+// as a string, so a value that is not text and reads as a number is a number.
+export const valueText = (pv, words, text) => {
+  const strings = words ?? pv.metadata.enum_strs;
+  if (strings?.length) return strings[Number(pv.value)] ?? String(pv.value);
+  const { units, precision } = pv.metadata;
+  const number = Number(pv.value);
   const parts =
-    !useStringValue && pvData.value !== "" && Number.isFinite(number)
-      ? formatNumber(number, pvData.metadata.precision, units)
-      : [value, units];
+    !text && pv.value !== "" && Number.isFinite(number)
+      ? formatNumber(number, precision, units)
+      : [pv.value, units];
   return parts.filter((part) => part !== "" && part != null).join(" ");
 };

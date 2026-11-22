@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
@@ -19,9 +19,9 @@ const IocChip = ({ ioc, onMode }) => {
   const { name, roles } = iocs[ioc];
   const beat = useEpicsPV({ pv: roles.heartbeat });
   const mode = useEpicsPV({ pv: roles.mode, useStringValue: true });
-  const [lastBeat, setLastBeat] = useState(Date.now());
+  // When the beat last changed. Taken at render, not set from an effect.
+  const lastBeat = useMemo(() => Date.now(), [beat.value]);
   const [now, setNow] = useState(Date.now());
-  useEffect(() => setLastBeat(Date.now()), [beat.value]);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -73,7 +73,7 @@ const InterlockSummary = () =>
             key={channel}
             pv={rolesOf(id, channel).state}
             label={channelLabel(id, channel) ?? channel}
-            custom_selection_strings={wordsOf(id, channel, "state")}
+            words={wordsOf(id, channel, "state")}
           />
         ))}
       </Stack>

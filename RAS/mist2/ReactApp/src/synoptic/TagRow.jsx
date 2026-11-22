@@ -1,20 +1,19 @@
 import React from "react";
 import { useTheme } from "@mui/material/styles";
-import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
-import { alarmColors, alarmState, displayText } from "../alarm/severity";
-import { readProps, valueText } from "../components/fields/format";
+import { alarmColors } from "../alarm/severity";
 import { Lamp } from "../components/fields/PvLamp";
+import useReading from "../components/fields/useReading";
 
 export const rowHeight = 18;
 
-const TagRowComponent = (props) => {
+// One value of a tag, in the shared alarm look, with the RAS context menu.
+// A value with two words (registry) gets a lamp.
+const TagRow = ({ pv, words, label, x, y, w }) => {
   const theme = useTheme();
-  const { x, y, w, lamp } = props;
-  const state = alarmState(props.initialized, props.alarmSeverity);
+  const { state, text, on, menu, openMenu } = useReading(pv, words);
   const colors = alarmColors(theme, state);
-  const text = displayText(state, valueText(props));
   return (
-    <g data-pv={props.pv} data-alarm={state}>
+    <g data-pv={pv} data-alarm={state} onContextMenu={openMenu}>
       <rect
         x={x + 2}
         y={y}
@@ -25,9 +24,9 @@ const TagRowComponent = (props) => {
         strokeDasharray={colors.dashed ? "3 2" : undefined}
       />
       <text x={x + 7} y={y + 13} fontSize={11} fill={theme.palette.text.secondary}>
-        {props.label}
+        {label}
       </text>
-      {lamp && <Lamp x={x + w - 100} y={y + 2} size={13} state={state} on={Number(props.value) !== 0} />}
+      {words?.length === 2 && <Lamp x={x + w - 100} y={y + 2} size={13} state={state} on={on} />}
       <text
         x={x + w - 7}
         y={y + 13}
@@ -39,14 +38,9 @@ const TagRowComponent = (props) => {
       >
         {text}
       </text>
+      {menu}
     </g>
   );
 };
-
-// One value of a tag, in the shared alarm look, with the RAS context menu.
-// A value with two words (registry) gets a lamp.
-const TagRow = ({ pv, words, ...others }) => (
-  <Widget {...others} {...readProps(pv, words)} svgWidget pv={pv} lamp={words?.length === 2} component={TagRowComponent} />
-);
 
 export default TagRow;

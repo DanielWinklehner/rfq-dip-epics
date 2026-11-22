@@ -24,7 +24,7 @@ const RoleField = ({ id, channel, role }) => {
       <PvSetpoint {...props} />
     );
   }
-  if (words?.length === 2) return <PvLamp {...props} custom_selection_strings={words} />;
+  if (words?.length === 2) return <PvLamp {...props} words={words} />;
   return <PvValue {...props} words={words} />;
 };
 

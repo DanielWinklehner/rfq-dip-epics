@@ -46,9 +46,10 @@ const watch = (page) => {
     if (!["error", "warning"].includes(message.type())) return;
     const text = `${message.text()} ${message.location().url ?? ""}`;
     if (!allowed.some((pattern) => pattern.test(text))) {
-      // The further arguments carry React's component stack.
+      // The further arguments carry React's component stack, where it gives
+      // one, and the JavaScript stack (init script below).
       const args = await Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "")));
-      problems.push(`${page.url()}: console ${message.type()}: ${JSON.stringify(args).slice(0, 1500)}`);
+      problems.push(`${page.url()}: console ${message.type()}: ${args.join(" ").slice(0, 4000)}`);
     }
   });
   page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
@@ -57,6 +58,15 @@ const watch = (page) => {
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 context.on("page", watch);
+// React gives no component stack with some errors ("Maximum update depth
+// exceeded" carries the message only), so every console error and warning
+// also carries the JavaScript stack of its call: it names the setState caller.
+await context.addInitScript(() => {
+  for (const level of ["error", "warn"]) {
+    const original = console[level].bind(console);
+    console[level] = (...args) => original(...args, `\nJS stack: ${new Error().stack}`);
+  }
+});
 
 // Every element that shows a PV: { pv, alarm, text, part, visible, row }.
 const collect = (page) =>
@@ -146,7 +156,6 @@ const faultSpecs = (specs) => {
 const comparePages = async (label, changed, state, extra = async () => {}) => {
   const baseline = JSON.parse(fs.readFileSync(`${work}/normal.json`, "utf8")).baseline;
   const touched = new Set();
-  let dots = {};
   for (const tab of tabs.filter((t) => t !== "trends")) {
     const page = await openMain(tab);
     const els = await settle(page, (all) =>
@@ -164,13 +173,25 @@ const comparePages = async (label, changed, state, extra = async () => {}) => {
       }`
     );
     checkWords(els, `${label}, ${tab}`);
-    dots = await tabStates(page);
     await extra(page, tab);
     await page.close();
   }
-  for (const tab of Object.keys(baseline.tabs)) {
-    const want = touched.has(tab) ? state : baseline.tabs[tab];
-    check(dots[tab] === want, `${label}: tab ${tab} shows ${dots[tab]}, expected ${want}`);
+  // The dots, in a main window of their own: each dot is the worst of every
+  // PV of its page, hidden pages included, so it settles once all of them
+  // have reported (later with an IOC down: pvServer waits for its PVs).
+  const want = Object.fromEntries(
+    Object.keys(baseline.tabs).map((tab) => [tab, touched.has(tab) ? state : baseline.tabs[tab]])
+  );
+  const page = await openMain("overview");
+  let dots = {};
+  for (let waited = 0; waited < 30; waited += 1) {
+    dots = await tabStates(page);
+    if (Object.keys(want).every((tab) => dots[tab] === want[tab])) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.close();
+  for (const tab of Object.keys(want)) {
+    check(dots[tab] === want[tab], `${label}: tab ${tab} shows ${dots[tab]}, expected ${want[tab]}`);
   }
 };
 
@@ -199,6 +220,7 @@ const phases = {
         await page.waitForTimeout(3000);
         check((await page.locator("[data-trend] .main-svg").count()) > 0, "trends: a picked read-back is drawn");
       }
+      await page.waitForTimeout(2000); // trends redraw once a second
       await shot(page, `normal-${tab}`, tab !== "overview");
       await page.close();
     }
