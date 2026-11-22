@@ -41,6 +41,30 @@ sections 6 and 8 and in the wireframes: there is one vacuum chamber, the cross. 
 where the three gauges and the vent valve sit, and the other questions of section 6, which are
 built with the defaults named there.
 
+### The owner's wishes of 2026-11-22 (T16)
+
+1. *"I would like to be able to set values in place on the main screen."* This changes G2: the
+   drawing is no longer read-only. Every tag on the Overview and the subsystem tabs now shows,
+   below what it reads, what the operator sets in normal operation (the set points and requests
+   of the widget's operation group, `synoptic/tagRows.js`), as the device window's own fields in
+   a tag form: a number is typed and sent with Enter, Escape or leaving the field gives it up, an
+   unsent entry has a dashed outline in the info colour and ↵; a request is switched there, the
+   vent valve asks first as in its window. Saved settings stay in the device window. A click on
+   the tag outside its fields still opens the device window. The fields are HTML in a
+   `foreignObject`: in the drawing's coordinates, so they scale and stay aligned with the SVG, and
+   drawn as text, sharp at any size.
+2. *"Would it be possible to pop out individual tabs as separate windows and re-attach them?"*
+   A browser cannot drag a tab out, so each tab has a small control that opens its page in a
+   browser window of its own, `/page/<slug>`, an ordinary route (page name, its own severity,
+   the status strip with the emulator banner, "Attach to the main window"). While a page is out
+   its tab stays, marked (the control filled, the name in italics) and with its dot; a click on
+   it brings the window to the front, and the main window shows a note in the page's place.
+   "Attach", or closing the window by the browser, shows the page in the main window again (the
+   main window looks every 0.5 s whether the window is still open). The windows close with the
+   main window, as device windows do, and a device opened from a page window gets the same one
+   window as from the main window. A reload of the main window closes every window it opened and
+   shows all pages in it again: nothing is remembered.
+
 ## Review by the lead (2026-11-21)
 
 I agree with the recommendation in section 5. Three corrections to what the wireframes show:
@@ -127,6 +151,21 @@ the widget asks for.
 Each class has a card form (fields, as in the 2023 GUI), a tag form (synoptic) and a row form
 (tables, option C). Room is left for a **Loop** class (WP10: enable, mode, set point, output,
 limits) next to the TDK and REK on the plasma page.
+
+**The loop widget (T16, `components/devices/Loop.jsx`).** Built from the roles of the class
+`loop` (LOOP.md section 3), so a second loop in the registry needs no code. Controls, in the
+order the operator needs them: the mode request beside the mode, and right below them the reason
+of the last hand-back or refusal: a refused request returns to MANUAL within a cycle (0.2 s), so
+the word appears where the eye already is. Then the set point beside the measured value, the
+output beside the error, the limit flag beside the service lamp (red when not alive), the three
+permits as words. Below: the three terms, and the settings under "Settings, saved by the IOC".
+The device window's trend shows the measured value with the set point in one graph and the
+output in a second graph below (same time axis, no second y axis in `Trend.jsx`), redrawn every
+0.2 s, as often as the loop's records change in PID. The tag reads mode, measured value and
+reason and sets the mode request and the set point in place. On the plasma generator page and
+the Overview the tag stands between the filament heating supply (what it sets) and the
+discharge supply (what it measures), joined to both by thin lines; that the filament current
+is the loop's while in PID is shown by the tag alone (its mode row), without code.
 
 ### 1.5 Pages and devices
 

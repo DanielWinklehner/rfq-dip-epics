@@ -5,7 +5,6 @@ import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/
 import { alarmState } from "../alarm/severity";
 
 const keep = 3000; // points per line
-const redrawEvery = 1000; // ms
 
 // One line: every monitor update of the PV is appended to its series, which
 // lives in a ref, so no state is set. A value is a point at the record's time
@@ -39,8 +38,8 @@ const Series = ({ pv, series }) => {
   return null;
 };
 
-// A time-stamped trend of some PVs on monitors, redrawn once a second while it
-// is visible. It replaces RAS GraphY, whose display loop sets state in an
+// A time-stamped trend of some PVs on monitors, redrawn every `redraw` ms
+// (once a second unless told otherwise) while it is visible. It replaces RAS GraphY, whose display loop sets state in an
 // effect every 100 ms (GraphY.tsx, PlotData: setTimeout -> setTrigger ->
 // effect -> setDelayedData): with a dozen graphs mounted, React's count of
 // nested effect updates never returns to zero and reaches its limit. Here the
@@ -51,7 +50,7 @@ const Series = ({ pv, series }) => {
 // one: the lines are steps, and each runs on to the present (the browser's
 // clock; the points carry the IOC's). A zoom by the operator stays until a
 // double click.
-const Trend = ({ pvs, legend, log, height }) => {
+const Trend = ({ pvs, legend, log, height, redraw = 1000 }) => {
   const theme = useTheme();
   const series = useRef({});
   const box = useRef(null);
@@ -60,9 +59,9 @@ const Trend = ({ pvs, legend, log, height }) => {
   useEffect(() => {
     const timer = setInterval(() => {
       if (box.current?.offsetParent) setDrawn(Date.now());
-    }, redrawEvery);
+    }, redraw);
     return () => clearInterval(timer);
-  }, []);
+  }, [redraw]);
   const lines = pvs.map((pv, index) => {
     const { x = [], y = [] } = series.current[pv] ?? {};
     const last = x.length - 1;
@@ -79,7 +78,7 @@ const Trend = ({ pvs, legend, log, height }) => {
   // Without a value Plotly draws axes of its own invention. Leave them out, and say what an
   // empty graph means once the values have had time to arrive.
   const empty = lines.every((line) => !line.x.length);
-  const told = empty && drawn - opened.current > 3 * redrawEvery;
+  const told = empty && drawn - opened.current > 3000;
   const axis = {
     gridcolor: theme.palette.divider,
     linecolor: theme.palette.text.secondary,

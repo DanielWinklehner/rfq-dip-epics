@@ -23,10 +23,12 @@ const PvCommandComponent = (props) => {
   };
   return (
     <Stack spacing={0.5} data-pv={props.pv} data-alarm={state}>
-      <Typography variant="caption" color="text.secondary">
-        {props.label}
-        {state !== "ok" && ` · ${alarmWord(state) ?? state.toUpperCase()} ${marker(state)}`}
-      </Typography>
+      {!props.dense && (
+        <Typography variant="caption" color="text.secondary">
+          {props.label}
+          {state !== "ok" && ` · ${alarmWord(state) ?? state.toUpperCase()} ${marker(state)}`}
+        </Typography>
+      )}
       <ToggleButtonGroup
         exclusive
         size="small"
@@ -34,8 +36,11 @@ const PvCommandComponent = (props) => {
         disabled={props.disabled}
         value={Number(props.value)}
         onChange={(event, value) => value !== null && send(value)}
+        aria-label={props.label}
         sx={{
           outline: state === "ok" ? undefined : `2px ${colors.dashed ? "dashed" : "solid"} ${colors.stroke}`,
+          background: colors.fill,
+          ...(props.dense && { height: 22, "& .MuiToggleButton-root": { py: 0, px: 0.5, fontSize: 11, lineHeight: 1.2 } }),
         }}
       >
         {[0, 1].map((value) => (
@@ -64,9 +69,10 @@ const PvCommandComponent = (props) => {
   );
 };
 
-// A binary request (output, valve, pump, gauge): one button per state, named
-// by the registry's words (custom_selection_strings). `confirm` = { value,
-// text } from the registry asks first.
+// A binary request (output, valve, pump, gauge, loop mode): one button per
+// state, named by the registry's words (custom_selection_strings). `confirm` =
+// { value, text } from the registry asks first. `dense`: the form inside a
+// tag, without the label (the tag row has it).
 const PvCommand = (props) => <Widget {...props} component={PvCommandComponent} />;
 
 export default PvCommand;

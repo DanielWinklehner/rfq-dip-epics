@@ -36,32 +36,35 @@
     {"type": "text", "x": 772, "y": 694, "text": "air", "anchor": "end", "size": 11},
     {"type": "line", "points": [[415, 520], [415, 880]], "style": "pipe"},
     {"type": "rect", "x": 405, "y": 700, "w": 20, "h": 14, "style": "solid"},
-    {"type": "text", "x": 432, "y": 692, "text": "insulating break (assumed)", "size": 10, "muted": true}
+    {"type": "text", "x": 432, "y": 692, "text": "insulating break (assumed)", "size": 10, "muted": true},
+    {"type": "line", "points": [[56, 300], [47, 300], [47, 200], [56, 200]], "style": "thin"},
+    {"type": "line", "points": [[56, 360], [47, 360], [47, 440], [56, 440]], "style": "thin"}
    ],
    "elements": [
-    {"device": "fil_heat", "symbol": {"type": "filament", "x": 425, "y": 390, "state": "out_state"}, "tag": {"x": 60, "y": 100, "w": 230}},
-    {"device": "fil_dis_old", "anchor": [340, 340], "tag": {"x": 60, "y": 200, "w": 230}},
-    {"device": "thermo_hv", "anchor": [330, 470], "tag": {"x": 60, "y": 300, "w": 230}},
-    {"device": "au_src", "anchor": [120, 720], "tag": {"x": 60, "y": 740, "w": 230}},
-    {"device": "mfc", "tag": {"x": 245, "y": 880, "w": 170}},
-    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 415, "y": 780, "state": "state", "rotate": 90}, "tag": {"x": 440, "y": 760, "w": 160}},
-    {"device": "au_puller", "symbol": {"type": "electrode", "x": 700, "y": 410, "state": "out_state"}, "tag": {"x": 640, "y": 40, "w": 190}},
-    {"device": "au_lens1", "symbol": {"type": "electrode", "x": 740, "y": 410, "state": "out_state"}, "tag": {"x": 840, "y": 40, "w": 190}},
-    {"device": "au_lens2", "symbol": {"type": "electrode", "x": 780, "y": 410, "state": "out_state"}, "tag": {"x": 1040, "y": 40, "w": 190}},
-    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 900, "y": 150, "state": "state", "rotate": 90}, "tag": {"x": 930, "y": 135, "w": 170}},
-    {"device": "fc_opta", "symbol": {"type": "cup", "x": 900, "y": 300}, "tag": {"x": 1240, "y": 150, "w": 200}},
+    {"device": "fil_heat", "symbol": {"type": "filament", "x": 425, "y": 390, "state": "out_state"}, "tag": {"x": 56, "y": 94, "w": 264}},
+    {"device": "dis_loop", "tag": {"x": 56, "y": 262, "w": 264}},
+    {"device": "fil_dis_old", "anchor": [340, 440], "tag": {"x": 56, "y": 404, "w": 264}},
+    {"device": "thermo_hv", "anchor": [330, 470], "tag": {"x": 56, "y": 546, "w": 264}},
+    {"device": "au_src", "anchor": [120, 720], "tag": {"x": 56, "y": 728, "w": 230}},
+    {"device": "mfc", "tag": {"x": 236, "y": 870, "w": 175}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 415, "y": 780, "state": "state", "rotate": 90}, "tag": {"x": 436, "y": 760, "w": 200}},
+    {"device": "au_puller", "symbol": {"type": "electrode", "x": 700, "y": 410, "state": "out_state"}, "tag": {"x": 610, "y": 40, "w": 240}},
+    {"device": "au_lens1", "symbol": {"type": "electrode", "x": 740, "y": 410, "state": "out_state"}, "tag": {"x": 860, "y": 40, "w": 240}},
+    {"device": "au_lens2", "symbol": {"type": "electrode", "x": 780, "y": 410, "state": "out_state"}, "tag": {"x": 1110, "y": 40, "w": 240}},
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 900, "y": 150, "state": "state", "rotate": 90}, "tag": {"x": 1360, "y": 40, "w": 200}},
+    {"device": "fc_opta", "symbol": {"type": "cup", "x": 900, "y": 300}, "tag": {"x": 1360, "y": 124, "w": 200}},
     {"device": "turbo1", "symbol": {"type": "turbo", "x": 900, "y": 690, "state": "run_state"}, "tag": {"x": 960, "y": 700, "w": 210}},
-    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 820, "y": 690, "state": "state"}, "tag": {"x": 620, "y": 700, "w": 160}},
-    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 720, "y": 860, "state": "state"}, "tag": {"x": 640, "y": 890, "w": 160}},
+    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 820, "y": 690, "state": "state"}, "tag": {"x": 644, "y": 702, "w": 200}},
+    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 720, "y": 860, "state": "state"}, "tag": {"x": 640, "y": 888, "w": 200}},
     {"device": "naim", "symbol": {"type": "gauge", "x": 1090, "y": 615}, "tag": {"x": 1180, "y": 560, "w": 210}},
-    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 1125, "y": 615}, "tag": {"x": 1180, "y": 612, "w": 210}}
+    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 1125, "y": 615}, "tag": {"x": 1180, "y": 642, "w": 210}}
    ],
-   "list": {"x": 1480, "y": 40, "w": 260, "h": 900}
+   "list": {"x": 1580, "y": 40, "w": 260, "h": 900}
   },
   "Plasma generator": {
-   "viewBox": [0, 0, 1920, 700],
+   "viewBox": [0, 0, 1920, 770],
    "statics": [
-    {"type": "rect", "x": 40, "y": 40, "w": 1300, "h": 520, "style": "dashed"},
+    {"type": "rect", "x": 40, "y": 40, "w": 1300, "h": 600, "style": "dashed"},
     {"type": "text", "x": 56, "y": 64, "text": "HV platform, at the ion source voltage"},
     {"type": "rect", "x": 560, "y": 150, "w": 40, "h": 300, "style": "body"},
     {"type": "text", "x": 580, "y": 140, "text": "back plate", "anchor": "middle", "size": 11},
@@ -78,28 +81,28 @@
     {"type": "text", "x": 190, "y": 470, "text": "isolation transformer 1", "anchor": "middle", "size": 10},
     {"type": "rect", "x": 300, "y": 420, "w": 140, "h": 90, "style": "body"},
     {"type": "text", "x": 370, "y": 470, "text": "isolation transformer 2", "anchor": "middle", "size": 10},
-    {"type": "line", "points": [[700, 450], [700, 590]], "style": "pipe"},
-    {"type": "rect", "x": 1480, "y": 300, "w": 400, "h": 120, "style": "dashed"},
-    {"type": "text", "x": 1496, "y": 330, "text": "Reserved: control loop of the discharge (WP10)"},
-    {"type": "text", "x": 1496, "y": 352, "text": "enable, mode, set point, output, limits; not built yet", "size": 11, "muted": true},
-    {"type": "rect", "x": 690, "y": 545, "w": 20, "h": 14, "style": "solid"},
-    {"type": "text", "x": 717, "y": 557, "text": "insulating break (assumed)", "size": 10, "muted": true}
+    {"type": "line", "points": [[700, 450], [700, 670]], "style": "pipe"},
+    {"type": "rect", "x": 690, "y": 625, "w": 20, "h": 14, "style": "solid"},
+    {"type": "text", "x": 717, "y": 637, "text": "insulating break (assumed)", "size": 10, "muted": true},
+    {"type": "line", "points": [[1310, 384], [1324, 384], [1324, 129], [1310, 129]], "style": "thin"},
+    {"type": "line", "points": [[1310, 420], [1324, 420], [1324, 528], [1310, 528]], "style": "thin"}
    ],
    "elements": [
-    {"device": "fil_heat", "symbol": {"type": "filament", "x": 780, "y": 300, "state": "out_state"}, "tag": {"x": 1000, "y": 70, "w": 240}},
-    {"device": "fil_dis_old", "anchor": [960, 200], "tag": {"x": 1000, "y": 170, "w": 240}},
+    {"device": "fil_heat", "symbol": {"type": "filament", "x": 780, "y": 300, "state": "out_state"}, "tag": {"x": 1000, "y": 50, "w": 310}},
+    {"device": "dis_loop", "tag": {"x": 1000, "y": 318, "w": 310}},
+    {"device": "fil_dis_old", "anchor": [960, 430], "tag": {"x": 1000, "y": 462, "w": 310}},
     {"device": "thermo_hv", "channel": "t1", "anchor": [560, 200], "tag": {"x": 320, "y": 80, "w": 200}},
     {"device": "thermo_hv", "channel": "t2", "anchor": [600, 390], "tag": {"x": 320, "y": 200, "w": 200}},
     {"device": "thermo_hv", "channel": "t3", "anchor": [190, 420], "tag": {"x": 60, "y": 330, "w": 200}},
     {"device": "thermo_hv", "channel": "t4", "anchor": [370, 420], "tag": {"x": 280, "y": 330, "w": 200}},
-    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 700, "y": 500, "state": "state", "rotate": 90}, "tag": {"x": 720, "y": 480, "w": 160}},
-    {"device": "mfc", "tag": {"x": 610, "y": 590, "w": 180}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 700, "y": 500, "state": "state", "rotate": 90}, "tag": {"x": 720, "y": 480, "w": 200}},
+    {"device": "mfc", "tag": {"x": 610, "y": 670, "w": 180}},
     {"device": "au_src", "anchor": [1340, 90], "tag": {"x": 1480, "y": 60, "w": 240}}
    ],
-   "list": {"x": 1480, "y": 450, "w": 240, "h": 230}
+   "list": {"x": 1480, "y": 450, "w": 240, "h": 300}
   },
   "Extraction": {
-   "viewBox": [0, 0, 1920, 560],
+   "viewBox": [0, 0, 1920, 600],
    "statics": [
     {"type": "line", "points": [[100, 300], [1340, 300]], "style": "beam"},
     {"type": "rect", "x": 100, "y": 200, "w": 200, "h": 200, "style": "body", "rx": 6},
@@ -148,13 +151,13 @@
    ],
    "elements": [
     {"device": "turbo1", "symbol": {"type": "turbo", "x": 700, "y": 510, "state": "run_state"}, "tag": {"x": 760, "y": 530, "w": 220}},
-    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 600, "y": 510, "state": "state"}, "tag": {"x": 400, "y": 450, "w": 160}},
-    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 480, "y": 610, "state": "state"}, "tag": {"x": 400, "y": 625, "w": 160}},
-    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 190, "y": 430, "state": "state", "rotate": 90}, "tag": {"x": 210, "y": 410, "w": 160}},
+    {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 600, "y": 510, "state": "state"}, "tag": {"x": 420, "y": 428, "w": 200}},
+    {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 480, "y": 610, "state": "state"}, "tag": {"x": 400, "y": 625, "w": 200}},
+    {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 190, "y": 430, "state": "state", "rotate": 90}, "tag": {"x": 210, "y": 366, "w": 200}},
     {"device": "mfc", "tag": {"x": 80, "y": 520, "w": 200}},
     {"device": "naim", "symbol": {"type": "gauge", "x": 885, "y": 465}, "tag": {"x": 960, "y": 390, "w": 220}},
-    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 920, "y": 465}, "tag": {"x": 960, "y": 445, "w": 220}},
-    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 60, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 40, "w": 170}}
+    {"device": "gauge_ctrl", "channel": "apg", "symbol": {"type": "gauge", "x": 920, "y": 465}, "tag": {"x": 960, "y": 472, "w": 220}},
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 60, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 40, "w": 200}}
    ],
    "list": {"x": 1300, "y": 40, "w": 240, "h": 640}
   },
@@ -177,7 +180,7 @@
     {"type": "line", "points": [[700, 95], [700, 215]], "style": "solid"}
    ],
    "elements": [
-    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 80, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 60, "w": 170}},
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 80, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 60, "w": 200}},
     {"device": "fc_opta", "symbol": {"type": "cup", "x": 700, "y": 230}, "tag": {"x": 900, "y": 180, "w": 230}}
    ],
    "list": {"x": 1300, "y": 40, "w": 240, "h": 440}

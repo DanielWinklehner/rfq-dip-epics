@@ -12,7 +12,8 @@ const nearest = ([x, y], tag, height) => [
 ];
 
 // A drawing of config/drawings.json with its elements: symbols and tags that
-// are live and open the device window on a click.
+// are live and open the device window on a click. Leaders first, then the
+// symbols, then the tags, so that a leader that crosses a tag runs below it.
 const Synoptic = ({ page, height }) => {
   const theme = useTheme();
   const drawing = drawingOf(page);
@@ -28,20 +29,25 @@ const Synoptic = ({ page, height }) => {
       {elements.map(({ device, channel, symbol, anchor, tag }, index) => {
         const from = symbol ? [symbol.x, symbol.y] : anchor;
         return (
-          <g key={index}>
-            {from && tag && (
-              <polyline
-                points={[from, nearest(from, tag, tagHeight(device, channel))].join(" ")}
-                stroke={theme.palette.text.disabled}
-                strokeDasharray="2 3"
-                fill="none"
-              />
-            )}
-            {symbol && <Symbol id={device} channel={channel} {...symbol} />}
-            {tag && <Tag id={device} channel={channel} {...tag} />}
-          </g>
+          from &&
+          tag && (
+            <polyline
+              key={index}
+              points={[from, nearest(from, tag, tagHeight(device, channel))].join(" ")}
+              stroke={theme.palette.text.disabled}
+              strokeDasharray="2 3"
+              fill="none"
+            />
+          )
         );
       })}
+      {elements.map(
+        ({ device, channel, symbol }, index) =>
+          symbol && <Symbol key={index} id={device} channel={channel} {...symbol} />
+      )}
+      {elements.map(
+        ({ device, channel, tag }, index) => tag && <Tag key={index} id={device} channel={channel} {...tag} />
+      )}
     </svg>
   );
 };
