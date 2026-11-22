@@ -2,9 +2,9 @@
 #
 # The same records as matsusada_au20p7.db (see there for the details), with other defaults:
 #   DEV (REK), VFS (150) V, IFS (24) A (55 for the REK150-55), EGUI (A), PDIV (1): power in W,
-#   PROTO (rek.proto). Other macros and defaults as in matsusada_au20p7.db: UNITNUM, PORT, POL,
-#   VDRVL, VDRVH, PERMIT (interlock_open), SCAN_MON (.1 second), SCAN_GET (5 second),
-#   SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
+#   PRECV (2), PRECI (3), PROTO (rek.proto). Other macros and defaults as in
+#   matsusada_au20p7.db: UNITNUM, PORT, POL, VDRVL, VDRVH, PERMIT (interlock_open),
+#   SCAN_MON (.1 second), SCAN_GET (5 second), SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
 # Keep both files in step: the record part is matsusada_au20p7.db with these defaults.
 #
 # Author: Philip Weigel; reworked for MIST-2 in 2026 (current in A, not mA; power in W).
@@ -19,6 +19,7 @@ record(ao, "$(DEV=REK)-$(UNITNUM):voltage:setpoint") {
     field(DRVL, "$(VDRVL=0)")
     field(DRVH, "$(VDRVH=$(VFS=150))")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=2)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(POL=)$(VFS=150)")
@@ -32,6 +33,7 @@ record(ai, "$(DEV=REK)-$(UNITNUM):voltage:get") {
     field(INP,  "@$(PROTO=rek.proto) get_voltage($(UNITNUM)) $(PORT)")
     field(SCAN, "$(SCAN_GET=5 second)")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=2)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(POL=)$(VFS=150)")
@@ -43,6 +45,7 @@ record(ai, "$(DEV=REK)-$(UNITNUM):voltage:read") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) read_voltage($(UNITNUM)) $(PORT)")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=2)")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
     field(ASLO, "$(POL=)$(VFS=150)")
@@ -60,6 +63,7 @@ record(ao, "$(DEV=REK)-$(UNITNUM):current:limit") {
     field(DRVL, "0")
     field(DRVH, "$(IFS=24)")
     field(EGU,  "$(EGUI=A)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(IFS=24)")
@@ -74,6 +78,7 @@ record(ai, "$(DEV=REK)-$(UNITNUM):current:get") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) get_current($(UNITNUM)) $(PORT)")
     field(EGU,  "$(EGUI=A)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(IFS=24)")
@@ -84,6 +89,7 @@ record(ai, "$(DEV=REK)-$(UNITNUM):current:read") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=rek.proto) read_current($(UNITNUM)) $(PORT)")
     field(EGU,  "$(EGUI=A)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
     field(ASLO, "$(IFS=24)")

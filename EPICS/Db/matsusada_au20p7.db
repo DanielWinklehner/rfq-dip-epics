@@ -24,6 +24,7 @@
 #   GRACE (5)            seconds after the first contact before the permit can switch the output
 #   PDIV (1000)          power:read = voltage:read * current:read / PDIV, in W
 #   EGUI (mA)            unit of the current PVs
+#   PRECV (0), PRECI (3) digits after the decimal point that a client shows for voltages and currents
 #   PROTO (matsusada_co_ctrl.proto)
 #
 # Sets carry no acknowledgement (the CO series does not answer a set). Each set reads the
@@ -60,6 +61,7 @@ record(ao, "$(DEV=AU-20P7)-$(UNITNUM):voltage:setpoint") {
     field(DRVL, "$(VDRVL=0)")
     field(DRVH, "$(VDRVH=$(VFS=20000))")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=0)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(POL=)$(VFS=20000)")
@@ -73,6 +75,7 @@ record(ai, "$(DEV=AU-20P7)-$(UNITNUM):voltage:get") {
     field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) get_voltage($(UNITNUM)) $(PORT)")
     field(SCAN, "$(SCAN_GET=5 second)")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=0)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(POL=)$(VFS=20000)")
@@ -84,6 +87,7 @@ record(ai, "$(DEV=AU-20P7)-$(UNITNUM):voltage:read") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) read_voltage($(UNITNUM)) $(PORT)")
     field(EGU,  "V")
+    field(PREC, "$(PRECV=0)")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
     field(ASLO, "$(POL=)$(VFS=20000)")
@@ -101,6 +105,7 @@ record(ao, "$(DEV=AU-20P7)-$(UNITNUM):current:limit") {
     field(DRVL, "0")
     field(DRVH, "$(IFS=7.5)")
     field(EGU,  "$(EGUI=mA)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(IFS=7.5)")
@@ -115,6 +120,7 @@ record(ai, "$(DEV=AU-20P7)-$(UNITNUM):current:get") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) get_current($(UNITNUM)) $(PORT)")
     field(EGU,  "$(EGUI=mA)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "1.5259021896696422e-05")
     field(ASLO, "$(IFS=7.5)")
@@ -125,6 +131,7 @@ record(ai, "$(DEV=AU-20P7)-$(UNITNUM):current:read") {
     field(DTYP, "stream")
     field(INP,  "@$(PROTO=matsusada_co_ctrl.proto) read_current($(UNITNUM)) $(PORT)")
     field(EGU,  "$(EGUI=mA)")
+    field(PREC, "$(PRECI=3)")
     field(LINR, "SLOPE")
     field(ESLO, "2.442002442002442e-04")
     field(ASLO, "$(IFS=7.5)")
