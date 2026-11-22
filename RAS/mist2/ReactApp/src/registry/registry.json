@@ -5113,7 +5113,7 @@
    "model": "Channel Access logger logger/mist2log (Python, pyepics) on TimescaleDB, Grafana",
    "class": "logger",
    "subsystem": "services",
-   "page": "Diagnostics",
+   "page": null,
    "ioc": "ioc_rack",
    "status": "new",
    "flags": {},
