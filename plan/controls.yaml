@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.12"
+  revision: "0.13"
   date: "2026-11-22"
   author: "D. Winklehner"
   basis:
@@ -31,6 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.13: the data logger (work package WP9, T17): a Channel Access logger of our own (logger/mist2log, Python) on TimescaleDB with Grafana, the tier of every PV (section logging), machine-readable tiers, the logger's state records in the rack IOC (EPICS/Db/logger_status.db), docs/emulation/LOGGER.md"
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -138,6 +139,9 @@ subsystems:
   - {id: vacuum, name: "Vacuum and gas", phase: 1, page: "Vacuum and gas"}
   - {id: cooling, name: "Cooling and interlocks", phase: 1, page: "Cooling and interlocks"}
   - {id: diag, name: "Beam diagnostics", phase: 1, page: "Diagnostics"}
+  # The services of the control system that have records. Shown on the Diagnostics page until the
+  # GUI can show a subsystem without a page on the Infrastructure page alone (T17 report).
+  - {id: services, name: "Control system services", phase: 1, page: "Diagnostics"}
   - {id: scan, name: "Dipole scan and emittance scanners", phase: 2}
 
 devices:
@@ -689,6 +693,22 @@ devices:
     questions:
       - "Which firmware and which PVs does the Faraday cup Opta serve today? Not in the repository."
 
+  # ------------------------------------------------------------------ control system services
+  - id: logger
+    name: "Data logger"
+    model: "Channel Access logger logger/mist2log (Python, pyepics) on TimescaleDB, Grafana"
+    subsystem: services
+    location: rack
+    host: ioc_rack
+    link: "records of the rack IOC; the logger writes them over Channel Access once a second"
+    protocol: "Channel Access"
+    epics: {db: logger_status.db, macros: {P: LOGGER}}
+    status: new
+    notes:
+      - "Records every PV of this plan in its tier (section logging) through Channel Access monitors: raw values 30 days, means, minima and maxima per second 2 years and per minute for ever, set commands, alarms and state changes as events for ever. Design and operation: docs/emulation/LOGGER.md, logger/README.md."
+      - "Its state is in the rack IOC (LOGGER:*), written once a second: counter, PVs connected and not connected, rows per second, database state, buffer in use, rows lost. LOGGER:alive:get turns MAJOR when the counter stands still for 5 s. The logger does not log these records."
+      - "The records are in the rack IOC; where the service runs is open (question under software)."
+
   # ------------------------------------------------------------------ phase 2
   - id: magnets
     name: "Dipole magnet supplies"
@@ -876,9 +896,10 @@ work_packages:
     name: "Data logging with retention tiers"
     phase: 1
     items:
-      - "Choose the archiver (EPICS Archiver Appliance, or a time-series database with Grafana)."
-      - "Tag every PV in controls.yaml with its tier. Generate the archiver configuration from it."
-      - "Log set commands, alarms and interlock trips as events, kept forever."
+      - "Done (T17): a time-series database (TimescaleDB) with Grafana behind a Channel Access logger of our own (logger/mist2log), tested on the emulation (make -C logger test). Docs: docs/emulation/LOGGER.md."
+      - "Done: every PV of this plan has a tier (section logging, rules per role, record type and class, overrides per PV; a PV without one is a warning of build.py). The logger's PV list and the Grafana dashboards are generated from the registry."
+      - "Done: set commands, alarms, interlock and output changes, loop modes with their reason and the logger's own events in one event log, kept for ever."
+      - "Open: the computer it runs on (question under software), backups, synchronised clocks on all computers (NTP, open point P33)."
   - id: WP10
     name: "Control loops"
     phase: 1
@@ -908,7 +929,7 @@ software:
     - {id: iocs, name: "Device IOCs", text: "Rack IOC and HV platform IOC", status: modify}
     - {id: loops, name: "Loop service", text: "Python service beside the HV platform IOC (loops/mist2loop): the discharge current PID is built, NN later", status: new}
     - {id: gui, name: "GUI", text: "React Automation Studio, new layout", status: modify}
-    - {id: archiver, name: "Archiver", text: "Three retention tiers plus events", status: new}
+    - {id: archiver, name: "Data logger", text: "Channel Access logger (logger/mist2log) on TimescaleDB, Grafana: three retention tiers plus events", status: new}
     - {id: report, name: "Snapshot report", text: "One PDF with all pertinent values, plus JSON", status: new}
     - {id: clients, name: "Scan and analysis tools", text: "Dipole scan, emittance scan, automated tuning", status: later}
   gui:
@@ -924,15 +945,20 @@ software:
     - "A small Python service reads every PV tagged for the report and writes one PDF: grouped by subsystem, with time stamp, alarm state and an operator comment."
     - "It stores the same snapshot as JSON next to the PDF. That file can be compared with a later one, or written back to restore the set points."
     - "It is triggered by a PV, so the button can sit in the GUI and a script can request a report as well."
+  # id, interval (s; null: on change) and keep_days (null: for ever) are read by plan/registry.py
+  # and the logger (docs/emulation/LOGGER.md); the other keys are the table of the Word document.
   tiers:
-    - {tier: "1  raw", rate: "as sampled (up to 10 Hz)", keep: "30 days", use: "Fault finding, loop tuning, training data"}
-    - {tier: "2  seconds", rate: "1 s mean, min, max", keep: "2 years", use: "Run comparison, conditioning history"}
-    - {tier: "3  minutes", rate: "1 min mean, min, max", keep: "forever", use: "Long-term trends, operating hours"}
-    - {tier: "events", rate: "on change", keep: "forever", use: "Set commands, alarms, interlock trips, reports"}
+    - {id: raw, interval: null, keep_days: 30, tier: "1  raw", rate: "as sampled (up to 10 Hz)", keep: "30 days", use: "Fault finding, loop tuning, training data"}
+    - {id: seconds, interval: 1, keep_days: 730, tier: "2  seconds", rate: "1 s mean, min, max", keep: "2 years", use: "Run comparison, conditioning history"}
+    - {id: minutes, interval: 60, keep_days: null, tier: "3  minutes", rate: "1 min mean, min, max", keep: "forever", use: "Long-term trends, operating hours"}
+    - {id: events, interval: null, keep_days: null, tier: "events", rate: "on change", keep: "forever", use: "Set commands, alarms, interlock trips, reports"}
   archiver:
-    - "Option 1: EPICS Archiver Appliance. Built for PVs (keeps IOC time stamps, alarm state and units), has short, medium and long-term stores, and is the community standard. More to install (Java services)."
-    - "Option 2: a time-series database (TimescaleDB or InfluxDB) with Grafana. Lighter, retention and down-sampling rules are built in, and history is one query away from Python. Needs a small Channel Access logger in front."
-    - "The numbers in the table are a starting point. Decide them per PV group, disk space is not the limit for a system of this size."
+    - "Built (T17): option 2, decided by the owner: a Channel Access logger of our own (logger/mist2log, Python with pyepics and psycopg) in front of TimescaleDB 2.17 on PostgreSQL 16, with Grafana 11 to look at the data. Its own Compose project in logger/ (make -C logger up). Design and operation: docs/emulation/LOGGER.md."
+    - "Option 1, not taken: EPICS Archiver Appliance. Built for PVs (keeps IOC time stamps, alarm state and units), has short, medium and long-term stores, and is the community standard. More to install (Java services)."
+    - "The logger subscribes with monitors (never polls) to every PV whose tier is not none (section logging), takes the IOC's time stamp, value, severity and status, and records disconnects and returns, so that a reader never holds a value across a gap. Means, minima and maxima per second and per minute are computed by the logger, weighted by time: a value that holds reads as that value in every interval, an interval without a valid value as a gap."
+    - "Set commands (every change of a written PV, old and new value), every change of alarm severity, every change of an events PV (interlock permit, output states, loop mode with its reason) and the logger's own events go into one event log, kept for ever. Channel Access does not say who wrote a value: the log does not either."
+    - "Life times are enforced by the database (TimescaleDB retention policies). While the database is lost the logger keeps a bounded buffer; what does not fit is counted and logged."
+    - "The numbers in the table are a starting point. Decide them per PV group (section logging), disk space is not the limit for a system of this size."
   loops:
     - "Owner's decision, 2026-11-22: the PID runs in a Python service with pyepics (loops/mist2loop) on the HV platform computer, beside iocHV; the loops' own records (mode, set point, gains, limits, state) are plain records in iocHV (EPICS/Db/loop.db), without C code. The loop acts on a time scale of about a second, so Python's timing is good enough, the group reads Python, and the later steps are Python anyway. Design and operation: docs/emulation/LOOP.md."
     - "Two layers. The records are the interface and the backstop: without any help from the service they write the actuator only in PID, only within the output limits and the slew limit, and take the mode back with an alarm when the service's counter stands still. The service is the algorithm and the judgement: PID, anti-windup, bumpless switching, the decision to hand back or refuse."
@@ -945,7 +971,8 @@ software:
   questions:
     - "Which values belong on the printout, and is one page per subsystem the right grouping?"
     - "Which values should be stabilized besides the discharge current, and what is the actuator for each?"
-    - "Where should archiver and report service run: lab computer, rack IOC, or a new small server?"
+    - "Where should the data logger and the report service run: lab computer, rack IOC, or a new small server? What the logger needs (CPU, memory, disk per tier and year): docs/emulation/LOGGER.md, sizing."
+    - "The tier of each PV group (section logging, table in docs/emulation/LOGGER.md) is our proposal: right?"
 
 naming:
   text:
@@ -957,6 +984,45 @@ global_questions:
   - "Please send dbl output and st.cmd from both IOCs, so that the PV lists show what really runs and not only what is in the repository."
   - "Is the PV naming convention open for change, or are the current names fixed by existing clients?"
   - "Target date for phase 1, and what must work on day one?"
+
+# ---------------------------------------------------------------------- logging: tier of every PV
+# The tier of every existing PV (docs/emulation/LOGGER.md): raw, seconds or minutes (the finest
+# tier it is kept in: a raw PV is also in seconds and minutes, a seconds PV also in minutes),
+# events (stored on change only, kept for ever), or none. The first rule that applies wins:
+#   pvs       one PV by its name
+#   classes   every PV of a device of this widget class
+#   internal  every record marked internal under databases
+#   roles     by role (channel roles too)
+#   written   every PV a client writes (ao, bo, longout, mbbo, stringout)
+#   types     by record type
+# Each rule is {tier, reason}. A PV that no rule covers is a WARNING of build.py; plan/registry.py
+# writes the tier of each PV into the registry (key "log"), where the logger reads it.
+logging:
+  pvs:
+    "PRESSURE:diag_box:getpressure": {tier: minutes, reason: "measures nothing in phase 1: its gauge goes to the second six-way cross in phase 2"}
+  classes:
+    logger: {tier: none, reason: "the logger's own state (R8); its loss is seen in the rack IOC, not in its own database"}
+  internal: {tier: none, reason: "helper records (fan-outs, arrays, sequences, mirrors); what they do shows in the public PVs"}
+  roles:
+    heartbeat: {tier: none, reason: "counts every second; an IOC that stops shows as the disconnect of all its PVs, which is logged"}
+    age: {tier: none, reason: "seconds since the last RS-232 record, counts every second; a stale record turns speed and current INVALID, which is logged"}
+    power: {tier: seconds, reason: "computed from voltage and current, both kept raw"}
+    junction: {tier: minutes, reason: "cold-junction temperature of the readout board: long-term only"}
+    raw: {tier: raw, reason: "the last RS-232 record as text, every 8 s: kept to find the record format (P14)"}
+    vget: {tier: events, reason: "echo of a setting: changes after a set"}
+    ilimit_get: {tier: events, reason: "echo of a setting: changes after a set"}
+    sp: {tier: events, reason: "echo of a setting: changes after a set"}
+    state: {tier: events, reason: "a state (valves, doors, pump): changes rarely, every change is an event"}
+    open: {tier: events, reason: "the interlock permit: every change is an event"}
+    service: {tier: events, reason: "the loop service alive or not: every change is an event"}
+  written: {tier: events, reason: "set points and requests: every change is a set command in the event log"}
+  types:
+    ai: {tier: raw, reason: "a measured value"}
+    bi: {tier: events, reason: "a binary state: on change"}
+    mbbi: {tier: events, reason: "a state word: on change"}
+    longin: {tier: events, reason: "a status or fault word: on change"}
+    stringin: {tier: events, reason: "identity or mode text: on change"}
+    lsi: {tier: events, reason: "identity text: on change"}
 
 # ---------------------------------------------------------------------- databases: roles of the records
 # What the GUI and the tests need to know about the records of each database, written once and used
@@ -1177,6 +1243,18 @@ databases:
     internal: [_mode, _active, _count, _dead, _drop, _c1, _s1, _c2, _s2, _c3, _s3, _act, _hb, _out, _target, _write]
     invalid_on:
       _write: []               # writes the actuator only in PID; the suite's fault tests run in MANUAL
+
+  logger_status.db:
+    class: logger
+    roles:
+      count: {record: "count:get", note: "+1 per second, written by the logger"}
+      alive: {record: "alive:get", note: "1 while the counter changed within 5 s, else 0 (MAJOR): the logger is dead or cannot reach this IOC"}
+      connected: "connected:get"
+      disconnected: {record: "disconnected:get", note: "MINOR while any logged PV is not connected"}
+      rows: "rows:get"
+      db: {record: "db:get", note: "unknown (no logger since the IOC start), connected, lost (MAJOR)"}
+      buffer: {record: "buffer:get", note: "share of the buffer in use while the database is lost or slow: MINOR from 50 %, MAJOR from 90 %"}
+      dropped: {record: "dropped:get", note: "rows that did not fit into the buffer since the logger started (MINOR from the first; each loss is an event)"}
 
   nt20_monitor.db:
     class: turbo

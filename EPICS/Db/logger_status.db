@@ -1,0 +1,87 @@
+# logger_status.db - state of the data logger (logger/, docs/emulation/LOGGER.md), loaded by the
+# rack IOC with macro P (LOGGER). The logger writes the input records once a second over
+# Channel Access; nothing else writes them. alive:get turns to 0 with MAJOR alarm when the
+# counter has not changed for TIMEOUT seconds, so a dead logger shows in every alarm display.
+#
+# Every record is processed once at the start (PINI) with UDF cleared: without a logger they
+# read 0 (db:get "unknown") without alarm, and alive:get reads 0 (MAJOR).
+#
+# Macros: P prefix; TIMEOUT seconds without a count before alive:get alarms (default 5: the
+# logger counts once a second, five missed counts, our choice).
+# (No macro references in these comments: dbLoadRecords expands them there too.)
+
+record(longin, "$(P):count:get") {
+    field(DESC, "Logger counter, +1 per second")
+    field(PINI, "YES")
+    field(UDF,  "0")
+}
+
+# 1 while count:get changed within TIMEOUT seconds, else 0 (MAJOR). B: seconds since the last
+# change (starts as "never"), C: the count seen last.
+record(calc, "$(P):alive:get") {
+    field(DESC, "Logger alive")
+    field(SCAN, "1 second")
+    field(INPA, "$(P):count:get NPP")
+    field(INPD, "$(TIMEOUT=5)")
+    field(B,    "1e9")
+    field(CALC, "B:=(A#C)?0:B+1;C:=A;B<D")
+    field(LOW,  "0.5")
+    field(LSV,  "MAJOR")
+}
+
+record(longin, "$(P):connected:get") {
+    field(DESC, "PVs logged and connected")
+    field(PINI, "YES")
+    field(UDF,  "0")
+}
+
+# MINOR while any PV of the logger's list is not connected
+record(longin, "$(P):disconnected:get") {
+    field(DESC, "PVs logged, not connected")
+    field(PINI, "YES")
+    field(UDF,  "0")
+    field(HIGH, "1")
+    field(HSV,  "MINOR")
+}
+
+record(ai, "$(P):rows:get") {
+    field(DESC, "Rows written per second")
+    field(PINI, "YES")
+    field(UDF,  "0")
+    field(EGU,  "rows/s")
+    field(PREC, "1")
+}
+
+record(mbbi, "$(P):db:get") {
+    field(DESC, "Database state")
+    field(PINI, "YES")
+    field(UDF,  "0")
+    field(ZRST, "unknown")
+    field(ONST, "connected")
+    field(TWST, "lost")
+    field(TWSV, "MAJOR")
+}
+
+# Share of the buffer in use while the database is lost or slow: MINOR from 50 %, MAJOR from
+# 90 % (our choice)
+record(ai, "$(P):buffer:get") {
+    field(DESC, "Buffer in use")
+    field(PINI, "YES")
+    field(UDF,  "0")
+    field(EGU,  "%")
+    field(PREC, "1")
+    field(HIGH, "50")
+    field(HSV,  "MINOR")
+    field(HIHI, "90")
+    field(HHSV, "MAJOR")
+}
+
+# Rows that did not fit into the buffer since the logger started (each loss is also an event):
+# MINOR from the first
+record(longin, "$(P):dropped:get") {
+    field(DESC, "Rows lost since the start")
+    field(PINI, "YES")
+    field(UDF,  "0")
+    field(HIGH, "1")
+    field(HSV,  "MINOR")
+}

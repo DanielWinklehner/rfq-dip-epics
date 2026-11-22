@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from build import REPO, DbError, db_states, fault_analysis, parse_db, simple_record_names  # noqa: E402
+from build import REPO, DbError, Model, db_states, fault_analysis, log_tier, parse_db, simple_record_names  # noqa: E402
 
 
 def parse(text, macros=None):
@@ -207,3 +207,43 @@ class EveryDatabase(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LogTier(unittest.TestCase):
+    RULES = {"pvs": {"A:x": {"tier": "minutes", "reason": "r"}},
+             "classes": {"logger": {"tier": "none", "reason": "r"}},
+             "internal": {"tier": "none", "reason": "r"},
+             "roles": {"power": {"tier": "seconds", "reason": "r"}},
+             "written": {"tier": "events", "reason": "r"},
+             "types": {"ai": {"tier": "raw", "reason": "r"}, "calc": {"tier": "raw", "reason": "r"}}}
+
+    def tier(self, **pv):
+        found = log_tier(self.RULES, dict({"name": "B:y", "type": "ai"}, **pv))
+        return found and found[0]
+
+    def test_order_of_the_rules(self):
+        self.assertEqual(self.tier(name="A:x", internal=True), "minutes")       # a PV by name wins
+        self.assertEqual(self.tier(cls="logger", role="power"), "none")         # then the class
+        self.assertEqual(self.tier(type="calc", internal=True), "none")         # then internal
+        self.assertEqual(self.tier(type="calc", role="power"), "seconds")       # then the role
+        self.assertEqual(self.tier(type="ao", role="vset"), "events")           # then written
+        self.assertEqual(self.tier(type="ai", role="vread"), "raw")             # then the type
+
+    def test_no_rule_is_none(self):
+        self.assertIsNone(self.tier(type="mbbi", role="mode"))
+
+    def test_every_pv_of_the_plan_has_a_tier_and_a_pv_without_one_warns(self):
+        model = Model(os.path.join(REPO, "plan", "controls.yaml"), os.path.join(REPO, "EPICS", "Db"))
+        self.assertEqual([w for w in model.warnings if "logging" in w], [])
+        with tempfile.TemporaryDirectory() as tmp:
+            import yaml
+            with open(os.path.join(REPO, "plan", "controls.yaml"), encoding="utf-8") as handle:
+                data = yaml.safe_load(handle)
+            del data["logging"]["types"]["mbbi"]
+            data["logging"]["roles"]["power"]["tier"] = "hourly"
+            path = os.path.join(tmp, "controls.yaml")
+            with open(path, "w", encoding="utf-8") as handle:
+                yaml.safe_dump(data, handle)
+            warnings = Model(path, os.path.join(REPO, "EPICS", "Db")).warnings
+        self.assertTrue(any("TDK:mode:get (mbbi, role mode) has no logging tier" in w for w in warnings), warnings)
+        self.assertTrue(any("roles: power names tier 'hourly'" in w for w in warnings), warnings)
