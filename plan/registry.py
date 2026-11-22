@@ -48,6 +48,8 @@ def simulators(model):
         boot = os.path.dirname(host["st_cmd"])
         iocs[host["id"]] = containers.get(os.path.basename(boot))
         ports_file = os.path.join(boot, "ports.sim.cmd")
+        if not os.path.exists(os.path.join(REPO, ports_file)):
+            continue        # an IOC without ports (iocLoop): Channel Access only
         with open(os.path.join(REPO, ports_file), encoding="utf-8") as handle:
             for asyn, sim_host, port in re.findall(r'^\s*drvAsynIPPortConfigure\(\s*"([^"]+)"\s*,\s*"([^":]+):(\d+)"',
                                                   handle.read(), re.M):

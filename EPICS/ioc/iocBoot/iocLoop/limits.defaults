@@ -1,0 +1,33 @@
+# limits.defaults - defaults of the settings of the loop IOC, in autosave's file format.
+#
+# Restored at every IOC start, before the file that autosave writes at run time
+# ($MIST2_SAVE/iocLoop/limits.sav), whose values win. One line per PV: <PV name> <value>, in the
+# unit of the PV. Where each value comes from: docs/emulation/LOOP.md, "Settings".
+#
+# ASSUMED: the gains come from the plant MODEL of the emulation (emulation/sim/config/plant.yaml,
+# python3 emulation/sim/tools/plant_step_response.py), not from MIST-2. Measure the step response
+# on the machine and set them again (LOOP.md, "Tuning on the machine").
+#
+# Discharge loop: set point 18 A. Its maximum is 22 A, below the 24 A full scale of the REK150-24:
+# at 24 A the REK goes into constant current, more filament current cannot raise the discharge
+# current, and a loop there can only act downward (docs/emulation/STATUS.md).
+LOOP-DIS:value:setpoint 18
+LOOP-DIS:value:setpoint.DRVL 0
+LOOP-DIS:value:setpoint.DRVH 22
+# SIMC rules for the model at its steepest point (gain 3.56 A/A, time constant 1.45 s, dead time
+# about 0.3 s with the polling and the period) and a closed-loop time constant of 0.5 s.
+LOOP-DIS:kp:setpoint 0.5
+LOOP-DIS:ki:setpoint 0.35
+# A first-order plant needs no derivative: off. The filter time (free choice, one period) is
+# used once Kd is set.
+LOOP-DIS:kd:setpoint 0
+LOOP-DIS:dfilter:setpoint 0.2
+# Output: at most 90 A, the filament current of the owner's working point (2026-11-21); at least
+# 80 A (free choice: below the model's 12 A point at 85.8 A, the filament stays hot).
+LOOP-DIS:outmin:setpoint 80
+LOOP-DIS:outmax:setpoint 90
+# 1 A/s of filament current (free choice: about 3 A/s of discharge current in the model).
+LOOP-DIS:slew:setpoint 1
+# Three missed counts of the platform IOC's heartbeat (once per second): hand back (free choice).
+LOOP-DIS:stale:setpoint 3
+<END>

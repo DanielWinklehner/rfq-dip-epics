@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.10"
+  revision: "0.11"
   date: "2026-11-22"
   author: "D. Winklehner"
   basis:
@@ -31,6 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
+    - "Revision 0.11: the loop IOC iocLoop with the first control loop, discharge current through the filament heating current (work package WP10 step 1, docs/emulation/LOOP.md)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
     - "Revision 0.9: the Matsusada rework (four AU supplies, current limit with autosave, latching permit, remote/local status) and the owner's answers of 2026-11-21 (docs/emulation/STATUS.md)"
     - "Revision 0.7: the databases in EPICS/Db and the two st.cmd files of branch emulated-iocs (PV names of the lab's IOC of 2023), the design note docs/emulation/DESIGN.md (G1, approved 2026-11-21) and the assumptions A1 to A22 and open points in docs/emulation/STATUS.md"
@@ -93,6 +94,21 @@ hosts:
       - "Saved limits as on the rack IOC (autosave, iocBoot/iocHV/limits.defaults, then limits.sav): the current limit of the REK."
     questions:
       - "Operating system of the mini PC? Please send its st.cmd and dbl output as well."
+  - id: ioc_loop
+    name: "Loop IOC"
+    model: "Soft IOC on the HV platform IOC's mini PC"
+    location: hv
+    role: "EPICS soft IOC for the control loops. Reads and writes the PVs of the other IOCs over Channel Access only, no hardware."
+    os: "as the HV platform IOC"
+    uplink: "the HV platform IOC's computer"
+    status: new
+    st_cmd: EPICS/ioc/iocBoot/iocLoop/st.cmd
+    epics: {db: ioc_info.db, macros: {P: IOC-LOOP}}
+    notes:
+      - "Same EPICS top and binary as the other IOCs (EPICS/ioc, iocBoot/iocLoop). One dbLoadRecords line of loop.db per loop. In the emulation the container ioc-loop (172.30.0.13)."
+      - "Two IOCs on one computer: a unicast Channel Access search reaches only one of them. How the IOCs and their clients are configured there: docs/emulation/LOOP.md (not verified)."
+      - "Saved settings as on the other IOCs (autosave, iocBoot/iocLoop/limits.defaults, then limits.sav): set point and its limits, gains, output limits, slew, stale time. Not the mode: a loop always starts in MANUAL."
+
   - id: emit_pc
     name: "Emittance scanner PC"
     model: "Small form-factor PC"
@@ -200,6 +216,27 @@ devices:
     questions:
       - "Which adapter sits between the RS-485 to USB converter and the REK150-24 today (label on the box)? Does the new unit have the same modular port?"
       - "8.3 kW on the platform at 400 V three-phase: is the isolation transformer and the platform mains sized for it?"
+
+  - id: dis_loop
+    name: "Discharge current loop"
+    model: "PID loop (EPICS/Db/loop.db, algorithm EPICS/ioc/mist2App/src/pid.c)"
+    subsystem: source
+    location: hv
+    host: ioc_loop
+    link: "Channel Access to the HV platform IOC and the rack IOC"
+    protocol: "Channel Access"
+    epics: {db: loop.db, macros: {P: LOOP-DIS, MEAS: "REK-1:current:read", ACT: "TDK:current:setpoint", HB: "IOC-HV:heartbeat",
+                                  C1: interlock_open, R1: "0", W1: "interlock open", C2: "REK-1:status:read", R2: "1",
+                                  W2: "REK not on in remote", C3: "TDK:status:get", R3: "1", W3: "TDK output off",
+                                  EGU: A, OEGU: A, OLO: "0", OHI: "300", RES: "0.01", SCAN: ".2 second"}}
+    status: new
+    flags: {assumed: "The default gains come from the plant model of the emulation, not from MIST-2 (docs/emulation/LOOP.md)"}
+    notes:
+      - "Holds the discharge current (REK-1:current:read) at LOOP-DIS:value:setpoint through the filament heating current (TDK:current:setpoint). Step 1 of WP10: plain PID with output limits, slew limit, anti-windup, bumpless switching and hand-back to MANUAL."
+      - "Hands back to MANUAL by itself (the request returns to MANUAL, latched): interlock open, REK not on in remote control, TDK output off, a PV it uses INVALID or not connected, the platform IOC's heartbeat stopped for longer than LOOP-DIS:stale:setpoint, someone else wrote the TDK current set point, the TDK did not accept a set, and at every start of the loop IOC. Refuses PID for the same reasons, and while the TDK set point is outside the output limits."
+      - "At the owner's working point the REK is at 24 A, its full scale: there the loop can only act downward. The set point is limited to 22 A by default (LOOP-DIS:value:setpoint.DRVH); whether the loop runs below 24 A or waits for the REK150-55 is the owner's question 3."
+    questions:
+      - "Run the loop below 24 A with the REK150-24, or only with the REK150-55 (question 3)? Which output limits for the filament current (defaults 80 to 90 A, 90 A from the working point)?"
 
   - id: thermo_hv
     name: "Thermocouple readout"
@@ -857,8 +894,9 @@ work_packages:
     name: "Control loops"
     phase: 1
     items:
-      - "Loop IOC on the HV platform computer, first loop: discharge current."
-      - "Step 1: plain PID with output limits, slew limit and automatic hand-back to manual."
+      - "Done: the loop IOC iocLoop (runs next to the HV platform IOC) with the first loop, discharge current through the filament heating current (LOOP-DIS, docs/emulation/LOOP.md), tested on the emulation with the plant model."
+      - "Done, step 1: plain PID with output limits, slew limit, anti-windup, bumpless switching and automatic hand-back to manual."
+      - "Open: measure the step response on the machine and set the gains (LOOP.md); the owner's answer to question 3 (run below 24 A, or wait for the REK150-55)."
       - "Step 2: neural-network layer (gain scheduling or feed-forward), trained on the logged data, behind the same limits."
   - id: WP11
     name: "Dipole scan in EPICS"
@@ -879,7 +917,7 @@ software:
     - "controls.yaml is the common configuration: GUI pages, the archiver's PV list with its tiers, and the report layout are generated from it."
   components:
     - {id: iocs, name: "Device IOCs", text: "Rack IOC and HV platform IOC", status: modify}
-    - {id: loops, name: "Loop IOC", text: "PID and NN loops, runs next to the HV platform IOC", status: new}
+    - {id: loops, name: "Loop IOC", text: "iocLoop next to the HV platform IOC: the discharge current PID loop is built, NN later", status: new}
     - {id: gui, name: "GUI", text: "React Automation Studio, new layout", status: modify}
     - {id: archiver, name: "Archiver", text: "Three retention tiers plus events", status: new}
     - {id: report, name: "Snapshot report", text: "One PDF with all pertinent values, plus JSON", status: new}
@@ -907,12 +945,12 @@ software:
     - "Option 2: a time-series database (TimescaleDB or InfluxDB) with Grafana. Lighter, retention and down-sampling rules are built in, and history is one query away from Python. Needs a small Channel Access logger in front."
     - "The numbers in the table are a starting point. Decide them per PV group, disk space is not the limit for a system of this size."
   loops:
-    - "Loops run in a soft IOC on the HV platform computer, next to the supplies they act on. No GUI and no Ethernet hop inside the loop."
-    - "First loop: discharge current. Measured value is the discharge supply current (REK), presumably the actuator is the filament heating current (TDK). Both are polled at 10 Hz today, so the loop can correct on a time scale of about a second, which matches a thermal filament."
-    - "Step 1 is a plain PID. It needs output limits, a slew-rate limit, anti-windup and bumpless switching between manual and automatic before anything smarter is added."
-    - "The loop hands back to manual by itself when an interlock trips, when a PV it uses goes INVALID, or when its data is stale."
-    - "Step 2 adds the neural network as an advisor: it schedules the PID gains or supplies a feed-forward term, trained on tier 1 data. Its output passes the same limits as the PID output, and a bad or late answer means plain PID."
-    - "Proposed PVs per loop: enable, mode (manual / PID / PID+NN), setpoint, output, kp, ki, kd, limits, state."
+    - "Loops run in a soft IOC, iocLoop, on the HV platform computer, next to the IOC of the supplies they act on. They talk to the other IOCs through Channel Access only. No GUI and no Ethernet hop inside the loop. Design and operation: docs/emulation/LOOP.md."
+    - "Built (step 1): the discharge current loop LOOP-DIS. Measured value: the discharge supply current (REK-1:current:read), actuator: the filament heating current (TDK:current:setpoint), both polled at 10 Hz. The loop runs every 0.2 s, a fifth of the model's time constant of about 1.4 s."
+    - "Plain PID in parallel form, derivative on the filtered measurement, output limits, slew limit, anti-windup by conditional integration, bumpless switching between MANUAL and PID and bumpless gain changes. One database template (EPICS/Db/loop.db): a second loop is one more dbLoadRecords line."
+    - "The loop hands back to MANUAL by itself when a permit condition fails (interlock, REK on in remote, TDK on), when a PV it uses is INVALID or not connected, when the platform IOC's heartbeat stops (stale data), when someone else writes the actuator, and when the actuator does not accept a set. The request returns to MANUAL (latched) and the reason is shown. A request for PID is refused for the same reasons."
+    - "PVs per loop: mode request and mode, reason, limit flag, set point (its drive limits are the set point limits), measured value, output, error, the three terms; settings Kp, Ki, Kd, derivative filter time, output minimum and maximum, slew, stale time, saved by autosave."
+    - "Step 2, not built: the neural network as an advisor. It would schedule the gains (writing the Kp, Ki, Kd settings) or add a feed-forward term to the PID output before the limits, trained on tier 1 data. Its output passes the same limits as the PID output, and a bad or late answer means plain PID. No PVs exist for it yet."
   questions:
     - "Which values belong on the printout, and is one page per subsystem the right grouping?"
     - "Which values should be stabilized besides the discharge current, and what is the actuator for each?"
@@ -1111,6 +1149,32 @@ databases:
       failure: "failure:get"
       state: "state:get"
     internal: ["int:relays", "int:state"]
+
+  loop.db:
+    class: loop
+    roles:
+      mode_cmd: {record: "mode:setpoint", readback: mode, test: [0, 0], ack: false,
+                 note: "the operator's request; the loop sets it back to MANUAL when it hands back or refuses (latch). A test writes only MANUAL: PID would act on the filament heating"}
+      mode: "mode:get"
+      reason: {record: "reason:get", note: "why the loop last handed back or refused, until the next request"}
+      limit: {record: "limit:get", note: "free, at minimum, at maximum (MINOR) or slew limited"}
+      sp: {record: "value:setpoint", readback: null, test: [10, 20], ack: true,
+           note: "soft setting of the loop IOC (no device: accepted by the IOC itself). Its drive limits DRVL and DRVH are the set point limits, saved with it"}
+      pv: {record: "value:read", note: "the measured value as the loop reads it"}
+      out: {record: "output:get", note: "in PID what the loop sends to the actuator, in MANUAL the actuator's set point"}
+      error: "error:get"
+      p: "p:get"
+      i: "i:get"
+      d: "d:get"
+      kp: {record: "kp:setpoint", readback: null, test: [0.1, 1], ack: true, note: "soft setting, saved by autosave"}
+      ki: {record: "ki:setpoint", readback: null, test: [0.05, 1], ack: true, note: "soft setting, saved by autosave"}
+      kd: {record: "kd:setpoint", readback: null, test: [0, 0.5], ack: true, note: "soft setting, saved by autosave"}
+      dfilter: {record: "dfilter:setpoint", readback: null, test: [0.1, 1], ack: true, note: "soft setting, saved by autosave"}
+      outmin: {record: "outmin:setpoint", readback: null, test: [70, 80], ack: true, note: "soft setting, saved by autosave"}
+      outmax: {record: "outmax:setpoint", readback: null, test: [90, 95], ack: true, note: "soft setting, saved by autosave"}
+      slew: {record: "slew:setpoint", readback: null, test: [0.2, 2], ack: true, note: "soft setting, saved by autosave"}
+      stale: {record: "stale:setpoint", readback: null, test: [2, 10], ack: true, note: "soft setting, saved by autosave"}
+    internal: [_act, _hb, _c1, _c2, _c3, _pid, _write]
 
   nt20_monitor.db:
     class: turbo
