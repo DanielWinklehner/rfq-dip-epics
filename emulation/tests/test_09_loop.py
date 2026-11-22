@@ -41,7 +41,10 @@ PERMIT_LIMIT = {       # the condition's PV changes, then one cycle:
     "supply": 2.5,     #   supply output state polled every 1 s (REK STS, TDK OUT?), the switching
 }                      #   protocol before it (PRIO HIGH)
 MEASUREMENT_LIMIT = 2.0   # REK monitors polled at 10 Hz, reply timeout 150 ms
-NODATA_LIMIT = 3.0     # interlock box polled every 0.1 s, libcom1 reply timeout 1 s
+NODATA_LIMIT = 7.0     # interlock box polled every 0.1 s, libcom1 reply timeout 1 s; its data poll
+                       # can wait behind its identity queries (every 10 s, three more 1 s
+                       # timeouts while it is silent): up to 5 s, then one cycle (measured 2.2
+                       # to more than 3 s; test_05 saw the box's PVs INVALID after 6.1 s)
 OVERRIDE_LIMIT = 1.0   # the actuator's monitor reaches the service at once, then one cycle
 NOT_ACCEPTED_LIMIT = 1.0  # a garbled answer fails the set at once, then one cycle
 STALE_SLACK = 1.5      # the heartbeat counts once per second, plus one cycle and Channel Access

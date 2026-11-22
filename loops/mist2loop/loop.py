@@ -136,8 +136,9 @@ class Loop:
             if not self.started:            # a start of the service: MANUAL, whatever was on
                 self.started = True
                 self.go_manual(SERVICE_START, True)
-            elif self.v("_active"):         # reconnected (an IOC start): nothing goes on
-                self.io.put("_active", 0)
+            else:                           # reconnected (an IOC start, or a lost connection,
+                self.io.put("_active", 0)   # during which the watchdog dropped): nothing goes
+                self.io.put("mode:setpoint", 0)     # on; the reason is the IOC's
         dt = 0.0 if self.last_run is None else now - self.last_run
         self.last_run = now
 

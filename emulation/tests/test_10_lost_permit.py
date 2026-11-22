@@ -18,7 +18,9 @@ import pytest
 
 import system as S
 from system import reg
-from test_09_loop import LOOPS, Loop, fulfil, go_pid, reason, service_alive, start_value
+from conftest import restore_writes, snapshot
+from test_09_loop import (AUTOSAVE, LOOPS, Loop, fulfil, go_pid, involved, reason, service_alive,
+                          start_value)
 
 ILK = next(d for d, dev in reg.devices.items() if dev["class"] == "interlock")
 PERMIT = reg.role(ILK, "open")
@@ -67,6 +69,19 @@ def loops_handed_back(limit, t0, capsys):
         assert S.get(record, as_string=True) == "no data" and S.sevr(record) == S.INVALID
         S.report("%s: hand-back '%s' after %.1f s (limit %.0f s)" % (lp.device, reason(lp), took, limit),
                  capsys)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restored():
+    """The module leaves the devices and the loops' settings as it found them (saved by
+    autosave before the next module)."""
+    yield
+    for lp, _ in LOOP_PERMITS:
+        S.put(lp["mode_cmd"], 0)
+    names = {n for lp, _ in LOOP_PERMITS for n in involved(lp)}
+    names |= {n for d in GATED for n in reg.writes() if reg.pvs[n]["device"] == d and n in snapshot}
+    restore_writes(sorted(names))
+    time.sleep(AUTOSAVE)
 
 
 def output_on(device):

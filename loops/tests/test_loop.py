@@ -93,6 +93,8 @@ class Start(LoopTest):
         self.io.values["reason:get"] = L.IOC_START       # the IOC started meanwhile
         self.run_cycles(1)
         self.assertEqual(self.reason(), L.IOC_START, "the IOC's reason stays")
+        self.assertEqual(self.io.written("_active")[-1:], [0])
+        self.assertEqual(self.io.written("mode:setpoint")[-1:], [0])
 
 
 class Refusal(LoopTest):
