@@ -178,29 +178,32 @@ step, and the TDK's read-back rate the same in MANUAL and in PID (10.0 per secon
 
 ## 6. Results on the plant model (test C, `make -C emulation test-loop`)
 
-Last run (2026-11-22, after the review's fix round; emulation with the plant model, default settings of section 5). A run
+Last run (2026-11-22, after the second review (F8, F9); emulation with the plant model, default settings of section 5). A run
 writes the table to `emulation/build/loop-plant.md`; the pass limits and where each comes from
 are in `emulation/tests/loop_plant.py`. Properties of the MODEL, not of MIST-2.
 
 | Closed loop on the plant model (LOOP-DIS) | Result | Pass limit |
 |---|---|---|
-| MANUAL to PID: discharge moved / first set step | 0.012 A / 0.000 A | 0.20 A / 0.20 A |
-| Step 20.0 to 22.0 A: rise time 10-90 % | 2.24 s | 3.0 s |
-| overshoot | 1.3 % | 10 % |
-| settling time into +-0.10 A | 4.00 s | 6.0 s |
-| steady-state error (mean of the last 5 s) | +0.0024 A | +-0.03 A |
+| MANUAL to PID: discharge moved / first set step | 0.018 A / 0.014 A | 0.20 A / 0.20 A |
+| Step 20.0 to 22.0 A: rise time 10-90 % | 1.80 s | 3.0 s |
+| overshoot | 0.7 % | 10 % |
+| settling time into +-0.10 A | 4.05 s | 6.0 s |
+| steady-state error (mean of the last 5 s) | +0.0013 A | +-0.03 A |
 | Emission drift -5 %/min, 30 s: largest deviation | 0.034 A | 0.30 A |
-| deviation at the end of the drift | 0.015 A | 0.15 A |
-| emission back at once: back into the band after | 1.29 s | 6.0 s |
-| Output maximum lowered to 88.92 A in PID: TDK set / output:get / flag / mode | 88.92 A / 88.92 A / at maximum / PID | 88.92 A / the same / at maximum / PID |
-| maximum restored at 20.365 A: lowest discharge current after / settled after | 20.331 A / 4.19 s | not below 20.265 A (no bump down) / 12.0 s |
+| deviation at the end of the drift | 0.018 A | 0.15 A |
+| emission back at once: back into the band after | 1.24 s | 6.0 s |
+| Output maximum lowered to 88.93 A in PID: TDK set / output:get / flag / mode | 88.93 A / 88.93 A / at maximum / PID | 88.93 A / the same / at maximum / PID |
+| maximum restored at 20.397 A: lowest discharge current after / settled after | 20.337 A / 3.64 s | not below 20.297 A (no bump down) / 12.0 s |
 | Unreachable (REK limit 21 A): TDK set / flag / highest set | 90.00 A / at maximum / 90.00 A | 90.00 A / at maximum / 90.00 A |
-| limit restored: leaves the maximum after the error changed sign / settles after | -0.04 s / 2.54 s | 2 periods + 0.5 s / 12.0 s |
-| Hand-back in closed loop (REK silent): reason / TDK set before, after 5 s | measurement no data / 89.431, 89.431 A | the same |
-| TDK current read-back before, after 5 s | 89.44, 89.43 A | within 0.5 A (noise) |
-| Writes per second to the TDK in PID (during the step) | 1.35 | at most 5 |
+| limit restored: leaves the maximum after the error changed sign / settles after | 0.12 s / 2.24 s | 2 periods + 0.5 s / 12.0 s |
+| PID requested at 18.00 A, set point 22 A (TDK 88.19 A): TDK first raised after / band reached after | 0.48 s / 6.98 s | 2 periods / 10 s |
+| overshoot / largest TDK step | 0.5 % / 0.200 A | 10 % / 0.20 A (slew x DT) |
+| Hand-back in closed loop (REK silent): reason / TDK set at the hand-back, 5 s later | permit 2 no data / 89.435, 89.435 A | measurement or permit 2 no data / the same |
+| TDK current read-back at the hand-back, 5 s later | 89.47, 89.44 A | within 0.5 A (noise) |
+| Writes per second to the TDK in PID (during the step) | 1.05 | at most 5 |
 | TDK current read-back rate, MANUAL / PID | 10.00 / 10.00 per s | PID >= 90 % of MANUAL |
 | REK current read-back rate, MANUAL / PID | 10.00 / 10.00 per s | (reported) |
+| Closed loop on the plant model (LOOP-DIS) | Result | Pass limit |
 
 ## 7. Tuning on the machine
 
