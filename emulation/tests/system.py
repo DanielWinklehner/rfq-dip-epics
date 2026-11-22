@@ -143,6 +143,11 @@ class Watched:
         with self.lock:
             self.events.append((time.monotonic(), severity))
 
+    def severity(self):
+        """The last severity the monitor posted (no Channel Access traffic)."""
+        with self.lock:
+            return self.events[-1][1] if self.events else None
+
     def invalid_since(self, t0):
         with self.lock:
             return any(t >= t0 and s == INVALID for t, s in self.events)
