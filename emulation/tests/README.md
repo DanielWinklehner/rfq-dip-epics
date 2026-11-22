@@ -61,8 +61,8 @@ state found, restore at the end, also after a failure).
 | Loop: service or IOC back | 30 | the container's start, GRACE of the supplies |
 
 Identity records are scanned every 10 s; the fault tests process them once after injecting and
-after clearing a fault, so that the limits above apply to them and the suite stays under 10
-minutes.
+after clearing a fault, so that the limits above apply to them and the suite stays under 12
+minutes (about 10.5 with the loop tests).
 
 ## Containers stopped by the tests
 
