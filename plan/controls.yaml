@@ -31,7 +31,7 @@ meta:
     - "EPICS databases and st.cmd in github.com/DanielWinklehner/rfq-dip-epics (branch libcom1-robustness-fixes)"
     - "Decisions taken so far: acknowledged sets, PLCs where possible, Linux IOCs"
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
-    - "Revision 0.10: Matsusada's driver CD rev. 1.7.0 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
+    - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
     - "Revision 0.9: the Matsusada rework (four AU supplies, current limit with autosave, latching permit, remote/local status) and the owner's answers of 2026-11-21 (docs/emulation/STATUS.md)"
     - "Revision 0.7: the databases in EPICS/Db and the two st.cmd files of branch emulated-iocs (PV names of the lab's IOC of 2023), the design note docs/emulation/DESIGN.md (G1, approved 2026-11-21) and the assumptions A1 to A22 and open points in docs/emulation/STATUS.md"
 
@@ -812,7 +812,7 @@ work_packages:
       - "Answered on 2026-11-22 from Matsusada's driver CD rev. 1.7.0 and the owner's notes: the CO-U32 holds an FTDI chip under the USB ID 1192:1000, serial number CO001144. Linux needs a udev rule and no new driver. The rule and a read-only probe are in EPICS/ioc/host."
       - "Open: test the rule and the probe with the adapter (EPICS/ioc/host/README.md), then the acceptance test of the driver brief."
       - "The Matsusada CO-E32 LAN adapter may come later. Its delivery time is too long for use before the winter break, so the CO-U32 has to work on Linux first."
-      - "The new USB-OPT adapter raises the same USB question as the CO-U32. Not answered: the driver CD of 2017 does not name it (open point P34)."
+      - "The new USB-OPT adapter raises the same USB question as the CO-U32. Matsusada's current driver package (rev. 2.12.36.20) names the same single ID, 1192:1000, so the rule of the CO-U32 probably covers it. Its ID is not confirmed and its serial number is not known (open point P34)."
       - "Split the AU supplies over the two optical chains (two asyn ports, polled in parallel)."
       - "Rework matsusada_au20p7.db: fast polling for the monitors only, set-point echo after a set, PRIO = HIGH on the set records, full-scale macros, one 'all off' PV."
       - "Stable device names (udev by serial number) instead of COM numbers."
