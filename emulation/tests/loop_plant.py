@@ -329,12 +329,17 @@ def closed_loop(capsys):
                           max(b - a for a, b in zip([before] + sets, sets)) if sets else 0.0)
 
         # --- 6. hand-back in closed loop ------------------------------------------------------
+        # The REK silent: its monitors (10 Hz) or its status (the permit, 1 Hz) turn INVALID
+        # first, depending on where the polls stand; both are R4 b. Until then the loop
+        # regulates; from the hand-back on the TDK stays where it is.
         sim, unit = reg.sim_of(R["vset"])
-        fil_before = S.get(act)
-        iread_before = S.get(T["iread"])
+        n_rek = next(i for i, c in enumerate(("C1", "C2", "C3"), 1) if m[c] == R["status"])
         with S.fault(sim, "silent", unit):
             S.wait_for(lambda: S.get(r["mode"]) == 0, 2.0, "hand-back")
             why = S.get(r["reason"], as_string=True)
+            time.sleep(float(m["DT"]) + 0.1)        # a set sent just before may still complete
+            fil_before = S.get(act)
+            iread_before = S.get(T["iread"])
             time.sleep(5.0)
             fil_after = S.get(act)
             iread_after = S.get(T["iread"])
@@ -376,9 +381,9 @@ def closed_loop(capsys):
            "-" if table["large"][3] is None else "%.2f s" % table["large"][3], LIMITS["large_s"]),
         "| overshoot / largest TDK step | %.1f %% / %.3f A | %.0f %% / %.2f A (slew x DT) |"
         % (table["large"][4], table["large"][5], LIMITS["overshoot_pct"], slew_dt),
-        "| Hand-back in closed loop (REK silent): reason / TDK set before, after 5 s | %s / %.3f, %.3f A | the same |"
-        % (table["handback"][0], table["handback"][1], table["handback"][2]),
-        "| TDK current read-back before, after 5 s | %.2f, %.2f A | within 0.5 A (noise) |"
+        "| Hand-back in closed loop (REK silent): reason / TDK set at the hand-back, 5 s later | %s / %.3f, %.3f A | measurement or permit %d no data / the same |"
+        % (table["handback"][0], table["handback"][1], table["handback"][2], n_rek),
+        "| TDK current read-back at the hand-back, 5 s later | %.2f, %.2f A | within 0.5 A (noise) |"
         % (table["handback"][3], table["handback"][4]),
         "| Writes per second to the TDK in PID (during the step) | %.2f | at most %.0f |" % (writes, LIMITS["writes_per_s"]),
         "| TDK current read-back rate, MANUAL / PID | %.2f / %.2f per s | PID >= %.0f %% of MANUAL |"
@@ -412,7 +417,7 @@ def closed_loop(capsys):
     assert reached is not None and reached <= LIMITS["large_s"]
     assert over_lg <= LIMITS["overshoot_pct"]
     assert step_lg <= slew_dt + 1e-9
-    assert table["handback"][0] == "measurement no data"
+    assert table["handback"][0] in ("measurement no data", "permit %d no data" % n_rek)
     assert table["handback"][1] == table["handback"][2], "the filament set point stayed"
     assert abs(table["handback"][3] - table["handback"][4]) <= 0.5
     assert writes <= LIMITS["writes_per_s"]
