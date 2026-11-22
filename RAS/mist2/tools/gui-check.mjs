@@ -156,7 +156,6 @@ const faultSpecs = (specs) => {
 const comparePages = async (label, changed, state, extra = async () => {}) => {
   const baseline = JSON.parse(fs.readFileSync(`${work}/normal.json`, "utf8")).baseline;
   const touched = new Set();
-  let dots = {};
   for (const tab of tabs.filter((t) => t !== "trends")) {
     const page = await openMain(tab);
     const els = await settle(page, (all) =>
@@ -174,13 +173,25 @@ const comparePages = async (label, changed, state, extra = async () => {}) => {
       }`
     );
     checkWords(els, `${label}, ${tab}`);
-    dots = await tabStates(page);
     await extra(page, tab);
     await page.close();
   }
-  for (const tab of Object.keys(baseline.tabs)) {
-    const want = touched.has(tab) ? state : baseline.tabs[tab];
-    check(dots[tab] === want, `${label}: tab ${tab} shows ${dots[tab]}, expected ${want}`);
+  // The dots, in a main window of their own: each dot is the worst of every
+  // PV of its page, hidden pages included, so it settles once all of them
+  // have reported (later with an IOC down: pvServer waits for its PVs).
+  const want = Object.fromEntries(
+    Object.keys(baseline.tabs).map((tab) => [tab, touched.has(tab) ? state : baseline.tabs[tab]])
+  );
+  const page = await openMain("overview");
+  let dots = {};
+  for (let waited = 0; waited < 30; waited += 1) {
+    dots = await tabStates(page);
+    if (Object.keys(want).every((tab) => dots[tab] === want[tab])) break;
+    await page.waitForTimeout(1000);
+  }
+  await page.close();
+  for (const tab of Object.keys(want)) {
+    check(dots[tab] === want[tab], `${label}: tab ${tab} shows ${dots[tab]}, expected ${want[tab]}`);
   }
 };
 
