@@ -57,11 +57,12 @@ command (`info()`, `fault(mode, unit, duration, ms)`, `clear(mode, unit)`, `get(
 {"cmd": "get", "signal": "s1"}
 {"cmd": "set", "signal": "pressure", "value": 1e-6}   held under outside control ...
 {"cmd": "release", "signal": "pressure"}               ... until released
-{"cmd": "stats", "reset": true}   requests, replies, bytes_in/out, busy_s, per_unit, elapsed_s
+{"cmd": "stats", "reset": true}   requests, replies, bytes_in/out, busy_s, per_unit, heads, elapsed_s
 ```
 
 A silenced unit does not execute what it is sent. `get` returns true values (no noise). `stats`
-counts since start or since the last `reset`; `busy_s` includes turnaround and `slow`.
+counts since start or since the last `reset`; `busy_s` includes turnaround and `slow`; `heads`
+counts the requests by their first character (libcom1 `S` and `s` are sets, nAIM `!` a command).
 
 ## Writing a device module
 

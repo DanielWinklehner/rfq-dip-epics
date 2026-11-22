@@ -67,8 +67,9 @@ class ControlTest(unittest.TestCase):
         self.assertEqual(s["bytes_in"], 4 + 6)
         self.assertEqual(s["bytes_out"], 7)
         self.assertAlmostEqual(s["busy_s"], (4 + 7 + 6) * 10 / 115200.0, places=6)
+        self.assertEqual(s["heads"], {"a": 1, "q": 1})      # requests by their first character
         s = self.c.stats()
-        self.assertEqual((s["requests"], s["bytes_in"]), (0, 0))
+        self.assertEqual((s["requests"], s["bytes_in"], s["heads"]), (0, 0, {}))
 
     def test_bad_input_gives_error_objects(self):
         bad = [
