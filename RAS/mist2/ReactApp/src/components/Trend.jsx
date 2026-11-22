@@ -58,7 +58,9 @@ const Trend = ({ pvs, legend, log, height }) => {
           y: series.current[pv]?.y ?? [],
           name: legend[index],
           type: "scatter",
-          mode: "lines",
+          // Markers too: a value that does not change sends one update only.
+          mode: "lines+markers",
+          marker: { size: 3 },
         }))}
         layout={{
           datarevision: revision,

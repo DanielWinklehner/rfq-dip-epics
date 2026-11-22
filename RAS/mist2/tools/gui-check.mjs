@@ -209,6 +209,7 @@ const phases = {
         await page.waitForTimeout(3000);
         check((await page.locator("[data-trend] .main-svg").count()) > 0, "trends: a picked read-back is drawn");
       }
+      await page.waitForTimeout(2000); // trends redraw once a second
       await shot(page, `normal-${tab}`, tab !== "overview");
       await page.close();
     }
