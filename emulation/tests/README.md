@@ -68,6 +68,13 @@ Identity records are scanned every 10 s; the fault tests process them once after
 after clearing a fault, so that the limits above apply to them and the suite stays under 12
 minutes (about 12 with the loop tests and the lost permits).
 
+## Saved settings
+
+At its start the suite prints every saved setting (the PVs of the IOCs' `limits.defaults`) that
+differs from its default, and restores what it found at the end. `run.sh` reads `limits.sav` of
+every IOC before and after the run (after the emulation stopped, or 6 s after the tests when it
+stays running) and fails when the run changed it.
+
 ## Containers stopped by the tests
 
 The tools container has no Docker. `test_09_loop.py` stops, starts, restarts and kills the loop

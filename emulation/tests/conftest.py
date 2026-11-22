@@ -72,18 +72,20 @@ def setting(name):
     return float(S.get(name))
 
 
-def report_changed_settings():
+def report_changed_settings(request):
     """Print (not fail on) every saved setting that differs from its default when the suite
     starts: an emulation whose settings someone changed is seen, while the suite restores what
     it found."""
     changed = ["%s = %g (default %g)" % (n, setting(n), v) for n, v in sorted(defaults().items())
                if S.connected(n.split(".")[0]) and abs(setting(n) - v) > 1e-9]
-    S.report("saved settings that differ from limits.defaults at the start: %s"
-             % ("; ".join(changed) if changed else "none"))
+    capture = request.config.pluginmanager.getplugin("capturemanager")
+    with capture.global_and_fixture_disabled():          # past pytest's capture, as a table
+        print("\nsaved settings that differ from limits.defaults at the start: %s"
+              % ("; ".join(changed) if changed else "none"))
 
 
 @pytest.fixture(scope="session", autouse=True)
-def system():
+def system(request):
     """Both IOCs answer and are past their GRACE time; every PV of the registry has a monitor."""
     # Past GRACE, and long enough for the slowest source (NT 20 data output, one record every
     # 8 s) to have sent: the snapshot then shows the system as it runs, not as it starts.
@@ -97,7 +99,7 @@ def system():
                lambda: "permit gates enabled after the first contact: %s" % {
                    g: S.field(g, "DISA") for g in gates})
     S.watch(list(reg.pvs))
-    report_changed_settings()
+    report_changed_settings(request)
     for name in reg.pvs:
         if S.connected(name):
             d = S.read(name)
