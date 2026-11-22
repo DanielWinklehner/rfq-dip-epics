@@ -3,9 +3,9 @@
 Last update: 2026-11-22. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
 nothing is pushed.
 
-Everything is built and merged. **Running:** two follow-ups that adapt the system tests and the
-GUI to the reworked Matsusada databases (four supplies, current limit, latch). Until they are
-merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the databases.
+Everything is built and merged, and the system suite passes on the final state. **Running:**
+one follow-up on the GUI, for a console error that shows up on some loads of the main window
+(see "Running").
 
 ## "Done" as the task defines it
 
@@ -13,10 +13,10 @@ merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the
 |---|---|---|---|
 | 1 | `docs/emulation/README.md` explains start, stop and test | Done | Every command of it was run by the lead, the two fault one-liners on 2026-11-22. Not tried on a fresh WSL installation |
 | 2 | Both IOCs start without a database or protocol error | Done | `make -C emulation up` and `ca-proof` (16 checks) on the merged tree. No connection complaint in either IOC log after start and after restart |
-| 3 | A test reads every PV, writes every set point, and an unacknowledged set ends in an alarm | Being adapted | Last full run on the state before the rework: 214 passed, 3 expected failures, twice. The suite is with the subagent |
-| 4 | A silent simulator turns its PVs INVALID within seconds, recovery without IOC restart | Done for every device alone, system suite being adapted | Device cases (below). By hand on the full system: TDK silent, INVALID within 6 s, valid again 6 s after clearing, neighbours unaffected |
-| 5 | AU update rate reported and matching the bus arithmetic | Measured before the rework, to be repeated | 9.0 to 9.1 Hz against 9.65 Hz predicted (94 %) with two polled supplies per chain |
-| 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Being adapted | 191 browser checks passed on the registry before the rework |
+| 3 | A test reads every PV, writes every set point, and an unacknowledged set ends in an alarm | Done | `make -C emulation test`, run twice from nothing by the lead on the final state: 220 passed, no expected failure, 8 min 47 s each, nothing left running, saved limits unchanged |
+| 4 | A silent simulator turns its PVs INVALID within seconds, recovery without IOC restart | Done | The same runs: every fault on every simulator, with all other devices unaffected and recovery without an IOC restart. By hand: TDK silent, INVALID within 6 s, valid again 6 s after clearing |
+| 5 | AU update rate reported and matching the bus arithmetic | Done | The same runs: all four AU supplies 9.19 Hz against 9.80 Hz predicted (94 %), TDK 9.99 Hz against 10.00 Hz. Table in `emulation/build/update-rate.md` after a run |
+| 6 | The GUI runs against the emulator, shows every device, reflects the alarm state | Done, with one open defect | `gui-check.sh` passed with 199 checks in the lead's acceptance run. On the final state a second run failed one check: a React console error on loading the main window, which appears on some loads. The other 198 checks passed. With the subagent |
 | 7 | `plan/controls.yaml` matches what was built, `plan/build.py` runs without warnings | Done | Revision 0.9. `make -C emulation plan-check` passes on the merged tree, the registry regenerates without a difference |
 | 8 | This file lists every assumption that needs confirmation | Done | Sections "Assumptions" and "Open points" |
 
@@ -63,8 +63,13 @@ merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the
   simulator gives the same 122-line transcript as the real library, in both number formats.
 
 **System tests** (`make -C emulation test`, see `emulation/tests/README.md`)
-- Merged and run twice by the lead on the state before the Matsusada rework. The follow-up for
-  the rework is running.
+- 220 tests, generated from the registry wherever possible: start without an error or a
+  connection complaint, every PV read, every set point written and followed, sets without
+  acknowledgement, every fault on every simulator with recovery, the latch across both IOCs,
+  the limit sent with every switch-on, local control from the front panel, update rates, and a
+  clean end. Run twice by the lead on the final state: 220 passed both times, about 9 minutes.
+- The suite restores every current limit it writes. The saved limits were the same before and
+  after the two runs.
 
 **Plan and registry**
 - `plan/controls.yaml` revision 0.9 describes what is built, with your answers in it.
@@ -79,8 +84,11 @@ merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the
 - Layout B on the phase 1 arrangement: overview drawing, one tab per subsystem, every device in
   a browser window of its own. Dark theme, no login, confirmation only for opening the vent
   valve. Every device, PV name and word comes from the registry.
-- `RAS/mist2/tools/gui-check.sh`: headless browser checks, 191 passed in the lead's run before
-  the rework. The follow-up for the new registry is running.
+- `RAS/mist2/tools/gui-check.sh`: headless browser checks, 199 in all. They compare 275
+  displayed values with Channel Access, silence a device, stop an IOC, write set points, and
+  prove the latch and the vent valve confirmation in the GUI.
+- Values are formatted by unit: exponent form for pressures, a prefix for small currents and
+  large voltages with the record's resolution (1.001 µA, 15.234 kV).
 
 **Plant model** (`make -C emulation up-plant`)
 - Filament, discharge, gas and vacuum, extraction, heat. Calibrated to your working point,
@@ -94,11 +102,11 @@ merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the
 
 ## Running
 
-- **T8 follow-up:** the system suite for four supplies, the latch, the limit, local control and
-  the start order.
-- **T11 follow-up:** the GUI on the new registry (limit instead of set point, state words,
-  confirmation and spare channels from the registry) and the Faraday cup number format.
-- Then the lead runs the suite twice and the GUI check on the merged state.
+- **T11 follow-up 2:** on some loads of the main window the browser console shows "Maximum
+  update depth exceeded" (React). It failed one of 199 checks in the lead's run on the final
+  state, after passing in the acceptance run. The subagent has to reproduce it at a known rate,
+  find the component that causes it, fix it there and prove it with repeated loads. Then the
+  lead runs the GUI check three times in a row.
 
 ## Open
 
@@ -159,7 +167,7 @@ merged, `make -C emulation test` and the GUI on `emulated-iocs` do not match the
 4. `status:read` of the AU and REK supplies is now a multi-state record (P27). Does a script of
    yours depend on its type?
 5. The emulation's saved REK limit is 20 A, not the default 24 A (P30). Did you set it from the
-   GUI on 2026-11-21?
+   GUI on 2026-11-21? If not, something wrote it that I have not found.
 6. The lab files (databases, protocol files, both `st.cmd`, `dbl` of both IOCs) settle A1, A4,
    A7 to A12 and A22.
 
@@ -258,7 +266,9 @@ P18, P19, P20, P22.
 | P27 | `status:read` of the AU and REK supplies is a multi-state record now. 0 OFF and 1 ON as before, 2 and 3 are new (local control). A client that reads the number sees no difference in remote mode | You, if a script depends on the type |
 | P28 | A client that writes `<supply>:ToggleOutput` directly bypasses the permit, the remote command and the limit. In the lab's database it bypassed the permit too. The operator's PV is `SetToggleOutput` | Access security, later |
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
-| P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it | You |
+| P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
+| P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
+| P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
 
 ## Found in RAS V8.1.0
 

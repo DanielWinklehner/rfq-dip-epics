@@ -87,7 +87,7 @@ defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them a
 
 | Command | What it proves | Time |
 |---|---|---|
-| `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock across both IOCs, the update rates against the bus arithmetic. Starts the emulation if needed | about 8 min |
+| `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock latch across both IOCs, local control, the update rates against the bus arithmetic. Starts the emulation if needed | about 9 min |
 | `make -C emulation test ARGS="-k valve"` | A part of it | |
 | `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `turbo`, `libcom1_devices` | 10 s to 4 min |
 | `emulation/sim/run_tests.sh` | The simulators without an IOC, and the libcom1 simulator against the real library | 1 min |
