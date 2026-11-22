@@ -4,11 +4,22 @@ import { alarmState, worst } from "./severity";
 
 // Holds the alarm state of a set of PVs, each subscribed once, and tells the
 // components that show a worst state (tabs, tags, symbols, device windows)
-// only when one of these states changes, not on every value.
+// only when one of these states changes, not on every value. Changes are
+// told at most every 100 ms: hundreds of PVs connect at once when a window
+// opens, and a re-render per PV would nest too many updates.
+const tellAfter = 100;
+
 const createStore = () => {
   const states = new Map();
   const listeners = new Set();
   const reporters = new Map();
+  let timer = null;
+  const tell = () => {
+    timer ??= setTimeout(() => {
+      timer = null;
+      listeners.forEach((listener) => listener());
+    }, tellAfter);
+  };
   return {
     reporter: (name) => {
       if (!reporters.has(name)) {
@@ -16,7 +27,7 @@ const createStore = () => {
           const state = alarmState(pv.initialized, pv.severity);
           if (states.get(name) !== state) {
             states.set(name, state);
-            listeners.forEach((listener) => listener());
+            tell();
           }
         });
       }

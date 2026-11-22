@@ -42,11 +42,13 @@ const check = (ok, message) => (ok ? pass(message) : fail(message));
 const allowed = [/accounts\.google\.com/, /Outdated Optimize Dep/, /net::ERR_NETWORK_CHANGED/];
 const problems = [];
 const watch = (page) => {
-  page.on("console", (message) => {
+  page.on("console", async (message) => {
     if (!["error", "warning"].includes(message.type())) return;
     const text = `${message.text()} ${message.location().url ?? ""}`;
     if (!allowed.some((pattern) => pattern.test(text))) {
-      problems.push(`${page.url()}: console ${message.type()}: ${message.text().slice(0, 400)}`);
+      // The further arguments carry React's component stack.
+      const args = await Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "")));
+      problems.push(`${page.url()}: console ${message.type()}: ${JSON.stringify(args).slice(0, 1500)}`);
     }
   });
   page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
