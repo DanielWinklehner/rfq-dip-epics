@@ -8,6 +8,8 @@ with the repository at /repo. Every name comes from the registry.
     clear SIM[:UNIT] ...        clear their faults
     set SIM SIGNAL VALUE        hold a simulator signal (an interlock door)
     release SIM SIGNAL          give it back to the simulator
+    get PV                      print the PV's value (as a string)
+    put PV VALUE                write VALUE and wait for the write to complete
     wait PV VALUE [SECONDS]     until PV reads VALUE (as a string), exit 1 if not
     hold PV VALUE SECONDS       PV reads VALUE all that time, exit 1 if not
     compare A.json B.json GUI.json
@@ -60,6 +62,7 @@ def read(path):
             "array": [float(x) for x in (number if hasattr(number, "__len__") else [number])] if array else None,
             "long": infos[name]["type"] in ("lsi", "lso"),
             "severity": pv.severity,
+            "status": pv.status,
         }
     json.dump(result, open(path, "w"), indent=1)
     print(f"read {len(result)} PVs, {sum(1 for r in result.values() if r['connected'])} connected")
@@ -128,6 +131,26 @@ def wait(name, value, seconds=15):
         time.sleep(0.3)
     print(f"FAIL {name} = {seen!r}, expected {value!r} within {seconds} s")
     return 1
+
+
+def get(name):
+    pv = epics.PV(field_name(name, all_pvs()[name]), form="ctrl")
+    value = pv.get(as_string=True, use_monitor=False, timeout=5)
+    if value is None:
+        print(f"FAIL {name}: no value", file=sys.stderr)
+        return 1
+    print(value)
+    return 0
+
+
+def put(name, value):
+    pv = epics.PV(name)
+    number = first_number(value)
+    if not pv.wait_for_connection(5) or pv.put(value if number is None else number, wait=True, timeout=10) is None:
+        print(f"FAIL {name} := {value}: not written")
+        return 1
+    print(f"put: {name} = {value}")
+    return 0
 
 
 def first_number(text):
@@ -200,6 +223,10 @@ def main():
         signal(*args)
     elif command == "release":
         signal(*args)
+    elif command == "get":
+        return get(*args)
+    elif command == "put":
+        return put(*args)
     elif command == "wait":
         return wait(*args)
     elif command == "hold":

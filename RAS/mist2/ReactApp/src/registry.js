@@ -49,11 +49,17 @@ export const connectedChannels = (id) => channelsOf(id).filter((channel) => !isS
 
 export const channelLabel = (id, channel) => devices[id].channels[channel].label;
 
+// Words of a role that the registry does not give yet. STAND-IN until
+// plan/controls.yaml has them as device-level `states` (T16 report): the loop
+// service's calc record is 1 while the service counts, 0 (MAJOR) else (LOOP.md).
+const standInStates = { service: ["not alive", "alive"] };
+
 // The words of a role's values (index = value): those of the channel, else
 // the device's words for the role, else the record's own state strings.
 export const wordsOf = (id, channel, role) =>
   (channel ? devices[id].channels[channel].states : devices[id].states?.[role]) ??
-  pvInfo(rolesOf(id, channel)[role]).states;
+  pvInfo(rolesOf(id, channel)[role]).states ??
+  standInStates[role];
 
 // The label of a device-level role, if the registry has one.
 export const roleLabel = (id, role) => devices[id].labels?.[role];

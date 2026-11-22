@@ -2,6 +2,7 @@ import Command from "./Command";
 import Controller from "./Controller";
 import Gauge from "./Gauge";
 import Interlock from "./Interlock";
+import Loop from "./Loop";
 import Mfc from "./Mfc";
 import Reading from "./Reading";
 import Supply from "./Supply";
@@ -18,6 +19,7 @@ const widgets = {
   reading: Reading,
   interlock: Interlock,
   command: Command,
+  loop: Loop,
 };
 
 export const widgetOf = (deviceClass) => widgets[deviceClass] ?? Controller;

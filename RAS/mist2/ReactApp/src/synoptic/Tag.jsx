@@ -7,18 +7,29 @@ import { flagTitles } from "../components/Flags";
 import { alarmPvs, channelLabel, devices } from "../registry";
 import { openDeviceWindow } from "../windows";
 import tagRows from "./tagRows";
-import TagRow, { rowHeight } from "./TagRow";
+import TagRow, { heightOf } from "./TagRow";
 
 const headHeight = 22;
 const commandHeight = 38;
 
+// The rows of a tag with the offset of each below the head.
+const placedRows = (id, channel) => {
+  let top = headHeight;
+  return tagRows(id, channel).map((row) => {
+    const placed = { ...row, top };
+    top += heightOf(row);
+    return placed;
+  });
+};
+
 export const tagHeight = (id, channel) =>
   headHeight +
-  tagRows(id, channel).length * rowHeight +
+  tagRows(id, channel).reduce((sum, row) => sum + heightOf(row), 0) +
   (devices[id].class === "command" ? commandHeight : 4);
 
 // The tag of a device or of one channel: its name, its worst alarm state, the
-// registry's flags and its tag rows. A click opens the device window.
+// registry's flags and its tag rows, what it sets in place among them. A click
+// outside the fields opens the device window.
 const Tag = ({ id, channel, x, y, w }) => {
   const theme = useTheme();
   const device = devices[id];
@@ -56,8 +67,8 @@ const Tag = ({ id, channel, x, y, w }) => {
           {flags.join(" · ")}
         </text>
       )}
-      {tagRows(id, channel).map((row, index) => (
-        <TagRow key={row.pv} {...row} x={x} y={y + headHeight + index * rowHeight} w={w} />
+      {placedRows(id, channel).map((row) => (
+        <TagRow key={row.pv} {...row} x={x} y={y + row.top} w={w} />
       ))}
       {device.class === "command" && (
         <foreignObject x={x + 6} y={y + headHeight + 2} width={w - 12} height={commandHeight - 6}>

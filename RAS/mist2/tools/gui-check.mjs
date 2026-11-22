@@ -8,7 +8,10 @@
 //                        writes <work>/normal.json (expert values, baseline)
 //   fault <spec>...      silent simulators (name or name:unit): their PVs show
 //                        INVALID, the tabs the worst state, everything else as before
-//   recovered            everything as in the baseline again
+//   recovered [ca.json]  everything as in the baseline again; with a Channel Access
+//                        read of the moment (after an IOC start), a record that is
+//                        INVALID with status UDF there (not processed since the
+//                        start) may show INVALID: it is named in a note
 //   iocdown <ioc>        the IOC's PVs show "no connection", the banner says so
 //   setpoint <id> <role> type the middle of the test range, Enter; prints the value
 //   command <id> <channel|-> <role> <value> <dialog|nodialog>
@@ -16,6 +19,18 @@
 //   alloff               press ALL HV OFF in the app bar
 //   shows <id> <role> <value>
 //                        the request buttons of a role show that value pressed
+//   tagsetpoint <tab> <id> <role> <escape|enter>
+//                        in the device's tag on a main page: type a value; escape:
+//                        it is marked unsent, Escape shows the IOC's value again;
+//                        enter: Enter sends it; prints the value
+//   tagcommand <tab> <id> <channel|-> <role> <value> <dialog|nodialog>
+//                        press a request button in a tag; the confirmation must
+//                        (not) appear, and no device window opens
+//   loop <id> refuse     the loop's device window: PID requested, the request
+//                        returns to MANUAL and the reason is the first permit
+//                        that is not fulfilled, in the window and in the tag
+//   loop <id> pid        PID from the loop's tag, the mode shows PID; a set point
+//                        typed in the device window; MANUAL again there
 // Prints PASS/FAIL lines; exit code 1 on any FAIL.
 import fs from "node:fs";
 import { chromium } from "playwright";
@@ -131,6 +146,41 @@ const pageShot = async (page, name, fullPage) => {
   await shot(page, name, fullPage);
 };
 
+// Pairs of tags of a drawing whose boxes overlap on the screen.
+const tagOverlaps = (page) =>
+  page.evaluate(() => {
+    const boxes = [...document.querySelectorAll("svg[data-page] g[data-device]")]
+      .filter((g) => g.getClientRects().length > 0)
+      .map((g) => [`${g.dataset.device}${g.dataset.channel ? `/${g.dataset.channel}` : ""}`, g.querySelector("rect").getBoundingClientRect()]);
+    const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    return boxes.flatMap(([na, a], i) => boxes.slice(i + 1).filter(([, b]) => hit(a, b)).map(([nb]) => `${na} / ${nb}`));
+  });
+
+// The tag of a device (or of one channel) on a page of the main window, which
+// keeps its other pages mounted and hidden.
+const tagOf = (page, tab, id, channel) =>
+  page.locator(
+    `[data-page-tab="${tab}"] svg[data-page] g[data-device="${id}"]${channel && channel !== "-" ? `[data-channel="${channel}"]` : ""}`
+  );
+const rolesOf = (id, channel) => (channel && channel !== "-" ? devices[id].channels[channel].roles : devices[id].roles);
+
+// Polls `read` until `ok` holds; the last value read and the seconds it took.
+const until = async (read, ok, seconds) => {
+  const start = Date.now();
+  let value = await read();
+  while (!ok(value) && Date.now() - start < seconds * 1000) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    value = await read();
+  }
+  return [value, (Date.now() - start) / 1000];
+};
+
+// The value between the middle and the top of a set point's test range.
+const testValue = (id, role, share) => {
+  const [low, high] = devices[id].pvs[devices[id].roles[role]].test;
+  return Number(((low + high) / 2 + (high - low) * share).toFixed(2));
+};
+
 // A value field whose record is INVALID shows the word, not the number.
 const checkWords = (els, where) => {
   const wrong = els.filter((el) => el.alarm === "invalid" && el.text !== null && el.text !== "INVALID");
@@ -158,9 +208,10 @@ const faultSpecs = (specs) => {
 
 // The main pages against the baseline: the PVs in `changed` must be in state
 // `state`, every other one as before; each tab dot the worst it shows.
-const comparePages = async (label, changed, state, extra = async () => {}) => {
+const comparePages = async (label, changed, state, extra = async () => {}, unprocessed = new Set()) => {
   const baseline = JSON.parse(fs.readFileSync(`${work}/normal.json`, "utf8")).baseline;
   const touched = new Set();
+  const showsUnprocessed = new Set();
   for (const tab of tabs.filter((t) => t !== "trends")) {
     const page = await openMain(tab);
     const els = await settle(page, (all) =>
@@ -168,9 +219,13 @@ const comparePages = async (label, changed, state, extra = async () => {}) => {
     );
     const now = stateMap(els);
     const wrong = Object.entries(now).filter(
-      ([pv, alarm]) => alarm !== (changed.has(pv) ? state : (baseline.pages[tab]?.[pv] ?? alarm))
+      ([pv, alarm]) =>
+        alarm !== (changed.has(pv) ? state : (baseline.pages[tab]?.[pv] ?? alarm)) &&
+        !(unprocessed.has(pv) && alarm === "invalid")
     );
     if (Object.keys(now).some((pv) => changed.has(pv))) touched.add(tab);
+    const newlyInvalid = ([pv, alarm]) => unprocessed.has(pv) && alarm === "invalid" && baseline.pages[tab]?.[pv] !== "invalid";
+    if (Object.entries(now).some(newlyInvalid)) showsUnprocessed.add(tab);
     check(
       wrong.length === 0,
       `${label}, ${tab}: ${Object.keys(now).length} PVs, the affected ones ${state}, the others as before${
@@ -184,8 +239,14 @@ const comparePages = async (label, changed, state, extra = async () => {}) => {
   // The dots, in a main window of their own: each dot is the worst of every
   // PV of its page, hidden pages included, so it settles once all of them
   // have reported (later with an IOC down: pvServer waits for its PVs).
+  // A record not processed since its IOC's start counts on the tabs that show
+  // it, and on Infrastructure, whose dot is the worst of every record.
+  if (showsUnprocessed.size) showsUnprocessed.add("infrastructure");
   const want = Object.fromEntries(
-    Object.keys(baseline.tabs).map((tab) => [tab, touched.has(tab) ? state : baseline.tabs[tab]])
+    Object.keys(baseline.tabs).map((tab) => [
+      tab,
+      touched.has(tab) ? state : showsUnprocessed.has(tab) && baseline.tabs[tab] === "ok" ? "invalid" : baseline.tabs[tab],
+    ])
   );
   const page = await openMain("overview");
   let dots = {};
@@ -212,6 +273,10 @@ const phases = {
       const visible = els.filter((el) => el.visible);
       if (tab !== "trends") {
         check(visible.length > 0 && visible.every((el) => el.alarm !== "disconnected"), `${tab}: ${visible.length} PVs, all connected`);
+      }
+      if (await page.locator("svg[data-page]").count()) {
+        const overlaps = await tagOverlaps(page);
+        check(overlaps.length === 0, `${tab}: no two tags overlap at 1920 x 1080${overlaps.length ? ` (${overlaps.join(", ")})` : ""}`);
       }
       checkWords(els, tab);
       baseline.pages[tab] = stateMap(els);
@@ -300,7 +365,10 @@ const phases = {
   },
 
   async recovered() {
-    await comparePages("after clearing", new Set(), "ok");
+    const reads = args[0] ? JSON.parse(fs.readFileSync(`${work}/${args[0]}`, "utf8")) : {};
+    const unprocessed = new Set(Object.keys(reads).filter((pv) => reads[pv].severity === 3 && reads[pv].status === 17));
+    if (unprocessed.size) console.log(`note: INVALID (UDF) through Channel Access, not processed since the IOC start: ${[...unprocessed].join(", ")}`);
+    await comparePages("after clearing", new Set(), "ok", undefined, unprocessed);
   },
 
   async iocdown() {
@@ -376,6 +444,141 @@ const phases = {
     check(pressed === word, `${id} ${role}: the switch shows ${pressed}, expected ${word}`);
     await shot(page, `latch-${id}-request-${word.toLowerCase()}`, false);
     await page.close();
+  },
+
+  async tagsetpoint() {
+    const [tab, id, role, how] = args;
+    const pv = devices[id].roles[role];
+    const page = await openMain(tab);
+    await settle(page);
+    const input = tagOf(page, tab, id).locator(`input[data-pv="${pv}"]`);
+    const shown = await input.inputValue();
+    if (how === "escape") {
+      const value = testValue(id, role, 0.3);
+      await input.click();
+      await input.fill(String(value));
+      check((await input.getAttribute("data-unsent")) === "true", `${tab}, tag ${id} ${role}: a typed ${value} is marked unsent`);
+      await input.press("ArrowUp");
+      await page.mouse.wheel(0, -300);
+      check((await input.inputValue()) === String(value), `${tab}, tag ${id} ${role}: the arrow keys and the mouse wheel leave the entry as it is`);
+      await shot(page, `inplace-unsent-${id}`, false);
+      await input.press("Escape");
+      await page.waitForTimeout(300);
+      const after = await input.inputValue();
+      check(
+        after === shown && (await input.getAttribute("data-unsent")) === null,
+        `${tab}, tag ${id} ${role}: Escape gives the entry up, the field shows the IOC's ${after} again (before: ${shown})`
+      );
+      await page.close();
+      return;
+    }
+    const value = testValue(id, role, 0.2);
+    const before = context.pages().length;
+    await input.click();
+    await input.fill(String(value));
+    await input.press("Enter");
+    await page.waitForTimeout(1000);
+    check(context.pages().length === before, `${tab}, tag ${id} ${role}: typing in the tag opens no device window`);
+    await shot(page, `inplace-setpoint-${id}`, false);
+    await page.close();
+    fs.writeFileSync(`${work}/setpoint.txt`, `${devices[id].pvs[pv].readback ?? pv} ${value}\n`);
+    pass(`typed ${value} into the ${tab} tag of ${id} ${role} and pressed Enter`);
+  },
+
+  async tagcommand() {
+    const [tab, id, channel, role, value, dialog] = args;
+    const page = await openMain(tab);
+    await settle(page);
+    const before = context.pages().length;
+    const group = tagOf(page, tab, id, channel).locator(`[data-pv="${rolesOf(id, channel)[role]}"]`);
+    await group.getByRole("button").nth(Number(value)).click();
+    const shown = await page
+      .getByRole("dialog")
+      .waitFor({ state: "visible", timeout: 2000 })
+      .then(() => true)
+      .catch(() => false);
+    check(shown === (dialog === "dialog"), `${tab}, tag ${id} ${channel} ${role} := ${value}: ${shown ? "asks" : "does not ask"} for confirmation`);
+    if (shown) {
+      await page.waitForTimeout(800); // the dialog fades in
+      await shot(page, `inplace-confirm-${id}-${channel}`, false);
+      await page.getByRole("dialog").getByRole("button").last().click();
+    }
+    await page.waitForTimeout(1000);
+    check(context.pages().length === before, `${tab}, tag ${id} ${channel} ${role}: the switch in the tag opens no device window`);
+    await page.close();
+  },
+
+  async loop() {
+    const [id, what] = args;
+    const roles = devices[id].roles;
+    const words = (role) => devices[id].pvs[roles[role]].states;
+    const switchIn = (where) => where.locator(`[data-pv="${roles.mode_cmd}"]`);
+    const pressed = (where) => switchIn(where).locator('[aria-pressed="true"]').innerText();
+    const field = (where, role) => where.locator(`input[data-pv="${roles[role]}"]`).inputValue();
+    const tagValue = (tag, role) => tag.locator(`[data-pv="${roles[role]}"] [data-value]`).textContent();
+    const [manual, pid] = words("mode_cmd");
+    if (what === "refuse") {
+      const page = await openDevice(id);
+      await settle(page);
+      const controls = page.locator('[data-part="Controls"]');
+      const permits = [];
+      for (const role of ["permit1", "permit2", "permit3"]) permits.push(await field(controls, role));
+      const expected = permits.find((word) => word !== words("permit1")[0]);
+      check(expected !== undefined, `${id}: a permit is not fulfilled (${permits.join(", ")})`);
+      await switchIn(controls).getByRole("button", { name: pid }).click();
+      const [[request, reason], seconds] = await until(
+        async () => [await pressed(controls), await field(controls, "reason")],
+        ([r, why]) => r === manual && why === expected,
+        3
+      );
+      check(request === manual && reason === expected, `${id}: PID refused, the request back at ${request} and the reason "${reason}" (expected "${expected}") after ${seconds} s`);
+      const box = await controls.locator(`input[data-pv="${roles.reason}"]`).boundingBox();
+      const switchBox = await switchIn(controls).boundingBox();
+      check(box && box.y + box.height <= 760 && box.y - switchBox.y < 120, `${id}: the reason stands right below the switch, in sight without scrolling`);
+      await shot(page, `loop-device-refused`, false);
+      await page.close();
+      const main = await openMain(slug(devices[id].page));
+      await settle(main);
+      const tagReason = await tagValue(tagOf(main, slug(devices[id].page), id), "reason");
+      check(tagReason === expected, `${id}: the tag on ${devices[id].page} shows the reason "${tagReason}"`);
+      await main.close();
+      return;
+    }
+    const main = await openMain(slug(devices[id].page));
+    await settle(main);
+    const tag = tagOf(main, slug(devices[id].page), id);
+    const before = context.pages().length;
+    await switchIn(tag).getByRole("button", { name: pid }).click();
+    const [mode, seconds] = await until(() => tagValue(tag, "mode"), (m) => m === pid, 5);
+    check(mode === pid, `${id}: PID switched in its tag, the tag shows mode ${mode} after ${seconds} s`);
+    check(context.pages().length === before, `${id}: the switch in the tag opens no device window`);
+    await pageShot(main, "loop-plasma-generator-pid");
+    const page = await openDevice(id);
+    await settle(page);
+    const controls = page.locator('[data-part="Controls"]');
+    const lamp = () => controls.locator(`[data-pv="${roles.mode}"] [data-value]`).textContent();
+    const [windowMode] = await until(lamp, (m) => m === pid, 5);
+    check(windowMode === pid, `${id}: the device window shows mode ${windowMode}`);
+    const value = testValue(id, "sp_cmd", 0.2);
+    const input = controls.locator(`input[data-pv="${roles.sp_cmd}"]`);
+    await input.fill(String(value));
+    await input.press("Enter");
+    await page.waitForTimeout(1500);
+    await shot(page, "loop-device-pid", false);
+    await page.getByRole("tab", { name: "Trend" }).click();
+    await page.waitForTimeout(4000);
+    await shot(page, "loop-device-pid-trend", false);
+    await page.getByRole("tab", { name: "Controls" }).click();
+    await switchIn(controls).getByRole("button", { name: manual }).click();
+    const [back] = await until(lamp, (m) => m === manual, 5);
+    check(back === manual, `${id}: MANUAL from the device window, it shows mode ${back}`);
+    await page.close();
+    const [tagBack] = await until(() => tagValue(tag, "mode"), (m) => m === manual, 5);
+    check(tagBack === manual, `${id}: the tag shows mode ${tagBack} again`);
+    await pageShot(main, "loop-plasma-generator-manual");
+    await main.close();
+    fs.writeFileSync(`${work}/setpoint.txt`, `${roles.sp_cmd} ${value}\n`);
+    pass(`typed ${value} into the set point of ${id} in PID`);
   },
 
   async alloff() {

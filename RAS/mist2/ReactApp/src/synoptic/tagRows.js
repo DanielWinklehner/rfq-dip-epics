@@ -1,7 +1,7 @@
-import { channelLabel, connectedChannels, devices, rolesOf, wordsOf } from "../registry";
+import { channelLabel, connectedChannels, devices, pvInfo, rolesOf, wordsOf } from "../registry";
 import { roleText } from "../roles";
 
-// The tag form of each widget class (LAYOUT.md 1.4): the roles a tag shows.
+// The tag form of each widget class (LAYOUT.md 1.4): the roles a tag reads.
 // A class not listed (a controller of other devices) shows its identity.
 const tagRoles = {
   supply: ["vread", "iread", "out_state"],
@@ -12,20 +12,41 @@ const tagRoles = {
   reading: ["value"],
   interlock: ["open", "state"],
   command: [],
+  loop: ["mode", "pv", "reason"],
 };
 
-// Rows of a tag: { pv, words, label }. A tag of one channel shows that
-// channel; a tag of a device shows the device's roles, then every connected
-// channel (spare ones only in the device window).
+// What the operator sets in a tag, in place (owner's wish of 2026-11-22): the
+// set points and requests of the widget's operation group. Saved settings
+// (current limits, the loop's gains, limits and times) stay in the device
+// window. Only roles the registry has as written records are set; a request
+// with `confirm` in the registry asks first, as in the device window.
+const setRoles = {
+  supply: ["vset", "iset", "out_cmd"],
+  valve: ["cmd"],
+  gauge: ["enable"],
+  turbo: ["run_cmd"],
+  mfc: ["sp_cmd"],
+  loop: ["mode_cmd", "sp_cmd"],
+};
+
+// Rows of a tag: { pv, words, label } for what it reads, then { set: true,
+// pv, id, channel, role, label } for what it sets. A tag of one channel shows
+// that channel; a tag of a device shows the device's roles, then every
+// connected channel (spare ones only in the device window).
 const tagRows = (id, channel) => {
-  const roles = tagRoles[devices[id].class] ?? ["id"];
+  const { class: kind } = devices[id];
+  const reads = tagRoles[kind] ?? ["id"];
+  const sets = setRoles[kind] ?? [];
   const rowsOf = (ch, label) => {
-    const present = roles.filter((role) => rolesOf(id, ch)[role]);
-    return present.map((role) => ({
-      pv: rolesOf(id, ch)[role],
-      words: wordsOf(id, ch, role),
-      label: label && present.length === 1 ? label : [label, roleText(id, role)].filter(Boolean).join(" "),
-    }));
+    const roles = rolesOf(id, ch);
+    const read = reads.filter((role) => roles[role]);
+    const set = sets.filter((role) => roles[role] && pvInfo(roles[role]).access === "w");
+    const rowLabel = (role) =>
+      label && read.length + set.length === 1 ? label : [label, roleText(id, role)].filter(Boolean).join(" ");
+    return [
+      ...read.map((role) => ({ pv: roles[role], words: wordsOf(id, ch, role), label: rowLabel(role) })),
+      ...set.map((role) => ({ set: true, pv: roles[role], id, channel: ch, role, label: rowLabel(role) })),
+    ];
   };
   if (channel) return rowsOf(channel);
   return [

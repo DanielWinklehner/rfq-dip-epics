@@ -17,6 +17,9 @@ import { alarmPvs, channelLabel, devices, iocOf } from "../registry";
 import { trendPvs } from "../roles";
 
 const parts = ["Controls", "Trend", "Expert"];
+// The trend of a device window is redrawn as often as a loop's records change
+// in PID (every 0.2 s, LOOP.md), fast enough to tune by.
+const tuningRedraw = 200;
 
 const DeviceHeader = ({ id, channel }) => {
   const device = devices[id];
@@ -68,7 +71,7 @@ const DeviceWindow = () => {
         <DeviceWidget id={id} />
       </Box>
       <Box sx={{ p: 1 }} data-part="Trend" hidden={part !== 1}>
-        <TrendSet pvs={trendPvs(id)} size={12} height={220} />
+        <TrendSet pvs={trendPvs(id)} size={12} height={220} redraw={tuningRedraw} />
       </Box>
       <Box sx={{ p: 1 }} data-part="Expert" hidden={part !== 2}>
         <ExpertView id={id} />

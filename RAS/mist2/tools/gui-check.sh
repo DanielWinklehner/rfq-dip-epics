@@ -16,6 +16,12 @@
 #      switches it off and clears the request (the switch shows it), closing the
 #      door brings nothing back, switching on again works, ALL HV OFF works
 #   6  no PV name or PV prefix of the registry in the application sources
+#   7  the loop: PID requested with the supplies off is refused and the reason
+#      is on the screen; with its permits fulfilled PID from its tag; a set
+#      point typed in its window arrives; MANUAL again; everything restored
+#   8  values set in place on the Overview: a set point typed into a tag
+#      arrives, an unsent entry is given up with Escape, an output switches on
+#      and off from its tag, the vent valve asks first from its tag
 # Screenshots go to tools/screenshots/. Exit code 1 on any failure.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -31,6 +37,10 @@ playwright_image=mcr.microsoft.com/playwright:v1.59.1-noble
 # The devices and the IOC the fault checks use, by registry id.
 fault_devices="thermo_hv au_lens2"
 stopped_ioc=ioc_hv
+# The loop the loop check switches, and the supplies its permits ask to be on.
+loop=dis_loop
+loop_supplies="fil_heat fil_dis_old"
+loop_actuator=fil_heat
 
 failed=0
 step() { echo; echo "== $*"; }
@@ -46,6 +56,7 @@ faults=""
 ioc_container=""
 ilk_sim=""
 door=""
+restore=()   # "PV value" pairs the loop check writes back at the end
 # Work files inside the repository, which the tools container sees at /repo.
 work=$(mktemp -d "$here/tools/.work.XXXXXX")
 cwork=/repo/RAS/mist2/tools/$(basename "$work")
@@ -53,6 +64,7 @@ cleanup() {
     [ -n "$faults" ] && ca clear $faults >/dev/null 2>&1
     [ -n "$ilk_sim" ] && ca release "$ilk_sim" "$door" >/dev/null 2>&1
     [ -n "$ioc_container" ] && docker start "$ioc_container" >/dev/null 2>&1
+    for pair in "${restore[@]}"; do ca put $pair >/dev/null 2>&1; done
     rm -rf "$work"
 }
 trap cleanup EXIT
@@ -121,7 +133,8 @@ for _ in $(seq 1 60); do
     sleep 1
 done
 sleep 8   # pvServer reconnects; the IOC takes no set point in its first 5 s (P20)
-browser recovered; result $?
+ca read "$cwork/ca-r.json"
+browser recovered ca-r.json; result $?
 
 # ---- 5: writes ------------------------------------------------------------------
 step "5: set point, confirmation, output, ALL HV OFF"
@@ -156,6 +169,48 @@ ca wait "$state" ON 15; result $?
 browser alloff; result $?
 ca wait "$state" OFF 15; result $?
 ca wait "$request" DISABLED 15; result $?
+
+# ---- 7: the loop ------------------------------------------------------------------
+step "7: the loop $loop: a refusal, PID, a set point, MANUAL"
+reg() { python3 -c "import json; d = json.load(open('$registry'))['devices']; print($1)"; }
+role() { reg "d['$1']['roles']['$2']"; }
+mode_get=$(role $loop mode)
+# What the check changes, and how it was: written back at the end, also on an abort.
+for pv in $(role $loop mode_cmd) $(role $loop sp_cmd) $(role $loop_actuator iset) \
+          $(for id in $loop_supplies; do role $id out_cmd; done); do
+    restore=("$pv $(ca get "$pv")" "${restore[@]}")
+done
+printf '  as found: %s\n' "${restore[@]}"
+browser loop $loop refuse; result $?
+middle=$(python3 -c "print(round(($(ca get "$(role $loop outmin)") + $(ca get "$(role $loop outmax)")) / 2, 2))")
+ca put "$(role $loop_actuator iset)" "$middle"; result $?
+for id in $loop_supplies; do ca put "$(role $id out_cmd)" 1; result $?; done
+for permit in permit1 permit2 permit3; do ca wait "$(role $loop $permit)" fulfilled 10; result $?; done
+browser loop $loop pid; result $?
+read -r sp_pv value < "$work/setpoint.txt"
+ca wait "$sp_pv" "$value" 5; result $?
+ca wait "$mode_get" MANUAL 5; result $?
+for pair in "${restore[@]}"; do ca put $pair; result $?; done
+restore=()
+
+# ---- 8: values set in place ---------------------------------------------------------
+step "8: values set in place on the Overview"
+echo_pv=$(reg "d['mfc']['pvs'][d['mfc']['roles']['sp_cmd']]['readback']")
+before=$(ca get "$echo_pv")
+browser tagsetpoint overview mfc sp_cmd escape; result $?
+ca hold "$echo_pv" "$before" 3; result $?
+browser tagsetpoint overview mfc sp_cmd enter; result $?
+read -r echo_pv value < "$work/setpoint.txt"
+ca wait "$echo_pv" "$value" 15; result $?
+browser tagcommand overview au_src - out_cmd 1 nodialog; result $?
+ca wait "$state" ON 15; result $?
+browser tagcommand overview au_src - out_cmd 0 nodialog; result $?
+ca wait "$state" OFF 15; result $?
+ca wait "$request" DISABLED 15; result $?
+browser tagcommand overview valves s3 cmd 1 dialog; result $?
+ca wait "$vent" 1 15; result $?
+browser tagcommand overview valves s3 cmd 0 nodialog; result $?
+ca wait "$vent" 0 15; result $?
 
 # ---- 6: no PV names in the sources ---------------------------------------------
 step "6: no PV name or prefix in the application sources"

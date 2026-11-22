@@ -37,6 +37,15 @@ Overview, one per subsystem page of the registry, Trends, Infrastructure.
 | `config/drawings.json` | the geometry of every drawing (edit numbers, not code) |
 | `pages/` | main window, subsystem, trends, infrastructure pages, device window |
 
+Every tag also sets, in place, what the operator sets in normal operation (owner,
+2026-11-22): the set points and requests of its widget's operation group
+(`synoptic/tagRows.js`), in the form of the device window's fields. Enter sends a
+number, Escape or leaving the field gives it up; an unsent entry has a dashed
+outline and ↵. A field whose record is INVALID still takes an entry (the IOC
+accepts the write, and the record may be INVALID only because the device has not
+answered since its start); without a connection it is disabled. Saved settings
+stay in the device window.
+
 Everything about the devices comes from the registry: names, labels, the words
 of every state (valves closed/open, cup out/in, the supply status with
 remote/local), which channels are spare (shown only in the device window), and
@@ -69,7 +78,8 @@ SI unit (A, V, W, Hz, s) takes a prefix when a value is below 0.01 or from
 
 `tools/gui-check.sh` checks the GUI against the running emulation (pages,
 values against Channel Access, a silent simulator, a stopped IOC, writes,
-sources, the latch of the interlock permit) with a headless browser and saves
+sources, the latch of the interlock permit, the loop, values set in place) with a
+headless browser and saves
 screenshots to `tools/screenshots/`.
 It needs `make -C emulation up` and `make dev-up`, takes about ten minutes and
 stops and starts the HV IOC container once.
