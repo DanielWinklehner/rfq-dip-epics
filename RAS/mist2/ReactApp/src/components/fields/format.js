@@ -19,7 +19,12 @@ const formatNumber = (value, prec, units) => {
   if (spansDecades(units)) return [value.toExponential(2), units];
   if (siUnits.includes(units) && magnitude > 0 && (magnitude < 1e-2 || magnitude >= 1e4)) {
     const exponent = Math.min(6, Math.max(-12, Math.floor(Math.log10(magnitude) / 3) * 3));
-    return [(value / 10 ** exponent).toPrecision(3), `${prefixes[exponent]}${units}`];
+    // Keep the record's resolution, up to three decimals: 15234 V with precision 0 reads
+    // 15.234 kV, not 15.2 kV.
+    const scaled = value / 10 ** exponent;
+    const decimals = Math.min(3, Math.max(0, prec + exponent));
+    const text = Number.isInteger(prec) ? scaled.toFixed(decimals) : scaled.toPrecision(3);
+    return [text, `${prefixes[exponent]}${units}`];
   }
   return [Number.isInteger(prec) ? value.toFixed(prec) : String(value), units];
 };

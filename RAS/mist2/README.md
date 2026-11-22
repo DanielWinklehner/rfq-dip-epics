@@ -52,7 +52,8 @@ The TDK keeps its current set point.
 Values are shown in the record's precision and unit. Units that span decades
 (torr, mbar, Pa) are always in exponent format and trended on a log scale; an
 SI unit (A, V, W, Hz, s) takes a prefix when a value is below 0.01 or from
-10 000 on (1.00 µA, 20.0 kV).
+10 000 on, and keeps the record's resolution up to three decimals
+(999 nA, 1.000 µA, 15.234 kV).
 
 `tools/gui-check.sh` checks the GUI against the running emulation (pages,
 values against Channel Access, a silent simulator, a stopped IOC, writes,
