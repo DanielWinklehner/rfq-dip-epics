@@ -125,6 +125,11 @@ const openMain = (tab) => open(`/?tab=${tab}`);
 const openDevice = (id) => open(`/device/${id}`, { width: 480, height: 760 });
 
 const shot = (page, name, fullPage = true) => page.screenshot({ path: `${shots}/${name}.png`, fullPage });
+// A page with trends: they redraw once a second, and one without a value says so after 3 s.
+const pageShot = async (page, name, fullPage) => {
+  await page.waitForTimeout(4000);
+  await shot(page, name, fullPage);
+};
 
 // A value field whose record is INVALID shows the word, not the number.
 const checkWords = (els, where) => {
@@ -223,8 +228,7 @@ const phases = {
         await page.waitForTimeout(3000);
         check((await page.locator("[data-trend] .main-svg").count()) > 0, "trends: a picked read-back is drawn");
       }
-      await page.waitForTimeout(2000); // trends redraw once a second
-      await shot(page, `normal-${tab}`, tab !== "overview");
+      await pageShot(page, `normal-${tab}`, tab !== "overview");
       await page.close();
     }
 
@@ -278,7 +282,7 @@ const phases = {
   async fault() {
     const changed = faultSpecs(args);
     await comparePages(`silent ${args.join(" ")}`, changed, "invalid", async (page, tab) => {
-      if (["overview", "plasma-generator", "extraction"].includes(tab)) await shot(page, `fault-${tab}`, tab !== "overview");
+      if (["overview", "plasma-generator", "extraction"].includes(tab)) await pageShot(page, `fault-${tab}`, tab !== "overview");
     });
     const ids = installed.filter((id) => expected(id).some((pv) => changed.has(pv)));
     for (const id of ids) {
@@ -313,7 +317,7 @@ const phases = {
         check(chip === "disconnected", `IOC chip of ${ioc}: ${chip}`);
         await shot(page, "iocdown-overview", false);
       }
-      if (tab === "plasma-generator") await shot(page, "iocdown-plasma-generator");
+      if (tab === "plasma-generator") await pageShot(page, "iocdown-plasma-generator");
     });
     const id = installed.find((d) => devices[d].ioc === ioc);
     const page = await openDevice(id);
