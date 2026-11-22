@@ -112,7 +112,7 @@ docker run --rm --network host -u "$MIST2_UID:$MIST2_GID" -v "$REPO:/repo" -w /r
     --add-host "sim-rack:$SUBNET.21" --add-host "sim-hv:$SUBNET.22" \
     -e HOME=/tmp -e PYTHONPATH=/repo/logger:/repo/emulation/sim:/repo/emulation/tests \
     -e EPICS_CA_AUTO_ADDR_LIST -e EPICS_CA_ADDR_LIST -e MIST2LOG_DB_PORT -e MIST2LOG_DB_PASSWORD \
-    -e MIST2LOG_READER_PASSWORD -e MIST2LOG_GRAFANA_PORT -e MIST2LOG_BUFFER_ROWS \
+    -e MIST2LOG_READER_PASSWORD -e MIST2LOG_GRAFANA_PORT -e MIST2LOG_BUFFER_ROWS -e GRAFANA_ADMIN_PASSWORD \
     mist2log:1 python -m pytest -c tests/pytest.ini --rootdir tests "$@"
 status=$?
 echo

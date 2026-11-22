@@ -179,3 +179,61 @@ def test_store_drops_batches_that_do_not_fit_and_reports_the_loss_once(monkeypat
     s.buffered = 0
     assert s.take_loss() == [(T0, T0, T0), T0 + 1, 2]
     assert s.take_loss() is None and not math.isnan(s.status()["buffer"])
+
+
+# --- a loop's actuator ------------------------------------------------------------------------------
+def loop_channels():
+    mode = Channel(1, "L:mode:get", "events", "enum", states=["MANUAL", "PID"], context=2)
+    reason = Channel(2, "L:reason:get", "events", "enum", states=["none", "interlock open"])
+    act = Channel(3, "S:current:setpoint", "events", "number", written=True, driver=(1, 1))
+    return mode, reason, act
+
+
+def test_writes_of_a_loop_in_pid_are_a_signal_and_set_commands_outside():
+    mode, reason, act = loop_channels()
+    rec = recorder(mode, reason, act)
+    rec.update(mode, 0, "MANUAL", NO_ALARM, 0, T0, T0)
+    rec.update(reason, 0, "none", NO_ALARM, 0, T0, T0)
+    rec.update(act, 80.0, None, NO_ALARM, 0, T0, T0)
+    rec.update(act, 81.0, None, NO_ALARM, 0, T0 + 1, T0 + 1)          # the operator: a set command
+    rec.update(mode, 1, "PID", NO_ALARM, 0, T0 + 2, T0 + 2)           # the loop takes over
+    for k in range(10):                                               # it writes five times a second
+        rec.update(act, 81.2 + 0.2 * k, None, NO_ALARM, 0, T0 + 2.2 + 0.2 * k, T0 + 2.2 + 0.2 * k)
+    rec.update(mode, 0, "MANUAL", NO_ALARM, 0, T0 + 4.5, T0 + 4.5)    # hand-back
+    rec.update(act, 85.0, None, NO_ALARM, 0, T0 + 6, T0 + 6)          # the operator again
+    b = rec.tick(T0 + 70)
+    sets = [(e[3], e[4]) for e in b.events if e[1] == act.id and e[2] == "set"]
+    assert sets == [(None, "80"), ("80", "81"), ("83", "85")]         # none of the loop's ten writes
+    assert [r[2] for r in b.changes if r[0] == act.id] == [80.0, 81.0, 83.0, 85.0]   # 83: its value at the hand-back
+    raw = [(r[1], r[2], r[6]) for r in b.raw if r[0] == act.id]
+    assert raw[0] == (T0 + 2, 81.0, core.FLAG_DRIVEN) and raw[-1] == (T0 + 4.5, None, core.FLAG_DRIVEN)
+    assert len(raw) == 12                                             # the value at the start, ten writes, the end
+    secs = {r[1]: r for r in b.seconds if r[0] == act.id}
+    assert set(secs) == {T0 + 2, T0 + 3, T0 + 4}                      # intervals only while in PID
+    assert secs[T0 + 4][7] is None                                    # and nothing held after it
+
+
+def test_a_mode_event_carries_the_reason_that_comes_after_it():
+    # the loop's records are written in this order: request, mode, reason (LOOP.md, loop.db)
+    mode, reason, act = loop_channels()
+    rec = recorder(mode, reason, act)
+    rec.update(reason, 0, "none", NO_ALARM, 0, T0, T0)
+    rec.update(mode, 1, "PID", NO_ALARM, 0, T0, T0)
+    rec.tick(T0 + 1)
+    rec.update(mode, 0, "MANUAL", NO_ALARM, 0, T0 + 10, T0 + 10)
+    b = rec.tick(T0 + 10.00003)                                       # a tick between mode and reason
+    rec.update(reason, 1, "interlock open", NO_ALARM, 0, T0 + 10.00006, T0 + 10.00006)
+    b2 = rec.tick(T0 + 11)
+    events = [e for e in b.events + b2.events if e[1] == mode.id]
+    assert [(e[4], e[8]) for e in events] == [("MANUAL (0)", "L:reason:get: interlock open (1)")]
+    assert events[0][0] == T0 + 10                                    # at the time of the mode change
+
+
+def test_a_mode_event_without_a_new_reason_takes_the_one_in_effect_after_the_wait():
+    mode, reason, act = loop_channels()
+    rec = recorder(mode, reason, act)
+    rec.update(reason, 1, "interlock open", NO_ALARM, 0, T0, T0)
+    rec.update(mode, 0, "MANUAL", NO_ALARM, 0, T0 + 1, T0 + 1)
+    assert not [e for e in rec.tick(T0 + 1.2).events if e[1] == mode.id]       # still waiting
+    events = [e for e in rec.tick(T0 + 1 + core.CONTEXT_WAIT).events if e[1] == mode.id]
+    assert [e[8] for e in events] == ["L:reason:get: interlock open (1)"]

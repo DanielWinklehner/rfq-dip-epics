@@ -26,6 +26,11 @@ FLAG_CLOCK = 1      # the IOC's time stamp was far from the logger's clock: stor
 FLAG_UDF_TIME = 2   # time stamp of 1990 (record never processed): stored under the logger's time
 FLAG_RESUMED = 4    # first value after a gap whose time stamp lies before the gap: stored when seen
 FLAG_LOGGER = 8     # gap written by the logger (it was not running, or rows were lost), not a disconnect
+FLAG_DRIVEN = 16    # a loop took over (raw: the value then) or gave back (raw: gap, changes: the value then)
+
+# A mode event waits this long for the reason that belongs to it (the loop's records are written
+# in the order request, mode, reason), then takes the reason in effect.
+CONTEXT_WAIT = 0.5
 
 # A time stamp before 2000 is that of a record never processed (EPICS epoch, 1990-01-01).
 NEVER_PROCESSED_BEFORE = 946684800.0
@@ -34,9 +39,13 @@ NEVER_PROCESSED_BEFORE = 946684800.0
 class Channel:
     """One logged PV: its settings from the registry and what the logger last knew of it."""
 
-    def __init__(self, pv_id, name, tier, kind, written=False, states=None, context=None):
+    def __init__(self, pv_id, name, tier, kind, written=False, states=None, context=None, driver=None):
         self.id, self.name, self.tier, self.kind = pv_id, name, tier, kind   # kind: number, enum, text
         self.written, self.states, self.context = written, states or [], context
+        # driver: (id of a loop's mode PV, its value in PID) for a PV a loop writes. While the loop
+        # is in PID the PV is a signal (raw, seconds, minutes), else an events PV.
+        self.driver = driver
+        self.driven = False
         self.connected = False
         self.seen = False          # a value arrived in this run
         self.value = self.text = None
@@ -46,12 +55,17 @@ class Channel:
         self.t = -math.inf         # time of the last row
         self.gap_t = -math.inf     # time of the last gap: a value stamped before it is from before the gap
         self.clock_warned = False
-        widths = {"raw": (1, 60), "seconds": (1, 60), "minutes": (60,)}.get(tier, ())
+        widths = {"raw": (1, 60), "seconds": (1, 60), "minutes": (60,)}.get(tier, (1, 60) if driver else ())
         self.aggs = {w: Interval(w) for w in widths} if kind != "text" else {}
 
     @property
     def table(self):
-        return {"raw": "raw", "events": "changes"}.get(self.tier)
+        return "raw" if self.driven else {"raw": "raw", "events": "changes"}.get(self.tier)
+
+    @property
+    def signal(self):
+        """Its intervals are computed: a raw, seconds or minutes PV, or one a loop drives now."""
+        return self.driver is None or self.driven
 
 
 class Interval:
@@ -147,12 +161,21 @@ class Recorder:
         self.clock_skew = clock_skew        # seconds: a time stamp further from the clock is replaced
         self.close_delay = close_delay      # seconds: an interval is closed this long after its end
         self.batch = Batch(None)
+        self.pending = []                   # [deadline, event, context channel]: waiting for the reason
+        self.drives = {}                    # mode PV id -> channels it drives
+        for ch in channels:
+            if ch.driver:
+                self.drives.setdefault(ch.driver[0], []).append(ch)
 
     # --- events from Channel Access --------------------------------------------------------------
     def update(self, ch, value, text, severity, status, stamp, now):
         """A monitor update: value (number, or None for a text), text (state word or string),
         the IOC's severity, status and time stamp, the logger's clock."""
         b = self.batch
+        if ch.driver and not ch.seen:          # its first value: the loop may be in PID already
+            mode = self.channels.get(ch.driver[0])
+            ch.driven = bool(mode and mode.connected and mode.value == ch.driver[1]
+                             and mode.severity is not None and mode.severity < INVALID)
         initial = not ch.seen or not ch.connected
         t, flags = self._time(ch, stamp, now, initial, b)
         if isinstance(value, float) and math.isnan(value):
@@ -168,24 +191,63 @@ class Recorder:
         if ch.table:
             getattr(b, ch.table).append((ch.id, t, value, text, severity, status, flags))
         valid = value if severity is not None and severity < INVALID and value is not None else None
-        for w, agg in ch.aggs.items():
-            agg.change(t, valid, severity if severity is not None else INVALID, ch.id,
-                       b.seconds if w == 1 else b.minutes)
+        if ch.signal:
+            for w, agg in ch.aggs.items():
+                agg.change(t, valid, severity if severity is not None else INVALID, ch.id,
+                           b.seconds if w == 1 else b.minutes)
         if severity != old_sev:
             if not (old_sev is None and severity == NO_ALARM):
                 b.events.append((t, ch.id, "alarm", SEVERITY[old_sev] if old_sev is not None else None,
                                  SEVERITY[severity], None, severity, status,
                                  STATUS[status] if status is not None and 0 <= status < len(STATUS) else None))
             ch.known_severity = severity
-        if ch.tier == "events":
+        if ch.tier == "events" and not ch.driven:
             new = fmt(ch, value, text)
             if new != old_text:
-                detail = None
-                if ch.context is not None:
-                    other = self.channels.get(ch.context)
-                    detail = "%s: %s" % (other.name, fmt(other, other.value, other.text)) if other and other.seen else None
-                b.events.append((t, ch.id, "set" if ch.written else "state", old_text, new, value, severity, status, detail))
+                event = [t, ch.id, "set" if ch.written else "state", old_text, new, value, severity, status, None]
+                if ch.context in self.channels:
+                    self.pending.append([now + CONTEXT_WAIT, event, self.channels[ch.context]])
+                else:
+                    b.events.append(tuple(event))
                 ch.known_text = new
+        if ch.id in self.drives:
+            for target in self.drives[ch.id]:
+                self._drive(target, value == target.driver[1] and severity is not None and severity < INVALID, t, b)
+        self._resolve(lambda p: p[2] is ch)
+
+    def _resolve(self, ready):
+        """Write the mode events whose reason has come (or whose wait is over), with that reason."""
+        keep = []
+        for p in self.pending:
+            if ready(p):
+                other = p[2]
+                p[1][8] = "%s: %s" % (other.name, fmt(other, other.value, other.text)) if other.seen else None
+                self.batch.events.append(tuple(p[1]))
+            else:
+                keep.append(p)
+        self.pending = keep
+
+    def _drive(self, ch, driven, t, b):
+        """A loop took over the PV it writes (PID) or gave it back: from here its updates are a
+        signal (raw and intervals), or set commands again (changes and events)."""
+        if driven == ch.driven or not ch.seen:
+            ch.driven = driven and ch.seen
+            return
+        t = max(t, ch.t)
+        ch.t = t
+        valid = ch.value if ch.severity is not None and ch.severity < INVALID and ch.value is not None else None
+        if driven:
+            ch.driven = True
+            b.raw.append((ch.id, t, ch.value, ch.text, ch.severity, ch.status, FLAG_DRIVEN))
+            for w, agg in ch.aggs.items():
+                agg.change(t, valid, ch.severity if ch.severity is not None else INVALID, ch.id, b.seconds if w == 1 else b.minutes)
+        else:
+            ch.driven = False
+            b.raw.append((ch.id, t, None, None, None, None, FLAG_DRIVEN))
+            for w, agg in ch.aggs.items():
+                agg.change(t, None, INVALID, ch.id, b.seconds if w == 1 else b.minutes)
+            b.changes.append((ch.id, t, ch.value, ch.text, ch.severity, ch.status, FLAG_DRIVEN))
+            ch.known_text = fmt(ch, ch.value, ch.text)
 
     def disconnect(self, ch, now):
         if not ch.connected:
@@ -194,6 +256,8 @@ class Recorder:
         ch.connected = False
         b.connections.append((ch.id, False, now))
         b.events.append((now, ch.id, "connection", "connected", "lost", None, None, None, None))
+        for target in self.drives.get(ch.id, []):
+            self._drive(target, False, now, b)          # a loop not seen is not in PID
         self._gap(ch, max(now, ch.t), 0, b)
 
     def _gap(self, ch, t, flags, b):
@@ -201,9 +265,10 @@ class Recorder:
         ch.t = max(ch.t, t)
         if ch.table:
             getattr(b, ch.table).append((ch.id, t, None, None, None, None, flags))
-        for w, agg in ch.aggs.items():
-            if agg.b is not None:
-                agg.change(t, None, INVALID, ch.id, b.seconds if w == 1 else b.minutes)
+        if ch.signal:
+            for w, agg in ch.aggs.items():
+                if agg.b is not None:
+                    agg.change(t, None, INVALID, ch.id, b.seconds if w == 1 else b.minutes)
 
     def _time(self, ch, stamp, now, initial, b):
         """R7: the time a row is stored under, and its flags."""
@@ -257,13 +322,16 @@ class Recorder:
                 ch.t = max(ch.t, now)
                 if ch.table:
                     getattr(b, ch.table).append((ch.id, ch.t, ch.value, ch.text, ch.severity, ch.status, FLAG_RESUMED))
-                for agg in ch.aggs.values():
-                    agg.touch()
+                if ch.signal:
+                    for agg in ch.aggs.values():
+                        agg.touch()
         return b
 
     # --- once per tick --------------------------------------------------------------------------
-    def tick(self, now):
-        """Close the intervals that ended close_delay ago; hand over the batch of this tick."""
+    def tick(self, now, final=False):
+        """Close the intervals that ended close_delay ago; hand over the batch of this tick
+        (final: with every event still waiting for its reason)."""
+        self._resolve(lambda p: final or p[0] <= now)
         b = self.batch
         edge = now - self.close_delay
         for ch in self.channels.values():

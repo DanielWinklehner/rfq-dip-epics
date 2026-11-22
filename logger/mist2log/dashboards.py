@@ -5,18 +5,22 @@
 Standard library only. The pages and their trends follow the GUI (RAS/mist2/ReactApp/src):
 the Overview (every installed device), one page per subsystem page of the registry, Trends (any
 logged PV, picked) and Infrastructure. A subsystem page trends the read-backs of its devices
-(roles vread, iread, value, p, speed, current, flow; their connected channels too), one graph per
-role and unit as the GUI's TrendSet, on a log scale for pressures. Every page has the event log
-of its devices. No dashboard is edited by hand: Grafana loads these files read-only.
+whose roles the registry lists under trends.roles (their connected channels too), one graph per
+role and unit as the GUI's TrendSet, on a log scale for pressures, with the set point of
+trends.beside in the graph of its read-back (the loop: measured value with set point, output in
+a graph of its own). Every page has the event log of its devices. No dashboard is edited by
+hand: Grafana loads these files read-only.
 """
 import json
 import os
 import re
 import sys
 
-TREND_ROLES = ["vread", "iread", "value", "p", "speed", "current", "flow"]      # roles.js trendRoles
+# Words of the trend roles, as roles.js names them for the operator (a role without one is shown
+# by its name)
 ROLE_WORDS = {"vread": "voltage read", "iread": "current read", "value": "value", "p": "pressure",
-              "speed": "speed", "current": "current", "flow": "flow"}         # roles.js roleWords
+              "speed": "speed", "current": "current", "flow": "flow", "pv": "measured value",
+              "out": "output", "sp_cmd": "set point"}
 LOG_UNITS = {"torr", "mbar", "pa"}                                             # fields/format spansDecades
 DATASOURCE = {"type": "grafana-postgresql-datasource", "uid": "mist2log"}
 
@@ -34,15 +38,22 @@ def installed(reg):
 
 
 def trend_pvs(reg, did):
+    """(PV, role of its graph, unit of its graph, legend) of every trend of a device; a set point
+    of trends.beside goes into the graph of its read-back."""
     dev = reg["devices"][did]
+    beside = reg["trends"].get("beside") or {}
     scopes = [(None, dev["roles"])] + [(ch, c["roles"]) for ch, c in (dev.get("channels") or {}).items() if not c.get("spare")]
+    logged = lambda name: name and dev["pvs"][name].get("log", "none") != "none"
     out = []
     for ch, roles in scopes:
-        for role in TREND_ROLES:
+        for role in reg["trends"]["roles"]:
             name = roles.get(role)
-            if name and dev["pvs"][name].get("log", "none") != "none":
+            if logged(name):
                 label = dev["name"] if ch is None else (dev["channels"][ch]["label"] or "%s %s" % (dev["name"], ch))
-                out.append((name, role, dev["pvs"][name].get("egu", ""), label))
+                egu = dev["pvs"][name].get("egu", "")
+                out.append((name, role, egu, label))
+                if logged(roles.get(beside.get(role))):
+                    out.append((roles[beside[role]], role, egu, "%s %s" % (label, ROLE_WORDS.get(beside[role], beside[role]))))
     return out
 
 

@@ -97,10 +97,37 @@ One time-ordered log (`events`, view `event_log` with PV names), kept for ever:
 | kind | When | old, new, detail |
 |---|---|---|
 | `set` | a written PV changed (set point, limit, request, setting) | old and new value (an enumeration as word and number) |
-| `state` | another events PV changed: interlock permit, output states, doors, valves, pumps, loop mode | old, new; a loop's mode carries the reason of its last hand-back or refusal in `detail` (`LOOP-DIS:reason:get: ...`) |
+| `state` | another events PV changed: interlock permit, output states, doors, valves, pumps, loop mode | old, new; a loop's mode carries the reason that belongs to this change of mode in `detail` (`LOOP-DIS:reason:get: interlock open (1)`) |
 | `alarm` | the alarm severity of any logged PV changed | old and new severity, `detail` the status (COMM, LINK, UDF, HIHI ...) |
 | `connection` | a PV disconnected (`lost`) or returned (`back`) while the logger runs | |
 | `logger` | start (with how far the data was complete), stop, database lost, database back, rows lost (count in `value`), clocks apart (once per PV) | |
+
+**A loop's mode and its reason.** The loop's records are written in the order request, mode,
+reason (a hand-back and a refusal alike), so the reason of a hand-back arrives after the change
+of mode. The mode event waits for it: it is written with the reason that comes next, or, when
+none comes within 0.5 s (`core.CONTEXT_WAIT`: the reason did not change, as at a request for
+PID), with the reason in effect then. The event keeps the time of the mode change. The reason's
+own change is an event of its own as well.
+
+**What a loop writes while it is in PID is not a set command.** A loop in PID writes its actuator
+(`TDK:current:setpoint` for `LOOP-DIS`) up to five times a second. The plan says which PV a loop
+writes and when: `databases: loop.db: drives: {macro: ACT, while: {role: mode, value: 1}}`, written
+into the registry as `drives` of the loop's device; a second loop is one more load of `loop.db`
+and needs nothing in the logger. While the loop's mode is PID, the actuator is a signal: every
+write is a row of `raw` and goes into the seconds and minutes tiers, and there is no `set` event
+and no `changes` row. The loop's mode events mark the border. Outside PID a write to it is a set
+command like any other. A reader finds:
+
+| Time | `raw` | `seconds`, `minutes` | `changes`, `events` |
+|---|---|---|---|
+| MANUAL | nothing | nothing (gap) | every write: a row and a `set` event |
+| at the change to PID | the value then (flag 16) | intervals begin | the mode event of the loop |
+| PID | every write | mean, minimum, maximum | nothing of the actuator (its alarms are still events) |
+| at the change to MANUAL | a gap (flag 16) | a gap | the value then (flag 16), the mode event with its reason |
+
+`log_read` of the actuator in tier `events` (and `best`, and Grafana) reads both tables and gives
+the whole series without a gap at either border; tiers `raw`, `seconds` and `minutes` give the
+times in PID and gaps between them. The column `pv.driven_by` names the loop's mode PV.
 
 **Channel Access does not say who wrote a value.** A `set` event is a change of the record's
 value, whoever made it: the GUI, a script, the loop service, autosave at an IOC start. The log
@@ -136,6 +163,12 @@ an IOC or of the database needs no manual step: the logger waits for the databas
 Channel Access reconnects by itself (measured: an IOC container restarted, all its PVs back
 within 12 s), the writer reconnects by itself. (The logger needs the database at its start to
 register its PVs; until it is there it waits and logs nothing.)
+
+**A batch the database refuses** (a data or integrity error: the database answered, and will
+answer the same again) is given up at once: its rows are counted as lost (`LOGGER:dropped:get`),
+the writer goes on with the next batch, and the logger writes a gap for every PV from the end of
+what was written before it, the event "rows lost" with the count and the database's message, and
+the present state of every PV. Only a lost connection keeps a batch for another try.
 
 ## 6. The logger's state in the rack IOC
 
@@ -202,7 +235,16 @@ cannot change them. `mist2log/dashboards.py` writes them from the registry at ev
 pages, Trends, Infrastructure), each subsystem page with the GUI's trend groups (the read-backs
 of its devices, one graph per role and unit, pressures on a log scale) and the event log of its
 devices; Trends with any logged PV picked; Infrastructure with the PVs not connected and the
-whole event log. The tier follows the panel's interval through `log_trend`.
+whole event log. The graphs are those the registry lists under `trends` (the plan's
+`trends`, shared with the GUI): `roles`, and `beside`, a set point drawn in the graph of its
+read-back. So the plasma generator's page has the loop's measured value with its set point in one
+graph and its output in another, as in the GUI.
+
+The tier follows the range as `best` does (section 7): raw up to 33 minutes, seconds up to 5.5
+hours, minutes beyond; seconds and minutes are merged to the panel's interval. The data source
+sets Grafana's smallest interval to 1 s (`timeInterval`; Grafana's default for SQL sources is one
+minute, which drew every window in minutes until 2026-11-22). The newest point is at most the
+logger's tick and write behind (raw, about 2 s; seconds 3 s).
 
 ## 9. Deployment
 
@@ -245,6 +287,14 @@ for a full buffer: 152 bytes per buffered row, measured with tracemalloc), datab
 | minutes | 0.73 x 86 400 = 63 000 rows x 193 B = 12 MB | for ever | 4.4 GB per year |
 | changes + events | 0 at rest; 4.3 rows/s x 86 400 x 170 B = 63 MB in a day of continuous faults | for ever | below 1 GB per year in normal operation (an estimate, not measured) |
 
+**A day in PID** adds, for each loop, its actuator as a signal: at most one write per period
+(0.2 s), 5 rows per second; in the lead's session on the plant model 63 writes in 78 s, 0.8 per
+second. Raw: 0.8 to 5 x 86 400 = 69 000 to 432 000 rows x 156 B = 11 to 67 MB a day, kept 30
+days (0.3 to 2 GB); seconds: at most one row per second, 86 400 x 141 B = 12 MB a day (9 GB in two
+years); minutes: 1440 rows, 0.3 MB a day. Nothing of it goes into the tables kept for ever except
+the minutes and the two mode events of each switch (before this round, 0.8 to 5 set events and
+as many rows of `changes` per second, 70 000 to 430 000 a day each, for ever).
+
 So about 370 GB after two years, then about 5 GB more per year. The seconds tier dominates: in
 the emulation every analog value carries noise and changes in every second; on the machine an
 ADC's noise does the same, so this is probably realistic. Choices if that is too much (none
@@ -272,13 +322,14 @@ time it did not run is a gap. Or move the volume `mist2log-data` with the databa
 
 ## 11. Tests (`make -C logger test`)
 
-`logger/tests/test_core.py` tests the rules alone (13 tests, under a second).
+`logger/tests/test_core.py` tests the rules alone (16 tests, under a second).
 `logger/tests/test_system.py` runs against the emulation, in this order:
 
 | Test | Proves | Time limit and its source |
 |---|---|---|
 | every PV subscribed | the database's PV list is the registry's (tiers too), every PV connected, `LOGGER:connected:get` = 180, `disconnected:get` = 0, the logger's own records not in the list | 30 s: the logger's start; CA connects in under a second, the state records are written every second |
 | set point | `MFC:setSP` written: its change row and a `set` event with old and new value | 3 s: one tick (1 s) and the write |
+| a loop in PID | the loop of the registry's `drives` brought to PID (supplies on, actuator inside the output limits), 4 s of writes, a door opened: no `set` event and no `changes` row of the actuator in PID, every write a raw row (equal to a second client's count, to the microsecond), a seconds row in every second of PID, a `set` event again after the hand-back, the reader's series without a gap; the mode event PID to MANUAL carries "interlock open", the reason that came after it | 30 s for the service and the supplies; 10 s for the permits (output states polled every 1 s); 1 s to PID and 1 s for the hand-back (LOOP.md section 4) |
 | 10 Hz PV | raw rows of `TDK:current:read` over a minute = the monitor updates a second client counted, time stamps equal to the microsecond | the minute, then close delay 2 s and the write |
 | changing PV | every second and the minute of that minute: mean, minimum, maximum against values computed from the raw rows (value held from before each interval, weighted by time) | |
 | constant PV | a raw PV that holds reads as its value in every second and minute, and has no interval rows meanwhile | 180 s to find one that held 125 s (the logger may have just started) |
@@ -290,7 +341,8 @@ time it did not run is a gap. Or move the volume `mist2log-data` with the databa
 | database stopped 60 s | `db:get` lost, then connected; raw rows over the outage = a second client's count; events "database lost", "database back"; nothing dropped | 8 s to notice (one tick, connect timeout 5 s); 60 s to recover |
 | database stopped longer than the buffer | with a buffer of 3000 rows and 45 s without database: `dropped:get` > 0 (MINOR), one event "rows lost" with the same count, a logger gap row, then a resumed row; the reader shows a gap in between | as above |
 | life times | the production policies are 30 and 730 days; in a scratch database with life times shortened to 1 h (raw) and 2 h (seconds) and chunks of 10 min, rows 10 min, 90 min and 3 h old: raw keeps the newest, seconds two, changes, minutes and events all | |
-| Grafana | health OK; one dashboard per GUI page with the page's title; the panels' queries of one page return data as the read-only user | 40 s: Grafana rereads the files every 30 s |
+| refused batch | in a scratch database, a batch with a status no smallint holds between two good ones: both good ones written within 5 s, the bad one counted as lost with the database's message, a gap and one "rows lost" event | 5 s: three transactions |
+| Grafana | health OK; one dashboard per GUI page with the page's title; the plasma generator's page has the loop's measured value with its set point and its output; asked through its query API as a viewer, with the interval its front end would use (the data source's minimum), a 2-minute window of the busiest raw PV gives every raw row at its own time, up to the newest; the panels' queries of one page return data as the read-only user | 40 s: Grafana rereads the files every 30 s; 90 s for a minute of data; 3 s: one tick and the write |
 | load | rows per second, rows per tier, bytes per row, CPU and memory (`logger/build/load.md`) | |
 
 **How the tests were seen to fail.** Each rule of `core.py` was broken on purpose and the unit
@@ -301,6 +353,14 @@ without limit (1). The system tests failed on real faults while they were writte
 functions held a value at the start of a range that began exactly on a gap row (fixed), the
 reading tool printed the stale value of an INVALID row in a gap (fixed), and a condition that
 waited for an exactly empty buffer never held while data flows.
+
+**Fix round T17b, seen to fail with the old code:** the loop's actuator treated as an events PV
+again (driver ignored): the unit test of the actuator fails (and the system test's "no set event
+in PID"); the mode event written at once: 3 unit tests fail, without the wait for the reason 2;
+the old `log_trend` (tier by the panel's interval) and the data source without `timeInterval`:
+the Grafana test gets 0 of 323 raw rows; `dashboards.py` without `beside`: the Grafana test finds
+no graph of measured value and set point; the writer treating a refused batch as a lost database:
+"not within 5 s: the writer goes on after the refused batch".
 
 ## 12. Not built
 
