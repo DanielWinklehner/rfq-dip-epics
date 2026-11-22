@@ -329,6 +329,7 @@ const phases = {
       .catch(() => false);
     check(shown === (dialog === "dialog"), `${id} ${channel} ${role} := ${value}: ${shown ? "asks" : "does not ask"} for confirmation`);
     if (shown) {
+      await page.waitForTimeout(800); // the dialog fades in
       await shot(page, `write-confirm-${id}-${channel}`, false);
       await page.getByRole("dialog").getByRole("button").last().click();
     }
