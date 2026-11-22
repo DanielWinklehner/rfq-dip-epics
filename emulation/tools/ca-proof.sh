@@ -1,12 +1,13 @@
 #!/bin/bash
-# ca-proof.sh - prove that both emulated IOCs are reachable by Channel Access
+# ca-proof.sh - prove that the three emulated IOCs are reachable by Channel Access
 #
-# Called by `make -C emulation ca-proof`, with both IOCs up (`make -C emulation up`).
+# Called by `make -C emulation ca-proof`, with the IOCs up (`make -C emulation up`): rack IOC,
+# platform IOC and loop IOC.
 # Prints PASS or FAIL per check and exits non-zero on any FAIL.
 #
-#   a) from a container on mist2ctl, subnet broadcast address, all four PVs, heartbeats count
-#   b) unicast to one IOC finds only that IOC's PVs, both addresses find both
-#   c) from the host network namespace (as RAS's pvServer), broadcast address, all four PVs
+#   a) from a container on mist2ctl, subnet broadcast address, all six PVs, heartbeats count
+#   b) unicast to one IOC finds only that IOC's PVs, all addresses find all
+#   c) from the host network namespace (as RAS's pvServer), broadcast address, all six PVs
 #   d) the IOC logs contain no error line (patterns below)
 set -u
 
@@ -14,9 +15,10 @@ SUBNET=${MIST2_SUBNET:-172.30.0}
 BCAST=$SUBNET.255
 RACK=$SUBNET.11
 HV=$SUBNET.12
+LOOP=$SUBNET.13
 IMAGE=mist2-ioc:dev
 NET=mist2ctl
-PVS="IOC-RACK:heartbeat IOC-RACK:mode IOC-HV:heartbeat IOC-HV:mode"
+PVS="IOC-RACK:heartbeat IOC-RACK:mode IOC-HV:heartbeat IOC-HV:mode IOC-LOOP:heartbeat IOC-LOOP:mode"
 
 # d) Lines in an IOC log that mean a database, protocol, link or startup error.
 # Extended regular expressions, case-insensitive. Colour codes are removed first. Skipped: echoed
@@ -51,7 +53,7 @@ ca() {
 # value of one PV in caget output ("NAME VALUE" lines), empty if missing
 value() { echo "$2" | awk -v pv="$1" '$1 == pv { print $2 }'; }
 
-# Reads all four PVs twice, two seconds apart. Prints PASS/FAIL lines with the given label.
+# Reads all PVs twice, two seconds apart. Prints PASS/FAIL lines with the given label.
 read_all() {
     local label=$1 net=$2 addrs=$3 first second
     first=$(ca "$net" "$addrs" $PVS)
@@ -84,7 +86,7 @@ expect() {
     else fail "$label $pv expected $want, got $got ($(echo $out))"; fi
 }
 
-for c in mist2emu-ioc-rack-1 mist2emu-ioc-hv-1; do
+for c in mist2emu-ioc-rack-1 mist2emu-ioc-hv-1 mist2emu-ioc-loop-1; do
     if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" != "true" ]; then
         echo "FAIL  container $c is not running: make -C emulation up"; exit 1
     fi
@@ -100,6 +102,9 @@ expect "b) only $HV:" "$HV" IOC-HV:heartbeat found
 expect "b) only $HV:" "$HV" IOC-RACK:heartbeat absent
 expect "b) $RACK $HV:" "$RACK $HV" IOC-RACK:heartbeat found
 expect "b) $RACK $HV:" "$RACK $HV" IOC-HV:heartbeat found
+expect "b) only $LOOP:" "$LOOP" IOC-LOOP:heartbeat found
+expect "b) only $LOOP:" "$LOOP" IOC-HV:heartbeat absent
+expect "b) $RACK $HV $LOOP:" "$RACK $HV $LOOP" IOC-LOOP:heartbeat found
 
 echo "== c) host network namespace, EPICS_CA_ADDR_LIST=$BCAST"
 read_all "c)" host "$BCAST"
@@ -108,7 +113,7 @@ echo "== d) IOC logs, patterns (case-insensitive):"
 printf '      %s\n' "${ERROR_PATTERNS[@]}"
 grep_args=()
 for p in "${ERROR_PATTERNS[@]}"; do grep_args+=(-e "$p"); done
-for c in mist2emu-ioc-rack-1 mist2emu-ioc-hv-1; do
+for c in mist2emu-ioc-rack-1 mist2emu-ioc-hv-1 mist2emu-ioc-loop-1; do
     hits=$(docker logs "$c" 2>&1 | tr -d '\r' | sed 's/\x1b\[[0-9;]*m//g' \
         | grep -v -e '^[[:space:]]*#' -e '^on error ' | grep -E -i "${grep_args[@]}")
     lines=$(docker logs "$c" 2>&1 | wc -l)
