@@ -189,6 +189,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | 19 | nAIM calibration (2026-11-22) | "I believe the nAIM is calibrated for N2" | Noted in the plan as your belief. It is what the plant model assumes |
 | 20 | Set point of the discharge current loop (2026-11-22) | "set point below 24 A for now. 22 oughta do it." | Passed to the loop task T15: default set point 22 A |
 | 21 | Where the PID runs (2026-11-22) | "Could we just use PyEPICS and run the PID in python", then chosen from three variants: Python service, the loop's records in the platform IOC | Brief T15b. The plan document said "soft IOC": the subagent brings it to this decision |
+| 22 | Operating system of the platform mini PC (2026-11-22) | "one of the light ubuntu variants, I don't recall which one" | Passed to T15: the loop service's installation is written for Ubuntu. Variant and version still open (A22) |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -303,7 +304,7 @@ A19 (the output gate is wanted, and it latches).
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
 | A20 | Emulation subnet `172.30.0.0/24` | Free choice | You, if it collides with a network of yours |
 | A21 | Linux device names in `ports.real.cmd` are placeholders (`/dev/mist2/<name>`) | Only `/dev/mist2/co-u32` has a udev rule, not tested (`EPICS/ioc/host/`). The others do not exist yet | Work package WP4 |
-| A22 | The platform IOC runs the same EPICS top as the rack IOC | Its operating system and `st.cmd` are unknown | Lab files |
+| A22 | The platform IOC runs the same EPICS top as the rack IOC | Its `st.cmd` is unknown. Its operating system is a light Ubuntu variant (your answer 22), variant and version unknown, so the Python version there is unknown too | Lab files, and `lsb_release -a` on the mini PC |
 | A23 | The defaults of the current limits are the full scales: 15, 7.5, 7.5, 7.5 mA and 24 A | No source for the real limits | You |
 | A24 | A Matsusada supply in local control still answers queries (status, monitors) | The CO manual does not say | Hardware |
 | A25 | The turbopump is a TURBOVAC 1000 C with a DN 250 ISO-K inlet. Its hydrogen speed is estimated from the neighbouring model in the data sheet | Your "I think", Leybold GA 05.118/14.02 | The pump's type plate |
