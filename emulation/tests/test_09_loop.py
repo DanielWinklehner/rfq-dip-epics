@@ -160,9 +160,9 @@ def ready(loop):
     for pv, required, _ in lp.conditions:
         fulfil(pv, required)
     S.put(lp["slew"], 0.5)                          # 0.1 per period: a write every period
-    S.put(lp["sp"], write_values(lp["sp"])[1])
+    S.put(lp["sp_cmd"], write_values(lp["sp_cmd"])[1])
     S.put(lp.act, start_value(lp))
-    S.wait_for(lambda: S.get(lp["pv"]) != S.get(lp["sp"]) and S.sevr(lp["pv"]) != S.INVALID,
+    S.wait_for(lambda: S.get(lp["pv"]) != S.get(lp["sp_cmd"]) and S.sevr(lp["pv"]) != S.INVALID,
                5.0, lambda: "measured value valid: %s" % S.describe([lp["pv"]]))
     S.wait_for(lambda: S.get(lp["out"]) == S.get(lp.act), 2.0,
                lambda: "MANUAL follows the actuator: %s" % S.describe([lp["out"], lp.act]))
@@ -238,28 +238,38 @@ def test_every_setting_is_written_and_read_back(loop):
 
 
 def test_set_point_limits_clamp_the_set_point(loop):
-    sp = loop["sp"]
-    old = {f: float(S.field(sp, f)) for f in ("DRVL", "DRVH")}
-    value = S.get(sp)
+    sp, lo, hi = loop["sp_cmd"], loop["spmin"], loop["spmax"]
+    old = {n: S.get(n) for n in (lo, hi, sp)}
     try:
-        S.put_field(sp, "DRVH", 15.0)
-        S.put_field(sp, "DRVL", 5.0)
-        assert float(S.field(sp, "DRVH")) == 15.0 and float(S.field(sp, "DRVL")) == 5.0
+        S.put(sp, 20.0)
+        S.put(hi, 15.0)                     # moved inside the present set point
+        assert S.get(sp) == 15.0, "a lowered maximum brings the set point down to it"
         S.put(sp, 30.0)
         assert S.get(sp) == 15.0, "above the maximum: clamped to it"
+        S.put(lo, 12.0)
         S.put(sp, 1.0)
-        assert S.get(sp) == 5.0, "below the minimum: clamped to it"
+        assert S.get(sp) == 12.0, "below the minimum: clamped to it"
+        S.put(lo, 14.0)
+        assert S.get(sp) == 14.0, "a raised minimum brings the set point up to it"
     finally:
-        S.put_field(sp, "DRVL", old["DRVL"])
-        S.put_field(sp, "DRVH", old["DRVH"])
-        S.put(sp, value)
+        for n in (lo, hi, sp):
+            S.put(n, old[n])
+    assert S.get(sp) == old[sp]
 
 
-def test_permit_records_show_each_condition(ready):
+def test_permit_records_show_each_condition_as_words(ready):
+    """fulfilled, the condition's words when not (without alarm: an off supply is normal), no
+    data (INVALID): for caget as for the GUI (the registry's states)."""
     for n, (pv, required, words) in enumerate(ready.conditions, 1):
         record = ready["permit%d" % n]
-        assert S.get(record) == 0 and S.sevr(record) == S.NO_ALARM, S.describe([record])
-        assert S.field(record, "DESC") == words + "?"
+        assert reg.pvs[record]["states"] == ["fulfilled", words, "no data"]
+        assert S.get(record, as_string=True) == "fulfilled" and S.sevr(record) == S.NO_ALARM
+    pv, required, words = ready.conditions[2]          # the TDK off
+    violate(pv)
+    record = ready["permit3"]
+    S.wait_for(lambda: S.get(record, as_string=True) == words, PERMIT_LIMIT["supply"],
+               lambda: S.describe([record]))
+    assert S.sevr(record) == S.NO_ALARM, "not fulfilled carries no alarm"
 
 
 # --- R5: refusal ---------------------------------------------------------------------------------
@@ -332,6 +342,45 @@ def test_pid_is_accepted_and_bumpless(ready):
     # from the actuator's value on, slew limited: at most a few steps of slew x DT so far
     out = S.get(ready["out"])
     assert act <= out <= act + 3 * 0.5 * ready.dt + 1e-6, (act, out)
+
+
+def limit_moved(lp, role, value):
+    """In PID, an output limit moved past the actuator's set point: the actuator goes to the new
+    limit at the slew rate, and output:get shows it. Returns the steps the actuator made."""
+    events = []
+    act = epics.PV(lp.act, form="time", auto_monitor=True,
+                   callback=lambda value=None, **kw: events.append(value))
+    act.wait_for_connection(5.0)
+    try:
+        start = S.get(lp.act)
+        S.put(lp[role], value)
+        slew, res = S.get(lp["slew"]), float(lp.macros["RES"])
+        took = S.wait_for(lambda: abs(S.get(lp.act) - value) <= res, abs(start - value) / slew + 2.0,
+                          lambda: "the actuator at the new limit %g: %s" % (value, S.describe(
+                              [lp.act, lp["out"], lp["limit"]])))
+        time.sleep(3 * lp.dt)
+        assert S.get(lp["mode"]) == 1, "still PID"
+        assert abs(S.get(lp["out"]) - S.get(lp.act)) <= res + slew * lp.dt, (
+            "output:get tells the truth: %s" % S.describe([lp["out"], lp.act]))
+        steps = [abs(b - a) for a, b in zip([start] + events, events)]
+        assert max(steps) <= slew * lp.dt + 1e-9, "a step above slew x DT: %g" % max(steps)
+        print("%s: %s %g -> %g: actuator there after %.2f s, largest step %.3f" % (
+            lp.device, role, start, value, took, max(steps)))
+    finally:
+        act.clear_callbacks()
+
+
+def test_output_limits_moved_past_the_actuator_in_pid(ready):
+    """F1: a lowered maximum and a raised minimum, each past the actuator's set point."""
+    hi, lo = S.get(ready["outmax"]), S.get(ready["outmin"])
+    go_pid(ready)
+    try:
+        limit_moved(ready, "outmax", S.get(ready.act) - 0.5)
+        S.put(ready["outmax"], hi)
+        limit_moved(ready, "outmin", S.get(ready.act) + 1.0)
+    finally:
+        S.put(ready["outmin"], lo)
+        S.put(ready["outmax"], hi)
 
 
 # --- R4 a to f: hand-back ------------------------------------------------------------------------
@@ -561,18 +610,49 @@ def test_backstop_never_writes_in_manual(backstop):
     S.put(lp["mode_cmd"], 0)
 
 
-def test_backstop_never_writes_from_outside_the_limits(backstop):
-    """An actuator standing outside the output limits is not moved by the loop at all."""
+def test_backstop_from_outside_the_limits_only_towards_them(backstop):
+    """An actuator outside the output limits (a limit moved past it): the writer brings it to the
+    limit at the slew rate and never moves it further outside, whatever the client asks."""
     lp, fake, events = backstop
-    S.put(lp.act, S.get(lp["outmin"]) - 5.0)
+    lo, slew = S.get(lp["outmin"]), S.get(lp["slew"])
+    start = lo - 1.0
+    S.put(lp.act, start)
+    fake.out(lo - 50.0)                              # the client asks for further outside
     t0 = time.time()
     S.put(lp["mode_cmd"], 1)
     S.put(lp.internal("_active"), 1)
-    fake.out(S.get(lp["outmax"]))
-    time.sleep(1.5)
-    assert S.get(lp["mode"]) == 1
-    assert written(events, t0) == [], written(events, t0)
+    S.wait_for(lambda: S.get(lp.act) >= lo - float(lp.macros["RES"]), 1.0 / slew + 2.0,
+               lambda: S.describe([lp.act]))
+    values = [start] + [v for _, v in written(events, t0)]
+    assert all(b > a for a, b in zip(values, values[1:])), "only towards the limits: %s" % values
+    assert max(b - a for a, b in zip(values, values[1:])) <= slew * lp.dt + 1e-9
     S.put(lp["mode_cmd"], 0)
+
+
+def test_backstop_follows_a_limit_moved_past_the_actuator(backstop):
+    """In PID with the client asking for the maximum, the maximum is lowered under the actuator:
+    the writer brings it down to the new maximum at the slew rate."""
+    lp, fake, events = backstop
+    hi, slew = S.get(lp["outmax"]), S.get(lp["slew"])
+    S.put(lp.act, S.get(lp["outmin"]) + 3.0)         # room for a maximum 1 A below it
+    fake.out(S.get(lp.act))
+    S.put(lp["mode_cmd"], 1)
+    S.put(lp.internal("_active"), 1)
+    S.wait_for(lambda: S.get(lp["mode"]) == 1, 1.0, "PID with the client")
+    new = S.get(lp.act) - 1.0
+    fake.out(hi)
+    try:
+        t0 = time.time()
+        S.put(lp["outmax"], new)
+        S.wait_for(lambda: abs(S.get(lp.act) - new) <= float(lp.macros["RES"]), 1.0 / slew + 2.0,
+                   lambda: S.describe([lp.act]))
+        values = [v for _, v in written(events, t0)]
+        assert all(v <= hi for v in values)
+        steps = [abs(b - a) for a, b in zip(values, values[1:])]
+        assert not steps or max(steps) <= slew * lp.dt + 1e-9
+    finally:
+        S.put(lp["outmax"], hi)
+        S.put(lp["mode_cmd"], 0)
 
 
 def test_backstop_takes_the_mode_back_when_the_client_stops_counting(backstop):

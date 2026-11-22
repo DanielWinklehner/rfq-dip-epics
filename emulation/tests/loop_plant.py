@@ -11,6 +11,8 @@ registry whose measurement is the discharge current the plant drives:
      time, steady-state error;
   4. an emission drift of the plant (-5 %/min for 30 s, then the emission back at once): the
      largest deviation and the error at the end;
+  4b. the output maximum lowered under the TDK's set point in PID and restored (a limit change):
+     the TDK goes to the new maximum at the slew rate with the flag, and back without a bump;
   5. a set point the supply cannot reach (the REK's current limit lowered under the set point):
      the output ends at its maximum with the flag, holds there, and comes back when the limit
      is restored;
@@ -211,7 +213,7 @@ def closed_loop(capsys):
         manual = {k: rec.rate(k, t0, t1) for k in (T["iread"], R["iread"])}
 
         # --- 2. MANUAL to PID ---------------------------------------------------------------
-        S.put(r["sp"], round(S.get(meas), 3))
+        S.put(r["sp_cmd"], round(S.get(meas), 3))
         before = S.get(act)
         y_before = S.get(meas)
         S.put(r["mode_cmd"], 1)
@@ -230,7 +232,7 @@ def closed_loop(capsys):
         y0 = sum(v for _, v in rec.since(meas, time.monotonic() - 2.0)) / max(
             1, len(rec.since(meas, time.monotonic() - 2.0)))
         t_step = time.monotonic()
-        S.put(r["sp"], STEP_A)
+        S.put(r["sp_cmd"], STEP_A)
         time.sleep(SECONDS["step"])
         t_end = time.monotonic()
         samples = rec.since(meas, t_step, t_end)
@@ -257,9 +259,25 @@ def closed_loop(capsys):
         recover = (outside[-1] - t_r) if outside else 0.0
         table["drift"] = (drift_max, drift_end, recover)
 
+        # --- 4b. the output maximum moved past the TDK's set point and back ------------------------
+        out_max = S.get(r["outmax"])
+        res = float(m["RES"])
+        lowered = round(S.get(act) - 0.5, 2)
+        S.put(r["outmax"], lowered)
+        time.sleep(5.0)
+        lim = (S.get(act), S.get(r["out"]), S.get(r["limit"], as_string=True), S.get(r["mode"]))
+        held = [v for _, v in rec.since(meas, time.monotonic() - 1.0)]
+        at_restore = sum(held) / len(held)
+        S.put(r["outmax"], out_max)
+        t_l = time.monotonic()
+        time.sleep(15.0)
+        after = rec.since(meas, t_l)
+        outside = [t for t, v in after if abs(v - STEP_A) > LIMITS["band_a"]]
+        table["limit"] = (lowered, lim, at_restore, min(v for _, v in after),
+                          (outside[-1] - t_l) if outside else 0.0)
+
         # --- 5. a set point the supply cannot reach -------------------------------------------
         limit_before = S.get(R["ilimit"])
-        out_max = S.get(r["outmax"])
         t_u = time.monotonic()
         S.put(R["ilimit"], STEP_A - 1.0)            # the REK cannot deliver 22 A any more
         time.sleep(SECONDS["unreachable"])
@@ -311,6 +329,12 @@ def closed_loop(capsys):
         "| Emission drift -5 %%/min, 30 s: largest deviation | %.3f A | %.2f A |" % (table["drift"][0], LIMITS["drift_max_a"]),
         "| deviation at the end of the drift | %.3f A | %.2f A |" % (table["drift"][1], LIMITS["drift_end_a"]),
         "| emission back at once: back into the band after | %.2f s | %.1f s |" % (table["drift"][2], LIMITS["settling_s"]),
+        "| Output maximum lowered to %.2f A in PID: TDK set / output:get / flag / mode | %.2f A / %.2f A / %s / %s | %.2f A / the same / at maximum / PID |"
+        % (table["limit"][0], table["limit"][1][0], table["limit"][1][1], table["limit"][1][2],
+           "PID" if table["limit"][1][3] else "MANUAL", table["limit"][0]),
+        "| maximum restored at %.3f A: lowest discharge current after / settled after | %.3f A / %.2f s | not below %.3f A (no bump down) / %.1f s |"
+        % (table["limit"][2], table["limit"][3], table["limit"][4], table["limit"][2] - LIMITS["band_a"],
+           LIMITS["settling_s"] * 2),
         "| Unreachable (REK limit %.0f A): TDK set / flag / highest set | %.2f A / %s / %.2f A | %.2f A / at maximum / %.2f A |"
         % (STEP_A - 1.0, table["unreachable"][0], table["unreachable"][1], table["unreachable"][2], out_max, out_max),
         "| limit restored: leaves the maximum after the error changed sign / settles after | %s / %.2f s | 2 periods + 0.5 s / %.1f s |"
@@ -337,6 +361,10 @@ def closed_loop(capsys):
     assert table["drift"][0] <= LIMITS["drift_max_a"]
     assert table["drift"][1] <= LIMITS["drift_end_a"]
     assert table["drift"][2] <= LIMITS["settling_s"]
+    lowered, (tdk_set, shown, flag, mode), at_restore, lowest, settled = table["limit"]
+    assert abs(tdk_set - lowered) <= res and abs(shown - tdk_set) <= res and flag == "at maximum" and mode == 1
+    assert lowest >= at_restore - LIMITS["band_a"], "a bump down when the maximum is restored"
+    assert settled <= 2 * LIMITS["settling_s"]
     res = float(m["RES"])               # the last step to the maximum is not sent if smaller
     assert out_max - res <= table["unreachable"][0] <= out_max and table["unreachable"][1] == "at maximum"
     assert table["unreachable"][2] <= out_max + 1e-9, "no runaway beyond the maximum"

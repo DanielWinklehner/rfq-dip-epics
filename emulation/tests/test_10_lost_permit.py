@@ -7,13 +7,18 @@ IOC is down cannot switch the REK on.
 Only the REK takes its permit from another IOC in the emulation. The AU supplies are on the rack
 IOC with their permit: their link cannot be lost, they have the same records (the mirror
 _permit:read in matsusada_au20p7.db) and are tested by test_06 for an open door and test_05 for
-a silent interlock box."""
+a silent interlock box.
+
+The same for the control loops whose permit condition is that PV: in PID they hand back with
+"permit N no data" (the condition shows "no data", INVALID), and a request is refused so, also
+after a start of the loop's IOC while the permit's IOC is down."""
 import time
 
 import pytest
 
 import system as S
 from system import reg
+from test_09_loop import LOOPS, Loop, fulfil, go_pid, reason, service_alive, start_value
 
 ILK = next(d for d, dev in reg.devices.items() if dev["class"] == "interlock")
 PERMIT = reg.role(ILK, "open")
@@ -31,6 +36,37 @@ PAUSE_LIMIT = 2 * CONN_TMO + 1.0 + STOP_LIMIT   # silent peer: CA sends an echo 
                        # answered within CONN_TMO again (measured: 10.0 s)
 BACK_LIMIT = 60.0      # an IOC up again: its start, the supplies' first contact and GRACE
 SETTLED = 3.0          # s the output is watched to stay off after the permit returned
+
+
+LOOPS_HERE = [Loop(d) for d in LOOPS]
+# (loop, n) for every loop condition that is the permit PV
+LOOP_PERMITS = [(lp, n) for lp in LOOPS_HERE for n, (pv, _, _) in enumerate(lp.conditions, 1)
+                if pv == PERMIT]
+
+
+def loops_in_pid():
+    for lp, _ in LOOP_PERMITS:
+        service_alive(lp)
+        for pv, required, _ in lp.conditions:
+            fulfil(pv, required)
+        S.put(lp["slew"], 0.5)
+        S.put(lp.act, start_value(lp))
+    time.sleep(1.5)                                 # the service has seen the heartbeat count
+    for lp, _ in LOOP_PERMITS:
+        go_pid(lp)
+
+
+def loops_handed_back(limit, t0, capsys):
+    for lp, n in LOOP_PERMITS:
+        S.wait_for(lambda: S.get(lp["mode"]) == 0, limit - (time.monotonic() - t0),
+                   lambda: "hand-back: %s" % S.describe([lp["mode"], lp["reason"], lp["permit%d" % n]]))
+        took = time.monotonic() - t0
+        assert reason(lp) == "permit %d no data" % n, reason(lp)
+        assert S.get(lp["mode_cmd"]) == 0
+        record = lp["permit%d" % n]
+        assert S.get(record, as_string=True) == "no data" and S.sevr(record) == S.INVALID
+        S.report("%s: hand-back '%s' after %.1f s (limit %.0f s)" % (lp.device, reason(lp), took, limit),
+                 capsys)
 
 
 def output_on(device):
@@ -88,6 +124,8 @@ def rack_back():
     permit_seen(GATED)
     for d in GATED:
         S.put(reg.role(d, "out_cmd"), 0)
+    for lp, _ in LOOP_PERMITS:
+        S.put(lp["mode_cmd"], 0)
 
 
 def test_registry_has_a_supply_gated_from_another_ioc():
@@ -97,6 +135,7 @@ def test_registry_has_a_supply_gated_from_another_ioc():
 @pytest.mark.parametrize("how", ["stop", "pause"])
 def test_lost_permit_switches_off_and_latches(rack_back, how, capsys):
     switch_on(GATED)
+    loops_in_pid()
     t0 = time.monotonic()
     S.container(how, RACK)
     rack_back["down"] = how
@@ -107,6 +146,7 @@ def test_lost_permit_switches_off_and_latches(rack_back, how, capsys):
     took = time.monotonic() - t0
     S.report("%s of the rack IOC: %s off and request cleared after %.1f s (limit %.0f s)" % (
         how, ", ".join(GATED), took, limit), capsys)
+    loops_handed_back(limit, t0, capsys)
     for d in GATED:                                 # a request while the permit is lost
         S.put(reg.role(d, "out_cmd"), 1)
     S.wait_for(lambda: off_and_cleared(GATED), 2.0, "a request while lost is cleared at once")
@@ -131,3 +171,10 @@ def test_platform_ioc_started_while_the_permit_is_down(rack_back):
     S.wait_for(lambda: off_and_cleared(GATED), 2.0, "request cleared at once")
     time.sleep(SETTLED)
     assert off_and_cleared(GATED), "switched on without its permit"
+    for lp, n in LOOP_PERMITS:                      # never connected since the start: no data
+        service_alive(lp)
+        record = lp["permit%d" % n]
+        assert S.get(record, as_string=True) == "no data" and S.sevr(record) == S.INVALID
+        S.put(lp["mode_cmd"], 1)
+        S.wait_for(lambda: S.get(lp["mode_cmd"]) == 0, 1.0, "refused")
+        assert S.get(lp["mode"]) == 0 and reason(lp) == "permit %d no data" % n, reason(lp)

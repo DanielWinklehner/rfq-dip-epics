@@ -29,7 +29,7 @@ Every number below that comes from the plant model is a property of the MODEL
 
 | Layer | What it does | What it guarantees on its own |
 |---|---|---|
-| Records in `iocHV` (`EPICS/Db/loop.db`) | Interface: everything the operator sees and sets. Backstop: the only writer of the actuator (`_write`) and the watchdog of the service (`service:get`) | The actuator is written only in PID, at most once per period (0.2 s), only within `[outmin, outmax]`, by at most `slew x DT` per write, never from a set point outside the limits, and never again after someone else wrote it. PID needs the service alive: when its counter stands still for the watchdog time, the mode goes to MANUAL, the request is cleared, the reason says "service stopped", `service:get` is 0 with MAJOR alarm. At an IOC start the mode is MANUAL |
+| Records in `iocHV` (`EPICS/Db/loop.db`) | Interface: everything the operator sees and sets. Backstop: the only writer of the actuator (`_write`) and the watchdog of the service (`service:get`) | The actuator is written only in PID, at most once per period (0.2 s), by at most `slew x DT` per write, never away from `[outmin, outmax]` (after a limit moved past it, it is brought to the new limit at the slew rate), and never again after someone else wrote it. PID needs the service alive: when its counter stands still for the watchdog time, the mode goes to MANUAL, the request is cleared, the reason says "service stopped", `service:get` is 0 with MAJOR alarm. At an IOC start the mode is MANUAL |
 | Service `loops/mist2loop` | The algorithm and the judgement: PID, anti-windup, bumpless switching, every check of section 4, the decision to hand back or refuse, the terms and flags shown | Hands back (or refuses) with the reason; follows the actuator in MANUAL; starts in MANUAL; ends in MANUAL on SIGTERM |
 
 The service is only a Channel Access client of `iocHV` on the same computer. A client alone has
@@ -37,15 +37,28 @@ none of the trouble of two servers on one host (a unicast search reaching only o
 
 **The backstop, with plain records.** `_target` (calc) computes the next actuator value:
 `_out` (what the service asks for) clamped to `[outmin, outmax]`, then the actuator's present set
-point moved towards it by at most `slew x DT`. `_write` (calcout, scanned every `SCAN`) sends it
-to the actuator only while `_mode` is 1, `outmin < outmax`, the value lies within the limits, it
-differs from the present set point by `RES` or more, and the present set point is still the
-value `_write` sent last (operator priority; at the first scan in PID that value is taken from
-the actuator). `_mode` = request AND service alive AND accepted by the service. `service:get`
+point moved towards it by at most `slew x DT`. So the value lies between the present set point
+and a point within the limits: inside the limits when the actuator is, closer to them when a
+limit was moved past it. `_write` (calcout, scanned every `SCAN`) sends it to the actuator only
+while `_mode` is 1, `outmin < outmax`, it differs from the present set point by `RES` or more,
+and the present set point is still the value `_write` sent last (operator priority; at the first
+scan in PID that value is taken from the actuator). `_mode` = request AND service alive AND accepted by the service. `service:get`
 (calc, every 0.1 s) counts the seconds since `_count` last changed; `_dead` (calcout, CP links)
 fires `_drop` (seq: request 0, accepted 0, reason "service stopped") when the service is not
 alive while PID is requested or accepted. Test B proves this with the service stopped and a test
 client writing wrong values in its place.
+
+**Permits that are lost.** A Channel Access link to a PV that disconnects neither processes its
+record nor reaches a calculation (dbCa does not process on a disconnect; calc skips its
+expression when an input fails). So each permit condition is read by `_cN` (ai, CP, and scanned
+every period), which turns INVALID (LINK) at its next scan when its link is lost or has never
+connected; `_sN` (calc) makes 0, 1 or 2 of it, `permitN:get` (mbbi) the words. The REK's own
+gate reads its permit the same way (`REK-1:_permit:read`, `rek.db`). `iocHV` sets
+`EPICS_CA_CONN_TMO` to 5 s (our choice, default 30 s), so a silent rack IOC is noticed after
+about 10 s (5 s, then an echo that is not answered within 5 s). Against it: on a congested
+network a slow peer would be disconnected and reconnected more often; on the fiber between two
+computers we see no such load. MEAS, ACT and HB must be records of `iocHV` itself (a link in one
+IOC cannot be lost, and the writer's PP link must reach the actuator directly).
 
 ## 2. The algorithm (`loops/mist2loop/pid.py`, no EPICS)
 
@@ -68,7 +81,9 @@ u = Kp*e + I - Kd*d(pv_f)/dt        e = sp - pv        I += Ki*e*dt
 - **dt** from the monotonic clock between two cycles. `dt <= 0` (or not a number): nothing
   changes. `dt` longer than three periods: integrated as three periods, and the filter starts
   again (no derivative kick over the gap).
-- The service writes `_out` every cycle. The IOC's writer applies the actuator's resolution
+- The service writes `_out` every cycle, and counts `_count` only when a cycle has completed:
+  a service whose cycles fail stops counting and the watchdog takes the mode back (the error is
+  logged once, not every cycle). The IOC's writer applies the actuator's resolution
   (`RES` 0.01 A: the TDK takes two decimals, `PC %.2f` in `tdk.proto`).
 - A second loop: one more `dbLoadRecords` line of `loop.db` in `iocHV/st.cmd` and one more prefix
   in `loops/config/mist2.yaml`. No name of the discharge loop is in the Python code or the template.
@@ -86,14 +101,19 @@ same limits in the service and the same backstop in the IOC; a bad or late answe
 | `LOOP-DIS:mode:get` | bi | Mode: PID only while requested, accepted by the service and the service alive |
 | `LOOP-DIS:reason:get` | mbbi | Last hand-back or refusal, as words, until the next request (section 4) |
 | `LOOP-DIS:service:get` | calc | 1: the service's counter changed within the watchdog time; 0 (MAJOR) else |
-| `LOOP-DIS:permit1:get`, `permit2:get`, `permit3:get` | calc | Each permit condition, DESC names it: 0 fulfilled, 1 not (MAJOR), 2 no data (INVALID) |
+| `LOOP-DIS:permit1:get`, `permit2:get`, `permit3:get` | mbbi | Each permit condition as words: "fulfilled", the condition's words (W1 to W3: "interlock open", "REK not on in remote", "TDK output off"; no alarm, an off supply is normal), "no data" (INVALID: its PV INVALID, not connected or never connected) |
 | `LOOP-DIS:limit:get` | mbbi | free, at minimum (MINOR), at maximum (MINOR), slew limited |
-| `LOOP-DIS:value:setpoint` | ao | Set point, A. Its DRVL and DRVH are the set point limits (settings) |
+| `LOOP-DIS:value:setpoint` | ao | Set point, A, clamped to `[spmin, spmax]` |
+| `LOOP-DIS:spmin:setpoint`, `spmax:setpoint` | ao | Set point limits (settings). Moved inside the present set point, they bring it to the limit; the loop follows through its slew limit |
 | `LOOP-DIS:value:read` | ai | The measured value as the loop reads it (INVALID with its source) |
 | `LOOP-DIS:output:get` | ai | Output, A: in PID the service's output, in MANUAL the TDK's set point |
 | `LOOP-DIS:error:get`, `p:get`, `i:get`, `d:get` | ai | Error (A) and the three terms (A) |
 | `LOOP-DIS:kp:setpoint` ... `watchdog:setpoint` | ao | Settings, section 5 |
-| `_mode`, `_active`, `_count`, `_out`, `_target`, `_write`, `_dead`, `_drop`, `_act`, `_hb` | | Internal: mode logic, the service's acceptance, counter and output, the writer, the watchdog's drop, mirrors of the actuator and of the heartbeat |
+| `_mode`, `_active`, `_count`, `_out`, `_target`, `_write`, `_dead`, `_drop`, `_c1`..`_c3`, `_s1`..`_s3`, `_act`, `_hb` | | Internal: mode logic, the service's acceptance, counter and output, the writer, the watchdog's drop, the permit conditions read and their state, mirrors of the actuator and of the heartbeat |
+
+Registry roles (`plan/controls.yaml`, class `loop`): `mode_cmd`, `mode`, `reason`, `service`,
+`permit1`..`permit3`, `limit`, `pv`, `out`, `error`, `pterm`, `iterm`, `dterm`, `sp_cmd`, `spmin`,
+`spmax`, `kp`, `ki`, `kd`, `dfilter`, `outmin`, `outmax`, `slew`, `stale`, `watchdog`.
 
 ## 4. Hand-back and refusal
 
@@ -104,7 +124,7 @@ written) for the same reasons. The service checks in this order and reports the 
 | Reason (`reason:get`) | Who | How | Time limit (test B) |
 |---|---|---|---|
 | interlock open / REK not on in remote / TDK output off (R4 a) | service | `permitN:get` = 1 | 1 s (interlock box polled at 10 Hz) / 2.5 s (output state polled every 1 s) |
-| permit N no data (R4 b) | service | `permitN:get` = 2: its PV INVALID or not connected | 3 s (libcom1 timeout 1 s) |
+| permit N no data (R4 b) | service | `permitN:get` "no data" (INVALID): its PV INVALID (the interlock box silent), not connected (the rack IOC stopped or silent) or never connected (`iocHV` started while the rack IOC is down) | INVALID: 3 s (libcom1 timeout 1 s); connection closed: 2 s (one scan of `_c1`); peer silent: 13 s (`EPICS_CA_CONN_TMO` 5 s and an echo) |
 | measurement no data (R4 b) | service | `value:read` INVALID | 2 s (REK at 10 Hz, timeout 150 ms) |
 | actuator no data (refusal only) | service | `_act` INVALID before PID | 1 s |
 | measurement stale (R4 c) | service | `_hb` (the IOC's heartbeat) unchanged for longer than `stale:setpoint` | stale time + 1.5 s, not before stale time - 1.2 s |
@@ -126,8 +146,8 @@ records are disconnected; the IOC itself is gone, so nothing writes the actuator
 | Setting | Default | Unit | Source |
 |---|---|---|---|
 | `value:setpoint` | 22 | A | owner, 2026-11-22 |
-| `value:setpoint.DRVH` (set point maximum) | 23 | A | free choice, below the REK150-24's 24 A full scale (there the REK goes into constant current and the loop could only act downward); leaves 22 A a little room. TO BE CONFIRMED by the owner |
-| `value:setpoint.DRVL` | 0 | A | free choice |
+| `spmax:setpoint` (set point maximum) | 23 | A | free choice, below the REK150-24's 24 A full scale (there the REK goes into constant current and the loop could only act downward); leaves 22 A a little room. TO BE CONFIRMED by the owner |
+| `spmin:setpoint` | 0 | A | free choice |
 | `kp:setpoint` | 0.5 | A/A | model, ASSUMED: SIMC for gain 3.56 A/A (the model's steepest point), time constant 1.45 s, dead time about 0.3 s (TDK 0.1 s, plant step 0.1 s, polling and the period), closed-loop time constant 0.5 s: Kp = tau / (K (tau_c + theta)) |
 | `ki:setpoint` | 0.35 | A/A/s | model, ASSUMED: Ki = Kp / tau |
 | `kd:setpoint` | 0 | A s/A | model: a first-order plant needs no derivative |
