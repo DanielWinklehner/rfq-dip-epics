@@ -56,6 +56,11 @@ reports "Maximum update depth exceeded". Read-backs therefore use the RAS
 socket hook `useEpicsPV` directly, and trends are drawn by `Trend.jsx`; RAS
 `Widget` is kept for the fields that write.
 
+A trend line is drawn in steps and runs on to the present, since a monitor
+sends a value only when it changes. It ends where its record turns INVALID or
+the connection is lost, and starts again with the next valid value. A trend
+without any valid value says so. A zoom stays until a double click.
+
 Values are shown in the record's precision and unit. Units that span decades
 (torr, mbar, Pa) are always in exponent format and trended on a log scale; an
 SI unit (A, V, W, Hz, s) takes a prefix when a value is below 0.01 or from

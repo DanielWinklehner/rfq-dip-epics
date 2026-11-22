@@ -2,24 +2,40 @@ import React, { useEffect, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import { useTheme } from "@mui/material/styles";
 import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/EpicsPV";
+import { alarmState } from "../alarm/severity";
 
 const keep = 3000; // points per line
 const redrawEvery = 1000; // ms
 
 // One line: every monitor update of the PV is appended to its series, which
-// lives in a ref, so no state is set.
+// lives in a ref, so no state is set. A value is a point at the record's time
+// stamp. An INVALID record and a lost connection end the line there (the
+// value holds until then), and the next valid value starts it again.
 const Series = ({ pv, series }) => {
-  const { initialized, value, timestamp } = useEpicsPV({ pv });
+  const { initialized, value, severity, timestamp } = useEpicsPV({ pv });
   useEffect(() => {
-    if (!initialized) return;
     const line = (series.current[pv] ??= { x: [], y: [] });
-    line.x.push(new Date(Number(timestamp) * 1000));
-    line.y.push(Number(value));
-    if (line.x.length > keep) {
+    const state = alarmState(initialized, severity);
+    const valid = state !== "disconnected" && state !== "invalid";
+    const last = line.x.length - 1;
+    const drawing = last >= 0 && line.y[last] !== null;
+    if (!valid && !drawing) return;
+    // Never before the point before. A line starts when its value arrives:
+    // the time stamp of a record that is not processed can be days old.
+    const stamp = state === "disconnected" ? Date.now() : Number(timestamp) * 1000;
+    const time = new Date(Math.max(stamp, drawing ? line.x[last].getTime() : Date.now()));
+    if (valid) {
+      line.x.push(time);
+      line.y.push(Number(value));
+    } else {
+      line.x.push(time, time);
+      line.y.push(line.y[last], null);
+    }
+    while (line.x.length > keep) {
       line.x.shift();
       line.y.shift();
     }
-  }, [initialized, value, timestamp, pv, series]);
+  }, [initialized, value, severity, timestamp, pv, series]);
   return null;
 };
 
@@ -30,22 +46,46 @@ const Series = ({ pv, series }) => {
 // nested effect updates never returns to zero and reaches its limit. Here the
 // redraw is set from a timer, outside the effect phase. The history grows
 // while the page is hidden, as with the mounted pages of the 2023 GUI.
+//
+// A monitor sends a value when it changes, and the value holds until the next
+// one: the lines are steps, and each runs on to the present (the browser's
+// clock; the points carry the IOC's). A zoom by the operator stays until a
+// double click.
 const Trend = ({ pvs, legend, log, height }) => {
   const theme = useTheme();
   const series = useRef({});
   const box = useRef(null);
-  const [revision, setRevision] = useState(0);
+  const opened = useRef(Date.now());
+  const [drawn, setDrawn] = useState(opened.current);
   useEffect(() => {
     const timer = setInterval(() => {
-      if (box.current?.offsetParent) setRevision((r) => r + 1);
+      if (box.current?.offsetParent) setDrawn(Date.now());
     }, redrawEvery);
     return () => clearInterval(timer);
   }, []);
+  const lines = pvs.map((pv, index) => {
+    const { x = [], y = [] } = series.current[pv] ?? {};
+    const last = x.length - 1;
+    const holds = last >= 0 && y[last] !== null && drawn > x[last].getTime();
+    return {
+      x: holds ? [...x, new Date(drawn)] : x,
+      y: holds ? [...y, y[last]] : y,
+      name: legend[index],
+      type: "scatter",
+      mode: "lines",
+      line: { shape: "hv" },
+    };
+  });
+  // Without a value Plotly draws axes of its own invention. Leave them out, and say what an
+  // empty graph means once the values have had time to arrive.
+  const empty = lines.every((line) => !line.x.length);
+  const told = empty && drawn - opened.current > 3 * redrawEvery;
   const axis = {
     gridcolor: theme.palette.divider,
     linecolor: theme.palette.text.secondary,
     zeroline: false,
     automargin: true,
+    showticklabels: !empty,
   };
   return (
     <div ref={box} style={{ width: "100%", height }}>
@@ -53,17 +93,10 @@ const Trend = ({ pvs, legend, log, height }) => {
         <Series key={pv} pv={pv} series={series} />
       ))}
       <Plot
-        data={pvs.map((pv, index) => ({
-          x: series.current[pv]?.x ?? [],
-          y: series.current[pv]?.y ?? [],
-          name: legend[index],
-          type: "scatter",
-          // Markers too: a value that does not change sends one update only.
-          mode: "lines+markers",
-          marker: { size: 3 },
-        }))}
+        data={lines}
         layout={{
-          datarevision: revision,
+          datarevision: drawn,
+          uirevision: true,
           autosize: true,
           margin: { t: 8, r: 8, b: 32, l: 8 },
           paper_bgcolor: "rgba(0,0,0,0)",
@@ -71,8 +104,11 @@ const Trend = ({ pvs, legend, log, height }) => {
           font: { color: theme.palette.text.secondary, size: 11 },
           xaxis: { ...axis, type: "date" },
           yaxis: { ...axis, type: log ? "log" : "linear", tickformat: log ? ".1e" : undefined },
+          annotations: told
+            ? [{ text: "no valid value yet", showarrow: false, xref: "paper", yref: "paper", x: 0.5, y: 0.5 }]
+            : [],
           showlegend: true,
-          legend: { orientation: "h", x: 1, xanchor: "right", y: 1, bgcolor: "rgba(0,0,0,0)" },
+          legend: { orientation: "h", x: 1, xanchor: "right", y: 1, yanchor: "bottom", bgcolor: "rgba(0,0,0,0)" },
         }}
         config={{ displaylogo: false }}
         useResizeHandler
