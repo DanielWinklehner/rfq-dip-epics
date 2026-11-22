@@ -60,7 +60,7 @@ each may touch the shared files (`compose.yaml`, `plan/controls.yaml`, the test 
 
 | Id | Task | Owns | Depends on | Acceptance test |
 |---|---|---|---|---|
-| T15 | Loop IOC: PID algorithm, loop database, `iocLoop`, tests, plan and registry | `EPICS/ioc/mist2App/src/`, `EPICS/Db/loop*.db`, `EPICS/ioc/iocBoot/iocLoop/`, the emulation's shared files, `plan/`, `docs/emulation/LOOP.md` | none | Unit tests of the algorithm; `make test` with the third IOC and every hand-back; closed loop on the plant model |
+| T15 | Discharge current loop: PID as a Python service (pyepics), the loop's records and the backstop in the platform IOC, tests, plan and registry. Brief `T15-loop-ioc.md`, replaced on the same day by `T15b-loop-python.md` after the owner's decision for Python | `EPICS/Db/loop.db`, `loops/`, the emulation's shared files, `plan/`, `docs/emulation/LOOP.md` | none | Unit tests of the algorithm; `make test` with every hand-back and the backstop without the service; closed loop on the plant model at 22 A |
 | T16 | GUI for the loop: widget of the class `loop`, its place on the plasma page, GUI check | `RAS/mist2/ReactApp/src/`, `RAS/mist2/tools/` | T15 | `gui-check.sh` passes with the loop shown and operated |
 | T17 | Data logger: retention tiers in the plan, generated PV list, logger service on TimescaleDB, Grafana, status records, tests | `logger/`, `EPICS/Db/logger_status.db`, `plan/`, `docs/emulation/LOGGER.md` | T15, T16; the owner's choice of the store (the brief assumes TimescaleDB, my recommendation, until he says otherwise) | `make -C logger test`: every tier against independently computed values, gaps, database loss, life times, status alarm |
 

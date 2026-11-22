@@ -147,9 +147,11 @@ named them as later additions.
 Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work plan:
 `PLAN.md`, tasks T15 to T17).
 
-- T15, the loop IOC, is with a subagent on Opus 5.5 in the worktree `.claude/worktrees/t15`
-  (brief: `briefs/T15-loop-ioc.md`). It starts and stops the emulation under the lock
-  `/tmp/mist2emu.lock`, and it rebuilds the IOC image.
+- T15, the discharge current loop, is with a subagent on Opus 5.5 in the worktree
+  `.claude/worktrees/t15`. It started on a loop in C inside a soft IOC of its own
+  (`briefs/T15-loop-ioc.md`) and was redirected after your decision (answer 21) to a Python
+  service with the loop's records in the platform IOC (`briefs/T15b-loop-python.md`). It starts
+  and stops the emulation under the lock `/tmp/mist2emu.lock`.
 - The logger waits for your choice of the archiver (question 9).
 
 ## Open
@@ -186,6 +188,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | 18 | Working point | Filament 8 V and 90 A, discharge 150 V and 24 A, about 1e-5 torr in the cross (later: maybe nearer 5e-5 torr), MFC at about 20 % of 5 sccm | Plant model calibrated to it |
 | 19 | nAIM calibration (2026-11-22) | "I believe the nAIM is calibrated for N2" | Noted in the plan as your belief. It is what the plant model assumes |
 | 20 | Set point of the discharge current loop (2026-11-22) | "set point below 24 A for now. 22 oughta do it." | Passed to the loop task T15: default set point 22 A |
+| 21 | Where the PID runs (2026-11-22) | "Could we just use PyEPICS and run the PID in python", then chosen from three variants: Python service, the loop's records in the platform IOC | Brief T15b. The plan document said "soft IOC": the subagent brings it to this decision |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -273,6 +276,7 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | Trend lines are steps that end at INVALID and at a lost connection | A monitor sends a value when it changes. A straight line between two values, or a line through a time without valid data, would show a measurement that was not made |
 | Subagents share the one emulation through a lock file | The Compose project uses fixed names and a fixed network, so only one copy can run |
 | The CO-U32 on Linux through the kernel's FTDI driver and a udev rule, not through FTDI's D2XX library | The chip is a standard FTDI part under a vendor ID. With the kernel driver the adapter is a plain serial device: asyn, the protocol file and `ports.real.cmd` stay as they are, and nothing runs with root rights |
+| The PID runs in a Python service, the loop's records in the platform IOC (your decision, answer 21). The IOC records also enforce output limits, slew limit, "write only in PID" and "manual when the service stops" | The loop acts on a time scale of a second, your group changes Python and not C, and the later steps are Python. The backstop in the IOC covers what that choice costs: an algorithm in a process that can stop or misbehave |
 
 ## Assumptions that need your confirmation
 
