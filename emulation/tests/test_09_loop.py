@@ -73,8 +73,9 @@ class Loop:
         return "%s:%s" % (self.prefix, suffix)
 
     def settings(self):
-        return [pv for pv in self.role.values() if reg.pvs[pv]["access"] == "w"
-                and reg.pvs[pv].get("readback") is None]
+        """The written records except the mode request: the settings, saved by autosave."""
+        return [pv for role, pv in self.role.items() if reg.pvs[pv]["access"] == "w"
+                and role != "mode_cmd"]
 
 
 def device_of(pv):
