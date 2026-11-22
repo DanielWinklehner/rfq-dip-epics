@@ -7,9 +7,12 @@ point step does not kick the output. The output is limited to [out_min, out_max]
 `slew` per second, in this order; what step() returns is what the actuator is to get.
 
 Anti-windup: conditional integration. The integral takes the step Ki*e*dt only as far as the
-output stays within [out_min, out_max], and not at all while the slew limit holds the output
-back in the direction of the step. The integral itself stays within [out_min, out_max]. So after
-a long time at a limit the output leaves it as soon as the error changes sign.
+output stays within [out_min, out_max], and while the slew limit holds the output back in the
+direction of the step, only as far as the output really moves: P + I + D then equals the output
+sent, so the output moves by the full slew room every step (it never stands still while the
+error persists) and the integral is never ahead of it. The integral itself stays within
+[out_min, out_max]. So after a long time at a limit, output or slew, the output leaves it as
+soon as the terms ask for less.
 
 Bumpless: start() sets the integral so that the output equals the actuator's present value. A
 change of Kp or Kd moves the integral by the change of its term, so that the output does not
@@ -116,10 +119,13 @@ def step(s, p, sp, pv, dt):
         integral = min(integral0, p.out_min - pterm - dterm)
     integral = _clamp(integral, p.out_min, p.out_max)
     out, slewed = _limit(s.out, p, pterm + integral + dterm, dt)
-    # ... and not at all while the slew limit holds the output back in its direction.
+    # ... and while the slew limit holds the output back in its direction, only as far as the
+    # output really moves: between no step and the full step, the integral that makes P + I + D
+    # equal the output sent. (With P alone past the slew room it does not grow at all.)
     if slewed and (out - s.out) * inc > 0.0:
-        integral = _clamp(integral0, p.out_min, p.out_max)
-        out, slewed = _limit(s.out, p, pterm + integral + dterm, dt)
+        lo, hi = sorted((integral0, integral))
+        integral = _clamp(_clamp(out - pterm - dterm, lo, hi), p.out_min, p.out_max)
+        out, _ = _limit(s.out, p, pterm + integral + dterm, dt)
 
     if slewed:
         limited = AT_SLEW

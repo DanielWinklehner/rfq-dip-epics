@@ -72,9 +72,14 @@ u = Kp*e + I - Kd*d(pv_f)/dt        e = sp - pv        I += Ki*e*dt
   constant `dfilter`), not on the error: a set point step does not kick the output.
 - The output is clamped to `[outmin, outmax]`, then its change to `slew x dt`.
 - **Anti-windup: conditional integration.** The integral takes `Ki*e*dt` only as far as the
-  output stays within its limits, not at all while the slew limit holds the output back in the
-  direction of that step, and stays itself within `[outmin, outmax]`. After a long time at a
-  limit the output leaves it as soon as the error changes sign.
+  output stays within its limits; while the slew limit holds the output back in the direction of
+  that step, only as far as the output really moves (P + I + D then equals the output sent); and
+  it stays itself within `[outmin, outmax]`. So with a persistent error the output never stands
+  still between its limits: it moves at the slew rate, or slower when the terms ask for less.
+  And the integral is never ahead of the output sent: after a long time at a limit (output or
+  slew) the output leaves it as soon as the terms ask for less. (Until the review of 2026-11-22
+  the integral took no step at all at the slew limit: with `Ki*e` larger than the slew rate, the
+  output then stood still after a bumpless start, review point F8.)
 - **Bumpless.** At MANUAL to PID the integral is set so that the first output equals the
   actuator's present set point. A change of Kp or Kd moves the integral by the change of its
   term (no jump); Ki is inside the integral (no jump). A set point change moves the output by
@@ -149,7 +154,7 @@ records are disconnected; the IOC itself is gone, so nothing writes the actuator
 |---|---|---|---|
 | `value:setpoint` | 22 | A | owner, 2026-11-22 |
 | `spmax:setpoint` (set point maximum) | 23 | A | free choice, below the REK150-24's 24 A full scale (there the REK goes into constant current and the loop could only act downward); leaves 22 A a little room. TO BE CONFIRMED by the owner |
-| `spmin:setpoint` | 0 | A | free choice |
+| `spmin:setpoint` | 0 | A | free choice. Keep `spmin < spmax`: with `spmin >= spmax` neither the set point record nor the service clamps the set point, which is then unbounded (within what the output limits allow) |
 | `kp:setpoint` | 0.5 | A/A | model, ASSUMED: SIMC for gain 3.56 A/A (the model's steepest point), time constant 1.45 s, dead time about 0.3 s (TDK 0.1 s, plant step 0.1 s, polling and the period), closed-loop time constant 0.5 s: Kp = tau / (K (tau_c + theta)) |
 | `ki:setpoint` | 0.35 | A/A/s | model, ASSUMED: Ki = Kp / tau |
 | `kd:setpoint` | 0 | A s/A | model: a first-order plant needs no derivative |
