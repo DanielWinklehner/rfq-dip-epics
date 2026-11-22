@@ -266,6 +266,34 @@ def channel_roles(rule, keys):
     return channels
 
 
+# ----------------------------------------------------------------------------- logging
+def log_rules(rules):
+    """Every rule of the section logging as (name, {tier, reason})."""
+    out = [("pvs: %s" % k, v) for k, v in (rules.get("pvs") or {}).items()]
+    out += [("classes: %s" % k, v) for k, v in (rules.get("classes") or {}).items()]
+    out += [(k, rules[k]) for k in ("internal", "written") if k in rules]
+    out += [("roles: %s" % k, v) for k, v in (rules.get("roles") or {}).items()]
+    out += [("types: %s" % k, v) for k, v in (rules.get("types") or {}).items()]
+    return out
+
+
+def log_tier(rules, pv):
+    """(tier, reason, rule) of an existing PV, or None: the first rule of the section logging that
+    applies, in the order pvs, classes, internal, roles, written, types."""
+    candidates = [("pvs: " + pv["name"], (rules.get("pvs") or {}).get(pv["name"])),
+                  ("classes: %s" % pv.get("cls"), (rules.get("classes") or {}).get(pv.get("cls")))]
+    if pv.get("internal"):
+        candidates.append(("internal", rules.get("internal")))
+    candidates.append(("roles: %s" % pv.get("role"), (rules.get("roles") or {}).get(pv.get("role"))))
+    if pv["type"] in WRITE_TYPES:
+        candidates.append(("written", rules.get("written")))
+    candidates.append(("types: " + pv["type"], (rules.get("types") or {}).get(pv["type"])))
+    for rule, spec in candidates:
+        if isinstance(spec, dict) and "tier" in spec:
+            return spec["tier"], spec.get("reason", ""), rule
+    return None
+
+
 # ----------------------------------------------------------------------------- faults
 # Which records turn INVALID when a device stops answering. A record can change its severity only
 # when it is processed, so the rule first finds what keeps being processed during the fault, then
@@ -414,6 +442,7 @@ class Model:
         self._check()
         self._check_roles()
         self._check_loads()
+        self._assign_tiers()
         self.faults(lambda pv, port, unit: (port, unit))   # only for its warnings here
         self.warnings = list(dict.fromkeys(self.warnings))   # the same problem once, even if several devices load the file
 
@@ -662,6 +691,36 @@ class Model:
         for s in lines:
             self.warnings.append("%s: %s (%s) is claimed by no device or host in controls.yaml"
                                  % (s["where"], s["db"], fmt_macros(s["macros"])))
+
+    def _assign_tiers(self):
+        """The logging tier of every existing PV (section logging): pv["log"] = (tier, reason, rule).
+        A PV no rule covers, an unknown tier and a rule that names nothing are warnings."""
+        rules = self.d.get("logging") or {}
+        tiers = {t["id"] for t in self.d["software"]["tiers"] if t.get("id")} | {"none"}
+        names, classes = set(), set()
+        for owner in self.owners:
+            for pv in owner["pvs"]:
+                if pv["state"] != "existing":
+                    continue
+                names.add(pv["name"])
+                classes.add(pv.get("cls"))
+                found = log_tier(rules, pv)
+                if found is None:
+                    self.warnings.append("%s: PV %s (%s, role %s) has no logging tier. Add a rule under 'logging' in "
+                                         "controls.yaml" % (owner["id"], pv["name"], pv["type"], pv.get("role") or "none"))
+                    continue
+                pv["log"] = found
+        for rule, spec in log_rules(rules):
+            if not isinstance(spec, dict) or set(spec) != {"tier", "reason"}:
+                self.warnings.append("logging: rule %s needs exactly 'tier' and 'reason'" % rule)
+            elif spec["tier"] not in tiers:
+                self.warnings.append("logging: rule %s names tier %r; known: %s" % (rule, spec["tier"], ", ".join(sorted(tiers))))
+        for name in rules.get("pvs") or {}:
+            if name not in names:
+                self.warnings.append("logging: pvs names %s, which is no existing PV" % name)
+        for name in rules.get("classes") or {}:
+            if name not in classes:
+                self.warnings.append("logging: classes names %s, which no database has" % name)
 
     def public(self, owner):
         """The PVs of a device without its internal records."""
@@ -1183,6 +1242,15 @@ def build_docx(m, images, out_path):
     doc.add_heading("5.3  Data logging", level=2)
     table(["Tier", "What is stored", "Kept for", "Used for"], [[t["tier"], t["rate"], t["keep"], t["use"]] for t in sw["tiers"]], [2.4, 4.6, 2.4, 7.6])
     bullets(sw["archiver"])
+    para("Tier of each PV: the first rule that applies (controls.yaml, section logging). Number of PVs per rule:", size=10, label=True)
+    counts = {}
+    for owner in m.owners:
+        for pv in owner["pvs"]:
+            if pv.get("log"):
+                counts[pv["log"][2]] = counts.get(pv["log"][2], 0) + 1
+    table(["Rule", "Tier", "PVs", "Reason"], [[rule, spec["tier"], str(counts.get(rule, 0)), spec["reason"]]
+                                             for rule, spec in log_rules(m.d.get("logging") or {}) if isinstance(spec, dict)],
+          [4.4, 1.8, 1.2, 9.6])
     doc.add_heading("5.4  Control loops", level=2)
     bullets(sw["loops"])
 

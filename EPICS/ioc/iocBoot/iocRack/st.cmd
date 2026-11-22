@@ -22,6 +22,9 @@ iocshLoad("$(TOP)/iocBoot/$(IOC)/ports.$(MIST2_PORTS).cmd")
 
 dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-RACK")
 
+## State of the data logger (logger/), written by it over Channel Access once a second
+dbLoadRecords("$(MIST2_DB)/logger_status.db", "P=LOGGER")
+
 ## Devices
 ## Prefixes are those of the lab's IOC of 2023 (reference/lab-2023/EPICS/st.cmd).
 
