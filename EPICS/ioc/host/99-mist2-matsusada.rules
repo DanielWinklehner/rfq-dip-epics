@@ -1,7 +1,8 @@
 # 99-mist2-matsusada.rules - Matsusada USB adapters of the rack computer on Linux
 #
 # The CO-U32 holds an FTDI USB-serial chip that reports Matsusada's own USB ID, 1192:1000
-# (Matsusada driver CD rev. 1.7.0: MTPBUS.inf, MTPPORT.inf; the owner's notes of about 2016).
+# (Matsusada driver CD rev. 1.7.0 and driver package rev. 2.12.36.20: MTPBUS.inf, MTPPORT.inf;
+# the owner's notes of about 2016). Both packages name this one ID only.
 # The kernel's FTDI driver (ftdi_sio) drives the chip but does not list that ID, so the adapter
 # gets no serial device by itself. Rule 1 names the ID to the driver. Rule 3 gives the adapter
 # the name that iocBoot/iocRack/ports.real.cmd opens.
@@ -16,5 +17,6 @@ ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="11
 # 2. Only the IOC talks on this line: ModemManager, where installed, must not probe it.
 ATTRS{idVendor}=="1192", ATTRS{idProduct}=="1000", ENV{ID_MM_DEVICE_IGNORE}="1"
 
-# 3. Fixed name, by the serial number of the adapter. CO001144 is the CO-U32.
+# 3. Fixed name, by the serial number of the adapter. CO001144 is the CO-U32. The USB-OPT gets
+#    its line (mist2/usb-opt) when its serial number is known.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1192", ATTRS{idProduct}=="1000", ATTRS{serial}=="CO001144", SYMLINK+="mist2/co-u32"

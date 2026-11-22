@@ -10,6 +10,7 @@ through a pseudo serial port.
 |---|---|
 | The CO-U32 holds an FTDI USB-serial chip. Matsusada's Windows driver is FTDI's driver 2.08.28 with two INF files that name Matsusada's USB ID | Matsusada driver CD rev. 1.7.0: `Drivers/MTPBUS.inf`, `Drivers/MTPPORT.inf`, installation guide section 1-2 |
 | USB ID: vendor `1192`, product `1000` | The same INF files, and the owner's notes of about 2016 (`setVIDPID(0x1192, 0x1000)` on a Raspberry Pi) |
+| Matsusada's current driver package is still FTDI's driver (2.12.36.20 of 2024) and still names this one ID only | `mp_-lus1_usb-driver_for_win10-11_rev.2.12.36.20.zip` from Matsusada's web page, downloaded by the owner on 2026-11-22: `mtpbus.inf`, `mtpport.inf` |
 | Serial number of the CO-U32: `CO001144` | The owner's notes |
 | Line: 9600 baud, 8 data bits, no parity, 1 stop bit, no flow control. A command ends with CR | Matsusada's sample programs, the owner's notes, `EPICS/Db/matsusada_co_ctrl.proto` |
 | Every entry of the INF's baud rate table is the plain FTDI divisor (9600 baud is 3 MHz / 312.5), so 9600 baud means the same on Linux | `MTPPORT.inf`, `ConfigData` |
@@ -64,6 +65,19 @@ The check may also work in WSL2: the WSL kernel 6.18 has `ftdi_sio` as a module 
 Windows must hand the adapter to WSL with `usbipd-win`, which is not installed on the
 development PC. Not tried.
 
+## Read the IDs and serial numbers on the Windows IOC
+
+Both open questions (A29, P34) can be answered on the rack PC as it is, in PowerShell:
+
+```powershell
+Get-PnpDevice | Where-Object InstanceId -match 'VID_1192' | Format-Table Status, FriendlyName, InstanceId -AutoSize
+```
+
+It reads the device list and changes nothing. An instance ID has the form
+`USB\VID_1192&PID_1000\<serial number>`. Adapters that were installed once and are not
+plugged in are listed too. The command was run on the development PC, which has no such
+device: it lists nothing there.
+
 ## Reply time and the latency timer
 
 An FTDI chip hands a short reply to the computer when its latency timer runs out. The timer is
@@ -76,9 +90,11 @@ can do. It is not set here: measure first.
 
 - Whether the adapter in the rack is the one with the serial number `CO001144`, and whether it
   reports `1192:1000` (assumption A29 in `docs/emulation/STATUS.md`). Steps 1 and 3 show both.
-- The USB-OPT: its USB ID, its chip and its serial number. The driver CD is of 2017 and does
-  not name it. If `lsusb` shows `1192:1000` for it too, it needs one more line like rule 3,
-  with its serial number and the name `mist2/usb-opt`. If it shows another ID and holds an FTDI
-  chip, rules 1 and 2 need that ID as well. Otherwise: the decision tree in
-  `plan/CO-U32_driver_brief.md`.
+- The USB-OPT: its serial number, and for certain its USB ID. Neither driver package names
+  the USB-OPT. Matsusada's current package binds to `1192:1000` and to nothing else, so if it
+  is the driver of the USB-OPT (the owner's belief; Matsusada's web site refused an automated
+  request, so it was not read there), the USB-OPT reports the same ID and rules 1 and 2 cover
+  it already. It then needs one more line like rule 3, with its serial number and the name
+  `mist2/usb-opt`. If it shows another ID and holds an FTDI chip, rules 1 and 2 need that ID
+  as well. Otherwise: the decision tree in `plan/CO-U32_driver_brief.md`.
 - Which FTDI chip the CO-U32 holds. The driver finds that out by itself.

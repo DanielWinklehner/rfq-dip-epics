@@ -15,7 +15,7 @@
 on error break
 
 # Matsusada AU supplies, optical chain behind the USB-OPT adapter (source, puller)
-# Device name: no udev rule yet, the USB ID and serial number of the USB-OPT are not known
+# Device name: no udev rule yet, the serial number of the USB-OPT is not known
 drvAsynSerialPortConfigure("mat_opt","/dev/mist2/usb-opt")
 asynSetOption("mat_opt",-1,"baud","9600")
 asynSetOption("mat_opt",-1,"bits","8")
