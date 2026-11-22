@@ -44,7 +44,7 @@ are run from the repository root.
 | Command | What it does |
 |---|---|
 | `make -C emulation build` | Builds the images: EPICS base R7.0.10, asyn R4-46, StreamDevice 2.8.26, the IOC application, and the tools image. Takes several minutes the first time |
-| `make -C emulation up` | Starts four containers and waits until both IOCs answer |
+| `make -C emulation up` | Starts five containers and waits until both IOCs answer |
 | `make -C emulation ca-proof` | Checks that both IOCs are reachable and that their logs have no error |
 | `make -C emulation down` | Stops and removes everything, the plant model included |
 | `make -C emulation restart` | Restarts the IOCs after an edit in `EPICS/Db` or `EPICS/ioc/iocBoot`. The simulators keep running, as the devices do when a control computer restarts. After a change of a simulator: `down`, then `up` |
@@ -57,6 +57,7 @@ are run from the repository root.
 | `sim-rack` | 172.30.0.21 | Simulators of everything cabled to the rack computer |
 | `sim-hv` | 172.30.0.22 | Simulators of the platform devices |
 | `plant` | 172.30.0.30 | Plant model, only on request (section 6) |
+| `loop` | 172.30.0.40 | The loop service (`loops/mist2loop`): the PID of the discharge current loop, a Channel Access client of the platform IOC |
 
 If `172.30.0.0/24` collides with a network of yours: `export MIST2_SUBNET=172.31.5` before `up`.
 
@@ -87,10 +88,12 @@ defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them a
 
 | Command | What it proves | Time |
 |---|---|---|
-| `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock latch across both IOCs, local control, the update rates against the bus arithmetic. Starts the emulation if needed | about 9 min |
+| `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock latch across both IOCs, a lost permit (the rack IOC stopped or silent), the control loop's switching, hand-backs and backstop, local control, the update rates against the bus arithmetic. Starts the emulation if needed Fails when a run changes an IOC's saved settings | about 11.5 min |
 | `make -C emulation test ARGS="-k valve"` | A part of it | |
 | `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `turbo`, `libcom1_devices` | 10 s to 4 min |
 | `emulation/sim/run_tests.sh` | The simulators without an IOC, and the libcom1 simulator against the real library | 1 min |
+| `make -C emulation test-loop` | The discharge current loop closed on the plant model: bumpless switching, set point steps, a disturbance, limits, a hand-back. Prints a table (`docs/emulation/LOOP.md` section 6) | 5 min |
+| `python3 -m unittest discover -s loops/tests -t loops` | The loop's algorithm and logic alone, without EPICS, including a closed loop on a small plant in Python | 1 s |
 | `make -C emulation plan-check` | `plan/controls.yaml`, the databases and both `st.cmd` files agree | 10 s |
 
 The system tests take devices and PV names from the registry. What each test module proves and
@@ -202,9 +205,10 @@ Matsusada CO-U32 has its udev rule and a read-only probe, both not tested on har
 | `EPICS/Db/` | Databases and protocol files, shared by emulation and reality |
 | `EPICS/ioc/` | EPICS application and the startup files of both IOCs |
 | `EPICS/ioc/host/` | Setup of the real rack computer on Linux: udev rule and probe for the Matsusada adapter |
+| `loops/` | The loop service (Python): algorithm, service, unit tests, systemd unit. Design and operation: `docs/emulation/LOOP.md` |
 | `emulation/` | Images, Compose file, simulators, test cases, system tests |
 | `emulation/sim/config/` | Which simulator stands behind which port, with all assumed values marked |
 | `plan/` | `controls.yaml`, the single source of truth, and its generators |
 | `RAS/mist2/` | The new GUI. `RAS/IsoDAR/` is the old one |
 | `reference/lab-2023/` | The lab's files of 2023, read-only |
-| `docs/emulation/` | This file, design, status, plan, briefs, GUI layout proposal |
+| `docs/emulation/` | This file, design, status, plan, briefs, GUI layout proposal, the control loop (`LOOP.md`) |

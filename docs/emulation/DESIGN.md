@@ -39,6 +39,8 @@ database edit plus one regeneration.
         │      │ TCP                                 │ TCP                           │
         │  sim-rack  .21                         sim-hv  .22          plant .30      │
         │  one simulator process per bus/device  (same)               (step 2)       │
+        │                                        loop  .40  (Channel Access client   │
+        │                                        of ioc-hv: the PID, since rev 0.11) │
         └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -51,6 +53,9 @@ database edit plus one regeneration.
 - **Simulators run in their own containers** (`sim-rack`, `sim-hv`), not inside the IOC
   containers. The IOC image then holds exactly what the real IOC holds, `docker pause sim-hv`
   unplugs a whole platform, and Ethernet devices (Optas) are separate hosts as in reality.
+- **The loop service** (`loops/mist2loop`, added 2026-11-22) is one more container, `loop`. On
+  the real platform computer it runs beside the IOC. Its records are in `ioc-hv`
+  (`docs/emulation/LOOP.md`).
 - **One image for both IOCs**: EPICS base 7, asyn, unmodified StreamDevice, and one IOC
   application built from a new EPICS top in `EPICS/ioc/`. `EPICS/Db` is mounted into the
   containers, so a database edit needs an IOC restart, not an image build.

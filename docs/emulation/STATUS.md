@@ -6,12 +6,13 @@ nothing is pushed.
 Everything is built and merged. The system suite and the GUI check pass on the final state.
 Nothing is running.
 
-A second round is running: the PID loop, then the logger (see "Running").
+Second round: the discharge current loop is built and merged (2026-11-22). The GUI round
+(the loop's widget and two changes you asked for) and the logger are running (see "Running").
+The GUI check does not pass in between: the GUI has no widget for the loop yet.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
-on hardware. Data logging, the control loops and the PDF printout are not built: the task
-named them as later additions.
+on hardware. The PDF printout is not built: the task named it as a later addition.
 
 ## "Done" as the task defines it
 
@@ -142,52 +143,65 @@ named them as later additions.
   rule covers it; only its serial number is missing for the name `/dev/mist2/usb-opt`.
 - Install and the five check steps with the adapter: `EPICS/ioc/host/README.md`.
 
+**Discharge current loop** (`EPICS/Db/loop.db`, `loops/`, design and operation in `LOOP.md`; subagent, three rounds, merged 2026-11-22)
+- What it is: the PID runs in a Python service (`loops/mist2loop`, pyepics) beside the platform
+  IOC, as you decided. The loop's records `LOOP-DIS:*` are plain records in `iocHV`. They are
+  the operator's interface and a backstop that holds without the service: the filament current
+  is written only in PID, never by more than the slew limit per step, never away from the
+  output limits, never again after someone else wrote it, and the mode goes to MANUAL with a
+  MAJOR alarm when the service's counter stands still.
+- It hands back to MANUAL by itself, with the reason as a word: interlock open, REK not on in
+  remote, TDK output off, a PV without data or not connected, stale data, the operator wrote
+  the TDK set point, the TDK refused a set, the service stopped, any start. A request for PID
+  is refused for the same reasons. Nothing returns to PID by itself.
+- Settings are records saved by autosave: set point 22 A (your answer 20), its limits, gains,
+  output limits, slew, two times. The defaults and where each comes from: `LOOP.md` section 5.
+  Everything that is not yours there is an assumption (A30 to A35).
+- Run by the lead on the merged code (`594547c`): 28 unit tests of the algorithm and of the
+  loop's logic; the build; the system suite (269 passed in 692 s); the closed-loop test on the
+  plant model (`make -C emulation test-loop`, 282 s); the plan check. Nothing left running.
+- By hand on the emulation with the plant model, by the lead: MANUAL to PID without a bump;
+  20 A to 22 A in about 8 s; 18 A to 22 A in about 8 s; a lowered output maximum is followed at
+  the slew rate; a lowered set point maximum brings the set point and the loop down; your own
+  write to the TDK set point hands back and is not overwritten; killed, stopped and restarted
+  service; the rack IOC stopped (MANUAL after 0.3 s) and paused (after about 8 s).
+- Numbers on the plant MODEL, not on MIST-2 (last run): step 20 to 22 A with 1.8 s rise time,
+  0.7 % overshoot, settled in 4 s; an emission drift of 5 % per minute held within 0.034 A; a
+  set point the supply cannot reach ends at the output maximum with a flag and comes back;
+  1 write per second to the TDK, its read-back rate unchanged at 10 per second.
+- Three things the lead's hand checks found that the subagent's own tests had passed, all
+  fixed and now tested: a limit changed in PID left the filament current stuck; a stopped rack
+  IOC was not noticed; with an error above about 2.9 A (Ki times the error above the slew
+  rate) the loop went to PID and did nothing. The last one would have looked like "the loop
+  does not work" on the machine. The unit tests now close the loop on a small plant in Python
+  for steps of 2 A and 6 A.
+- **The discharge supply's own interlock was wrong and is fixed with it (P35):** with the rack
+  IOC stopped, the REK's request was cleared but its output stayed on until the rack IOC
+  returned. Now the output is off 0.1 s after a stop and about 8 s after a rack IOC that goes
+  silent. `rek.db` and `matsusada_au20p7.db` carry the same change; only the REK takes its
+  permit from another IOC, so only the REK is tested for a lost link. Cause, in EPICS base
+  7.0.10: a record is not processed when its CP link disconnects, and a calc record keeps its
+  last value when an input link fails.
+- The platform IOC's Channel Access timeout is 5 s instead of the default 30 s (A34), so that
+  a silent rack computer is noticed in seconds.
+- Not done: the installation on the platform computer (written in `loops/README.md`, not
+  tried); the GUI widget (running, T16); gains measured on the machine (`LOOP.md` section 7
+  says how).
+
 ## Running
 
-Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work plan:
-`PLAN.md`, tasks T15 to T17).
+Second round, ordered by you on 2026-11-22 (work plan: `PLAN.md`, tasks T15 to T17). Two
+subagents on Opus 5.5 work side by side in the worktrees `.claude/worktrees/t16` and `t17` and
+share the emulation through the lock `/tmp/mist2emu.lock`.
 
-- T15, the discharge current loop: the subagent (Opus 5.5, worktree `.claude/worktrees/t15`)
-  reported a Python service with the loop's records in the platform IOC, as you decided
-  (answer 21, `briefs/T15b-loop-python.md`). Not merged yet. What I checked myself on its branch
-  at `3a357de`: the five acceptance commands (13 unit tests, the build, 261 system tests in
-  636 s, the closed-loop test on the plant model, the plan check; nothing left running), and by
-  hand on the emulation with the plant: the source to 20 A in MANUAL, MANUAL to PID without a
-  bump, 22 A reached in about 8 s; a write of the operator to the TDK set point, a killed
-  service, a stopped service, a restart, a refused request: all hand back or refuse with the
-  right reason.
-- The same hand session found two defects of the loop and one of the discharge supply, sent
-  back with four smaller points (seven in all). The subagent fixed them (branch at `eed9a2e`),
-  and I checked each one myself: the five acceptance commands again (24 unit tests, 269 system
-  tests in 703 s, the closed-loop test, the plan check) and by hand on the plant.
-  1. A limit changed in PID below the present filament current left the filament current where
-     it was. Now it follows to the new limit at the slew rate.
-  2. With the rack IOC stopped, the loop's interlock condition kept reading "fulfilled" and the
-     loop stayed in PID. Now: "no data" and MANUAL 0.3 s after a stop, about 8 s after the rack
-     IOC goes silent without closing its connection (`docker pause`). The cause is in EPICS
-     base 7.0.10: a record is not processed when its CP link disconnects (`dbCa.c`,
-     `dbCaTask`), and a calc record keeps its last value when an input link fails.
-  3. **The discharge supply, not the loop (open point P35):** with the rack IOC stopped the REK
-     output stayed on although its request was cleared. Now it is off 0.1 s after a stop and
-     about 8 s after a silent rack IOC, and nothing comes back when the rack IOC returns.
-     `rek.db` and `matsusada_au20p7.db` got the same change.
-  4. Smaller: the permit records carry no alarm while a supply is simply off and read as words;
-     role names that collided with the GUI's are renamed; the set point limits are records
-     (`LOOP-DIS:spmin:setpoint`, `spmax:setpoint`); the service counts a cycle only when it
-     completed.
-- **Still open before the merge (second fix round, running):** with a large error the loop goes
-  to PID and does nothing. Seen by hand with the default settings: MANUAL at 18 A, set point
-  22 A, then PID: the output stands still, flag "free", for as long as I watched. The
-  anti-windup at the slew limit takes the whole integral step back when it is larger than the
-  slew room (threshold: Ki times the error above the slew rate), and the tests only stepped by
-  2 A, just under it. Also: a run left the slew setting at 0.5 A/s instead of 1 in the
-  emulation's saved settings.
-- T16, the GUI round (`briefs/T16-loop-gui.md`: the loop's widget, values set in place on the
-  drawings, tabs as windows; your answers 23 and 24), and T17, the logger
-  (`briefs/T17-logger.md`), start when the loop is merged. They run side by side in two
-  worktrees and share the emulation through the lock `/tmp/mist2emu.lock`.
-- The logger is built on TimescaleDB, my recommendation, unless you answer question 9 otherwise
-  before it starts.
+- T16, the GUI round (`briefs/T16-loop-gui.md`): the loop's widget and its place on the plasma
+  generator page; set points and requests set in place in the tags of every drawing; tabs that
+  open as windows of their own and come back (your answers 23 and 24).
+- T17, the logger (`briefs/T17-logger.md`): TimescaleDB behind a Channel Access logger of our
+  own, Grafana, the three tiers and the event log of the plan, status records in the rack IOC.
+  Built on my recommendation of question 9, which you did not answer otherwise.
+- After both: the GUI check on the merged whole, then your comments on the drawings
+  (answer 25).
 
 ## Open
 
@@ -270,7 +284,10 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
    minimum and maximum per second and per minute, each with its own life time), and the
    history is one SQL query away from Python. The Archiver Appliance is the community
    standard and RAS has a viewer for it, but it reduces data with one operator per store, and
-   it is more to install. Without an answer I build the first when the loop is merged.
+   it is more to install. The first is being built now (T17), as announced.
+10. The loop's settings that are not yours (A30 to A35): set point maximum 23 A, filament
+    current between 80 and 90 A, at most 1 A/s, hand-back times, the 5 s Channel Access
+    timeout of the platform IOC. And the Ubuntu version of the mini PC (`lsb_release -a`).
 
 ## Not verified
 
@@ -285,6 +302,11 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 - The udev rule and the probe of `EPICS/ioc/host/` with the real adapter. The rule was checked
   for its syntax only: whether `ftdi_sio` takes the adapter and `/dev/mist2/co-u32` appears
   can only be seen with the adapter plugged in.
+- The loop on the machine: every number of it comes from the plant model. The loop service
+  on the platform computer (installation written, not tried), on Python 3.8 (run on 3.10 and
+  3.12), and its systemd unit.
+- A lost permit link for the AU supplies: their permit is in their own IOC, where a link
+  cannot be lost. They carry the same records as the REK, which is tested.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
   keeps its last 3000 values, which is 5 minutes of a value that changes ten times a second.
 
@@ -316,6 +338,11 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
 | Subagents share the one emulation through a lock file | The Compose project uses fixed names and a fixed network, so only one copy can run |
 | The CO-U32 on Linux through the kernel's FTDI driver and a udev rule, not through FTDI's D2XX library | The chip is a standard FTDI part under a vendor ID. With the kernel driver the adapter is a plain serial device: asyn, the protocol file and `ports.real.cmd` stay as they are, and nothing runs with root rights |
 | The PID runs in a Python service, the loop's records in the platform IOC (your decision, answer 21). The IOC records also enforce output limits, slew limit, "write only in PID" and "manual when the service stops" | The loop acts on a time scale of a second, your group changes Python and not C, and the later steps are Python. The backstop in the IOC covers what that choice costs: an algorithm in a process that can stop or misbehave |
+| The actuator is written by one record of the IOC (`LOOP-DIS:_write`), not by the service | One place enforces limits, slew and "only in PID", whatever the service sends |
+| Anti-windup by conditional integration: the integral takes its step only as far as the output stays within its limits and only as far as the output really moves at the slew limit | No extra parameter, and the integral is never ahead of the output that was sent. A first version took no step at all at the slew limit and stalled |
+| A permit of a loop or of a supply is read by a scanned record of its own, not directly by the calculation | EPICS does not process a record when its CP link disconnects, and a calc keeps its last value when an input fails. A scanned reader turns INVALID at its next scan |
+| `EPICS_CA_CONN_TMO` of the platform IOC is 5 s, not the default 30 s | A rack computer that dies without closing its connections is noticed after about 8 s instead of about a minute. On the one fiber between two computers nothing speaks against it |
+| The loop's permit conditions carry no alarm while they are simply not fulfilled | An off supply is a normal state everywhere else in the system. The reason of a hand-back says when a condition mattered |
 
 ## Assumptions that need your confirmation
 
@@ -350,11 +377,18 @@ A19 (the output gate is wanted, and it latches).
 | A27 | My reading of your answer 10: the limit PV is `current:limit`, the lab's name stays as an alias, the defaults file is `limits.defaults` per IOC, and a change from the GUI is saved to a second file that overrides the defaults at the next start. The defaults file itself is not rewritten | Your answer, autosave's way of working | You |
 | A28 | The turbopump reaches its speed in 60 s in the simulator. The data sheet says about 9 minutes | Free choice, so that a desk session does not wait | Say so if you want the real time |
 | A29 | The CO-U32 in the rack is the adapter of your notes of about 2016: serial number `CO001144`, USB ID `1192:1000` | Your notes, and Matsusada's driver CD rev. 1.7.0 for the ID | `lsusb -v` with the adapter plugged in |
+| A30 | Set point maximum of the discharge loop: 23 A | Free choice, below the 24 A full scale of the REK150-24 | You |
+| A31 | Filament current under the loop: 80 to 90 A, at most 1 A/s | 90 A is your working point of 2026-11-21. 80 A and 1 A/s are free choices | You |
+| A32 | Default gains Kp 0.5 A/A, Ki 0.35 A/A/s, Kd 0 | From the plant model (gain 3.56 A/A, time constant 1.45 s), not from MIST-2 | A step response on the machine, `LOOP.md` section 7 |
+| A33 | Hand-back after 3 s of stale data, MANUAL after 2 s without the service, period 0.2 s | Free choices; the period from the model's time constant and the TDK line's load | You, the machine |
+| A34 | Channel Access timeout of the platform IOC: 5 s | Free choice (default 30 s) | You, the network between the two computers |
+| A35 | The loop service installs on the mini PC: Python 3.8 or later, pyepics 3.5.8, user `mist2`, `/opt/mist2` | Written for Ubuntu, not tried. Variant and version unknown (A22) | `lsb_release -a` on the mini PC, then the steps of `loops/README.md` |
 
 ## Open points
 
 Closed by your answers or by later work and removed from this table: P1, P2, P4, P8, P16, P17,
-P18, P19, P20, P22.
+P18, P19, P20, P22, P35 (the REK output with the rack IOC stopped: fixed with the loop, see
+"Done").
 
 | # | Point | Needs |
 |---|---|---|
@@ -379,10 +413,10 @@ P18, P19, P20, P22.
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver |
-| P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
+| P32 | The system suite takes about 11.5 minutes with the loop tests. The limit set for it is now 13 | Later, if it grows: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
-| P35 | With the rack IOC stopped the REK output stays on although its request is cleared, and is switched off only when the rack IOC returns. Found by hand on 2026-11-22 while checking the loop; the hardware interlock does not depend on it. Cause: a calc record keeps its last value when its permit link fails (EPICS base 7.0.10) | Fixed on the loop's branch (not merged yet) and checked by me by hand: off 0.1 s after a stop, about 8 s after a silent rack IOC; system tests `test_10_lost_permit.py` |
+| P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
 
 ## Found in RAS V8.1.0
 
