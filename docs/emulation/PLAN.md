@@ -53,6 +53,17 @@ G1 ─► T1 ─┬─► T3 ─┐
 
 T1, T2, T9 and T14 run in parallel. T3 to T6 run in parallel after T1 and T2.
 
+## Second round: control loop and data logging (from 2026-11-22)
+
+The owner's order: the PID loop first, then the logger. The tasks run one after the other, so
+each may touch the shared files (`compose.yaml`, `plan/controls.yaml`, the test suite).
+
+| Id | Task | Owns | Depends on | Acceptance test |
+|---|---|---|---|---|
+| T15 | Loop IOC: PID algorithm, loop database, `iocLoop`, tests, plan and registry | `EPICS/ioc/mist2App/src/`, `EPICS/Db/loop*.db`, `EPICS/ioc/iocBoot/iocLoop/`, the emulation's shared files, `plan/`, `docs/emulation/LOOP.md` | none | Unit tests of the algorithm; `make test` with the third IOC and every hand-back; closed loop on the plant model |
+| T16 | GUI for the loop: widget of the class `loop`, its place on the plasma page, GUI check | `RAS/mist2/ReactApp/src/`, `RAS/mist2/tools/` | T15 | `gui-check.sh` passes with the loop shown and operated |
+| T17 | Data logger: retention tiers in the plan, generated PV list, logger service, store, tests | to be fixed with the design | the owner's choice of the archiver | to be fixed with the design |
+
 ## What every brief contains
 
 The briefs as sent are in [briefs/](briefs/).
