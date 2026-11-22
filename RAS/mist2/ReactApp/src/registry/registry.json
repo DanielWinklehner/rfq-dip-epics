@@ -460,6 +460,18 @@
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
      "readback": "REK-1:read_output_status"
     },
+    "REK-1:_permit:read": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Output permit as seen here (internal)",
+     "internal": true,
+     "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
+     ]
+    },
     "REK-1:OutputIntlk": {
      "type": "calcout",
      "access": "r",
@@ -1513,6 +1525,18 @@
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
      "readback": "AU-20P7-1:read_output_status"
     },
+    "AU-20P7-1:_permit:read": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Output permit as seen here (internal)",
+     "internal": true,
+     "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
+     ]
+    },
     "AU-20P7-1:OutputIntlk": {
      "type": "calcout",
      "access": "r",
@@ -1818,6 +1842,18 @@
      "ack": false,
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
      "readback": "AU-20P7-2:read_output_status"
+    },
+    "AU-20P7-2:_permit:read": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Output permit as seen here (internal)",
+     "internal": true,
+     "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
+     ]
     },
     "AU-20P7-2:OutputIntlk": {
      "type": "calcout",
@@ -2125,6 +2161,18 @@
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
      "readback": "AU-20P7-3:read_output_status"
     },
+    "AU-20P7-3:_permit:read": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Output permit as seen here (internal)",
+     "internal": true,
+     "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
+     ]
+    },
     "AU-20P7-3:OutputIntlk": {
      "type": "calcout",
      "access": "r",
@@ -2430,6 +2478,18 @@
      "ack": false,
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
      "readback": "AU-20P7-4:read_output_status"
+    },
+    "AU-20P7-4:_permit:read": {
+     "type": "ai",
+     "access": "r",
+     "desc": "Output permit as seen here (internal)",
+     "internal": true,
+     "fails_with": [
+      "interlockbox"
+     ],
+     "fails_closed": [
+      "interlockbox"
+     ]
     },
     "AU-20P7-4:OutputIntlk": {
      "type": "calcout",

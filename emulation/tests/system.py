@@ -111,12 +111,13 @@ class Registry:
         return name, (int(unit) if unit else None)
 
     def gate_record(self, device):
-        """The internal record of a supply that the interlock box's silence fails: the permit
-        gate (OutputIntlk). None for a device without one."""
+        """The internal calcout of a supply that the interlock box's silence fails: the permit
+        gate (OutputIntlk; its mirror of the permit, an ai, fails as well). None for a device
+        without one."""
         ilk = [n for n, d in self.devices.items() if d["class"] == "interlock"]
         sims = {s for d in ilk for s in self.devices[d]["simulators"]}
         found = [n for n, s in self.devices[device]["pvs"].items()
-                 if s.get("internal") and sims & set(s.get("fails_with", []))]
+                 if s.get("internal") and s["type"] == "calcout" and sims & set(s.get("fails_with", []))]
         return found[0] if len(found) == 1 else None
 
     def ioc_address(self, ioc):
@@ -418,7 +419,7 @@ _request_count = [0]
 
 
 def container(action, service, timeout=60.0):
-    """docker compose stop, start or restart of an IOC service. The tools container has no Docker:
+    """docker compose stop, start, restart, kill, pause or unpause of a service. The tools container has no Docker:
     run.sh executes the request on the host (see its header). Returns the seconds it took."""
     _request_count[0] += 1
     name = REQUESTS / ("%d-%d" % (os.getpid(), _request_count[0]))

@@ -28,6 +28,7 @@ state found, restore at the end, also after a failure).
 | `test_08_local.py` | One AU supply and the REK: the front panel takes local control, status:read shows it (MINOR) through status polls, a voltage set ends INVALID and is not executed, switching from the control system takes control back |
 | `test_07_update_rate.py` | Monitor update rate of the polled AU supplies of both chains and of the TDK, by Channel Access and by the simulator's counts, within 10 % of the bus arithmetic with even shares |
 | `test_09_loop.py` | The control loops (`docs/emulation/LOOP.md`), without the plant: every setting written and read back, the set point limits clamp; PID refused while a permit fails, with stale data, outside the output limits, with the service stopped (R5); each hand-back from PID with its reason and time limit, request back at MANUAL, actuator left where it was (permits, measurement INVALID, permit without data, stale heartbeat, someone else writes the actuator, the actuator does not accept a set, the service killed); a restart of the service and of the IOC end in MANUAL; the backstop with a test client in the service's place: no value outside the output limits, no step above slew x DT, no write in MANUAL, none from outside the limits, none after someone else wrote, MANUAL when the client stops counting |
+| `test_10_lost_permit.py` | A lost permit (the rack IOC stopped: its connection closes; paused: it goes silent): the REK, which takes its permit from the rack IOC, switches off, its request is cleared, a request while lost is cleared at once, nothing comes back when the permit returns; a platform IOC started while the rack IOC is down cannot switch the REK on. The AU supplies have the same records but their permit is in their own IOC |
 | `test_99_clean_end.py` | No fault and no held signal in any simulator, outputs off, valves closed, pumps stopped, set points as found, every PV back to its severity, every loop in MANUAL |
 
 ## Time limits and where they come from
@@ -52,6 +53,7 @@ state found, restore at the end, also after a failure).
 | Listed PVs stay INVALID | 1; 8 for Matsusada `close` | two watchdog restarts of the monitor cycle (POLL_LIMIT 30 x 0.1 s) |
 | No INVALID before a fault | 1 | the previous test's device has settled |
 | Door to output off / back | 3 / 5 | permit CP link, OutputIntlk scan 1 s, switching protocol PRIO HIGH |
+| Permit lost: connection closed / peer silent | 2 / 13 | the mirror `_permit:read` scans every 0.1 s / `EPICS_CA_CONN_TMO` 5 s of the platform IOC, then an echo unanswered for another 5 s (measured 0.4 to 0.6 s and 9.8 to 10.0 s) |
 | Loop: refusal | 1 | the service reads the request by monitor, decides in its next cycle (0.2 s) |
 | Loop: hand-back, interlock / supply off | 1 / 2.5 | interlock box polled every 0.1 s / output state polled every 1 s, then one cycle |
 | Loop: hand-back, measurement INVALID / permit without data | 2 / 3 | REK monitors at 10 Hz, reply timeout 150 ms / interlock box reply timeout 1 s |

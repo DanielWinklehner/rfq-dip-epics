@@ -174,6 +174,7 @@ devices:
       - "Replaced by the REK150-55."
       - "Assumed (A7): unit 1 on its own port, 9600 baud, as in the repository's st.cmd."
       - "The output follows the permit interlock_open of the rack IOC, read over Channel Access (macro PERMIT), and latches (owner, 2026-11-21): see the ion source supply for the behaviour, which is the same in rek.db."
+      - "A lost permit (the rack IOC stopped or silent) switches the output off as an open one does: the gate reads the permit through its own record REK-1:_permit:read, scanned every 0.1 s, which turns INVALID when the link is lost (a lost Channel Access link neither processes its record nor reaches a calculation). A silent rack IOC is noticed after EPICS_CA_CONN_TMO (5 s, iocHV/st.cmd) and an unanswered echo: about 10 s."
       - "Current limit REK-1:current:limit (alias current:setpoint, the lab's name), restored by autosave. Default in EPICS/ioc/iocBoot/iocHV/limits.defaults: 24 A, the full scale, not a limit for operation (to be set by the owner)."
 
   - id: fil_dis_new
@@ -1009,7 +1010,7 @@ databases:
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
-               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch",
+               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
                "_out:switch", "_out:limit", "_out:remote"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)
@@ -1036,7 +1037,7 @@ databases:
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
-               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch",
+               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
                "_out:switch", "_out:limit", "_out:remote"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)

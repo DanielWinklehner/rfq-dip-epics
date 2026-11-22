@@ -12,6 +12,13 @@
 on error break
 
 epicsEnvSet("MIST2_DB", "$(TOP)/../Db")
+
+## Channel Access links to other IOCs (the permit interlock_open of the rack IOC): a peer that
+## goes silent without closing its connection is noticed after EPICS_CA_CONN_TMO seconds and an
+## echo. Our choice: 5 s instead of the default 30 s, so that a lost permit switches the REK off
+## and hands a control loop back within seconds (docs/emulation/LOOP.md). Must be set before
+## iocInit, which starts the links.
+epicsEnvSet("EPICS_CA_CONN_TMO", "5")
 epicsEnvSet("STREAM_PROTOCOL_PATH", "$(MIST2_DB)")
 
 dbLoadDatabase("$(TOP)/dbd/mist2.dbd")

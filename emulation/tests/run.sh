@@ -11,7 +11,7 @@
 #
 # While the suite runs it also stops, starts and restarts IOC containers when a test asks for it
 # (system.py, container()): the tools container has no Docker. A test writes one line
-# "<stop|start|restart|kill> <service>" into emulation/build/docker-requests/<id>.req; this script
+# "<stop|start|restart|kill|pause|unpause> <service>" into emulation/build/docker-requests/<id>.req; this script
 # runs it with docker compose, writes "<exit code> <output>" into <id>.done, and follows the log
 # of a started container again. Only the IOC services and the loop service are accepted.
 #
@@ -71,7 +71,7 @@ for s in "${SERVICES[@]}"; do
     followers+=($!)
 done
 
-# Requests of the tests to stop, start, restart or kill a container (header).
+# Requests of the tests to stop, start, restart, kill, pause or unpause a container (header).
 serve_requests() {
     local req id action service rest out status
     while sleep 0.2; do
@@ -80,9 +80,9 @@ serve_requests() {
             id=${req%.req}
             read -r action service rest < "$req"
             rm -f "$req"
-            case "$action" in stop|start|restart|kill) ;; *) action="";; esac
+            case "$action" in stop|start|restart|kill|pause|unpause) ;; *) action="";; esac
             if [ -z "$action" ] || [ -n "$rest" ] || [[ "$CONTROLLED" != *" $service "* ]]; then
-                echo "2 refused: only stop, start, restart or kill of$CONTROLLED" > "$id.tmp"
+                echo "2 refused: only stop, start, restart, kill, pause or unpause of$CONTROLLED" > "$id.tmp"
             else
                 since=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
                 out=$("${COMPOSE[@]}" "$action" "$service" 2>&1); status=$?
