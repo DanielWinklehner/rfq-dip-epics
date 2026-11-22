@@ -43,9 +43,13 @@ def is_switch(name):
     return spec["type"] in ("bo", "mbbo") or (spec.get("role") == "cmd" and "channel" in spec)
 
 
-def write_values(name):
+def write_values(name, cap=None):
+    """Two values inside the test range (below `cap`, the largest value the device can reach
+    now, where one is known)."""
     spec = reg.pvs[name]
     lo, hi = spec["test"]
+    if cap is not None:
+        hi = min(hi, cap)
     if is_switch(name):
         target = write_target(name)
         if spec.get("readback") is None:
@@ -72,6 +76,9 @@ class OutputOn:
         self.device = spec["device"]
         rb = spec.get("readback")
         self.needed = rb is not None and reg.pvs[rb].get("role") in MEASURED
+        self.readback = rb
+        self.name = name
+        self.cap = None
         other = {"vset": "iset", "iset": "vset"}.get(spec.get("role"))
         self.other = reg.role(self.device, other) if self.needed and other else None
 
@@ -80,9 +87,18 @@ class OutputOn:
             return self
         if self.other:
             S.put(self.other, reg.pvs[self.other]["test"][1])
+        if self.other and reg.pvs[self.readback]["role"] == "iread":
+            S.put(self.name, reg.pvs[self.name]["test"][1])     # constant voltage first
         S.put(reg.role(self.device, "out_cmd"), 1)
         state = reg.role(self.device, "out_state")
         S.wait_for(lambda: S.get(state) == 1, ECHO_LIMIT, lambda: "output on: %s" % S.describe([state]))
+        self.cap = None
+        if self.other and reg.pvs[self.readback]["role"] == "iread":
+            # constant current needs a current below what the voltage at the end of its range
+            # drives through the load: measure that (constant voltage now) and stay below it
+            rb = self.readback
+            S.wait_fresh(rb, time.time() + 1, lambda v: True, FOLLOW_LIMIT, "settled")
+            self.cap = 0.9 * S.get(rb)
         return self
 
     def __exit__(self, *exc):
@@ -108,8 +124,8 @@ def test_write_and_read_back(name):
     limit = FOLLOW_LIMIT if measured else ECHO_LIMIT
     tol = tolerance(name)
     try:
-        with OutputOn(name):
-            for value in write_values(name):
+        with OutputOn(name) as out:
+            for value in write_values(name, out.cap):
                 t_put = time.time()
                 S.put(name, value)
                 assert S.sevr(name) == S.NO_ALARM, "after writing %r: %s" % (value, S.describe([name]))
@@ -128,3 +144,27 @@ def test_write_and_read_back(name):
                      "%s back to %r" % (rb, target))
     S.wait_for(lambda: baseline_ok(device_pvs(device)), RECOVER_LIMIT,
                lambda: "%s after the test: %s" % (device, S.describe(device_pvs(device))))
+
+
+LIMITED = [d for d in reg.devices if reg.has_role(d, "ilimit")]
+
+
+@pytest.mark.parametrize("device", LIMITED)
+def test_switching_on_sends_the_current_limit(device):
+    """The supply forgot its limit (power cycle, emulated in the simulator); switching on sends
+    the saved limit: afterwards the limit the supply reports equals current:limit."""
+    sim, unit = reg.devices[device]["simulators"][0].split(":")
+    limit, reported, cmd, state = (reg.role(device, r)
+                                   for r in ("ilimit", "ilimit_get", "out_cmd", "out_state"))
+    tol = tolerance(limit)
+    S.sim_set(sim, "%s.iset" % unit, 0.0)
+    S.sim_release(sim, "%s.iset" % unit)
+    try:
+        t_on = time.time()
+        S.put(cmd, 1)
+        S.wait_fresh(reported, t_on, lambda v: abs(v - S.get(limit)) <= tol, ECHO_LIMIT,
+                     "%s reports the limit %r after switching on" % (reported, S.get(limit)))
+        S.wait_for(lambda: S.get(state) == 1, ECHO_LIMIT, lambda: S.describe([state]))
+    finally:
+        S.put(cmd, 0)
+        S.wait_for(lambda: S.get(state) == 0, ECHO_LIMIT, lambda: S.describe([state]))

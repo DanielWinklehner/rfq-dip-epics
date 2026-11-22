@@ -19,12 +19,13 @@ state found, restore at the end, also after a failure).
 
 | Module | Proves |
 |---|---|
-| `test_01_startup.py` | Both IOC logs have no database, protocol, link or startup error; after the start only StreamDevice/asyn traffic messages; IOCs run with `sim` ports; simulator logs have no device error; every registry PV is connected and served by the IOC the registry names; each simulator's baud and bits per character equal the real port in `ports.real.cmd` |
-| `test_02_read.py` | Every PV of every device answers and is not INVALID, except records never processed since the start (UDF) that are set or internal passive records, or belong to a `not_polled` device (asserted explicitly); libcom1 identity PVs name the simulator behind the device |
-| `test_03_write.py` | Every written PV is written inside its test range, the set record ends without alarm and its read-back (processed after the write) follows; the device is restored |
-| `test_04_ack.py` | An acknowledged set to a silent device ends INVALID and is not executed; an unanswered Matsusada set turns its echo INVALID and is not executed |
+| `test_01_startup.py` | Both IOC logs have no database, protocol, link or startup error; until the first fault a test injects not a single traffic or connection message ("autoConnect could not connect", "port ... not connected": a device unreachable at the start); afterwards only StreamDevice/asyn traffic messages; IOCs run with `sim` ports; simulator logs have no device error; every registry PV is connected and served by the IOC the registry names; each simulator's baud and bits per character equal the real port in `ports.real.cmd` |
+| `test_02_read.py` | Every PV of every device answers and is not INVALID, except records never processed since the start (UDF) that are set or internal passive records (asserted explicitly); every alias answers with its record's value and severity; spare channels are read and valid; libcom1 identity PVs name the simulator behind the device |
+| `test_03_write.py` | Every written PV (also the AU and REK current limits) is written inside its test range, the set record ends without alarm and its read-back (processed after the write) follows; the device is restored, a limit to exactly the value it had (it is saved by autosave); switching on sends the saved limit, also to a supply that forgot it |
+| `test_04_ack.py` | An acknowledged set to a silent device ends INVALID and is not executed; an unanswered Matsusada set turns its echo INVALID and is not executed, except the current limit, which is sent again until applied and arrives after the fault |
 | `test_05_faults.py` | Per simulator, `silent`, `close`, `garbage`: every PV of the registry's fault list for that mode (`fails_with`, for `close` `fails_closed`) turns INVALID within its limit, no PV of the device outside the list does, no other PV of either IOC turns INVALID, the scanned ones keep updating, all recover after `clear`; one unit of a bus silent while its neighbours keep answering (rate reported); `trip` per type that has one; types without trip refuse it |
-| `test_06_interlock.py` | An open door forces off the five AU supplies (rack IOC) and the REK (platform IOC); closing it brings the outputs whose request is set back ON by themselves (P16, asserted as it is); `AU:alloff:set` switches all five off and clears their requests |
+| `test_06_interlock.py` | An open door forces off the four AU supplies (rack IOC) and the REK (platform IOC) and clears their requests; a request while it is open is cleared at once; closing it switches nothing on (latch, owner's decision); switching on again works; `AU:alloff:set` switches all four off and clears their requests |
+| `test_08_local.py` | One AU supply and the REK: the front panel takes local control, status:read shows it (MINOR) through status polls, a voltage set ends INVALID and is not executed, switching from the control system takes control back |
 | `test_07_update_rate.py` | Monitor update rate of the polled AU supplies of both chains and of the TDK, by Channel Access and by the simulator's counts, within 10 % of the bus arithmetic with even shares |
 | `test_99_clean_end.py` | No fault and no held signal in any simulator, outputs off, valves closed, pumps stopped, set points as found, every PV back to its severity |
 
@@ -32,7 +33,11 @@ state found, restore at the end, also after a failure).
 
 | Limit | s | Source |
 |---|---|---|
-| IOC settled before the suite starts | 15 after the IOC start | GRACE 5 s (P20) and one NT 20 record period (8 s) |
+| IOC settled before the suite starts | 15 after the IOC start | GRACE 5 s and one NT 20 record period (8 s) |
+| Permit gates enabled (first contact) | 30 | probe every 1 s, then GRACE 5 s after the supply's first answer |
+| Limit applied by the retry after a fault | 8 | sent again every SCAN_GET (5 s) while not applied |
+| Local control kept / shown | 2 polls / 3 | status:read every 1 s |
+| Outputs stay off after the door closed | 2 gate scans | OutputIntlk scans every 1 s |
 | First value of every PV | 10 | NT 20 data output every 8 s |
 | Echo or state read-back after a write | 5 | Matsusada `:get` read by forward link behind the chain's polls (device test 3 s), MFC read-backs every 2 s |
 | Measured output follows a set point | 10 | TDK time constant 0.1 s, polled at 10 Hz (TDK device test) |
@@ -53,13 +58,21 @@ minutes.
 
 ## Expected failures
 
-The registry's two fault lists are checked in both directions. Every PV of `fails_with` must turn
-INVALID under `silent` and `garbage` and stay INVALID while the fault lasts. The exception is the
-NT 20 `raw` record, which takes any line and must stay valid under `garbage`. The same holds for
-every PV of `fails_closed` under `close` (`test_05_faults.py::test_*`). No PV of a faulted device
-may stay INVALID without being in the list of that fault
-(`test_05_faults.py::test_registry_fault_lists_name_every_pv_that_fails`).
-
 | Test | Reason |
 |---|---|
-| `test_05_faults.py::test_fault_turns_its_pvs_invalid_and_recovers[mat_opt-close]`, `[mat_co-close]`, `[rek-close]` (strict) | FINDING (registry): `fails_closed` lists `<supply>:_poll:gate`. On a closed port this record is INVALID (LINK) only while a monitor cycle fails to start, so it alternates between INVALID and NO_ALARM with each watchdog restart (3 s). It was measured INVALID for 0 to 62 percent of 8 s. It does not stay INVALID through two restarts (8 s hold) |
+| `test_01_startup.py::test_simulator_line_matches_the_real_port[gauges]` (strict) | FINDING: `ports.real.cmd` opens AVR6, the gauge controller (a Teensy since the owner's answer 13), with 8 bits, even parity and 1 stop bit, which is 11 bits per character. The simulator times 10 bits (`rack.yaml`: "USB serial of the Teensy: only sets the reply delay"). One of the two files is wrong, or the real port file should say that the setting has no effect on a USB serial |
+
+The registry's two fault lists are checked in both directions. Every PV of `fails_with`
+must turn INVALID under `silent` and `garbage` and stay INVALID while the fault lasts. The
+exception is the NT 20 `raw` record, which takes any line and must stay valid under `garbage`.
+The same holds for every PV of `fails_closed` under `close` (`test_05_faults.py::test_*`). No PV
+of a faulted device may stay INVALID without being in the list of that fault
+(`test_05_faults.py::test_registry_fault_lists_name_every_pv_that_fails`).
+
+## Registry keys
+
+Used: `roles`, `channels` (labels, `spare`), `states` of a PV (status words of the Matsusada
+supplies), `aliases`, `test`, `ack`, `readback`, `note` (read by a person, not by the code),
+`sim`, `fails_with`, `fails_closed`, `simulators`, `iocs`. Not used, GUI only: `confirm` (a
+question to the operator before a write), `labels`, `page`, `subsystem`, the `not_installed` flag
+(turbopump 2 is simulated and tested like any other device), device-level `states`.

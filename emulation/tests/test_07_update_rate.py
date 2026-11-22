@@ -6,7 +6,8 @@ shared evenly among the supplies of a chain. The table goes to emulation/build/u
 
 Where the prediction comes from, for each device:
   polls     read from the running IOC: every periodically scanned StreamDevice record of the
-            device (SCAN, INP/OUT), and the StreamDevice records its forward links process; the
+            device that is not disabled (SCAN, DISA/DISV, INP/OUT), and the StreamDevice records
+            its forward links process; the
             monitor cycle is the protocols of the records with role vread and iread, repeated
             as fast as the line allows but at most at the fastest scan rate of the device
   commands  the out lines of each protocol in its .proto file, arguments substituted
@@ -130,6 +131,12 @@ def flnk_chain(name, seen):
     return out
 
 
+def disabled(name):
+    """A record disabled at run time (DISA = DISV) is scanned but does nothing: the first-contact
+    probe of the Matsusada supplies after the supply answered."""
+    return S.field(name, "DISA") == S.field(name, "DISV")
+
+
 def polls(device, line):
     """(monitor cycle seconds, replies per cycle, fixed load in s/s, fixed replies/s, cap Hz)."""
     pvs = reg.devices[device]["pvs"]
@@ -139,7 +146,7 @@ def polls(device, line):
     cap = 0.0
     for name in pvs:
         scan = S.field(name, "SCAN")
-        if scan not in PERIOD:
+        if scan not in PERIOD or disabled(name):
             continue
         cap = max(cap, 1.0 / PERIOD[scan])
         if name in monitors or not is_stream(name):
@@ -245,7 +252,7 @@ def au_chains():
     simulator with more than one unit (the REK has its own line)."""
     out = {}
     for d, dev in reg.devices.items():
-        if dev["class"] != "supply" or reg.not_polled(d):
+        if dev["class"] != "supply":
             continue
         sim = dev["simulators"][0].split(":")[0]
         if reg.simulators[sim]["type"] == "matsusada_co" and len(reg.units(sim)) > 1:

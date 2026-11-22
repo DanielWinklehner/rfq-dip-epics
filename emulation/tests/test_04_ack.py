@@ -12,6 +12,7 @@ from conftest import baseline_ok, write_target
 from test_03_write import (ECHO_LIMIT, MEASURED, RECOVER_LIMIT, WRITES, OutputOn, device_pvs, is_switch,
                            tolerance)
 
+RETRY_LIMIT = 8.0    # a limit not yet applied is sent again every SCAN_GET (5 s), then echoed
 ACKED = [n for n in WRITES if reg.pvs[n]["ack"]]
 ECHOED = [n for n in WRITES if not reg.pvs[n]["ack"]]       # Matsusada: echo instead of answer
 # A silent device: the set waits for its reply timeout (StreamDevice ReplyTimeout: 150 ms to 1 s
@@ -59,7 +60,13 @@ def unacknowledged(name, acked):
             # cleared: the device answers again; read the read-back fresh (it may be passive)
             S.wait_for(lambda: baseline_ok(scanned(others)), RECOVER_LIMIT,
                        lambda: "%s recovers: %s" % (device, S.describe(scanned(others))))
-            if rb:
+            if rb and spec.get("role") == "ilimit":
+                # the current limit is sent again every SCAN_GET while it is not applied
+                # (matsusada_au20p7.db): after the fault it arrives
+                S.wait_fresh(rb, time.time(), lambda v: abs(v - value) <= tolerance(name),
+                             RETRY_LIMIT, "the limit %r applied by the retry after the fault"
+                             % value)
+            elif rb:
                 S.put_field(rb, "PROC", 1)
                 S.wait_for(lambda: S.sevr(rb) != S.INVALID, ECHO_LIMIT,
                            lambda: "read-back valid again: %s" % S.describe([rb]))
