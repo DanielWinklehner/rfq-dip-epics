@@ -55,3 +55,11 @@ def test_every_pv_back_to_its_severity():
     names = [n for n in snapshot if snapshot[n]["severity"] != S.INVALID]
     S.wait_for(lambda: S.not_invalid(names), SETTLE_LIMIT,
                lambda: "INVALID at the end: %s" % S.bad(names, lambda s: s != S.INVALID))
+
+
+def test_every_loop_in_manual():
+    """No loop acts on the machine when the suite leaves (test_09_loop)."""
+    loops = [dev["roles"] for dev in reg.devices.values() if dev["class"] == "loop"]
+    assert loops, "the registry has no loop"
+    assert all(S.get(r["mode"]) == 0 and S.get(r["mode_cmd"]) == 0 for r in loops), S.describe(
+        [r[k] for r in loops for k in ("mode", "mode_cmd")])

@@ -52,9 +52,10 @@ def write_values(name, cap=None):
         hi = min(hi, cap)
     if is_switch(name):
         target = write_target(name)
-        if spec.get("readback") is None:
-            return [0, 1]                  # ends at 1: see write_target
-        return [1 - int(target), int(target)]
+        # ends at 1 without read-back (see write_target); only values of the test range: a
+        # loop's mode request is written MANUAL only
+        values = [0, 1] if spec.get("readback") is None else [1 - int(target), int(target)]
+        return [v for v in values if lo <= v <= hi]
     return [lo + 0.37 * (hi - lo), lo + 0.71 * (hi - lo)]
 
 

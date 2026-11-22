@@ -306,13 +306,24 @@ record(bo, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput") {
     field(ONAM, "ENABLED")
 }
 
+# The permit as this IOC sees it, read every SCAN_MON and on every change. A permit PV of another
+# IOC whose link is lost turns this record INVALID (LINK) at its next scan: a link to a
+# disconnected PV neither processes its record nor reaches a calculation, so OutputIntlk reads
+# the permit through this record, whose link (in this IOC) cannot be lost. Also INVALID at the
+# start until the permit PV has connected.
+record(ai, "$(DEV=AU-20P7)-$(UNITNUM):_permit:read") {
+    field(DESC, "Output permit as seen here (internal)")
+    field(INP,  "$(PERMIT=interlock_open) CP MS")
+    field(SCAN, "$(SCAN_MON=.1 second)")
+}
+
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
-# input A raises to INVALID through MS or a broken link), otherwise the request. Starts the
+# input A raises to INVALID through MS from _permit:read), otherwise the request. Starts the
 # switching sequence (_out:switch) only when the result changes. Disabled until GRACE seconds
 # after the first contact (:output:init).
 record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
-    field(INPA, "$(PERMIT=interlock_open) CP MS")
+    field(INPA, "$(DEV=AU-20P7)-$(UNITNUM):_permit:read CP MS")
     field(INPB, "$(DEV=AU-20P7)-$(UNITNUM):SetToggleOutput CP")
     field(INPC, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk.NSEV NPP")
     field(CALC, "(A||C>=3)?0:B")

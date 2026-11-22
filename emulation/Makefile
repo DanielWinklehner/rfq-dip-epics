@@ -82,3 +82,9 @@ registry:
 #   make -C emulation test ARGS="-k valve"      make -C emulation test ARGS="-m slow"
 test:
 	@$(HERE)/tests/run.sh $(ARGS)
+
+# Test C: the discharge current loop closed on the plant model (tests/loop_plant.py). Starts the
+# emulation with the plant if needed and stops what it started. About 4 minutes.
+.PHONY: test-loop
+test-loop:
+	@MIST2_PLANT=1 $(HERE)/tests/run.sh emulation/tests/loop_plant.py $(ARGS)

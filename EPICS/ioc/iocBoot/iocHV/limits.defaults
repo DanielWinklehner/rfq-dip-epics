@@ -8,4 +8,32 @@
 # OWNER: these are the full scales of the supplies, not limits for operation. Put the real limits
 # here (or set them from the GUI, which saves them).
 REK-1:current:limit 24
+#
+# Settings of the discharge current loop LOOP-DIS (EPICS/Db/loop.db). Where each value comes
+# from: docs/emulation/LOOP.md, "Settings".
+# Set point 22 A (owner, 2026-11-22: "set point below 24 A for now. 22 oughta do it."), until the
+# REK150-55 is there. Its maximum stays below the 24 A full scale of the REK150-24, where the REK
+# goes into constant current and the loop could only act downward: 23 A, which leaves 22 A a
+# little room, is our free choice, TO BE CONFIRMED by the owner.
+LOOP-DIS:value:setpoint 22
+LOOP-DIS:spmin:setpoint 0
+LOOP-DIS:spmax:setpoint 23
+# ASSUMED, from the plant MODEL of the emulation, not from MIST-2: SIMC rules at the model's
+# steepest point (gain 3.56 A/A, time constant 1.45 s, dead time about 0.3 s with the polling
+# and the period) for a closed-loop time constant of 0.5 s. Measure on the machine (LOOP.md).
+LOOP-DIS:kp:setpoint 0.5
+LOOP-DIS:ki:setpoint 0.35
+# A first-order plant needs no derivative: off. Filter time one period (free choice).
+LOOP-DIS:kd:setpoint 0
+LOOP-DIS:dfilter:setpoint 0.2
+# Filament current: at most 90 A, the owner's working point (2026-11-21); at least 80 A (free
+# choice: below the model's 12 A point at 85.8 A). 1 A/s (free choice: about 3 A/s of discharge
+# current in the model).
+LOOP-DIS:outmin:setpoint 80
+LOOP-DIS:outmax:setpoint 90
+LOOP-DIS:slew:setpoint 1
+# Free choices: hand back after 3 missed heartbeat counts (once per second); MANUAL when the
+# service's counter (once per cycle, 0.2 s) stood still for 2 s.
+LOOP-DIS:stale:setpoint 3
+LOOP-DIS:watchdog:setpoint 2
 <END>
