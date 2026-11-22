@@ -3,6 +3,8 @@ skipped: a record that has never been processed since the IOC started (alarm sta
 is allowed only for a set record or an internal record that nothing scans. Aliases answer with the
 value of their record, spare channels are read and valid. The identity PVs of the libcom1 boards name the
 simulator that the registry puts behind them (the wiring of ports and simulators)."""
+import time
+
 import pytest
 
 import system as S
@@ -66,14 +68,19 @@ def test_every_alias_answers_with_the_value_of_its_pv():
         assert (a["value"], a["severity"]) == (d["value"], d["severity"]), (alias, a, name, d)
 
 
+SPARE_LIMIT = 3.0      # s: the boards are polled every 0.1 to 0.5 s; a silent board's reply timeout
+                       # (1 s) turns its PVs INVALID
+
+
 def test_spare_channels_are_read_and_valid():
     """A channel the registry marks spare (not connected) is still polled with its board: its
-    PVs answer and are valid."""
+    read PVs are processed again and valid (its set records are written by the write test)."""
     spare = [pv for d in reg.devices.values() for ch in (d.get("channels") or {}).values()
-             if ch.get("spare") for pv in ch["roles"].values()]
+             if ch.get("spare") for pv in ch["roles"].values() if reg.pvs[pv]["access"] == "r"]
     assert spare, "the registry marks no channel spare"
-    bad = [n for n in spare if S.sevr(n) == S.INVALID and S.stat(n) != S.UDF]
-    assert bad == [], S.describe(bad)
+    now = time.time()
+    for n in spare:                       # processed again (polled) and valid
+        S.wait_fresh(n, now, lambda v: True, SPARE_LIMIT, "spare channel %s read again" % n)
 
 
 IDENTITY = [d for d in reg.devices if reg.has_role(d, "id")]
