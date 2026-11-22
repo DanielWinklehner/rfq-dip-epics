@@ -176,6 +176,7 @@ def build(model):
         "plan_revision": model.d["meta"]["revision"],
         "logging": {"tiers": {t["id"]: {"interval": t["interval"], "keep_days": t["keep_days"]}
                               for t in model.d["software"]["tiers"]}},
+        "trends": model.d["trends"],
         "iocs": {}, "devices": {}, "simulators": {},
     }
     for host in model.d["hosts"]:
