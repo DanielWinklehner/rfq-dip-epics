@@ -66,10 +66,7 @@ class Service:
         next_run = time.monotonic()
         while not self.stopping.is_set():
             for loop in self.loops:
-                try:
-                    loop.cycle()
-                except Exception:                 # one bad cycle must not end the service
-                    log.exception("%s: cycle failed", loop.prefix)
+                loop.safe_cycle()
             epics.ca.flush_io()
             next_run += self.period
             delay = next_run - time.monotonic()

@@ -23,8 +23,8 @@ REASONS = ["none", "IOC start", "service start", "permit 1", "permit 2", "permit
 
 # What the loop reads (monitors) and writes.
 READS = ["mode:setpoint", "_active", "permit1:get", "permit2:get", "permit3:get", "value:read",
-         "_act", "_hb", "_write.OVAL", "value:setpoint", "value:setpoint.DRVL",
-         "value:setpoint.DRVH", "kp:setpoint", "ki:setpoint", "kd:setpoint", "dfilter:setpoint",
+         "_act", "_hb", "_write.OVAL", "value:setpoint", "spmin:setpoint",
+         "spmax:setpoint", "kp:setpoint", "ki:setpoint", "kd:setpoint", "dfilter:setpoint",
          "outmin:setpoint", "outmax:setpoint", "slew:setpoint", "stale:setpoint", "_count"]
 WRITES = ["_count", "_out", "_active", "mode:setpoint", "reason:get", "output:get", "error:get",
           "p:get", "i:get", "d:get", "limit:get"]
@@ -43,6 +43,7 @@ class Loop:
         self.period = period
         self.clock = clock
         self.log = logging.getLogger("mist2loop.%s" % prefix)
+        self.failing = None          # the error of the cycles that fail, logged once
         self.lock = threading.Lock()
         self.pid = False             # mode as this service sees it
         self.started = False         # first contact with the records done
@@ -84,8 +85,7 @@ class Loop:
                           slew=self.v("slew:setpoint"), dt_max=DT_MAX_PERIODS * self.period)
 
     def set_point(self):
-        sp, lo, hi = (self.v(s) for s in ("value:setpoint", "value:setpoint.DRVL",
-                                           "value:setpoint.DRVH"))
+        sp, lo, hi = (self.v(s) for s in ("value:setpoint", "spmin:setpoint", "spmax:setpoint"))
         return min(max(sp, lo), hi) if hi > lo else sp
 
     def check(self, in_pid, now):
@@ -96,7 +96,7 @@ class Loop:
             return NOT_ACCEPTED if in_pid else ACTUATOR
         permits = [self.v("permit%d:get" % n) for n in (1, 2, 3)]
         for n, state in enumerate(permits):
-            if state > 1.5:
+            if state > 1.5 or self.bad("permit%d:get" % (n + 1)):
                 return NODATA1 + n
         for n, state in enumerate(permits):
             if state > 0.5:
@@ -140,8 +140,6 @@ class Loop:
                 self.io.put("_active", 0)
         dt = 0.0 if self.last_run is None else now - self.last_run
         self.last_run = now
-        self.count = (self.count + 1) % 2 ** 31
-        self.io.put("_count", self.count)
 
         hb = self.v("_hb")
         if hb != self.hb:
@@ -187,6 +185,25 @@ class Loop:
         for suffix, value in zip(("output:get", "error:get", "p:get", "i:get", "d:get",
                                   "limit:get"), shown):
             self.io.put(suffix, value)
+        # Counted only when the cycle has completed: a service whose cycles fail stops counting,
+        # and the IOC's watchdog takes the mode back.
+        self.count = (self.count + 1) % 2 ** 31
+        self.io.put("_count", self.count)
+
+    def safe_cycle(self):
+        """cycle(), for the service's loop: an exception ends this cycle (uncounted) and is
+        logged once while the same error repeats, and once more when cycles complete again."""
+        try:
+            self.cycle()
+        except Exception as exc:          # one bad cycle must not end the service
+            text = "%s: %s" % (type(exc).__name__, exc)
+            if text != self.failing:
+                self.log.exception("cycle failed (logged once while it repeats)")
+                self.failing = text
+            return
+        if self.failing is not None:
+            self.log.info("cycles complete again")
+            self.failing = None
 
     def stop(self):
         """SIGTERM: leave the loop in MANUAL."""
