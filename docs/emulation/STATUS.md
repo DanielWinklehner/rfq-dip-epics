@@ -147,12 +147,36 @@ named them as later additions.
 Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work plan:
 `PLAN.md`, tasks T15 to T17).
 
-- T15, the discharge current loop, is with a subagent on Opus 5.5 in the worktree
-  `.claude/worktrees/t15`. It started on a loop in C inside a soft IOC of its own
-  (`briefs/T15-loop-ioc.md`) and was redirected after your decision (answer 21) to a Python
-  service with the loop's records in the platform IOC (`briefs/T15b-loop-python.md`). It starts
-  and stops the emulation under the lock `/tmp/mist2emu.lock`.
-- The logger waits for your choice of the archiver (question 9).
+- T15, the discharge current loop: the subagent (Opus 5.5, worktree `.claude/worktrees/t15`)
+  reported a Python service with the loop's records in the platform IOC, as you decided
+  (answer 21, `briefs/T15b-loop-python.md`). Not merged yet. What I checked myself on its branch
+  at `3a357de`: the five acceptance commands (13 unit tests, the build, 261 system tests in
+  636 s, the closed-loop test on the plant model, the plan check; nothing left running), and by
+  hand on the emulation with the plant: the source to 20 A in MANUAL, MANUAL to PID without a
+  bump, 22 A reached in about 8 s; a write of the operator to the TDK set point, a killed
+  service, a stopped service, a restart, a refused request: all hand back or refuse with the
+  right reason.
+- The same hand session found two defects of the loop and one of the discharge supply, which
+  the subagent is fixing now, with four smaller points (seven in all):
+  1. A limit changed in PID below the present filament current leaves the filament current
+     where it is, while the loop says PID and shows the new limit as its output.
+  2. With the rack IOC stopped, the loop's interlock condition keeps reading "fulfilled" without
+     alarm and the loop stays in PID (watched for 46 s, still so minutes later). The cause is in
+     EPICS itself (base 7.0.10): a record is not processed when its CP link disconnects
+     (`dbCa.c`, `dbCaTask`), and a calc record keeps its last value when an input link fails.
+  3. **The discharge supply, not the loop (open point P35):** with the rack IOC stopped,
+     `REK-1:SetToggleOutput` is cleared at once but the REK output stays on (22 A in the plant
+     model) for as long as the rack IOC is down, and is switched off 0.5 s after it returns.
+     `rek.db`, `matsusada_au20p7.db` and `iocHV/st.cmd` all say a lost permit forces the output
+     off. Same cause as 2. It came in with the Matsusada rework and no test stopped an IOC then.
+  4. Smaller: the permit records were in MAJOR alarm with the supplies simply off; three role
+     names collided with the GUI's; the set point limits were fields the GUI cannot show; the
+     service counted a cycle before it had done its work.
+- T16, the loop in the GUI (`briefs/T16-loop-gui.md`), and T17, the logger
+  (`briefs/T17-logger.md`), start when the loop is merged. They run side by side in two
+  worktrees and share the emulation through the lock `/tmp/mist2emu.lock`.
+- The logger is built on TimescaleDB, my recommendation, unless you answer question 9 otherwise
+  before it starts.
 
 ## Open
 
@@ -344,6 +368,7 @@ P18, P19, P20, P22.
 | P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
+| P35 | With the rack IOC stopped the REK output stays on although its request is cleared, and is switched off only when the rack IOC returns. Found by hand on 2026-11-22 while checking the loop; the hardware interlock does not depend on it. Cause: a calc record keeps its last value when its permit link fails (EPICS base 7.0.10) | Being fixed with the loop (T15, point F3), with a test that stops and one that pauses the rack IOC |
 
 ## Found in RAS V8.1.0
 

@@ -1,4 +1,4 @@
-You are an implementation engineer on the MIST-2 ion source control system (EPICS). You have one task, T17: the data logger of work package WP9, a service that records the process variables of the machine in a time-series database with three retention tiers and an event log. A lead engineer wrote this brief, will run your acceptance tests himself, and will merge your branch. Nobody else is working on the repository while you do.
+You are an implementation engineer on the MIST-2 ion source control system (EPICS). You have one task, T17: the data logger of work package WP9, a service that records the process variables of the machine in a time-series database with three retention tiers and an event log. A lead engineer wrote this brief, will run your acceptance tests himself, and will merge your branch.
 
 FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are running as>`.
 
@@ -6,7 +6,8 @@ FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are run
 - Your git worktree is `/home/daniel/code/rfq-dip-epics/.claude/worktrees/t17`, on branch `emu/t17-logger`, already created from `emulated-iocs`. Work ONLY there: change into it first and use paths inside it for every file you read or write. Never edit, stage or commit anything in `/home/daniel/code/rfq-dip-epics` outside your worktree.
 - Commit on that branch only. Small commits with clear messages, each ending with the trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never push, never open a pull request.
 - Host: WSL2 Ubuntu 22.04. `sudo` needs a password, so install nothing on the host. Docker works without sudo, and may pull images.
-- The emulation uses fixed container names and the fixed network 172.30.0.0/24, so only one copy can run. Wrap every command that starts, uses or stops it in the lock: `flock /tmp/mist2emu.lock <command>`. Leave no container and no process running when you finish.
+- **Shared machine.** Another engineer works on the GUI in another worktree at the same time and uses the same emulation. The emulation (fixed container names, network 172.30.0.0/24) can exist only once. Rule for both of you: take the lock for the whole time you have the emulation up, and bring down what you started before you release it. In practice one command: `flock /tmp/mist2emu.lock bash -c '<start>; <work>; <stop>'`, or a `make` target that starts and stops by itself under `flock /tmp/mist2emu.lock`. Never leave the emulation running outside the lock, and never stop containers you did not start. If the lock is taken, wait: the other engineer's check takes up to 20 minutes. Your own containers (database, logger, Grafana) are a Compose project of their own and need the lock only while they talk to the emulation.
+- Leave no container and no process running when you finish.
 
 # Read first
 1. `plan/controls.yaml`, section `software` (`intro`, `components`, `tiers`, `archiver`, `questions`) and work package WP9: what the owner wants. The store is decided: a time-series database (TimescaleDB on PostgreSQL) behind a small Channel Access logger of our own, with Grafana to look at the data.
