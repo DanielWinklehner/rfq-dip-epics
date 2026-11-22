@@ -234,9 +234,9 @@ devices:
     notes:
       - "Holds the discharge current (REK-1:current:read) at LOOP-DIS:value:setpoint through the filament heating current (TDK:current:setpoint). Step 1 of WP10: plain PID with output limits, slew limit, anti-windup, bumpless switching and hand-back to MANUAL."
       - "Hands back to MANUAL by itself (the request returns to MANUAL, latched): interlock open, REK not on in remote control, TDK output off, a PV it uses INVALID or not connected, the platform IOC's heartbeat stopped for longer than LOOP-DIS:stale:setpoint, someone else wrote the TDK current set point, the TDK did not accept a set, and at every start of the loop IOC. Refuses PID for the same reasons, and while the TDK set point is outside the output limits."
-      - "At the owner's working point the REK is at 24 A, its full scale: there the loop can only act downward. The set point is limited to 22 A by default (LOOP-DIS:value:setpoint.DRVH); whether the loop runs below 24 A or waits for the REK150-55 is the owner's question 3."
+      - "At the owner's working point the REK is at 24 A, its full scale: there the loop can only act downward. Owner, 2026-11-22 (question 3): \"set point below 24 A for now. 22 oughta do it.\" The loop runs at 22 A (default set point), below the full scale of the REK150-24, until the REK150-55 is there. The set point maximum (LOOP-DIS:value:setpoint.DRVH) is 23 A by default, our free choice, to be confirmed."
     questions:
-      - "Run the loop below 24 A with the REK150-24, or only with the REK150-55 (question 3)? Which output limits for the filament current (defaults 80 to 90 A, 90 A from the working point)?"
+      - "Set point maximum 23 A (our choice, leaves 22 A a little room): right? Which output limits for the filament current (defaults 80 to 90 A, 90 A from the working point)?"
 
   - id: thermo_hv
     name: "Thermocouple readout"
@@ -896,7 +896,7 @@ work_packages:
     items:
       - "Done: the loop IOC iocLoop (runs next to the HV platform IOC) with the first loop, discharge current through the filament heating current (LOOP-DIS, docs/emulation/LOOP.md), tested on the emulation with the plant model."
       - "Done, step 1: plain PID with output limits, slew limit, anti-windup, bumpless switching and automatic hand-back to manual."
-      - "Open: measure the step response on the machine and set the gains (LOOP.md); the owner's answer to question 3 (run below 24 A, or wait for the REK150-55)."
+      - "Open: measure the step response on the machine and set the gains (LOOP.md). Answered 2026-11-22 (question 3): the loop runs at 22 A, below the REK150-24's full scale, until the REK150-55 is there."
       - "Step 2: neural-network layer (gain scheduling or feed-forward), trained on the logged data, behind the same limits."
   - id: WP11
     name: "Dipole scan in EPICS"
@@ -946,6 +946,7 @@ software:
     - "The numbers in the table are a starting point. Decide them per PV group, disk space is not the limit for a system of this size."
   loops:
     - "Loops run in a soft IOC, iocLoop, on the HV platform computer, next to the IOC of the supplies they act on. They talk to the other IOCs through Channel Access only. No GUI and no Ethernet hop inside the loop. Design and operation: docs/emulation/LOOP.md."
+    - "Owner, 2026-11-22 (question 3): \"set point below 24 A for now. 22 oughta do it.\" The discharge loop runs at 22 A, below the 24 A full scale of the REK150-24, until the REK150-55 is there."
     - "Built (step 1): the discharge current loop LOOP-DIS. Measured value: the discharge supply current (REK-1:current:read), actuator: the filament heating current (TDK:current:setpoint), both polled at 10 Hz. The loop runs every 0.2 s, a fifth of the model's time constant of about 1.4 s."
     - "Plain PID in parallel form, derivative on the filtered measurement, output limits, slew limit, anti-windup by conditional integration, bumpless switching between MANUAL and PID and bumpless gain changes. One database template (EPICS/Db/loop.db): a second loop is one more dbLoadRecords line."
     - "The loop hands back to MANUAL by itself when a permit condition fails (interlock, REK on in remote, TDK on), when a PV it uses is INVALID or not connected, when the platform IOC's heartbeat stops (stale data), when someone else writes the actuator, and when the actuator does not accept a set. The request returns to MANUAL (latched) and the reason is shown. A request for PID is refused for the same reasons."

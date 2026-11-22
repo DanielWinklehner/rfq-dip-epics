@@ -54,7 +54,8 @@ def write_values(name, cap=None):
         target = write_target(name)
         if spec.get("readback") is None:
             return [0, 1]                  # ends at 1: see write_target
-        return [1 - int(target), int(target)]
+        # only values of the test range: a loop's mode request is written MANUAL only
+        return [v for v in (1 - int(target), int(target)) if lo <= v <= hi]
     return [lo + 0.37 * (hi - lo), lo + 0.71 * (hi - lo)]
 
 

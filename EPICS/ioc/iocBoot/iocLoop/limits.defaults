@@ -8,12 +8,14 @@
 # python3 emulation/sim/tools/plant_step_response.py), not from MIST-2. Measure the step response
 # on the machine and set them again (LOOP.md, "Tuning on the machine").
 #
-# Discharge loop: set point 18 A. Its maximum is 22 A, below the 24 A full scale of the REK150-24:
-# at 24 A the REK goes into constant current, more filament current cannot raise the discharge
-# current, and a loop there can only act downward (docs/emulation/STATUS.md).
-LOOP-DIS:value:setpoint 18
+# Discharge loop: set point 22 A (owner, 2026-11-22: "set point below 24 A for now. 22 oughta do
+# it."), until the REK150-55 is there. The maximum stays below the 24 A full scale of the
+# REK150-24: at 24 A the REK goes into constant current, more filament current cannot raise the
+# discharge current, and a loop there can only act downward. 23 A, which leaves 22 A a little
+# room, is our free choice, to be confirmed by the owner.
+LOOP-DIS:value:setpoint 22
 LOOP-DIS:value:setpoint.DRVL 0
-LOOP-DIS:value:setpoint.DRVH 22
+LOOP-DIS:value:setpoint.DRVH 23
 # SIMC rules for the model at its steepest point (gain 3.56 A/A, time constant 1.45 s, dead time
 # about 0.3 s with the polling and the period) and a closed-loop time constant of 0.5 s.
 LOOP-DIS:kp:setpoint 0.5

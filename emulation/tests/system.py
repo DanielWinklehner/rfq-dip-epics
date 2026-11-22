@@ -413,5 +413,30 @@ def ioc_container(ioc):
     return reg.iocs[ioc]["container"]
 
 
+REQUESTS = BUILD / "docker-requests"
+_request_count = [0]
+
+
+def container(action, service, timeout=60.0):
+    """docker compose stop, start or restart of an IOC service. The tools container has no Docker:
+    run.sh executes the request on the host (see its header). Returns the seconds it took."""
+    _request_count[0] += 1
+    name = REQUESTS / ("%d-%d" % (os.getpid(), _request_count[0]))
+    if not REQUESTS.is_dir():
+        pytest.fail("%s does not exist: run the suite with `make -C emulation test`, which "
+                    "executes container requests" % REQUESTS)
+    t0 = time.monotonic()
+    tmp = name.with_suffix(".new")
+    tmp.write_text("%s %s\n" % (action, service))
+    tmp.rename(name.with_suffix(".req"))
+    done = name.with_suffix(".done")
+    wait_for(done.exists, timeout, "run.sh executes '%s %s'" % (action, service), interval=0.2)
+    status, _, output = done.read_text().partition(" ")
+    done.unlink()
+    if status != "0":
+        pytest.fail("docker compose %s %s: exit %s: %s" % (action, service, status, output))
+    return time.monotonic() - t0
+
+
 def env(name, default=None):
     return os.environ.get(name, default)

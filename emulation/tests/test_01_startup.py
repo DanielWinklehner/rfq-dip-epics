@@ -157,6 +157,8 @@ def real_port_settings():
     out = {}
     for ioc in reg.iocs.values():
         path = S.REPO / ioc["st_cmd"]
+        if not (path.parent / "ports.real.cmd").exists():
+            continue                      # an IOC without ports (the loop IOC)
         text = (path.parent / "ports.real.cmd").read_text()
         for port, _ in re.findall(r'drvAsynSerialPortConfigure\("([^"]+)",\s*"([^"]+)"', text):
             out[port] = {"kind": "serial"}

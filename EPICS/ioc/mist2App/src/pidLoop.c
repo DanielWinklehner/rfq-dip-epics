@@ -14,6 +14,9 @@
  *   J, K, L permit conditions 1 to 3: 0 fulfilled, 1 not fulfilled, 2 no data
  *   M Kp  N Ki  O Kd  P derivative filter time  Q output minimum  R output maximum
  *   S slew per second  T stale time  U resolution of the actuator
+ * The actuator is written only in PID, at most once per scan, and only once it shows the value
+ * written last: so it holds either the last value the loop sent or, until that has arrived, the
+ * one before. Any other value was written by someone else.
  * Outputs:
  *   VALA mode   VALB mode request (written back: MANUAL after a hand-back or refusal)
  *   VALC reason   VALD limit flag   VALE output   VALF error   VALG, VALH, VALI the P, I, D terms
@@ -49,7 +52,8 @@ typedef struct {
     double hb;                  /* heartbeat value seen last, and when it last changed */
     int hb_changed;
     epicsUInt64 hb_time;
-    double written, written_before;   /* the last two values the loop sent to the actuator */
+    double written;             /* the last value the loop sent to the actuator, and the one */
+    double written_before;      /* before it, which the actuator shows until it has taken it */
     pid_state state;
     pid_result r;
 } loop_t;
@@ -163,7 +167,9 @@ static long pidLoopProcess(aSubRecord *prec)
         request = 0;
     } else {
         pid_step(&L->state, &p, sp, pv, dt, &L->r);
-        if (fabs(L->r.out - L->written) >= IN(u)) {
+        /* One write at a time: the next only once the actuator shows the last one, and only a
+         * change of at least the resolution. */
+        if (same(act, L->written) && fabs(L->r.out - L->written) >= IN(u)) {
             write = 1;
             L->written_before = L->written;
             L->written = L->r.out;

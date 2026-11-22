@@ -13,7 +13,8 @@ from test_03_write import (ECHO_LIMIT, MEASURED, RECOVER_LIMIT, WRITES, OutputOn
                            tolerance)
 
 RETRY_LIMIT = 8.0    # a limit not yet applied is sent again every SCAN_GET (5 s), then echoed
-ACKED = [n for n in WRITES if reg.pvs[n]["ack"]]
+# acknowledged by a device: a soft setting of the loop IOC is accepted by the IOC itself
+ACKED = [n for n in WRITES if reg.pvs[n]["ack"] and reg.sim_of(n)[0]]
 ECHOED = [n for n in WRITES if not reg.pvs[n]["ack"]]       # Matsusada: echo instead of answer
 # A silent device: the set waits for its reply timeout (StreamDevice ReplyTimeout: 150 ms to 1 s
 # in the protocol files), then the record is INVALID. The echo of a Matsusada set is read by a
