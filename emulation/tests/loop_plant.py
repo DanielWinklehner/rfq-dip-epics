@@ -16,6 +16,8 @@ registry whose measurement is the discharge current the plant drives:
   5. a set point the supply cannot reach (the REK's current limit lowered under the set point):
      the output ends at its maximum with the flag, holds there, and comes back when the limit
      is restored;
+  5b. PID requested with a large error (about 18 A, set point 22 A; review point F8): the TDK
+     rises at the slew rate from the first period on and the set point is reached;
   6. a hand-back in closed loop (the REK silent): the filament current stays where it was;
   7. rates: writes per second to the TDK, read-back rates of TDK and REK in MANUAL and in PID.
 
@@ -34,6 +36,7 @@ from mist2sim.control import ControlClient
 
 PLANT = ("plant", 6090)              # the plant's control port (emulation/sim/README.md)
 START_A, STEP_A = 20.0, 22.0         # discharge current: start and the owner's set point
+LARGE_FROM_A = 18.0                  # PID requested here with the set point at STEP_A (step 5b)
 SECONDS = {"step": 20.0, "drift": 30.0, "after_drift": 15.0, "unreachable": 15.0,
            "back": 20.0, "rates": 5.0}
 
@@ -50,6 +53,10 @@ LIMITS = {
     # as fast as the plant settles on its own. Limit: 6 s.
     "settling_s": 6.0,
     "band_a": 0.1,
+    # PID requested at 18 A with the set point at 22 A: about 1.2 A more filament current, 1.2 s
+    # at the slew limit of 1 A/s, then the closed loop (0.5 s) and the plant (1.45 s): into the
+    # band within the ramp plus 4 time constants, 7 s; limit 10 s. Overshoot as for the step.
+    "large_s": 10.0,
     # steady state: integral action, so the mean error is noise only (REK monitor 12 bit of
     # 24 A, 6 mA per count, and the simulator's noise). Limit: 0.03 A.
     "sse_a": 0.03,
@@ -298,6 +305,29 @@ def closed_loop(capsys):
                                 None if left is None or t_cross is None else left - t_cross,
                                 settle_back)
 
+        # --- 5b. PID requested with a large error ---------------------------------------------
+        S.put(r["mode_cmd"], 0)
+        S.wait_for(lambda: S.get(r["mode"]) == 0, 1.0, "MANUAL")
+        for _ in range(3):                          # the model's gain is about 3.3 A/A
+            S.put(T["iset"], round(S.get(T["iset"]) + (LARGE_FROM_A - S.get(meas)) / 3.3, 2))
+            time.sleep(8.0)
+        y_large = S.get(meas)
+        before = S.get(act)
+        S.put(r["sp_cmd"], STEP_A)
+        time.sleep(1.0)                             # the service has seen the set point
+        t_lg = time.monotonic()
+        S.put(r["mode_cmd"], 1)
+        S.wait_for(lambda: S.get(r["mode"]) == 1, 1.0, "PID")
+        time.sleep(SECONDS["step"])
+        sets = [v for _, v in rec.since(act, t_lg)]
+        first_s = next((t - t_lg for t, v in rec.since(act, t_lg) if v > before + 1e-9), None)
+        samples_lg = rec.since(meas, t_lg)
+        reached = next((t - t_lg for t, v in samples_lg if v >= STEP_A - LIMITS["band_a"]), None)
+        peak = max(v for _, v in samples_lg)
+        table["large"] = (y_large, before, first_s, reached,
+                          max(0.0, (peak - STEP_A) / (STEP_A - y_large) * 100.0),
+                          max(b - a for a, b in zip([before] + sets, sets)) if sets else 0.0)
+
         # --- 6. hand-back in closed loop ------------------------------------------------------
         sim, unit = reg.sim_of(R["vset"])
         fil_before = S.get(act)
@@ -340,6 +370,12 @@ def closed_loop(capsys):
         "| limit restored: leaves the maximum after the error changed sign / settles after | %s / %.2f s | 2 periods + 0.5 s / %.1f s |"
         % ("-" if table["unreachable"][3] is None else "%.2f s" % table["unreachable"][3],
            table["unreachable"][4], LIMITS["settling_s"] * 2),
+        "| PID requested at %.2f A, set point %.0f A (TDK %.2f A): TDK first raised after / band reached after | %s / %s | 2 periods / %.0f s |"
+        % (table["large"][0], STEP_A, table["large"][1],
+           "-" if table["large"][2] is None else "%.2f s" % table["large"][2],
+           "-" if table["large"][3] is None else "%.2f s" % table["large"][3], LIMITS["large_s"]),
+        "| overshoot / largest TDK step | %.1f %% / %.3f A | %.0f %% / %.2f A (slew x DT) |"
+        % (table["large"][4], table["large"][5], LIMITS["overshoot_pct"], slew_dt),
         "| Hand-back in closed loop (REK silent): reason / TDK set before, after 5 s | %s / %.3f, %.3f A | the same |"
         % (table["handback"][0], table["handback"][1], table["handback"][2]),
         "| TDK current read-back before, after 5 s | %.2f, %.2f A | within 0.5 A (noise) |"
@@ -370,6 +406,12 @@ def closed_loop(capsys):
     assert table["unreachable"][2] <= out_max + 1e-9, "no runaway beyond the maximum"
     assert table["unreachable"][3] is not None and table["unreachable"][3] <= 2 * float(m["DT"]) + 0.5
     assert table["unreachable"][4] <= 2 * LIMITS["settling_s"]
+    y_large, _, first_s, reached, over_lg, step_lg = table["large"]
+    assert y_large < STEP_A - 3.0, "a large error at the switch: %.2f A" % y_large
+    assert first_s is not None and first_s <= 2 * float(m["DT"]) + 0.5, "the TDK moves at once"
+    assert reached is not None and reached <= LIMITS["large_s"]
+    assert over_lg <= LIMITS["overshoot_pct"]
+    assert step_lg <= slew_dt + 1e-9
     assert table["handback"][0] == "measurement no data"
     assert table["handback"][1] == table["handback"][2], "the filament set point stayed"
     assert abs(table["handback"][3] - table["handback"][4]) <= 0.5

@@ -15,6 +15,10 @@
 # runs it with docker compose, writes "<exit code> <output>" into <id>.done, and follows the log
 # of a started container again. Only the IOC services and the loop service are accepted.
 #
+# Saved settings: limits.sav of every IOC (Docker volume mist2emu-save) is read before the run
+# and after it (after the emulation stopped, or 6 s after the tests when it stays running, so
+# that autosave has saved). A run that changed it fails, with the difference.
+#
 # MIST2_PLANT=1 (make -C emulation test-loop): with the plant model. A plant this script started
 # is stopped again, also when the rest of the emulation was running before.
 set -u
@@ -32,6 +36,13 @@ started_plant=0
 
 mkdir -p "$BUILD"
 rm -f "$BUILD/update-rate.md" "$BUILD/loop-plant.md"
+
+# limits.sav of every IOC without autosave's time stamp line ("none": not saved yet)
+saved_settings() {
+    docker run --rm -v mist2emu-save:/s:ro --entrypoint sh mist2-ioc:dev -c \
+        'for f in /s/*/limits.sav; do [ -f "$f" ] || { echo none; continue; }; echo "== $f"; grep -v "^#" "$f"; done' 2>&1
+}
+SAVED_BEFORE=$(saved_settings)
 mkdir -p "$REQUESTS"
 rm -f "$REQUESTS"/*
 started=0
@@ -119,4 +130,19 @@ for table in update-rate.md loop-plant.md; do
 done
 echo
 echo "test: pytest exit code $status after $(( $(date +%s) - t0 )) s; logs in emulation/build/"
+if [ "$started" = 1 ]; then
+    finish; trap - EXIT                     # stopped: everything saved
+else
+    sleep 6                                 # autosave saves a change within 5 s
+fi
+SAVED_AFTER=$(saved_settings)
+if [ "$SAVED_BEFORE" = "$SAVED_AFTER" ]; then
+    echo "test: saved settings (limits.sav) as before the run"
+elif echo "$SAVED_BEFORE" | grep -q "^none$"; then
+    echo "test: limits.sav did not exist before the run (first start); now:"; echo "$SAVED_AFTER"
+else
+    echo "test: FAIL: the run changed the saved settings (limits.sav):"
+    diff <(echo "$SAVED_BEFORE") <(echo "$SAVED_AFTER") | sed 's/^/    /'
+    [ "$status" = 0 ] && status=1
+fi
 exit $status

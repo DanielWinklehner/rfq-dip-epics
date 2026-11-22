@@ -50,6 +50,38 @@ def restore_writes(names=None):
             S.put(n, target)
 
 
+def defaults():
+    """Every PV of the IOCs' limits.defaults files with its default: {name: value}."""
+    out = {}
+    for ioc in reg.iocs.values():
+        path = S.REPO / ioc["st_cmd"]
+        path = path.parent / "limits.defaults"
+        if not path.exists():
+            continue
+        for line in path.read_text().splitlines():
+            words = line.split()
+            if len(words) == 2 and not line.startswith("#"):
+                out[words[0]] = float(words[1])
+    return out
+
+
+def setting(name):
+    if "." in name:
+        record, fld = name.split(".", 1)
+        return float(S.field(record, fld))
+    return float(S.get(name))
+
+
+def report_changed_settings():
+    """Print (not fail on) every saved setting that differs from its default when the suite
+    starts: an emulation whose settings someone changed is seen, while the suite restores what
+    it found."""
+    changed = ["%s = %g (default %g)" % (n, setting(n), v) for n, v in sorted(defaults().items())
+               if S.connected(n.split(".")[0]) and abs(setting(n) - v) > 1e-9]
+    S.report("saved settings that differ from limits.defaults at the start: %s"
+             % ("; ".join(changed) if changed else "none"))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def system():
     """Both IOCs answer and are past their GRACE time; every PV of the registry has a monitor."""
@@ -65,6 +97,7 @@ def system():
                lambda: "permit gates enabled after the first contact: %s" % {
                    g: S.field(g, "DISA") for g in gates})
     S.watch(list(reg.pvs))
+    report_changed_settings()
     for name in reg.pvs:
         if S.connected(name):
             d = S.read(name)
