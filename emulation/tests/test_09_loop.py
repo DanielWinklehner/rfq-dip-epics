@@ -194,21 +194,25 @@ def reason(lp):
 
 
 def expect_hand_back(lp, words, limit, t0):
-    """MANUAL within `limit` s of t0 (monotonic), with the reason, the request back at MANUAL,
-    and the actuator left at its set point. Returns the seconds it took."""
+    """MANUAL within `limit` s of t0 (monotonic), with the reason (or one of several), the
+    request back at MANUAL, and the actuator left at its set point: after one period of the
+    writer (a set sent just before the hand-back may still complete) it is not written again.
+    Returns the seconds it took."""
     S.wait_for(lambda: S.get(lp["mode"]) == 0, limit - (time.monotonic() - t0),
                lambda: "hand-back (%s): %s" % (words, S.describe(
                    [lp["mode"], lp["reason"], lp["pv"], lp.act])))
     took = time.monotonic() - t0
-    assert reason(lp) == words, "reason %r, expected %r" % (reason(lp), words)
+    expected = words if isinstance(words, tuple) else (words,)
+    assert reason(lp) in expected, "reason %r, expected %r" % (reason(lp), words)
     assert S.get(lp["mode_cmd"]) == 0, "the request is back at MANUAL (latch)"
+    time.sleep(lp.dt + 0.1)
     held = S.read(lp.act)
     time.sleep(SETTLE)
     after = S.read(lp.act)
     assert (after["value"], after["timestamp"]) == (held["value"], held["timestamp"]), (
         "the actuator was written after the hand-back: %r then %r" % (held, after))
     assert S.get(lp["mode_cmd"]) == 0 and S.get(lp["mode"]) == 0, "nothing returns to PID"
-    print("%s: hand-back '%s' after %.2f s" % (lp.device, words, took))
+    print("%s: hand-back '%s' after %.2f s" % (lp.device, reason(lp), took))
     return took
 
 
@@ -341,10 +345,15 @@ def test_hand_back_when_a_permit_fails(ready, n):
 
 
 def test_hand_back_when_the_measurement_is_invalid(ready):
+    """The REK silent: its monitors (10 Hz) and its status (the permit, 1 Hz) turn INVALID, which
+    first depends on where the polls stand. Both are R4 b, a PV the loop uses INVALID."""
     sim, unit = reg.sim_of(reg.role(device_of(ready.meas), "vset"))
     go_pid(ready)
+    n = next(i for i, (pv, _, _) in enumerate(ready.conditions, 1)
+             if reg.sim_of(pv) == (sim, unit) or (sim + ":%s" % unit) in reg.pvs[pv].get("fails_with", []))
     with S.fault(sim, "silent", unit) as f:
-        expect_hand_back(ready, "measurement no data", MEASUREMENT_LIMIT, f.t0)
+        expect_hand_back(ready, ("measurement no data", "permit %d no data" % n),
+                         MEASUREMENT_LIMIT, f.t0)
     S.wait_for(lambda: S.sevr(ready["pv"]) != S.INVALID, 20.0, "measurement back")
 
 
@@ -434,6 +443,7 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     ioc = reg.devices[ready.device]["ioc"]
     hb = reg.iocs[ioc]["roles"]["heartbeat"]
     go_pid(ready)
+    time.sleep(AUTOSAVE)                            # the settings of `ready` saved by autosave
     settings = {pv: S.get(pv) for pv in ready.settings()}
     needs_heartbeat()
     S.container("restart", S.ioc_container(ioc))
