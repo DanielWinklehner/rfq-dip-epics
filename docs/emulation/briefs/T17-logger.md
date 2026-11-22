@@ -10,7 +10,7 @@ FIRST LINE OF YOUR FINAL REPORT must be: `MODEL: <the exact model ID you are run
 
 # Read first
 1. `plan/controls.yaml`, section `software` (`intro`, `components`, `tiers`, `archiver`, `questions`) and work package WP9: what the owner wants. The store is decided: a time-series database (TimescaleDB on PostgreSQL) behind a small Channel Access logger of our own, with Grafana to look at the data.
-2. `docs/emulation/README.md` and `docs/emulation/DESIGN.md` section 2: the emulation and its network. `docs/emulation/LOOP.md`: the loop IOC, the third IOC of the system.
+2. `docs/emulation/README.md` and `docs/emulation/DESIGN.md` section 2: the emulation and its network. `docs/emulation/LOOP.md`: the discharge current loop, a Python service with its records in the platform IOC, and the pattern for a service beside the IOCs.
 3. `plan/README.md`: how the plan, the databases and the `st.cmd` files are checked against each other, and how the device registry (`RAS/mist2/ReactApp/src/registry/registry.json`) is generated. The logger's list of PVs is generated the same way.
 4. `emulation/tests/README.md` and `emulation/tests/system.py`: Channel Access with pyepics, simulator control, fault injection. `RAS/mist2/Makefile` and `RAS/mist2/env.template`: the pattern for a service with its own Compose project and an `.env` file that is not committed.
 5. `docs/emulation/STATUS.md`, open points P31 (a client that read 200 PVs every 0.1 s disturbed the Matsusada monitors once: subscribe, do not poll) and P33 (clocks).
