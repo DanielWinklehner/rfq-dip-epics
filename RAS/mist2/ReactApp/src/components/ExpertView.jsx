@@ -42,6 +42,11 @@ const RecordRow = ({ name }) => {
       <TableCell sx={{ ...cell, fontFamily: "monospace", wordBreak: "break-all" }}>
         {name}
         {info.internal && <Chip size="small" label="internal" sx={{ ml: 0.5, height: 16, fontSize: 10 }} />}
+        {info.aliases?.map((alias) => (
+          <Typography key={alias} variant="caption" display="block" sx={{ fontFamily: "monospace" }}>
+            alias {alias}
+          </Typography>
+        ))}
         <Typography variant="caption" display="block" color="text.secondary">
           {[info.role, info.desc].filter(Boolean).join(": ")}
         </Typography>

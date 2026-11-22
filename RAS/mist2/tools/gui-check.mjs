@@ -14,6 +14,8 @@
 //   command <id> <channel|-> <role> <value> <dialog|nodialog>
 //                        press a request button; the confirmation must (not) appear
 //   alloff               press ALL HV OFF in the app bar
+//   shows <id> <role> <value>
+//                        the request buttons of a role show that value pressed
 // Prints PASS/FAIL lines; exit code 1 on any FAIL.
 import fs from "node:fs";
 import { chromium } from "playwright";
@@ -40,11 +42,13 @@ const check = (ok, message) => (ok ? pass(message) : fail(message));
 const allowed = [/accounts\.google\.com/, /Outdated Optimize Dep/, /net::ERR_NETWORK_CHANGED/];
 const problems = [];
 const watch = (page) => {
-  page.on("console", (message) => {
+  page.on("console", async (message) => {
     if (!["error", "warning"].includes(message.type())) return;
     const text = `${message.text()} ${message.location().url ?? ""}`;
     if (!allowed.some((pattern) => pattern.test(text))) {
-      problems.push(`${page.url()}: console ${message.type()}: ${message.text().slice(0, 400)}`);
+      // The further arguments carry React's component stack.
+      const args = await Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => "")));
+      problems.push(`${page.url()}: console ${message.type()}: ${JSON.stringify(args).slice(0, 1500)}`);
     }
   });
   page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
@@ -325,10 +329,23 @@ const phases = {
       .catch(() => false);
     check(shown === (dialog === "dialog"), `${id} ${channel} ${role} := ${value}: ${shown ? "asks" : "does not ask"} for confirmation`);
     if (shown) {
+      await page.waitForTimeout(800); // the dialog fades in
       await shot(page, `write-confirm-${id}-${channel}`, false);
       await page.getByRole("dialog").getByRole("button").last().click();
     }
     await page.waitForTimeout(1000);
+    await page.close();
+  },
+
+  async shows() {
+    const [id, role, value] = args;
+    const page = await openDevice(id);
+    await settle(page);
+    const word = devices[id].pvs[devices[id].roles[role]].states[Number(value)];
+    const group = page.locator(`[data-part="Controls"] [data-pv="${devices[id].roles[role]}"]`);
+    const pressed = await group.locator('[aria-pressed="true"]').innerText();
+    check(pressed === word, `${id} ${role}: the switch shows ${pressed}, expected ${word}`);
+    await shot(page, `latch-${id}-request-${word.toLowerCase()}`, false);
     await page.close();
   },
 

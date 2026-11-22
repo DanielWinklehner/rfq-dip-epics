@@ -4,7 +4,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormHelperText from "@mui/material/FormHelperText";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -12,7 +11,6 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmColors, alarmState, alarmWord, marker } from "../../alarm/severity";
-import stateText from "./stateText";
 
 const PvCommandComponent = (props) => {
   const theme = useTheme();
@@ -42,11 +40,10 @@ const PvCommandComponent = (props) => {
       >
         {[0, 1].map((value) => (
           <ToggleButton key={value} value={value}>
-            {stateText(value, props.enumStrs)}
+            {props.enumStrs?.[value] ?? value}
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      {props.helperText && <FormHelperText>{props.helperText}</FormHelperText>}
       <Dialog open={asked !== null} onClose={() => setAsked(null)}>
         <DialogTitle>Confirm</DialogTitle>
         <DialogContent>{props.confirm?.text}</DialogContent>
@@ -59,7 +56,7 @@ const PvCommandComponent = (props) => {
               setAsked(null);
             }}
           >
-            {stateText(asked, props.enumStrs)}
+            {props.enumStrs?.[asked] ?? asked}
           </Button>
         </DialogActions>
       </Dialog>
@@ -67,8 +64,9 @@ const PvCommandComponent = (props) => {
   );
 };
 
-// A binary request (output, valve, pump, gauge): one button per state, the
-// state strings from the record. `confirm` = { value, text } asks first.
+// A binary request (output, valve, pump, gauge): one button per state, named
+// by the registry's words (custom_selection_strings). `confirm` = { value,
+// text } from the registry asks first.
 const PvCommand = (props) => <Widget {...props} component={PvCommandComponent} />;
 
 export default PvCommand;

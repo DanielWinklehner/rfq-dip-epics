@@ -1,32 +1,31 @@
 import React from "react";
-import confirmations from "../config/confirm.json";
-import { pvInfo, rolesOf } from "../registry";
-import { exponentRoles, isLamp, lampWords, roleText } from "../roles";
+import { pvInfo, rolesOf, wordsOf } from "../registry";
+import { roleText } from "../roles";
 import PvCommand from "./fields/PvCommand";
 import PvLamp from "./fields/PvLamp";
 import PvSetpoint from "./fields/PvSetpoint";
 import PvValue from "./fields/PvValue";
 
-// The field for one role of a device or channel, chosen by the record: a
-// binary request gets buttons, any other written record an input field, a
-// binary read-back a lamp, everything else a value field. Nothing when the
-// device does not have the role. The registry's note is the helper text,
-// config/confirm.json says which requests ask first.
+// The field for one role of a device or channel, chosen by the record and
+// the registry: a binary request gets buttons (asking first where the
+// registry says `confirm`), any other written record an input field, a
+// read-back with two words a lamp, everything else a value field. Nothing when
+// the device does not have the role. The registry's notes are in the expert view.
 const RoleField = ({ id, channel, role }) => {
   const pv = rolesOf(id, channel)[role];
   if (!pv) return null;
-  const { type, access, note } = pvInfo(pv);
-  const confirm = confirmations.confirm.find(
-    (c) => c.device === id && c.channel === channel && c.role === role
-  );
-  const props = { pv, label: roleText(id, role), helperText: note };
+  const { type, access, confirm } = pvInfo(pv);
+  const words = wordsOf(id, channel, role);
+  const props = { pv, label: roleText(id, role) };
   if (access === "w") {
-    return type === "bo" ? <PvCommand {...props} confirm={confirm} /> : <PvSetpoint {...props} />;
+    return type === "bo" ? (
+      <PvCommand {...props} custom_selection_strings={words} confirm={confirm} />
+    ) : (
+      <PvSetpoint {...props} />
+    );
   }
-  if (isLamp(pv, role)) {
-    return <PvLamp {...props} custom_selection_strings={lampWords[role]} />;
-  }
-  return <PvValue {...props} exponent={exponentRoles.includes(role)} />;
+  if (words?.length === 2) return <PvLamp {...props} custom_selection_strings={words} />;
+  return <PvValue {...props} words={words} />;
 };
 
 export default RoleField;

@@ -3,6 +3,7 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmColors, alarmState, displayText } from "../../alarm/severity";
+import { readProps, valueText } from "./format";
 
 const PvTextComponent = (props) => {
   const theme = useTheme();
@@ -21,7 +22,7 @@ const PvTextComponent = (props) => {
         overflowWrap: "anywhere",
       }}
     >
-      {displayText(state, props.value, props.units)}
+      {displayText(state, valueText(props))}
     </Typography>
   );
 };
@@ -34,7 +35,7 @@ const PvText = ({ pv, field, ...others }) => (
     pv={field ? `${pv}.${field}` : pv}
     component={PvTextComponent}
     componentProps={{ pv }}
-    useStringValue
+    {...readProps(pv)}
   />
 );
 

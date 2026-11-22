@@ -13,7 +13,7 @@ import ExpertView from "../components/ExpertView";
 import Flags from "../components/Flags";
 import StatusStrip from "../components/StatusStrip";
 import TrendSet from "../components/TrendSet";
-import { alarmPvs, channelLabel, devices, iocOf, isPolled } from "../registry";
+import { alarmPvs, channelLabel, devices, iocOf } from "../registry";
 import { trendPvs } from "../roles";
 
 const parts = ["Controls", "Trend", "Expert"];
@@ -27,7 +27,7 @@ const DeviceHeader = ({ id, channel }) => {
         <Typography variant="h6" noWrap>
           {device.name}
         </Typography>
-        {isPolled(id) && <AlarmChip state={state} />}
+        <AlarmChip state={state} />
       </Stack>
       <Typography variant="caption" color="text.secondary">
         {device.model} · {iocOf(id).name} · {device.page}
@@ -65,9 +65,7 @@ const DeviceWindow = () => {
         ))}
       </Tabs>
       <Box sx={{ p: 1.5 }} data-part="Controls" hidden={part !== 0}>
-        <Box sx={{ opacity: isPolled(id) ? 1 : 0.5 }}>
-          <DeviceWidget id={id} />
-        </Box>
+        <DeviceWidget id={id} />
       </Box>
       <Box sx={{ p: 1 }} data-part="Trend" hidden={part !== 1}>
         <TrendSet pvs={trendPvs(id)} size={12} height={220} />

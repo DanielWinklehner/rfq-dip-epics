@@ -3,7 +3,7 @@ import TextField from "@mui/material/TextField";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmState, displayText, fieldSx } from "../../alarm/severity";
-import valueFormat from "./valueFormat";
+import { readProps, valueText } from "./format";
 
 const PvValueComponent = (props) => {
   const theme = useTheme();
@@ -12,8 +12,7 @@ const PvValueComponent = (props) => {
     <TextField
       size="small"
       label={props.label}
-      value={displayText(state, props.value, props.units)}
-      helperText={props.helperText}
+      value={displayText(state, valueText(props))}
       sx={fieldSx(theme, state)}
       slotProps={{
         input: { readOnly: true },
@@ -23,10 +22,10 @@ const PvValueComponent = (props) => {
   );
 };
 
-// A read-back: value, unit and precision from the record, coloured by its
-// severity. `exponent` shows the number in exponent format (pressures).
-const PvValue = ({ pv, exponent = false, ...others }) => (
-  <Widget {...others} pv={pv} component={PvValueComponent} {...valueFormat(pv, exponent)} />
+// A read-back: its word, or value and unit from the record, coloured by its
+// severity. `words` are the registry's words for the values.
+const PvValue = ({ pv, words, ...others }) => (
+  <Widget {...others} pv={pv} component={PvValueComponent} {...readProps(pv, words)} />
 );
 
 export default PvValue;

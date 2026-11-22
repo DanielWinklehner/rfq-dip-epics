@@ -18,7 +18,6 @@ const PvSetpointComponent = (props) => {
       label={props.label}
       value={shown}
       disabled={props.disabled}
-      helperText={props.helperText}
       onFocus={() => {
         setEditing(true);
         props.handleFocus();

@@ -2,9 +2,8 @@ import React from "react";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
 import { alarmColors, alarmState, displayText } from "../alarm/severity";
-import { Lamp, lampText } from "../components/fields/PvLamp";
-import valueFormat from "../components/fields/valueFormat";
-import { exponentRoles, isLamp, lampWords } from "../roles";
+import { readProps, valueText } from "../components/fields/format";
+import { Lamp } from "../components/fields/PvLamp";
 
 export const rowHeight = 18;
 
@@ -13,9 +12,7 @@ const TagRowComponent = (props) => {
   const { x, y, w, lamp } = props;
   const state = alarmState(props.initialized, props.alarmSeverity);
   const colors = alarmColors(theme, state);
-  const text = lamp
-    ? lampText(state, props.value, props.enumStrs)
-    : displayText(state, props.value, props.units);
+  const text = displayText(state, valueText(props));
   return (
     <g data-pv={props.pv} data-alarm={state}>
       <rect
@@ -47,12 +44,9 @@ const TagRowComponent = (props) => {
 };
 
 // One value of a tag, in the shared alarm look, with the RAS context menu.
-const TagRow = ({ pv, role, ...others }) => {
-  const lamp = isLamp(pv, role);
-  const format = lamp
-    ? { custom_selection_strings: lampWords[role] }
-    : valueFormat(pv, exponentRoles.includes(role));
-  return <Widget {...others} {...format} svgWidget pv={pv} lamp={lamp} component={TagRowComponent} />;
-};
+// A value with two words (registry) gets a lamp.
+const TagRow = ({ pv, words, ...others }) => (
+  <Widget {...others} {...readProps(pv, words)} svgWidget pv={pv} lamp={words?.length === 2} component={TagRowComponent} />
+);
 
 export default TagRow;
