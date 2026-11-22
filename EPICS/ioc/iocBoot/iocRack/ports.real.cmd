@@ -4,7 +4,8 @@
 # must equal those in ports.sim.cmd, st.cmd uses them.
 #
 # ASSUMED, to be replaced when the real computer is set up:
-#   - Device names under /dev/mist2/ (the udev rules do not exist yet).
+#   - Device names under /dev/mist2/. Only /dev/mist2/co-u32 has a udev rule
+#     (EPICS/ioc/host, not tested on hardware); the others do not exist yet.
 #   - Host names of the Arduino Optas (no address plan yet).
 #   - Serial settings: from the firmware or the manual of each device where they disagree with
 #     the lab's old st.cmd. The differences are listed in docs/emulation/STATUS.md.
@@ -14,6 +15,7 @@
 on error break
 
 # Matsusada AU supplies, optical chain behind the USB-OPT adapter (source, puller)
+# Device name: no udev rule yet, the USB ID and serial number of the USB-OPT are not known
 drvAsynSerialPortConfigure("mat_opt","/dev/mist2/usb-opt")
 asynSetOption("mat_opt",-1,"baud","9600")
 asynSetOption("mat_opt",-1,"bits","8")
@@ -23,6 +25,7 @@ asynSetOption("mat_opt",-1,"clocal","Y")
 asynSetOption("mat_opt",-1,"crtscts","N")
 
 # Matsusada AU supplies, optical chain behind the CO-U32 adapter (lenses)
+# Device name: EPICS/ioc/host/99-mist2-matsusada.rules
 drvAsynSerialPortConfigure("mat_co","/dev/mist2/co-u32")
 asynSetOption("mat_co",-1,"baud","9600")
 asynSetOption("mat_co",-1,"bits","8")
