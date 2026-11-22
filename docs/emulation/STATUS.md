@@ -156,22 +156,32 @@ Second round, ordered by you on 2026-11-22: the PID loop, then the logger (work 
   bump, 22 A reached in about 8 s; a write of the operator to the TDK set point, a killed
   service, a stopped service, a restart, a refused request: all hand back or refuse with the
   right reason.
-- The same hand session found two defects of the loop and one of the discharge supply, which
-  the subagent is fixing now, with four smaller points (seven in all):
-  1. A limit changed in PID below the present filament current leaves the filament current
-     where it is, while the loop says PID and shows the new limit as its output.
-  2. With the rack IOC stopped, the loop's interlock condition keeps reading "fulfilled" without
-     alarm and the loop stays in PID (watched for 46 s, still so minutes later). The cause is in
-     EPICS itself (base 7.0.10): a record is not processed when its CP link disconnects
-     (`dbCa.c`, `dbCaTask`), and a calc record keeps its last value when an input link fails.
-  3. **The discharge supply, not the loop (open point P35):** with the rack IOC stopped,
-     `REK-1:SetToggleOutput` is cleared at once but the REK output stays on (22 A in the plant
-     model) for as long as the rack IOC is down, and is switched off 0.5 s after it returns.
-     `rek.db`, `matsusada_au20p7.db` and `iocHV/st.cmd` all say a lost permit forces the output
-     off. Same cause as 2. It came in with the Matsusada rework and no test stopped an IOC then.
-  4. Smaller: the permit records were in MAJOR alarm with the supplies simply off; three role
-     names collided with the GUI's; the set point limits were fields the GUI cannot show; the
-     service counted a cycle before it had done its work.
+- The same hand session found two defects of the loop and one of the discharge supply, sent
+  back with four smaller points (seven in all). The subagent fixed them (branch at `eed9a2e`),
+  and I checked each one myself: the five acceptance commands again (24 unit tests, 269 system
+  tests in 703 s, the closed-loop test, the plan check) and by hand on the plant.
+  1. A limit changed in PID below the present filament current left the filament current where
+     it was. Now it follows to the new limit at the slew rate.
+  2. With the rack IOC stopped, the loop's interlock condition kept reading "fulfilled" and the
+     loop stayed in PID. Now: "no data" and MANUAL 0.3 s after a stop, about 8 s after the rack
+     IOC goes silent without closing its connection (`docker pause`). The cause is in EPICS
+     base 7.0.10: a record is not processed when its CP link disconnects (`dbCa.c`,
+     `dbCaTask`), and a calc record keeps its last value when an input link fails.
+  3. **The discharge supply, not the loop (open point P35):** with the rack IOC stopped the REK
+     output stayed on although its request was cleared. Now it is off 0.1 s after a stop and
+     about 8 s after a silent rack IOC, and nothing comes back when the rack IOC returns.
+     `rek.db` and `matsusada_au20p7.db` got the same change.
+  4. Smaller: the permit records carry no alarm while a supply is simply off and read as words;
+     role names that collided with the GUI's are renamed; the set point limits are records
+     (`LOOP-DIS:spmin:setpoint`, `spmax:setpoint`); the service counts a cycle only when it
+     completed.
+- **Still open before the merge (second fix round, running):** with a large error the loop goes
+  to PID and does nothing. Seen by hand with the default settings: MANUAL at 18 A, set point
+  22 A, then PID: the output stands still, flag "free", for as long as I watched. The
+  anti-windup at the slew limit takes the whole integral step back when it is larger than the
+  slew room (threshold: Ki times the error above the slew rate), and the tests only stepped by
+  2 A, just under it. Also: a run left the slew setting at 0.5 A/s instead of 1 in the
+  emulation's saved settings.
 - T16, the GUI round (`briefs/T16-loop-gui.md`: the loop's widget, values set in place on the
   drawings, tabs as windows; your answers 23 and 24), and T17, the logger
   (`briefs/T17-logger.md`), start when the loop is merged. They run side by side in two
@@ -372,7 +382,7 @@ P18, P19, P20, P22.
 | P32 | The system suite takes about 9 minutes. The limit set for it was 10 | Later, if it grows |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
-| P35 | With the rack IOC stopped the REK output stays on although its request is cleared, and is switched off only when the rack IOC returns. Found by hand on 2026-11-22 while checking the loop; the hardware interlock does not depend on it. Cause: a calc record keeps its last value when its permit link fails (EPICS base 7.0.10) | Being fixed with the loop (T15, point F3), with a test that stops and one that pauses the rack IOC |
+| P35 | With the rack IOC stopped the REK output stays on although its request is cleared, and is switched off only when the rack IOC returns. Found by hand on 2026-11-22 while checking the loop; the hardware interlock does not depend on it. Cause: a calc record keeps its last value when its permit link fails (EPICS base 7.0.10) | Fixed on the loop's branch (not merged yet) and checked by me by hand: off 0.1 s after a stop, about 8 s after a silent rack IOC; system tests `test_10_lost_permit.py` |
 
 ## Found in RAS V8.1.0
 
