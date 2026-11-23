@@ -54,7 +54,7 @@ state found, restore at the end, also after a failure).
 | Listed PVs stay INVALID | 1; 8 for Matsusada `close` | two watchdog restarts of the monitor cycle (POLL_LIMIT 30 x 0.1 s) |
 | No INVALID before a fault | 1 | the previous test's device has settled |
 | Door to output off / back | 3 / 5 | permit CP link, OutputIntlk scan 1 s, switching protocol PRIO HIGH |
-| Direct write of `ToggleOutput` while the door is open, to output off again | 5 | SW? read back by its forward link, two evaluations of `_permit:enforce` (1 s scan; two more when the read of SW? every 5 s breaks the row), the off sequence (PRIO HIGH) |
+| Direct write of `ToggleOutput` while the door is open, to output off again | 4 | SW? read back by its forward link, two evaluations of `_permit:enforce` (1 s scan), the off sequence (PRIO HIGH) |
 | Permit lost: connection closed / peer silent | 2 / 13 | the mirror `_permit:read` scans every 0.1 s / `EPICS_CA_CONN_TMO` 5 s of the platform IOC, then an echo unanswered for another 5 s (measured 0.4 to 0.6 s and 9.8 to 10.0 s) |
 | Loop: refusal | 1 | the service reads the request by monitor, decides in its next cycle (0.2 s) |
 | Loop: hand-back, interlock / supply off | 1 / 2.5 | interlock box polled every 0.1 s / output state polled every 1 s, then one cycle |

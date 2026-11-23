@@ -367,18 +367,21 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):_permit:latch") {
 # is lost.
 #   Inputs, all NPP database links (read, nothing processed): A, B OutputIntlk.A and .C (the
 #   permit); C OutputIntlk.DISA (0: gate enabled); D, E read_output_status and its SEVR; F, G
-#   status:read and its SEVR; H, I, J the PACT of _out:switch, ToggleOutput and
-#   read_output_status (a switching or a read of SW? under way: the condition counts as not
-#   fulfilled). K counts the evaluations in a row at which the condition held, L the sequences.
+#   status:read and its SEVR; H, I the PACT of _out:switch and ToggleOutput (a switching under
+#   way: the condition counts as not fulfilled). K counts the evaluations in a row at which the
+#   condition held, L the sequences. No periodically read record is among the activity inputs:
+#   one in the same scan list would be busy at every evaluation (with SCAN_GET "1 second" the bi
+#   read_output_status stands before this calcout in the 1 s list: types in dbd order, then PHAS,
+#   dbScan.c 1051-1072, 1088) and the rule would never act; with another period, at some.
 #   Every second: K := condition ? K+1 : 0. At K = 2 one sequence is started (L := L+1, so VAL
 #   changes and On Change writes OCAL 6 to _out:switch.SELN PP) and K counts from 0 again. So
 #   the first sequence goes out 1 to 2 s after the IOC has the reading, then one every 2 s while
-#   the condition lasts. A normal permit loss starts none: the gate's own sequence keeps H, I or
-#   J at 1 until SW? has been read back OFF, and status:read is read again within a second.
-#   The periodic scans run on one time grid (each scan thread waits for its start plus n
-#   periods, dbScan.c 798, 807, all started at iocInit), so with SCAN_GET 5 s every fifth
-#   evaluation can find the periodic read of SW? under way (J = 1), which breaks the row: then
-#   the first sequence goes out 1 to 4 s after the reading, and 2 or 3 s lie between two.
+#   the condition lasts. A normal permit loss starts none. That rests on three things: it acts
+#   only at two evaluations in a row; H and I are 1 while the gate's own sequence runs (the seq
+#   until it has started ToggleOutput, then ToggleOutput until its reply); and the read-back of
+#   SW? (FLNK of ToggleOutput) arrives within a second after that, as does the next status:read.
+#   If a line is so held up that the read-back takes longer, one more off sequence may go out,
+#   which is harmless.
 #   VAL: the number of sequences started since the IOC start (0 if nothing went wrong), for
 #   diagnosis. No alarm of its own. It only switches off (SELN 6, never 5) and writes no request
 #   (the latch does that). REN comes first, so a supply under local control is taken back.
@@ -417,8 +420,7 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):_permit:enforce") {
     field(INPG, "$(DEV=AU-20P7)-$(UNITNUM):status:read.SEVR NPP")
     field(INPH, "$(DEV=AU-20P7)-$(UNITNUM):_out:switch.PACT NPP")
     field(INPI, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput.PACT NPP")
-    field(INPJ, "$(DEV=AU-20P7)-$(UNITNUM):read_output_status.PACT NPP")
-    field(CALC, "K:=(A||B>=3)&&C=0&&!(H||I||J)&&(D=1&&E<3||(F=1||F=3)&&G<3)?K+1:0;L:=L+(K>=2);K:=K>=2?0:K;L")
+    field(CALC, "K:=(A||B>=3)&&C=0&&!(H||I)&&(D=1&&E<3||(F=1||F=3)&&G<3)?K+1:0;L:=L+(K>=2);K:=K>=2?0:K;L")
     field(OOPT, "On Change")
     field(DOPT, "Use OCAL")
     field(OCAL, "6")

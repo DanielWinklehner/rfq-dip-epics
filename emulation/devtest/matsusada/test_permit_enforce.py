@@ -25,14 +25,10 @@ CHAIN = {"AU-20P7-3": "mat_co", "AU-20P7-6": "mat_co", "REK-1": "rek"}
 UNIT = {"AU-20P7-3": 3, "AU-20P7-6": 6, "REK-1": 1}
 
 # The off sequence, 1 to 2 s after the reading (two evaluations of a 1 s scan), then the sequence
-# itself (four commands, about 0.1 s) and the read-back of SW? (FLNK of ToggleOutput). The 1 s
-# and 5 s scans run on one time grid (dbScan.c, periodicTask), so every fifth evaluation can find
-# the periodic read of SW? under way, which breaks the row of two: up to two evaluations more
-# (the sequence 1 to 4 s after the reading instead of 1 to 2 s).
+# itself (four commands, about 0.1 s) and the read-back of SW? (FLNK of ToggleOutput).
 STS_POLL = 1.0                               # SCAN_STS
 EVALUATIONS = 2.0                            # two evaluations of the 1 s scan
-BROKEN_ROW = 2.0                             # a row broken by the read of SW? (see above)
-OFF_LIMIT = 4.0 + 0.5                        # brief: 4 s; 4.2 s with a broken row, see above
+OFF_LIMIT = 4.0                              # off again within 4 s of the direct write
 SEQUENCE = 0.5                               # REN, RST, SW0, SW? and its read-back, with margin
 SWITCHING = re.compile(r"^(REN|RST|SW[01]|CH0 |CH1 |GTL)")   # commands, not queries
 
@@ -183,7 +179,7 @@ def test_front_panel_switch_on_while_the_permit_is_lost(d):
         t0 = time.monotonic()
         try:
             wait_for(lambda: get(d + ":status:read") == 3, STS_POLL + 0.5, "%s: ON, LOCAL" % d)
-            limit = STS_POLL + EVALUATIONS + BROKEN_ROW + SEQUENCE
+            limit = STS_POLL + EVALUATIONS + SEQUENCE
             wait_for(lambda: count(d) > n0 and sim_signal(d, "remote") == 1, limit,
                      "%s: the off sequence (REN first) within %g s of the switch-on" % (d, limit))
             time.sleep(0.3)                  # RST, SW0 and the read-back behind the REN
@@ -236,10 +232,11 @@ def test_with_the_permit_a_direct_write_and_the_front_panel_stay_on(d):
 
 # --- 4. a normal permit loss sends one off sequence --------------------------------------------
 
-ROUNDS = 20       # x 6 supplies = 120 permit losses: a doubled sequence in 3 % of them is missed
+ROUNDS = 20       # the test that the rule (without an activity input of the periodic read of
+                  # SW?) sends nothing more at a normal permit loss. x 6 supplies = 120 permit losses: a doubled sequence in 3 % of them is missed
                   # with a probability of 0.97^120 = 2.6 %, in 5 % of them with 0.2 %
-SETTLE = 3.5      # s after the output went off: a second sequence would start within two
-                  # evaluations (2 s) after the readings, three with a broken row
+SETTLE = 3.0      # s after the output went off: a second sequence would start within two
+                  # evaluations (2 s) after the readings, plus margin
 
 
 def test_a_normal_permit_loss_sends_exactly_one_off_sequence(capsys):
@@ -290,7 +287,7 @@ def test_a_silent_supply_is_not_flooded(d):
         c.set("%d.sw" % unit, 1)
         try:
             n0 = count(d)
-            wait_for(lambda: count(d) >= n0 + 2, 2 * EVALUATIONS + 2 * BROKEN_ROW + STS_POLL + 1,
+            wait_for(lambda: count(d) >= n0 + 2, 2 * EVALUATIONS + STS_POLL + 2,
                      "%s: a sequence every 2 s while it reports on" % d)
             c.fault("silent", unit=unit)
             n_silent = count(d)
@@ -302,7 +299,7 @@ def test_a_silent_supply_is_not_flooded(d):
             assert count(d) == n_invalid, "sent to a silent supply"
             c.clear("silent")
             t0 = time.monotonic()
-            limit = STS_POLL + 0.2 + EVALUATIONS + BROKEN_ROW + 0.5
+            limit = STS_POLL + 0.2 + EVALUATIONS + 0.5
             wait_for(lambda: count(d) > n_invalid, limit, "%s: sending again after it answers" % d)
             print("%s: %d sequences after it fell silent, sending again %.1f s after it answered"
                   % (d, n_invalid - n_silent, time.monotonic() - t0))
@@ -346,14 +343,14 @@ def test_ioc_start_with_an_output_on_and_the_permit_lost():
 INPUTS = {"INPA": ":OutputIntlk.A", "INPB": ":OutputIntlk.C", "INPC": ":OutputIntlk.DISA",
           "INPD": ":read_output_status", "INPE": ":read_output_status.SEVR",
           "INPF": ":status:read", "INPG": ":status:read.SEVR", "INPH": ":_out:switch.PACT",
-          "INPI": ":ToggleOutput.PACT", "INPJ": ":read_output_status.PACT"}
+          "INPI": ":ToggleOutput.PACT"}
 
 
 @pytest.mark.parametrize("d", list(POLLED) + [UNPOLLED, "REK-9"])
 def test_structure_of_the_enforce_record(d):
     """_permit:enforce as its comment names it: a calcout scanned every 1 s, its inputs NPP
     database links to the named fields, no delay, On Change, output 6 to _out:switch.SELN PP; no
-    alarm, its value the count."""
+    alarm, its value the count. No .PACT input of a record that is scanned periodically."""
     r = d + ":_permit:enforce"
     f = lambda fld: epics.caget("%s.%s" % (r, fld), as_string=True, timeout=3, use_monitor=False)
     calc = epics.caget(r + ".CALC$", as_string=True, timeout=3, use_monitor=False)   # > 40 characters
@@ -361,12 +358,20 @@ def test_structure_of_the_enforce_record(d):
     assert f("SCAN") == "1 second"
     for fld, target in INPUTS.items():
         assert f(fld).split()[:2] == [d + target, "NPP"], (fld, f(fld))
-    for fld in ("INPK", "INPL"):
+    for fld in ("INPJ", "INPK", "INPL"):
         assert f(fld) == "", (fld, f(fld))
-    assert calc == "K:=(A||B>=3)&&C=0&&!(H||I||J)&&(D=1&&E<3||(F=1||F=3)&&G<3)?K+1:0;L:=L+(K>=2);K:=K>=2?0:K;L"
+    assert calc == "K:=(A||B>=3)&&C=0&&!(H||I)&&(D=1&&E<3||(F=1||F=3)&&G<3)?K+1:0;L:=L+(K>=2);K:=K>=2?0:K;L"
     assert f("OOPT") == "On Change" and f("DOPT") == "Use OCAL"
     assert f("OCAL") == "6" and float(f("ODLY")) == 0.0
     assert f("OUT").split()[:2] == [d + ":_out:switch.SELN", "PP"], f("OUT")
     assert f("IVOA") == "Continue normally"
+    # every activity input (.PACT) reads a record that is not scanned periodically: one scanned
+    # in the same list would be busy at every evaluation and switch the rule off (SCAN_GET 1 s)
+    for fld in ("INP" + c for c in "ABCDEFGHIJKL"):
+        target = f(fld).split()[0] if f(fld) else ""
+        if target.endswith(".PACT"):
+            rec = target[:-len(".PACT")]
+            scan = epics.caget(rec + ".SCAN", as_string=True, timeout=3, use_monitor=False)
+            assert scan == "Passive", (fld, rec, scan)
     assert sevr(r) == 0
     assert get(r) == get(r + ".L")

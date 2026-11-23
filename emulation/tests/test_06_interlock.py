@@ -22,10 +22,9 @@ SWITCH_LIMIT = 3.0     # permit -> output: OutputIntlk follows the permit by a C
                        # every 1 s); the switching protocol is sent at once (PRIO HIGH)
 SETTLED = 2            # processings of each gate record after the door closed, before the
                        # outputs are checked to have stayed off (it scans every 1 s)
-ENFORCE_LIMIT = 5.0    # a direct write of ToggleOutput while the permit is lost -> output off
+ENFORCE_LIMIT = 4.0    # a direct write of ToggleOutput while the permit is lost -> output off
                        # again: the read-back of SW? (its forward link), two evaluations of
-                       # _permit:enforce (scans every 1 s; two more when the periodic read of SW?
-                       # every 5 s breaks the row, matsusada_au20p7.db), the off sequence
+                       # _permit:enforce (scans every 1 s), the off sequence (PRIO HIGH)
 
 
 def gated():
