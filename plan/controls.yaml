@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.14"
+  revision: "0.15"
   date: "2026-11-22"
   author: "D. Winklehner"
   basis:
@@ -33,6 +33,7 @@ meta:
     - "Notes of 2026-11-21: MFC interface, gauge controller replacement, valves to Opta, REK150-55-L(400V), CO-E32 later, GUI overhaul, second optical adapter (USB-OPT)"
     - "Revision 0.13: the data logger (work package WP9, T17): a Channel Access logger of our own (logger/mist2log, Python) on TimescaleDB with Grafana, the tier of every PV (section logging), machine-readable tiers, the logger's state records in the rack IOC (EPICS/Db/logger_status.db), docs/emulation/LOGGER.md"
     - "Revision 0.14: names for the three permits of the discharge current loop and words for its service (labels, states of dis_loop); the read-backs drawn as trends in one place (section trends), read by the GUI and by the logger's dashboards."
+    - "Revision 0.15: the request records of valves, turbopumps and ion gauge take over the device's state at the first contact after an IOC start (first_contact.db, T18); the PV a loop writes while in PID (drives of loop.db), logged as a signal then; the control system services without a page (Infrastructure page and status strip), words for the logger's alive state."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
