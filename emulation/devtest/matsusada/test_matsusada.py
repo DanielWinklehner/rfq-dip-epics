@@ -299,7 +299,8 @@ def test_limit_survives_an_ioc_restart():
     time.sleep(7)
     mark = sim_log_mark()
     restart_ioc()
-    wait_for(lambda: all_valid(d, SUFFIXES + INTERNAL), 20, "%s valid after the restart" % d)
+    wait_for(lambda: all_valid(d, SUFFIXES + INTERNAL), 20,
+             lambda: "%s valid after the restart: %s" % (d, not_valid(d, SUFFIXES + INTERNAL)))
     assert get(d + ":current:limit") == pytest.approx(3.3)
     code = "%04X" % round(3.3 / 15 * 0xFFFF)
     assert sim_log_since(mark, r"mat_opt INFO unit 1: CH1 %s" % code)   # applied at the start

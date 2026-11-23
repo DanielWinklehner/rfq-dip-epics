@@ -1,12 +1,19 @@
 # ioc.cmd of the Matsusada case: both AU chains with the four supplies, one AU unit loaded but
 # not polled (6, test only), two REK supplies (24 A and 55 A), one more REK unit whose permit PV
-# does not exist, the "all off" PV, and the limits by autosave as in the IOCs' st.cmd.
+# does not exist, the "all off" PV, and the limits by autosave as in the IOCs' st.cmd. Two asyn
+# records (line trace for test_permit_enforce.py).
 drvAsynIPPortConfigure("mat_opt", "$(SIM_HOST):5001")
 drvAsynIPPortConfigure("mat_co", "$(SIM_HOST):5002")
 drvAsynIPPortConfigure("REK", "$(SIM_HOST):5003")
 drvAsynIPPortConfigure("REK55", "$(SIM_HOST):5004")
 
 dbLoadRecords("$(CASE_DIR)/permit.db")
+
+# asyn records of two ports, for test_permit_enforce.py: it switches on the trace of what the IOC
+# writes to the line (traceIOMask) while it watches a supply, so that REN, which the simulator
+# logs only when it takes control back from the front panel, can be seen.
+dbLoadRecords("/opt/epics/support/asyn/db/asynRecord.db", "P=DEVTEST:,R=asyn:mat_co,PORT=mat_co,ADDR=0,OMAX=80,IMAX=80")
+dbLoadRecords("/opt/epics/support/asyn/db/asynRecord.db", "P=DEVTEST:,R=asyn:REK,PORT=REK,ADDR=0,OMAX=80,IMAX=80")
 
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,IFS=15")  # ion source
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-1")
