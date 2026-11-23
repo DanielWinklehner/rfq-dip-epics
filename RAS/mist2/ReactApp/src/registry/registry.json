@@ -515,7 +515,7 @@
       1
      ],
      "ack": false,
-     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
+     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)",
      "readback": "REK-1:read_output_status",
      "log": "events"
     },
@@ -572,6 +572,13 @@
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_permit:enforce": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
@@ -1844,7 +1851,7 @@
       1
      ],
      "ack": false,
-     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
+     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)",
      "readback": "AU-20P7-1:read_output_status",
      "log": "events"
     },
@@ -1901,6 +1908,13 @@
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_permit:enforce": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
@@ -2230,7 +2244,7 @@
       1
      ],
      "ack": false,
-     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
+     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)",
      "readback": "AU-20P7-2:read_output_status",
      "log": "events"
     },
@@ -2287,6 +2301,13 @@
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_permit:enforce": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
@@ -2616,7 +2637,7 @@
       1
      ],
      "ack": false,
-     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
+     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)",
      "readback": "AU-20P7-3:read_output_status",
      "log": "events"
     },
@@ -2673,6 +2694,13 @@
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_permit:enforce": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
@@ -3002,7 +3030,7 @@
       1
      ],
      "ack": false,
-     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0",
+     "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)",
      "readback": "AU-20P7-4:read_output_status",
      "log": "events"
     },
@@ -3059,6 +3087,13 @@
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_permit:enforce": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
