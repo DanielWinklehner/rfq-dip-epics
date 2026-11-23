@@ -176,7 +176,9 @@ devices:
     host: ioc_hv
     link: "RS-485 to USB adapter"
     protocol: "StreamDevice, rek.proto (Matsusada CO protocol), 9600 baud"
-    epics: {db: rek.db, macros: {PORT: REK, UNITNUM: "1"}}
+    epics:
+      - {db: rek.db, macros: {PORT: REK, UNITNUM: "1"}}
+      - {db: supply_first_contact.db, macros: {S: "REK-1"}}
     status: replace
     notes:
       - "Replaced by the REK150-55."
@@ -266,7 +268,9 @@ devices:
     via: usb_opt
     link: "optical fiber (USB-OPT chain)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", IFS: "15"}}
+    epics:
+      - {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", IFS: "15"}}
+      - {db: supply_first_contact.db, macros: {S: "AU-20P7-1"}}
     status: modify
     change: "Second optical chain, slimmer polling, scaling fix into the repository"
     notes:
@@ -294,7 +298,9 @@ devices:
     via: usb_opt
     link: "optical fiber (USB-OPT chain)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "2"}}
+    epics:
+      - {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "2"}}
+      - {db: supply_first_contact.db, macros: {S: "AU-20P7-2"}}
     status: modify
     change: "Second optical chain, database into the repository"
     notes:
@@ -311,7 +317,9 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "3"}}
+    epics:
+      - {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "3"}}
+      - {db: supply_first_contact.db, macros: {S: "AU-20P7-3"}}
     status: modify
     change: "Slimmer polling"
     notes:
@@ -326,7 +334,9 @@ devices:
     via: co_u32
     link: "optical fiber"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
-    epics: {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "4"}}
+    epics:
+      - {db: matsusada_au20p7.db, macros: {PORT: mat_co, UNITNUM: "4"}}
+      - {db: supply_first_contact.db, macros: {S: "AU-20P7-4"}}
     status: modify
     change: "Slimmer polling, database into the repository"
     notes:
@@ -1109,12 +1119,11 @@ databases:
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
-               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
+               "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
                "_out:switch", "_out:limit", "_out:remote"]
     invalid_on:                # the running state, after the first contact
-      "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)
-      "output:init": []        # runs only on a valid answer of the probe
-      "_init:vcopy": []        # runs only after a valid voltage echo
+      "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
+      "output:init": []        # runs once, after the take-over of the output state
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
 
@@ -1136,12 +1145,11 @@ databases:
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
-               "_init:probe", "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
+               "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
                "_out:switch", "_out:limit", "_out:remote"]
     invalid_on:                # the running state, after the first contact
-      "_init:probe": []        # disabled by output:init at the first contact (before it: INVALID on a closed port)
-      "output:init": []        # runs only on a valid answer of the probe
-      "_init:vcopy": []        # runs only after a valid voltage echo
+      "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
+      "output:init": []        # runs once, after the take-over of the output state
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
 
@@ -1240,6 +1248,13 @@ databases:
       failure: "failure:get"
       state: "state:get"
     internal: ["int:relays", "int:state"]
+
+  supply_first_contact.db:     # loaded once per Matsusada supply, beside matsusada_au20p7.db or rek.db
+    internal: ["_init:otake", "_init:otake:on", "_init:otake:copy", "_init:otake:off",
+               "_init:vtake", "_init:vtake:copy", "_init:vtake:off"]
+    invalid_on:
+      "_init:otake:copy": []   # runs once, at the first contact, and writes ToggleOutput in simulation mode
+      "_init:vtake:copy": []   # runs once, after a valid voltage echo, and writes the set point in simulation mode
 
   first_contact.db:            # loaded once per request record, beside the device's database
     internal: ["_take:$(N)", "_take:$(N):on", "_take:$(N):copy", "_take:$(N):off"]

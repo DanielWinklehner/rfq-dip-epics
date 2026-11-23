@@ -30,11 +30,16 @@ dbLoadRecords("$(MIST2_DB)/logger_status.db", "P=LOGGER")
 
 # High-voltage supplies Matsusada AU, four on two optical chains (owner, 2026-11-21). The PV
 # name is built from the unit number. PERMIT (default interlock_open) forces an output off while
-# it is non-zero or INVALID, and clears its request (latch).
+# it is non-zero or INVALID, and clears its request (latch). With each supply its first contact
+# (supply_first_contact.db): output state and voltage setting taken over, nothing sent.
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,IFS=15")  # ion source, AU20P15
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-1")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=2")         # puller, AU20N7.5
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-2")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=3")          # lens 1, AU20P7.5
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-3")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=4")          # lens 2, AU20N7.5
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-4")
 # One command for all outputs off: #AL SW0 on both chains
 dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P7-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-4:SetToggleOutput")
 

@@ -1,0 +1,163 @@
+# supply_first_contact.db - a Matsusada supply (matsusada_au20p7.db, rek.db) takes over its own
+# output state and voltage setting at the first contact after an IOC start, sending nothing
+#
+# Loaded once per supply, beside its database and with its PV prefix:
+#   dbLoadRecords("db/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1")
+#   dbLoadRecords("db/supply_first_contact.db", "S=AU-20P7-1")
+# Both loads belong together: the supply's records start these (FLNK of _init:probe and of
+# voltage:get), these write the supply's records. The structure is that of first_contact.db (one
+# check, then soft records chained by PP output links and forward links); the supply needs more
+# steps and starts in simulation mode, so it has a file of its own.
+#
+# Macro:
+#   S     PV prefix of the supply: DEV-UNITNUM of its database (AU-20P7-1, REK-1)
+#
+# Records of the supply that are used: _init:probe (REN and SW? every SCAN_STS until the first
+# answer), ToggleOutput (the switching command, SDLY at its default -1), SetToggleOutput (the
+# operator's request), OutputIntlk (the permit gate, disabled at the start), output:init (what
+# follows the take-over: a seq, see below), voltage:get (the echo of the voltage setting),
+# voltage:setpoint (SIMM YES in the database, SDLY at its default -1).
+#
+# Why nothing is sent: a record in simulation mode with SDLY < 0 writes its value to SIOL, which
+# is empty here, and finishes at once, without calling its device support (aoRecord.c and
+# boRecord.c, writeValue: "prec->pact || (prec->sdly < 0.)" -> dbPutLink(&prec->siol), pact
+# FALSE; an empty link is a constant link whose put does nothing, dbConstLink.c,
+# dbConstPutValue). SetToggleOutput and OutputIntlk.PVAL are soft.
+#
+# 1. The output, at the first valid answer of the probe:
+#    _init:otake        the check, processed by the probe's forward link after every probe: acts
+#                       when the probe's answer is valid (SEVR < INVALID) and ToggleOutput is not
+#                       busy (PACT 0: no client's direct write waiting for the supply, P28);
+#                       otherwise the probe answers again after SCAN_STS and is checked again
+#    _init:otake:on     ToggleOutput.SIMM := YES, _init:probe.DISA := 1 (the probe stops; it
+#                       never processes again, so the check never runs again)
+#    _init:otake:copy   := the probed state: ToggleOutput (processed in simulation mode: nothing
+#                       sent; its forward link reads SW? back), SetToggleOutput (the request,
+#                       processed: a client's request written before is replaced, P29) and
+#                       OutputIntlk.PVAL (the gate's previous value: its first evaluation sends
+#                       nothing when the permit is there and the request unchanged)
+#    _init:otake:off    ToggleOutput.SIMM := NO, then (forward link) output:init
+#    output:init        a seq in the supply's database; it no longer takes anything over: it reads
+#                       the voltage echo (voltage:get.PROC, CA), sends the current limit if it is
+#                       not applied (_limit:apply), and GRACE seconds later enables the gate
+#                       (OutputIntlk.DISA := 0) and processes it. These steps neither switch a
+#                       simulation mode nor copy a value into a record a client writes.
+# 2. The voltage set point, at the first valid echo after 1.:
+#    _init:vtake        the check, processed by the forward link of voltage:get after every read
+#                       of the echo: acts when the echo is valid, the set point is still in
+#                       simulation mode and the first contact (1.) is made (probe disabled)
+#    _init:vtake:copy   voltage:setpoint := voltage:get, processed in simulation mode: nothing
+#                       sent; a voltage written by a client before is replaced by the supply's
+#                       setting (P20)
+#    _init:vtake:off    voltage:setpoint.SIMM := NO: every later write is sent
+#
+# Why no client's write can come in between, and why it cannot get stuck (EPICS 7.0.10):
+#   Each check and its steps run in ONE call of dbProcess of the check, under ONE hold of the
+#   lock set. The probe and voltage:get are StreamDevice records: their reply completes in
+#   Stream::recordProcessCallback, which runs the record's process between dbScanLock and
+#   dbScanUnlock (StreamEpics.cc), and process() runs the forward link at its end (biRecord.c,
+#   aiRecord.c: recGblFwdLink). Every link of these records to the supply's records is a
+#   database link (no CA, CP or CPP), so all of them are in one lock set (dbLink.c,
+#   dbInitLink: a DB link if possible; dbDbLink.c, dbDbInitLink: dbLockSetMerge). No step goes
+#   through a callback or a delay:
+#     a forward link to a passive record and an output link with PP (or to the PROC field)
+#       process it at once, in the same thread (dbDbLink.c, dbDbScanFwdLink -> dbScanPassive ->
+#       processTarget -> dbProcess; dbDbPutValue);
+#     calcout with ODLY 0 writes its output at once (calcoutRecord.c, process: execOutput when
+#       odly is not > 0), through its soft device support (devCalcoutSoft.c: dbPutLink);
+#     dfanout writes OUTA to OUTH in order and then its forward link, in process()
+#       (dfanoutRecord.c, push_values, recGblFwdLink), no callback.
+#   A client's write (dbPutField, dbAccess.c: dbScanLock ... dbScanUnlock) and the reply of a
+#   StreamDevice record take the same lock set, so they come before the check or after the last
+#   step. A write to voltage:setpoint before the check is processed in simulation mode and then
+#   replaced by the copy; after the last step it is sent.
+#   Stuck: once a check acts, every step runs: a dfanout runs its forward link whatever its
+#   links did (dfanoutRecord.c, process: recGblFwdLink unconditional), and the records of the
+#   chain are soft and synchronous, so none is busy (PACT) when it is reached. So :off follows
+#   every :on and every :copy. A check that does not act changes nothing and acts at a later
+#   answer: the probe keeps probing until it acts, voltage:get is read every SCAN_GET.
+#   A seq would not do: it runs each link group in a callback of its own (seqRecord.c,
+#   processNextLink: "Always use the callback task to avoid recursion", also for DLY 0) and
+#   takes and releases the lock for each (processCallback). test_11_first_contact.py checks
+#   types, delay fields and links of these records in the running IOCs.
+
+# --- 1. the output state ----------------------------------------------------------------------
+
+record(calcout, "$(S):_init:otake") {
+    field(DESC, "Output take-over check (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(S):_init:probe.SEVR NPP")
+    field(INPB, "$(S):ToggleOutput.PACT NPP")
+    field(CALC, "A<3&&B=0")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "1")
+    field(ODLY, "0")
+    field(OUT,  "$(S):_init:otake:on PP")
+}
+
+# ToggleOutput.SIMM := YES, the probe stops; then the copy (forward link)
+record(dfanout, "$(S):_init:otake:on") {
+    field(DESC, "Output take-over SIMM on (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "1")
+    field(OUTA, "$(S):ToggleOutput.SIMM NPP")
+    field(OUTB, "$(S):_init:probe.DISA NPP")
+    field(FLNK, "$(S):_init:otake:copy")
+}
+
+# ToggleOutput (in simulation mode), the request and the gate's previous value := the probed
+# state; then simulation off (forward link)
+record(dfanout, "$(S):_init:otake:copy") {
+    field(DESC, "Output take-over copy (internal)")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(S):_init:probe NPP")
+    field(OUTA, "$(S):ToggleOutput PP")
+    field(OUTB, "$(S):SetToggleOutput PP")
+    field(OUTC, "$(S):OutputIntlk.PVAL NPP")
+    field(FLNK, "$(S):_init:otake:off")
+}
+
+# ToggleOutput.SIMM := NO; then what follows the take-over (output:init)
+record(dfanout, "$(S):_init:otake:off") {
+    field(DESC, "Output take-over SIMM off (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(S):ToggleOutput.SIMM NPP")
+    field(FLNK, "$(S):output:init")
+}
+
+# --- 2. the voltage set point -----------------------------------------------------------------
+
+record(calcout, "$(S):_init:vtake") {
+    field(DESC, "Voltage take-over check (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(S):voltage:get.SEVR NPP")
+    field(INPB, "$(S):voltage:setpoint.SIMM NPP")
+    field(INPC, "$(S):_init:probe.DISA NPP")
+    field(CALC, "A<3&&B&&C")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "1")
+    field(ODLY, "0")
+    field(OUT,  "$(S):_init:vtake:copy PP")
+}
+
+# voltage:setpoint := the echo, processed in simulation mode; then simulation off (forward link)
+record(dfanout, "$(S):_init:vtake:copy") {
+    field(DESC, "Voltage take-over copy (internal)")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(S):voltage:get NPP")
+    field(OUTA, "$(S):voltage:setpoint PP")
+    field(FLNK, "$(S):_init:vtake:off")
+}
+
+# voltage:setpoint.SIMM := NO
+record(dfanout, "$(S):_init:vtake:off") {
+    field(DESC, "Voltage take-over SIMM off (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(S):voltage:setpoint.SIMM NPP")
+}

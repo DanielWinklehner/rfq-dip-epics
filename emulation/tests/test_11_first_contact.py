@@ -16,7 +16,13 @@ The request records and their read-backs come from the registry: every load of f
 set (the argument of its protocol in OUT), the cathode of the nAIM (signal "on").
 
 The take-over runs under one hold of the lock set (no seq, no delay: checked from the running
-IOC), and a client writing through repeated first contacts is never silently swallowed."""
+IOC), and a client writing through repeated first contacts is never silently swallowed.
+
+The same for the Matsusada supplies (P40, EPICS/Db/supply_first_contact.db): their take-over of
+the output state and of the voltage setting has the same structure (checked from the running
+IOCs), and a client writing an AU supply's voltage set point through the restart of the rack IOC
+never leaves it showing a voltage the supply does not have (setpoint_writer.py; the REK on the
+platform IOC rides on the restart in test_09_loop.py)."""
 import re
 import threading
 import time
@@ -26,6 +32,7 @@ import pytest
 import system as S
 from system import reg
 from conftest import FIRST_CONTACT, restore_writes, snapshot
+from setpoint_writer import SetpointWriter
 
 RACK_IOC = "ioc_rack"
 RACK = S.ioc_container(RACK_IOC)
@@ -42,6 +49,8 @@ LATE_LIMIT = 5.0       # s after the fault is cleared: the reply timeout (1 s) o
                        # waits, then the next poll (0.5 s)
 STAYS = 1.5            # s a request is watched not to follow its read-back (3 polls)
 ECHO_LIMIT = 5.0       # as test_03: a read-back after a write
+SUPPLY_TAKE_LIMIT = 10.0  # s after the IOC answers: the probe every 1 s, then the echo read by
+                       # output:init behind the chain's polls (devtest: taken over within 3 s)
 
 
 def sim_of(req):
@@ -330,6 +339,99 @@ def test_no_record_of_the_take_over_defers_its_work():
         assert extra == [], extra
 
 
+# The supplies (supply_first_contact.db): two checks, each with its chain of soft records
+SUPPLY_DB = S.REPO / "EPICS" / "Db" / "supply_first_contact.db"
+SUPPLY_DBS = [S.REPO / "EPICS" / "Db" / f for f in ("matsusada_au20p7.db", "rek.db")]
+SUPPLY_RECORDS = {":_init:otake": "calcout", ":_init:otake:on": "dfanout", ":_init:otake:copy": "dfanout",
+                  ":_init:otake:off": "dfanout", ":_init:vtake": "calcout", ":_init:vtake:copy": "dfanout",
+                  ":_init:vtake:off": "dfanout"}
+SUPPLIES = sorted(d for d, dev in reg.devices.items() if any(l["db"] == "supply_first_contact.db"
+                                                             for l in dev.get("loads", [])))
+# what output:init (a seq, after the take-over) may still do: none of it is a take-over step
+INIT_TAIL = [":voltage:get.PROC", ":_limit:apply.PROC", ":OutputIntlk.DISA", ":OutputIntlk.PROC"]
+
+
+def supply_prefix(device):
+    return next(l["macros"]["S"] for l in reg.devices[device]["loads"] if l["db"] == "supply_first_contact.db")
+
+
+def link(name, fld):
+    """Target and process option of a link field: ("REC.FIELD", "PP"), ("REC", "NPP")."""
+    words = S.field(name, fld).split() + ["", ""]
+    return words[0], words[1]
+
+
+def supply_at_rack():
+    """An AU supply of the rack IOC with positive voltages (the writer compares magnitudes, but
+    a positive one keeps the messages plain)."""
+    return next(d for d in SUPPLIES if reg.devices[d]["ioc"] == RACK_IOC
+                and float(S.field(reg.role(d, "vset"), "DRVH")) > 0)
+
+
+def test_every_supply_has_its_first_contact():
+    """Every load of matsusada_au20p7.db and rek.db has supply_first_contact.db beside it, with
+    the supply's prefix."""
+    supplies = sorted(d for d, dev in reg.devices.items()
+                      if any(l["db"] in ("matsusada_au20p7.db", "rek.db") for l in dev.get("loads", [])))
+    assert supplies == SUPPLIES and len(SUPPLIES) == 5, (supplies, SUPPLIES)
+    for d in SUPPLIES:
+        assert reg.role(d, "vset") == supply_prefix(d) + ":voltage:setpoint", d
+
+
+def test_no_record_of_a_supply_take_over_defers_its_work():
+    """supply_first_contact.db (header): the check _init:otake and its three steps, and the
+    check _init:vtake and its two, each run in one dbProcess call of the check; no seq, no delay
+    field set, a chain of database links from the probe's and the echo's forward link to the
+    end, the set point's and ToggleOutput's simulation mode synchronous (SDLY < 0). output:init,
+    the one seq after the take-over, neither switches a simulation mode nor writes a record a
+    client writes. Read from the running IOCs and from the files: the supplies' databases have
+    no take-over step of their own any more."""
+    text = SUPPLY_DB.read_text()
+    types = re.findall(r"^\s*record\(\s*(\w+)", text, re.M)
+    assert types and not set(types) & DEFERRING, types
+    assert not re.search(r'field\(\s*(DLY\w*|ODLY|SDLY)\s*,\s*"(?!0")[^"]*"', text), "a delay is set in %s" % SUPPLY_DB
+    for db in SUPPLY_DBS:
+        body = db.read_text()
+        seqs = re.findall(r'^\s*record\(\s*seq\s*,\s*"[^"]*?:([^":]+:[^"]+)"', body, re.M)
+        assert sorted(seqs) == ["_out:switch", "output:init"], (db.name, seqs)
+        assert "_init:vcopy" not in body and "SIMM" not in re.sub(r"#.*", "", body).replace('field(SIMM, "YES")', ""), db.name
+    for d in SUPPLIES:
+        s = supply_prefix(d)
+        names = [s + suffix for suffix in SUPPLY_RECORDS]
+        found = {n: S.field(n, "RTYP") for n in names}
+        assert found == {s + k: v for k, v in SUPPLY_RECORDS.items()}, found
+        for check in (":_init:otake", ":_init:vtake"):
+            assert float(S.field(s + check, "ODLY")) == 0.0, s + check
+        # the triggers: the forward links of the probe and of the echo
+        assert link(s + ":_init:probe", "FLNK")[0] == s + ":_init:otake"
+        assert link(s + ":voltage:get", "FLNK")[0] == s + ":_init:vtake"
+        # 1. output: check -> on -> copy -> off -> output:init
+        assert link(s + ":_init:otake", "OUT") == (s + ":_init:otake:on", "PP")
+        assert link(s + ":_init:otake:on", "FLNK")[0] == s + ":_init:otake:copy"
+        assert link(s + ":_init:otake:copy", "FLNK")[0] == s + ":_init:otake:off"
+        assert link(s + ":_init:otake:off", "FLNK")[0] == s + ":output:init"
+        assert [link(s + ":_init:otake:on", f)[0] for f in ("OUTA", "OUTB")] == [s + ":ToggleOutput.SIMM",
+                                                                                 s + ":_init:probe.DISA"]
+        assert [link(s + ":_init:otake:copy", f) for f in ("OUTA", "OUTB")] == [
+            (s + ":ToggleOutput", "PP"), (s + ":SetToggleOutput", "PP")]
+        assert link(s + ":_init:otake:copy", "OUTC")[0] == s + ":OutputIntlk.PVAL"
+        assert link(s + ":_init:otake:copy", "DOL")[0] == s + ":_init:probe"
+        assert link(s + ":_init:otake:off", "OUTA")[0] == s + ":ToggleOutput.SIMM"
+        # 2. voltage: check -> copy -> off
+        assert link(s + ":_init:vtake", "OUT") == (s + ":_init:vtake:copy", "PP")
+        assert link(s + ":_init:vtake:copy", "DOL")[0] == s + ":voltage:get"
+        assert link(s + ":_init:vtake:copy", "OUTA") == (s + ":voltage:setpoint", "PP")
+        assert link(s + ":_init:vtake:copy", "FLNK")[0] == s + ":_init:vtake:off"
+        assert link(s + ":_init:vtake:off", "OUTA")[0] == s + ":voltage:setpoint.SIMM"
+        for rec in (":voltage:setpoint", ":ToggleOutput"):
+            assert float(S.field(s + rec, "SDLY")) < 0, "%s%s: simulation mode asynchronous" % (s, rec)
+        # what comes after: output:init
+        tail = [link(s + ":output:init", "LNK%s" % c)[0] for c in "0123456789A"]
+        assert [x for x in tail if x] == [s + x for x in INIT_TAIL], tail
+        extra = [n for n in reg.pvs if n.startswith(s + ":_init:") and n not in names and n != s + ":_init:probe"]
+        assert extra == [], extra
+
+
 STRESS_PAUSE = 1.0     # s of writes after each take-over before the next restart
 
 
@@ -342,7 +444,10 @@ def test_writes_through_the_first_contact_are_sent_or_alarm(restarts, capsys):
     completed, the record read right after by the same IOC (heartbeat not reset); a write that the
     stopping IOC's disconnection completed is counted apart, it can neither be confirmed nor fail. The race this is about (a write
     inside the take-over) cannot be hit on purpose; the default run restarts once, the slow one
-    ten times: make -C emulation test ARGS='-m slow emulation/tests/test_11_first_contact.py'."""
+    ten times: make -C emulation test ARGS='-m slow emulation/tests/test_11_first_contact.py'.
+    At the same time a second client writes the voltage set point of an AU supply (P40,
+    setpoint_writer.py): with SIMM NO and no write in flight, the set point always shows the
+    supply's setting, and at the end SIMM is NO and set point, echo and simulator agree."""
     import epics
     from mist2sim.control import ControlClient
     req = SPARE[3]
@@ -382,15 +487,20 @@ def test_writes_through_the_first_contact_are_sent_or_alarm(restarts, capsys):
 
     hb = reg.iocs[RACK_IOC]["roles"]["heartbeat"]
     thread = epics.ca.CAThread(target=writer, daemon=True)
+    voltage = SetpointWriter(supply_at_rack())
     thread.start()
     simm = []
     try:
-        for _ in range(restarts):
-            S.container("restart", RACK)
-            S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, BACK_LIMIT, "the rack IOC up again")
-            S.wait_for(lambda: S.sevr(TAKEN[req]) != S.INVALID, TAKE_LIMIT, "the box answers")
-            time.sleep(STRESS_PAUSE)
-            simm.append({n: S.field(n, "SIMM") for n in TAKEN})
+        with voltage:
+            for _ in range(restarts):
+                voltage.silence()
+                S.container("restart", RACK)
+                S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, BACK_LIMIT, "the rack IOC up again")
+                S.wait_for(lambda: S.sevr(TAKEN[req]) != S.INVALID, TAKE_LIMIT, "the box answers")
+                time.sleep(STRESS_PAUSE)
+                voltage.answer_after_writes()
+                voltage.wait_taken_over(SUPPLY_TAKE_LIMIT)
+                simm.append({n: S.field(n, "SIMM") for n in TAKEN})
     finally:
         stop.set()
         thread.join(10)
@@ -406,3 +516,27 @@ def test_writes_through_the_first_contact_are_sent_or_alarm(restarts, capsys):
     S.put(req, 0)
     S.wait_for(lambda: device_state(req) == 0 and S.sevr(req) == S.NO_ALARM, ECHO_LIMIT, S.describe([req]))
     assert {n: S.field(n, "SIMM") for n in TAKEN} == {n: "NO" for n in TAKEN}
+    S.report(voltage.summary(), capsys)
+    assert voltage.problems() == [], voltage.problems()
+
+
+@pytest.mark.slow
+def test_a_supply_set_point_written_through_ten_restarts_of_its_ioc(capsys):
+    """P40 for the supply on the other IOC (the REK, platform IOC) with ten restarts; the default
+    run has one, in test_09_loop.py. make -C emulation test ARGS='-m slow
+    emulation/tests/test_11_first_contact.py'"""
+    device = next(d for d in SUPPLIES if reg.devices[d]["ioc"] != RACK_IOC)
+    ioc = reg.devices[device]["ioc"]
+    hb = reg.iocs[ioc]["roles"]["heartbeat"]
+    voltage = SetpointWriter(device)
+    with voltage:
+        for _ in range(10):
+            voltage.silence()
+            S.container("restart", S.ioc_container(ioc))
+            S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, BACK_LIMIT, "%s up again" % ioc)
+            voltage.answer_after_writes()
+            voltage.wait_taken_over(SUPPLY_TAKE_LIMIT)
+    S.report(voltage.summary(), capsys)
+    gates = [g for g in (reg.gate_record(d) for d in reg.devices) if g and reg.pvs[g]["ioc"] == ioc]
+    S.wait_for(lambda: all(S.field(g, "DISA") == "0" for g in gates), FIRST_CONTACT, "gates enabled")
+    assert voltage.problems() == [], voltage.problems()

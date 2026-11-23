@@ -28,6 +28,7 @@ import pytest
 import system as S
 from system import reg
 from conftest import restore_writes, snapshot
+from setpoint_writer import SetpointWriter
 from test_03_write import write_values
 
 LOOPS = [d for d, dev in reg.devices.items() if dev["class"] == "loop"]
@@ -502,17 +503,25 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     # The service is held while the IOC starts, so that what follows is the IOC's own state and
     # not what the service wrote after it reconnected.
     S.container("pause", SERVICE)
+    # Riding on this restart: a client writes the supply's voltage set point through it (P40,
+    # setpoint_writer.py); test_supply_set_point_written_through_the_ioc_restart has the result.
+    voltage = SetpointWriter(supply_on(ioc))
     try:
-        S.container("restart", S.ioc_container(ioc))
-        S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
-        assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
-        assert reason(ready) == "IOC start"
-        # the request and what the loop shows are valid from the IOC's start on, not undefined
-        # until somebody writes them
-        shown = [ready[role] for role in ("mode_cmd", "reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
-        assert all(S.sevr(pv) == S.NO_ALARM for pv in shown), S.describe(shown)
+        with voltage:
+            voltage.silence()
+            S.container("restart", S.ioc_container(ioc))
+            S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
+            assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
+            assert reason(ready) == "IOC start"
+            # the request and what the loop shows are valid from the IOC's start on, not undefined
+            # until somebody writes them
+            shown = [ready[role] for role in ("mode_cmd", "reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
+            assert all(S.sevr(pv) == S.NO_ALARM for pv in shown), S.describe(shown)
+            voltage.answer_after_writes()
+            voltage.wait_taken_over(START_LIMIT)
     finally:
         S.container("unpause", SERVICE)
+    WRITTEN_THROUGH_RESTART[ioc] = voltage
     assert {pv: S.get(pv) for pv in settings} == settings, "settings kept (autosave)"
     service_alive(ready)
     time.sleep(1.0)
@@ -525,6 +534,25 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     S.put(ready.act, start_value(ready))
     time.sleep(1.5)
     go_pid(ready)
+
+
+def supply_on(ioc):
+    """The Matsusada supply of an IOC (supply_first_contact.db): the REK on the platform IOC."""
+    return next(d for d, dev in reg.devices.items() if dev["ioc"] == ioc
+                and any(l["db"] == "supply_first_contact.db" for l in dev.get("loads", [])))
+
+
+WRITTEN_THROUGH_RESTART = {}
+
+
+def test_supply_set_point_written_through_the_ioc_restart(capsys):
+    """P40: while the IOC of the previous test restarted, a client wrote the supply's voltage set
+    point in a tight loop. With SIMM NO and no write in flight the set point always showed the
+    supply's setting; at the end SIMM NO, set point = echo = simulator (setpoint_writer.py)."""
+    assert WRITTEN_THROUGH_RESTART, "test_restart_of_the_ioc_starts_in_manual did not run"
+    for ioc, voltage in WRITTEN_THROUGH_RESTART.items():
+        S.report(voltage.summary(), capsys)
+        assert voltage.problems() == [], (ioc, voltage.problems())
 
 
 # --- the backstop, without the service -------------------------------------------------------------

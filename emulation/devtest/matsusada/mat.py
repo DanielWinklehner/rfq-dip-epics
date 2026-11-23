@@ -32,7 +32,10 @@ READS = ["voltage:get", "voltage:read", "current:get", "current:read", "power:re
 WRITES = ["voltage:setpoint", "current:limit", "SetToggleOutput", "OutputIntlk",
           "ToggleOutput", "output:init"]
 INTERNAL = ["_poll:tick", "_poll:gate", "_poll:start", "_poll:done", "_init:probe",
-            "_init:vtake", "_init:vcopy", "_limit:apply", "_limit:send", "_permit:latch"]
+            "_limit:apply", "_limit:send", "_permit:latch",
+            # supply_first_contact.db
+            "_init:otake", "_init:otake:on", "_init:otake:copy", "_init:otake:off",
+            "_init:vtake", "_init:vtake:copy", "_init:vtake:off"]
 SUFFIXES = WRITES + READS
 UNPOLLED_UNREAD = ["voltage:read", "current:read", "power:read", "status:read"]
 
