@@ -66,9 +66,14 @@ def trend_panel(pvs, role, egu, grid):
     log = egu.lower() in LOG_UNITS
     return {"type": "timeseries", "title": ROLE_WORDS.get(role, role) + (" (%s)" % egu if egu else ""),
             "datasource": DATASOURCE, "gridPos": grid,
-            "targets": [{"refId": "A", "datasource": DATASOURCE, "format": "time_series", "rawQuery": True,
+            # The rows come as a table (time, metric, value), one series after another, and become
+            # one frame per series in the panel. As one wide frame ("time_series") every series
+            # would hold NULL at the time stamps of the others, and with spanNulls false a sparse
+            # series next to a dense one is not drawn at all. A NULL of the function is a gap.
+            "targets": [{"refId": "A", "datasource": DATASOURCE, "format": "table", "rawQuery": True,
                          "editorMode": "code", "rawSql": query}],
-            "fieldConfig": {"defaults": {"unit": egu or "none", "custom": {
+            "transformations": [{"id": "prepareTimeSeries", "options": {"format": "multi"}}],
+            "fieldConfig": {"defaults": {"unit": egu or "none", "displayName": "${__field.labels.metric}", "custom": {
                 "spanNulls": False, "showPoints": "never", "lineInterpolation": "stepAfter",
                 "scaleDistribution": {"type": "log", "log": 10} if log else {"type": "linear"}}}, "overrides": []},
             "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}}

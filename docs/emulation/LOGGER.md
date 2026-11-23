@@ -248,6 +248,13 @@ whole event log. The graphs are those the registry lists under `trends` (the pla
 read-back. So the plasma generator's page has the loop's measured value with its set point in one
 graph and its output in another, as in the GUI.
 
+A graph's one query returns its series as a table, one row per point (time, series, value), and
+the panel splits it into one frame per series (transformation "prepare time series", multi).
+Each series is a step line between its own points, broken only where `log_trend` returns a gap.
+(As one wide frame, Grafana filled every series with NULL at the time stamps of the others; with
+gaps kept as gaps, a dense series became a row of dots and a sparse one, such as a set point,
+vanished. Fixed on 2026-11-23.)
+
 The tier follows the range as `best` does (section 7): raw up to 33 minutes, seconds up to 5.5
 hours, minutes beyond; seconds and minutes are merged to the panel's interval. The data source
 sets Grafana's smallest interval to 1 s (`timeInterval`; Grafana's default for SQL sources is one
@@ -379,6 +386,13 @@ no graph of measured value and set point; the writer treating a refused batch as
 the Grafana test's last point is the PV's last row, not the end of the data (and the set point
 gives one point); `dashboards.py` putting the devices without a page into the Overview and the
 pages: both dashboard tests fail (the build stops on the page `None`).
+
+**Round T17d:** the Grafana test asks every graph of the plasma generator's page with more than
+one series as the panel asks it (format and query) for an absolute window that ends in complete
+data, and compares with the panel's query run in the database: every series holds NULL only at
+its own gap rows and has all of its points. With the panels of T17c (format time series, one wide
+frame) it fails: "voltage read (V), Filament heating supply: NULL at 236 time stamps that are no
+gap of its own".
 
 ## 12. Not built
 
