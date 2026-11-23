@@ -312,16 +312,32 @@ def test_a_silent_supply_is_not_flooded(d):
 # --- 6. an IOC start with the supply on and the permit lost --------------------------------------
 
 def test_ioc_start_with_an_output_on_and_the_permit_lost():
-    """Both supplies on, the IOC restarted, the permit lost before the gates are enabled: nothing
-    is sent before GRACE is over, then one off sequence (the gate's: the output state taken over
-    as on, the permit lost), and the count stays 0."""
+    """Both supplies on, the IOC restarted and the permit lost before the supplies' first
+    contact: nothing is sent before GRACE is over, then one off sequence (the gate's: the output
+    state taken over as on, the permit lost), and the count stays 0.
+    The supplies do not answer until the permit has been written. GRACE counts from the first
+    contact, so the test does not depend on how soon its Channel Access client finds the
+    restarted IOC (seen once: later than GRACE, the gates were enabled before the permit could
+    be written)."""
     for d in SUPPLIES:
         switch(d, True)
     mark = sim_log_mark()
-    restart_ioc()
-    put("interlock_open", 1)
+    with contextlib.ExitStack() as stack:
+        ctl = {d: stack.enter_context(control(d)) for d in SUPPLIES}
+        try:
+            for d in SUPPLIES:
+                ctl[d].fault("silent", unit=UNIT[d])
+            restart_ioc()
+            put("interlock_open", 1)
+            for d in SUPPLIES:
+                assert get(d + ":_init:probe.DISA") == 0, "%s: first contact with a silent supply" % d
+                assert get(d + ":OutputIntlk.DISA") == 1, "%s: the gate was enabled already" % d
+        finally:
+            for d in SUPPLIES:
+                ctl[d].clear("silent", unit=UNIT[d])
     for d in SUPPLIES:
-        assert get(d + ":OutputIntlk.DISA") == 1, "%s: the gate was enabled already" % d
+        wait_for(lambda: get(d + ":_init:probe.DISA") == 1, 4, "%s: first contact" % d)
+        assert get(d + ":OutputIntlk.DISA") == 1, "%s: the gate enabled at the first contact" % d
     while any(get(d + ":OutputIntlk.DISA") == 1 for d in SUPPLIES):
         for d in SUPPLIES:
             if get(d + ":OutputIntlk.DISA") == 1:
