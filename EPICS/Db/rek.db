@@ -244,9 +244,12 @@ record(ai, "$(DEV=REK)-$(UNITNUM):_permit:read") {
 
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
 # input A raises to INVALID through MS from _permit:read), otherwise the request. Starts the
-# switching sequence (_out:switch) only when the result changes: an event. That the output stays
-# off while the permit is lost, a state, is the work of _permit:enforce (below the latch).
-# Disabled until GRACE seconds after the first contact (output:init).
+# switching sequence (_out:switch) only when the result changes: an event. The sequence's last
+# step writes ToggleOutput; if that is still busy with the previous switching and the gate was
+# processed by its own 1 s scan (no put flag), the value is stored and sent when the record is
+# free, within 1 s (_out:resend, below ToggleOutput). That the output stays off while the permit
+# is lost, a state, is the work of _permit:enforce (below the latch). Disabled until GRACE
+# seconds after the first contact (output:init).
 record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
     field(INPA, "$(DEV=REK)-$(UNITNUM):_permit:read CP MS")
@@ -312,11 +315,11 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
 # latch: OutputIntlk.A non-zero or OutputIntlk.C >= 3) and the supply reports its output on by a
 # valid reading (read_output_status ON, or status:read ON or ON, LOCAL; SEVR below INVALID), the
 # off sequence of _out:switch (mask 6: _out:remote REN, then ToggleOutput RST, SW0, SW? compared)
-# is started again, the one the gate starts. The gate starts it only when its result changes, and
-# its write can be lost: ToggleOutput still busy with a switch-on and the gate processed by its
-# own scan, which carries no put flag (dbDbLink.c, processTarget). The same state remains after a
-# client's direct write of ToggleOutput (P28) or a switch-on at the front panel while the permit
-# is lost.
+# is started again, the one the gate starts. The gate starts it only when its result changes; its
+# write into a ToggleOutput still busy with a switch-on, by its own scan without the put flag
+# (dbDbLink.c, processTarget), is stored and sent when the record is free (_out:resend, within
+# 1 s), and this rule is the second layer for it. The state remains after a client's direct write
+# of ToggleOutput (P28) or a switch-on at the front panel while the permit is lost.
 #   Inputs, all NPP database links (read, nothing processed): A, B OutputIntlk.A and .C (the
 #   permit); C OutputIntlk.DISA (0: gate enabled); D, E read_output_status and its SEVR; F, G
 #   status:read and its SEVR; H, I the PACT of _out:switch and ToggleOutput (a switching under
@@ -357,8 +360,9 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
 # client's write (dbAccess.c 1261-1280) and the completion of a StreamDevice record
 # (StreamEpics.cc 1133-1135) take the same lock, so none comes between the check and the start.
 # The seq runs its groups in callbacks with the lock released in between (seqRecord.c 252-274),
-# as for the gate. A direct write of ToggleOutput in such a gap can make the sequence's SW0 be
-# lost; then the condition holds again and the next sequence follows 2 s later.
+# as for the gate. A direct write of ToggleOutput in such a gap can leave the sequence's SW0
+# stored in the busy ToggleOutput; _out:resend sends it when the record is free, and if the
+# output still reports on, the next sequence follows 2 s later.
 record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:enforce") {
     field(DESC, "Off again while permit lost (internal)")
     field(UDFS, "NO_ALARM")
@@ -384,7 +388,9 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:enforce") {
 # _out:remote (REN) of the switching sequence. In simulation mode only while the first contact
 # takes it over (supply_first_contact.db). A client that writes ToggleOutput directly bypasses
 # REN and the limit (P28). While the permit is lost such a switch-on lasts until _permit:enforce
-# switches the output off again, 1 to 2 s after SW? has been read back ON.
+# switches the output off again, 1 to 2 s after SW? has been read back ON. Passive (_out:resend
+# and _permit:enforce read its PACT). A value written into it while it is busy by a writer without
+# the put flag is sent when it is free (_out:resend).
 record(bo, "$(DEV=REK)-$(UNITNUM):ToggleOutput") {
     field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")
@@ -393,6 +399,69 @@ record(bo, "$(DEV=REK)-$(UNITNUM):ToggleOutput") {
     field(ZNAM, "DISABLED")
     field(ONAM, "ENABLED")
     field(FLNK, "$(DEV=REK)-$(UNITNUM):read_output_status.PROC CA")
+}
+
+# A switching command that was stored and not sent (P47). A value written into ToggleOutput while
+# it is busy is stored in VAL and not sent, unless the writer carries the put flag, which marks the
+# record to run again when it is free (RPRO: dbDbLink.c 476-489, dbAccess.c 1268-1272; without the
+# flag dbDbLink.c 490-496 and dbAccess.c 536-556 do nothing). A client's write and a change event
+# carry it (dbAccess.c 1275, db_access.c db_process); a periodic scan does not: the gate processed
+# by its own 1 s scan, the sequence _permit:enforce starts. So an off that followed an on within
+# the switching time (or an on that followed an off) could be lost.
+#   The mark: when ToggleOutput starts a processing, RVAL := VAL (boRecord.c 191, 207-211); a write
+#   while it is busy changes VAL only. The reply is compared with %= (StreamCore.cc 1273-1310),
+#   which does not write VAL. So PACT 0 and VAL != RVAL say: a different value was written while
+#   it was busy, after the one it started to send.
+#   Inputs, NPP database links (read, nothing processed): A ToggleOutput.PACT, B its VAL, C its
+#   RVAL. Every second, if A is 0 and B differs from C, ToggleOutput is processed once (OCAL 1 to
+#   its PROC field, dbDbLink.c 387-389): RST, SW<VAL>, SW? and the compare, as any switching. It
+#   sends the value in the record, on or off, the latest command of whoever wrote it. It changes
+#   no value (neither the request nor the gate) and does not start _out:switch: the REN, and for
+#   an on the limit, went out with the sequence whose last step was stored. L counts the times,
+#   VAL is L: 0 if nothing went wrong since the IOC start. No alarm of its own.
+#   It ends: the processing sets RVAL := VAL at its start (boRecord.c 207-211), whatever the supply
+#   answers or not, so the next evaluation finds VAL = RVAL unless a new value has been written.
+#   A supply that does not answer gets one more command, not one every second.
+#   Nothing twice on the event path, where the record runs again by itself: at its completion,
+#   still active, RPRO queues it with scanOnce (recGbl.c 296-300), then PACT := 0 (boRecord.c
+#   264-268). If this rule is evaluated first, between the completion and the queued run, it
+#   processes the record (RVAL := VAL), and the queued run finds it busy and does nothing (dbScan.c
+#   715-717, dbAccess.c 536-556); if the queued run comes first, the rule finds PACT 1 or
+#   VAL = RVAL. A second sending would need the once task to be held up for longer than a whole
+#   switching (RST, SW, SW? and its reply on the line).
+#   A value written while busy but before the SW line is formatted (from the start, through the
+#   wait for the line, to the end of the RST's write) is sent by that processing itself (each out
+#   is formatted when it is reached, StreamCore.cc 601-607, from VAL, devboStream.c 104-105); RVAL
+#   then holds the old value and the rule sends the same command once more. Harmless: the same
+#   setting again.
+#   ToggleOutput is Passive: no input reads a record that is scanned periodically (see
+#   _permit:enforce).
+# One hold of the lock set, as for _permit:enforce: the periodic scan processes this record between
+# dbScanLock and dbScanUnlock (dbScan.c 1013-1015). Its links are database links (no CA, CP or CPP:
+# dbLink.c 118-121), each puts ToggleOutput into this record's lock set (dbDbLink.c 110). The
+# inputs are read without processing (only PP processes: dbDbLink.c 175-176), the expression is
+# computed and, ODLY 0, the output written at once (calcoutRecord.c 237-238, 256-257, 284-285;
+# devCalcoutSoft.c 43). The write to PROC processes ToggleOutput (processTarget, dbDbLink.c
+# 468-474, 512), which is idle because A was 0 under this lock: it takes RVAL := VAL and starts its
+# protocol (boRecord.c 207-211, 222; StreamEpics.cc 954). A client's write (dbAccess.c 1261-1280),
+# the completion of a StreamDevice record (StreamEpics.cc 1133-1135) and the steps of _out:switch
+# (seqRecord.c 252-274) take the same lock, so none comes between the check and the start. The
+# take-over at the first contact (supply_first_contact.db) sets ToggleOutput's VAL and RVAL in one
+# hold of the lock (boRecord.c 207-211 also in simulation mode), so the rule never sees a state
+# between its steps.
+record(calcout, "$(DEV=REK)-$(UNITNUM):_out:resend") {
+    field(DESC, "Resends a stored switching (internal)")
+    field(UDFS, "NO_ALARM")
+    field(SCAN, "1 second")
+    field(INPA, "$(DEV=REK)-$(UNITNUM):ToggleOutput.PACT NPP")
+    field(INPB, "$(DEV=REK)-$(UNITNUM):ToggleOutput NPP")
+    field(INPC, "$(DEV=REK)-$(UNITNUM):ToggleOutput.RVAL NPP")
+    field(CALC, "L:=L+(A=0&&B#C);L")
+    field(OOPT, "On Change")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "1")
+    field(ODLY, "0")
+    field(OUT,  "$(DEV=REK)-$(UNITNUM):ToggleOutput.PROC NPP")
 }
 
 # STS: output really on (CO) or off (CF), and remote (RM) or local (LO). 0 and 1 are the lab's
