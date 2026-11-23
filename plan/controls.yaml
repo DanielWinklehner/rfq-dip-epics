@@ -1116,12 +1116,12 @@ databases:
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)"}
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
                "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
-               "_out:switch", "_out:limit", "_out:remote"]
+               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
       "output:init": []        # runs once, after the take-over of the output state
@@ -1142,12 +1142,12 @@ databases:
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)"}
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
                "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
-               "_out:switch", "_out:limit", "_out:remote"]
+               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
       "output:init": []        # runs once, after the take-over of the output state
