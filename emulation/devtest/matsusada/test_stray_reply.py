@@ -16,9 +16,11 @@ for at most one cycle before the first mismatch puts the line in step.
 
 The line of these tests is mat_late (sim.yaml): LATE-1 and LATE-2 polled as in the rack, LATE-3
 loaded with its scans Passive (a test polls it for three supplies on a line, or reads it by
-hand). A late reply is made by the simulator's fault "slow" (ms 300) for one unit with a short
-duration: the simulator holds the line for the delayed reply (one transaction at a time), so the
-fault has expired before it processes the next request, and at most one reply is late. That it
+hand). A late reply is made by the simulator's fault "slow" (ms 300) for one unit with a duration
+shorter than 300 ms: the simulator holds the line for the delayed reply (one transaction at a
+time), so the fault has expired before it processes that unit's next request, and at most one
+reply is late. For the reply to the query after a status check the fault "slow_second" (the
+unit's second reply late, once) is used. That it
 was exactly one is checked in the IOC log: one "No reply within 150 ms" on the line in the
 window, to a request of that unit.
 
@@ -392,8 +394,8 @@ def test_1_one_late_reply_on_a_line_of_two_polled_supplies(capsys):
     settled([A, B])
     with Watch([A, B]) as w:
         time.sleep(1.0)
-        t_fault = late_once(A, window=0.1)
-        w.mark("fault slow %d ms on unit 1 for 100 ms" % LATE_MS, t_fault)
+        t_fault = late_once(A, window=0.25)
+        w.mark("fault slow %d ms on unit 1 for 250 ms" % LATE_MS, t_fault)
         time.sleep(9.0)
     with capsys.disabled():
         w.timeline("Test 1: one reply of LATE-1 late, LATE-1 at 4 kV, LATE-2 at 12 kV, both "
@@ -430,14 +432,32 @@ def _one_run(supplies, late, window, kick=None, title=None, capsys=None, watch=3
     if title and capsys:
         with capsys.disabled():
             w.timeline(title, t_fault, t_fault + 1.0)
-    if kick and not w.no_reply(t_fault, t_fault + watch):
-        return None                           # the request reached the line after the window
+    if not w.no_reply(t_fault, t_fault + watch):
+        return None       # no request of the unit was processed within the window: nothing late
     t_late, rec, request = one_late_reply(w, late, t_fault, t_fault + watch)
     took, stray = taker(w, t_late)
     first, before = in_step_after_first_mismatch(w, t_fault, supplies)
     return dict(request=request, taker=took, stray=stray, mismatch=first and first - t_fault,
                 foreign=[(e[1], e[2], round(e[3], 3), e[4], w.shown_for(e)) for e in before],
                 calc=len(w.alarms(CALC, t_fault)))
+
+
+def _phases(supplies, title, capsys):
+    """PHASES runs with one reply of LATE-1 late at a random moment. A run in which no request
+    of LATE-1 reached the simulator within the window (250 ms) made nothing late; it is repeated,
+    at most 3 times in all, and counted in the report."""
+    runs, missed = [], 0
+    while len(runs) < PHASES:
+        run = _one_run(supplies, A, 0.25, title=title if not runs else None, capsys=capsys)
+        settled(supplies)
+        if run is None:
+            missed += 1
+            assert missed <= 3, "no request of LATE-1 within the window 3 times"
+            continue
+        runs.append(run)
+    with capsys.disabled():
+        print("\n  %d runs repeated: nothing was late in them" % missed)
+    return runs
 
 
 def _report(title, runs, capsys):
@@ -461,11 +481,7 @@ def test_2_back_in_step_at_every_phase_two_polled_supplies(capsys):
     reported."""
     on_at([A, B])
     settled([A, B])
-    runs = []
-    for i in range(PHASES):
-        runs.append(_one_run([A, B], A, 0.1, title="Test 2, two polled supplies, run %d:" % (i + 1)
-                             if i == 0 else None, capsys=capsys))
-        settled([A, B])
+    runs = _phases([A, B], "Test 2, two polled supplies, run 1:", capsys)
     _report("Test 2, two polled supplies (LATE-1 4 kV, LATE-2 12 kV), one reply of LATE-1 late "
             "at %d random moments:" % PHASES, runs, capsys)
 
@@ -475,11 +491,7 @@ def test_2_back_in_step_at_every_phase_three_polled_supplies(capsys):
     with polled(C):
         on_at([A, B, C])
         settled([A, B, C])
-        runs = []
-        for i in range(PHASES):
-            runs.append(_one_run([A, B, C], A, 0.1, title="Test 2, three polled supplies, run 1:"
-                                 if i == 0 else None, capsys=capsys))
-            settled([A, B, C])
+        runs = _phases([A, B, C], "Test 2, three polled supplies, run 1:", capsys)
     _report("Test 2, three polled supplies (LATE-1 4 kV, LATE-2 12 kV, LATE-3 8 kV), one reply of "
             "LATE-1 late at %d random moments:" % PHASES, runs, capsys)
 
