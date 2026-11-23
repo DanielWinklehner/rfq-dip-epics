@@ -17,8 +17,9 @@ dashboards; what was run for each is in "Running".
 
 After that (2026-11-23, on your word): the first contact of the Matsusada and REK supplies has
 no gap any more in which a written voltage is accepted and not sent (P40, task T19). Verified
-by me on its branch and merged, plan 0.17. One finding beside it waits for your word: P45, a
-rare case in which the interlock gate's off command is not sent.
+by me on its branch and merged, plan 0.17. One finding beside it, P45 (a rare case in which the
+interlock gate's off command is not sent), is being fixed on your word as task T20; it is not
+accepted yet (see "Running").
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -378,7 +379,11 @@ State of 2026-11-23, morning. Nothing is running.
   names two internal records only), the logger's tests (35 passed in 409 s) and the system
   suite (281 passed in 743 s, saved settings unchanged; run after plan 0.16 as the baseline for
   T19) pass in my runs.
-- Next: your comments on the drawings (answer 25), and your word on P45.
+- **T20 is running** (since 2026-11-23, on your word, answer 27): the interlock gate of the AU supplies and
+  the REK keeps the output off as a state (P45). An engineer on Opus 5.5 in the worktree
+  `.claude/worktrees/t20`, branch `emu/t20-permit-enforce`, brief `briefs/T20-permit-enforce.md`.
+  Not accepted until I have run its acceptance commands myself.
+- Next: your comments on the drawings (answer 25).
 
 ## Open
 
@@ -420,6 +425,7 @@ State of 2026-11-23, morning. Nothing is running.
 | 24 | Tabs as windows (2026-11-22) | "Would it be possible to pop out individual tabs as separate windows and re-attach them if the user wants to?" | Yes, as browser windows opened by a control on the tab (a browser cannot dock). In brief T16 as requirement R11. Built and merged on 2026-11-22 (T16) |
 | 25 | Comments on the drawings (2026-11-22) | "The filament should be vertically centered, attached to the left wall of the plasma chamber and have its tip point to the right. Stuff like that. I have a number of them." | The geometry is data (`RAS/mist2/ReactApp/src/config/drawings.json`). I apply them myself after T16 is merged: your list first, then a session with the GUI open in your browser |
 | 26 | The MFC's set point of -20 % (2026-11-23) | "That is correct behavior. The MFC accepts a minimum value of -20, which we use to ensure the 'most closed' state possible." | Closes my open point P41 (I had taken the -20 % after a start for a fault of the simulator). In the plan as a note of the MFC (revision 0.16). Nothing to change |
+| 27 | The interlock gate's rare case, P45 (2026-11-23) | "Yes, fix P45. There will be a hardware interlock. The software state is just an extra layer plus information in the logger." | Answers question 13. Task T20 (brief `T20-permit-enforce.md`): while the permit is lost and a supply reports its output on, the off sequence is sent again. Kept simple, because the hardware interlock is the first line |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -474,10 +480,7 @@ State of 2026-11-23, morning. Nothing is running.
     is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
     the entry?
-13. P45: shall the interlock gate of the AU supplies and the REK send its off command again
-    for as long as the permit is lost and the supply reports its output on? Today it sends it
-    once, when the permit goes. And do these supplies have a hardware interlock of their own,
-    so that the software gate is the second line and not the only one?
+13. Answered on 2026-11-23 (answer 27): fix P45; the supplies will have a hardware interlock.
 
 ## Not verified
 
@@ -511,8 +514,7 @@ State of 2026-11-23, morning. Nothing is running.
   records passed the new writer test. The test fails when the gap is widened to 0.3 s, and the
   structure test fails on the old records. The argument rests on the source of the base. The
   slow variant (ten restarts of the platform IOC) was not run.
-- P45 is read from the source, not seen. Whether the supplies have a hardware interlock of
-  their own beside the software gate I do not know.
+- P45 is read from the source, not seen.
 - The ion gauge's read-back of its on/off state on the real serial port (A40).
 - Grafana by a person in a browser: I looked at screenshots of one dashboard.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
@@ -652,7 +654,7 @@ loop, see "Done").
 | P42 | Once, during a logger test run with four users on the machine (2026-11-23 02:29:35), the TDK and the REK were INVALID for 86 ms at the same moment (reply timeouts). The logger recorded it correctly. Taken as a stall of the platform simulators under load, not proven | Watch for it, like P31 |
 | P43 | The loop's limit flag is an event (kept for ever). At a steady set point it did not change in two minutes of PID; in the closed-loop test with steps and limits it changed 15 times in 2.5 minutes | Watch on the machine. A rule in the plan's section `logging` makes it a signal if it is too many |
 | P44 | The GUI check failed twice for its engineer on connections that did not come within 20 s while three engineers loaded the machine, and once showed every PV in every window as not connected while Channel Access was fine. Not seen in my runs | Watch. The check now names the PVs that are not connected |
-| P45 | The interlock gate of the Matsusada and REK supplies (first round) starts its switching sequence only when its result changes, and the off command of that sequence reaches a `ToggleOutput` that is still busy with a switch-on (RST, SW1 and the read-back on the line; about 10 ms per command in the emulation) only if EPICS marks the busy record to run again. It does so when the gate was processed by a change event or a write, and not when it was processed by its own 1-second scan (`dbDbLink.c`, `processTarget`: `psrc->putf`). So if the permit is lost while a switch-on is on the line, and the gate's scan happens to see it before the permit's change event arrives (the hand-over between two threads, well below a millisecond, once per second), the off value is written into the record and not sent. The supply would stay on with its request cleared, and the gate does not try again, because its result no longer changes. Read from the source by the engineer of T19 and by me. Not reproduced. The normal path (the change event while the command is on the line) switched off in 3 of 3 runs of the engineer in a device case; I did not repeat that | Your word. I recommend a task of its own before the supplies are used on the machine: while the permit is lost and a supply reports its output on, the off command is sent again, so that switching off does not depend on one moment. It changes what a direct write to `ToggleOutput` can do (P28), which is why I ask |
+| P45 | The interlock gate of the Matsusada and REK supplies (first round) starts its switching sequence only when its result changes, and the off command of that sequence reaches a `ToggleOutput` that is still busy with a switch-on (RST, SW1 and the read-back on the line; about 10 ms per command in the emulation) only if EPICS marks the busy record to run again. It does so when the gate was processed by a change event or a write, and not when it was processed by its own 1-second scan (`dbDbLink.c`, `processTarget`: `psrc->putf`). So if the permit is lost while a switch-on is on the line, and the gate's scan happens to see it before the permit's change event arrives (the hand-over between two threads, well below a millisecond, once per second), the off value is written into the record and not sent. The supply would stay on with its request cleared, and the gate does not try again, because its result no longer changes. Read from the source by the engineer of T19 and by me. Not reproduced. The normal path (the change event while the command is on the line) switched off in 3 of 3 runs of the engineer in a device case; I did not repeat that | Task T20, running (your word of 2026-11-23, answer 27): while the permit is lost and a supply reports its output on, the off sequence is sent again, so that switching off does not depend on one moment. It changes what a direct write to `ToggleOutput` does while the permit is lost (P28) |
 | P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
 
 ## Found in RAS V8.1.0
