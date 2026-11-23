@@ -21,8 +21,8 @@ by me on its branch and merged, plan 0.17.
 
 After that (2026-11-23, on your word): the output permit of the Matsusada and REK supplies acts
 as a state. While it is lost and a supply reports its output on, the off sequence is sent again
-(P45, task T20). Verified by me on its branch and merged, plan 0.18. One finding beside it
-waits for your word: P47, the same rare loss for an operator's own off or on (question 14).
+(P45, task T20). Verified by me on its branch and merged, plan 0.18. The same rare loss for an
+operator's own off or on (P47) stays as it is, on your word (answer 28).
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -460,7 +460,7 @@ State of 2026-11-23, afternoon. Nothing is running.
 - T20 (P45) is merged, see "Done". As with T19, after its merge only the plan check and the
   system suite were run again, on the merged head: the merge added the plan's revision number
   and this document to what I had run on the branch.
-- Next: your comments on the drawings (answer 25), and your word on P47 (question 14).
+- Next: your comments on the drawings (answer 25).
 
 ## Open
 
@@ -503,6 +503,7 @@ State of 2026-11-23, afternoon. Nothing is running.
 | 25 | Comments on the drawings (2026-11-22) | "The filament should be vertically centered, attached to the left wall of the plasma chamber and have its tip point to the right. Stuff like that. I have a number of them." | The geometry is data (`RAS/mist2/ReactApp/src/config/drawings.json`). I apply them myself after T16 is merged: your list first, then a session with the GUI open in your browser |
 | 26 | The MFC's set point of -20 % (2026-11-23) | "That is correct behavior. The MFC accepts a minimum value of -20, which we use to ensure the 'most closed' state possible." | Closes my open point P41 (I had taken the -20 % after a start for a fault of the simulator). In the plan as a note of the MFC (revision 0.16). Nothing to change |
 | 27 | The interlock gate's rare case, P45 (2026-11-23) | "Yes, fix P45. There will be a hardware interlock. The software state is just an extra layer plus information in the logger." | Answers question 13. Task T20 (brief `T20-permit-enforce.md`): while the permit is lost and a supply reports its output on, the off sequence is sent again. Kept simple, because the hardware interlock is the first line |
+| 28 | The operator's direction of the same race, P47 (2026-11-23) | "Leave P47" | Answers question 14. Nothing is changed. P47 stays in the open points as a known behaviour with its way out (on, then off) |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -558,12 +559,7 @@ State of 2026-11-23, afternoon. Nothing is running.
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
     the entry?
 13. Answered on 2026-11-23 (answer 27): fix P45; the supplies will have a hardware interlock.
-14. P47: an operator's own off (or on) can be lost in the same rare way as the gate's off was,
-    with the permit present. Shall the gate be changed so that it cannot (its periodic
-    evaluation then goes through Channel Access inside its own IOC, once a second per supply)?
-    My recommendation: leave it. It needs an on and an off within about 80 ms, it shows
-    itself (`ToggleOutput` in alarm, output on, request off), and switching the other way and
-    back clears it.
+14. Answered on 2026-11-23 (answer 28): P47 is left as it is.
 
 ## Not verified
 
@@ -668,7 +664,7 @@ State of 2026-11-23, afternoon. Nothing is running.
 | No periodically read record among the inputs that make the rule wait | In the first version the read of the SW setting was one. With its period at 1 second the rule never acted (shown). A scan macro must not be able to switch the rule off |
 | The rule also takes back a switch-on at the front panel while the permit is lost | The gate does the same at a permit loss (its off sequence begins with REN). With the permit present the front panel is not touched |
 | The count of `_permit:enforce` is an internal record without alarm and is not logged | What it does shows in the logged records: the output state goes on and off again. If you want the count in the logger or on a page, it is one line in the plan |
-| The operator's direction of the same race (P47) was reported and not changed | The owner ordered P45. The remedy for P47 is a different one (the gate's periodic evaluation through Channel Access) with a cost of its own, so it is his decision |
+| The operator's direction of the same race (P47) was reported and not changed | The owner ordered P45. The remedy for P47 is a different one (the gate's periodic evaluation through Channel Access) with a cost of its own, so it is his decision. He decided to leave it (answer 28) |
 | The logger stores what a loop writes to its actuator as a signal while the loop is in PID | Five writes a second are not set commands of an operator. The plan names the PV and the condition (`drives`), so a second loop needs no change in the logger |
 
 ## Assumptions that need your confirmation
@@ -757,7 +753,7 @@ loop, see "Done").
 | P43 | The loop's limit flag is an event (kept for ever). At a steady set point it did not change in two minutes of PID; in the closed-loop test with steps and limits it changed 15 times in 2.5 minutes | Watch on the machine. A rule in the plan's section `logging` makes it a signal if it is too many |
 | P44 | The GUI check failed twice for its engineer on connections that did not come within 20 s while three engineers loaded the machine, and once showed every PV in every window as not connected while Channel Access was fine. Not seen in my runs | Watch. The check now names the PVs that are not connected |
 | P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
-| P47 | The operator's direction of the race that P45 was. An off written to `SetToggleOutput` while a switch-on is still on the line (about 80 ms), and seen by the gate's 1-second scan before the change event arrives (well below a millisecond), is written into the busy `ToggleOutput` and not sent. The supply stays on with the request off, and the gate does not try again. `ToggleOutput` then shows 0 with an INVALID alarm (its read-back compare fails), the output state and the status show ON. Writing off again does nothing, because an unchanged request raises no event; on and then off clears it. The mirror case, an on that is lost, leaves the supply off. `_permit:enforce` does not act here: the permit is present. Read from the source by the engineer of T20 and by me (`dbDbLink.c` `processTarget`, `seqRecord.c`, `boRecord.c` `monitor`). Not reproduced. A remedy exists: the gate's periodic evaluation through a CA link to its own `PROC` field, which carries the put flag; then each gate depends on Channel Access inside its own IOC once a second, and access security (P28) must allow that write | Your word (question 14). I recommend to leave it |
+| P47 | The operator's direction of the race that P45 was. An off written to `SetToggleOutput` while a switch-on is still on the line (about 80 ms), and seen by the gate's 1-second scan before the change event arrives (well below a millisecond), is written into the busy `ToggleOutput` and not sent. The supply stays on with the request off, and the gate does not try again. `ToggleOutput` then shows 0 with an INVALID alarm (its read-back compare fails), the output state and the status show ON. Writing off again does nothing, because an unchanged request raises no event; on and then off clears it. The mirror case, an on that is lost, leaves the supply off. `_permit:enforce` does not act here: the permit is present. Read from the source by the engineer of T20 and by me (`dbDbLink.c` `processTarget`, `seqRecord.c`, `boRecord.c` `monitor`). Not reproduced. A remedy exists: the gate's periodic evaluation through a CA link to its own `PROC` field, which carries the put flag; then each gate depends on Channel Access inside its own IOC once a second, and access security (P28) must allow that write | Left as it is (your word of 2026-11-23, answer 28). Know it: if a supply stays on after an off that followed an on at once, write on and then off |
 | P48 | The device test `test_limit_survives_an_ioc_restart` (Matsusada case, older than T20) failed once in the engineer's runs of T20: not all PVs of AU-20P7-1 were valid within 20 s of an IOC restart. Which PV is not known, the log was overwritten. It passed in every other full run of the case, three of the engineer's and two of mine. Its failure message names the PVs now | Watch it. If it fails again the message says where to look |
 
 ## Found in RAS V8.1.0
