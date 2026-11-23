@@ -26,8 +26,9 @@ as a state. While it is lost and a supply reports its output on, the off sequenc
 After that (2026-11-23, on your word, answer 29): a switching command written into a supply's
 switching record while it is still busy with the previous one is no longer lost; it is sent
 when the record is free (P47, task T21). Verified by me on its branch and merged, plan 0.19.
-One finding from the acceptance runs waits for your word: P49, replies of a Matsusada line that
-stay out of step for tens of seconds after one late reply (question 15).
+One finding from its acceptance runs, P49 (replies of a Matsusada line that stay out of step
+for tens of seconds after one late reply), is being fixed on your word (answer 30) as task
+T22; it is not accepted yet (see "Running").
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -502,7 +503,7 @@ on hardware. The PDF printout is not built: the task named it as a later additio
 
 ## Running
 
-State of 2026-11-23, evening. Nothing is running.
+State of 2026-11-23, late evening.
 
 - T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
   the merged head. The GUI check, the device case and the hand check ran on the branch, whose
@@ -519,7 +520,12 @@ State of 2026-11-23, evening. Nothing is running.
   and this document to what I had run on the branch.
 - T21 (P47) is merged, see "Done". After its merge the plan check and the system suite were
   run again on the merged head; the device case and the GUI check ran on the branch.
-- Next: your word on P49 (question 15), and your comments on the drawings (answer 25).
+- **T22 is running** (since 2026-11-23, on your word, answer 30): after one late reply a
+  Matsusada line is in step again at once, and a reading that carries a state or a setting
+  does not take another supply's reply (P49). An engineer on Opus 5.5 in the worktree
+  `.claude/worktrees/t22`, branch `emu/t22-late-reply`, brief `briefs/T22-late-reply.md`.
+  Not accepted until I have run its acceptance commands myself.
+- Next: your comments on the drawings (answer 25).
 
 ## Open
 
@@ -564,6 +570,7 @@ State of 2026-11-23, evening. Nothing is running.
 | 27 | The interlock gate's rare case, P45 (2026-11-23) | "Yes, fix P45. There will be a hardware interlock. The software state is just an extra layer plus information in the logger." | Answers question 13. Task T20 (brief `T20-permit-enforce.md`): while the permit is lost and a supply reports its output on, the off sequence is sent again. Kept simple, because the hardware interlock is the first line |
 | 28 | The operator's direction of the same race, P47 (2026-11-23) | "Leave P47" | Answers question 14. Nothing is changed. P47 stays in the open points as a known behaviour with its way out (on, then off) |
 | 29 | P47 once more (2026-11-23, a few minutes after answer 28) | "Sorry, no fix P47" | Read by me as a correction of answer 28: fix P47. Task T21 (brief `T21-switch-resend.md`). Not the remedy I had named (the gate evaluated through Channel Access): that one still loses a command when several follow each other within a millisecond. Instead a rule at the switching record itself: a value written into it while it was busy is sent when it is free |
+| 30 | The late reply on the Matsusada lines, P49 (2026-11-23) | "Yes, fix P49" | Answers question 15. Task T22 (brief `T22-late-reply.md`). Two parts, the second added by me when I read the logs and the source for the brief: the line is kept quiet after a mismatch until the outstanding reply has arrived (what I had named to you), and every reading that carries a state or a setting first checks the unit number in a status reply, because at the first contact a stray reply would otherwise be copied into the next supply's request and set point. The monitors are left as they are; what that leaves open is measured and reported to you |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -620,11 +627,7 @@ State of 2026-11-23, evening. Nothing is running.
     the entry?
 13. Answered on 2026-11-23 (answer 27): fix P45; the supplies will have a hardware interlock.
 14. Answered on 2026-11-23: first "leave it" (answer 28), then corrected to "fix it" (answer 29). Task T21.
-15. P49: after one reply that comes later than about 200 ms, the requests and replies of a
-    Matsusada line stay out of step for tens of seconds, and a supply can then show its
-    neighbour's voltage and current without alarm. Shall I fix the protocol's handling of a
-    late reply as a task of its own? My recommendation: yes, before the supplies are used on
-    the machine.
+15. Answered on 2026-11-23 (answer 30): fix P49. Task T22.
 
 ## Not verified
 
