@@ -1,0 +1,97 @@
+# first_contact.db - a request record takes over the state of its device at the first contact
+#
+# Loaded once per request record (st.cmd), beside the database of the device:
+#   dbLoadRecords("db/first_contact.db", "P=VALVE,N=s1,REQ=VALVE:s1:set,RB=VALVE:s1:get")
+#
+# Macros:
+#   P     device prefix; the records here are $(P):_take:$(N), ...:on, ...:copy, ...:off
+#   N     short name of the request (s1, start, enable), unique under P
+#   REQ   the request record: a bo or ao written by an operator, with an acknowledged set,
+#         SDLY left at its default (-1: simulation mode is synchronous)
+#   RB    the record that shows the device's state: valid (not INVALID) only after the device
+#         has answered since the IOC start, and whose value is what REQ would be set to
+#
+# Why: a request record that is only written by an operator stands at 0 with STAT UDF, SEVR
+# INVALID after every IOC start, while the device keeps its state (an open valve, a running
+# pump). A first value at the start (PINI) is not possible: it would be sent to the device and
+# close the valve or stop the pump.
+#
+# How, and why nothing is sent:
+#   1. _take is processed whenever RB posts a value or an alarm change (CP link), and once when
+#      the link connects. It acts only when all of these hold:
+#        RB is valid (the device answered since the IOC start),
+#        REQ has never been processed since the IOC start (STAT UDF): no client wrote it,
+#        REQ is not busy (PACT 0: no client's write waiting for its acknowledgement).
+#   2. Then, from inside the processing of _take, three soft records run one after the other:
+#        _take:on    REQ.SIMM := YES     simulation mode: REQ does not call its device support
+#        _take:copy  REQ := RB, processed  VAL takes the device's state, UDF and the alarm clear;
+#                                        in simulation mode nothing is sent (SIOL is empty)
+#        _take:off   REQ.SIMM := NO      every later write is sent as before
+#   3. Afterwards REQ is never UDF again (it has been processed): _take does nothing, the
+#      read-back never overwrites the request. A client's write before the take-over clears UDF
+#      as well (sent as before, also when it fails): the take-over does not happen after it.
+#   Without an answer RB stays INVALID, so REQ stays INVALID/UDF: its state is not known. The
+#   take-over happens when the device answers, however late.
+#
+# Why it cannot get stuck, and why no client's write can come in between (EPICS 7.0.10):
+#   The check and the three steps run in ONE call of dbProcess(_take), under ONE hold of the
+#   lock set: the CP link processes _take in the dbCa task between dbScanLock and dbScanUnlock
+#   (dbCa.c, dbCaTask). Every link between these records and REQ is a database link (NPP, PP
+#   or FLNK), so all of them are in that lock set (dbDbLink.c, dbDbInitLink: dbLockSetMerge).
+#   No step goes through a callback or a delay:
+#     calcout with ODLY 0 writes its output at once (calcoutRecord.c, process: execOutput when
+#       odly is not > 0), through a database link;
+#     an output link with PP or a forward link to a passive record processes it at once, in the
+#       same thread (dbDbLink.c, dbDbPutValue and dbDbScanFwdLink -> processTarget -> dbProcess);
+#     dfanout writes OUTA and then its forward link in process() (dfanoutRecord.c, push_values,
+#       recGblFwdLink), no callback;
+#     REQ in simulation mode with SDLY < 0 writes to SIOL and finishes at once, without calling
+#       device support (boRecord.c and aoRecord.c, writeValue: "prec->sdly < 0." -> dbPutLink,
+#       pact FALSE).
+#   A client's write (dbPutField) and the completion of an asynchronous set (StreamDevice's
+#   callback) both take the same lock set, so they come before the check or after the last step.
+#   A seq would not do: it runs each link group in its own callback (seqRecord.c,
+#   processNextLink: "Always use the callback task", also for DLY 0), releasing the lock in
+#   between. test_11_first_contact.py checks the types and delay fields of these records.
+
+record(calcout, "$(P):_take:$(N)") {
+    field(DESC, "Take-over check of $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(INPA, "$(RB) CP")
+    field(INPB, "$(RB).SEVR NPP")
+    field(INPC, "$(REQ).STAT NPP")
+    field(INPD, "$(REQ).PACT NPP")
+    field(CALC, "B<3&&C=17&&D=0")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "1")
+    field(ODLY, "0")
+    field(OUT,  "$(P):_take:$(N):on PP")
+}
+
+# REQ.SIMM := YES, then the copy (forward link)
+record(dfanout, "$(P):_take:$(N):on") {
+    field(DESC, "Take-over SIMM on, $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "1")
+    field(OUTA, "$(REQ).SIMM NPP")
+    field(FLNK, "$(P):_take:$(N):copy")
+}
+
+# REQ := RB, processed in simulation mode, then simulation off (forward link)
+record(dfanout, "$(P):_take:$(N):copy") {
+    field(DESC, "Take-over copy into $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(RB) NPP")
+    field(OUTA, "$(REQ) PP")
+    field(FLNK, "$(P):_take:$(N):off")
+}
+
+# REQ.SIMM := NO
+record(dfanout, "$(P):_take:$(N):off") {
+    field(DESC, "Take-over SIMM off, $(N) (internal)")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(REQ).SIMM NPP")
+}

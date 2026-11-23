@@ -57,6 +57,7 @@ class Stats:
         self.bytes_out = 0
         self.busy_s = 0.0
         self.per_unit = {}
+        self.heads = {}           # requests by their first character (libcom1 "S": a set)
 
     def count(self, unit, replied):
         if unit is None:
@@ -74,6 +75,7 @@ class Stats:
             "bytes_out": self.bytes_out,
             "busy_s": self.busy_s,
             "per_unit": copy.deepcopy(self.per_unit),
+            "heads": dict(self.heads),
         }
 
 
@@ -316,6 +318,8 @@ class Simulator:
 
     def _process(self, request):
         self.stats.requests += 1
+        head = request[:1].decode("latin-1")
+        self.stats.heads[head] = self.stats.heads.get(head, 0) + 1
         self.step_couplings()
         try:
             target = self.route(request)

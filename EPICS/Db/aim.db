@@ -10,6 +10,17 @@
 # the acknowledgement: a rejected or unanswered command puts it into INVALID alarm.
 # The unit is the data unit configured in the gauge; the lab's file says torr (not checked).
 #
+# First contact: after an IOC start enable takes over the state of the cold cathode without
+# sending anything. The gauge reports it as bit 1 of the status word in every reply to the
+# pressure request (aim.proto). _enable:get reads that bit from the replies that getpressure
+# requests (SCAN I/O Intr: it sends nothing and does not change how the pressure is read), also
+# while the gauge is off, when getpressure itself is INVALID. first_contact.db, loaded in the
+# st.cmd with REQ=$(DEVICE):enable and RB=$(DEVICE):_enable:get, copies its first value into
+# enable, processed in simulation mode (no command to the gauge), and only if no client has
+# written enable since the start. Until the gauge has answered enable stays INVALID (UDF).
+# _enable:get is internal: an I/O Intr record is not processed while the gauge is silent, so
+# it keeps its last value then and is no read-back for an operator.
+#
 # Author of the first version: Philip Weigel.
 
 record(ai, "$(DEVICE):getpressure") {
@@ -21,6 +32,17 @@ record(ai, "$(DEVICE):getpressure") {
     field(PREC, "2")
     field(LOPR, "1e-10")
     field(HOPR, "1e-2")
+}
+
+# Bit 1 of the status word (cold cathode on) of every pressure reply, MASK 2: 1 = on
+record(bi, "$(DEVICE):_enable:get") {
+    field(DESC, "Cathode on, status bit 1 (internal)")
+    field(DTYP, "stream")
+    field(INP,  "@aim.proto cathode_state $(PORT)")
+    field(SCAN, "I/O Intr")
+    field(MASK, "2")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
 }
 
 record(bo, "$(DEVICE):enable") {

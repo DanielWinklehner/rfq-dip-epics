@@ -23,8 +23,9 @@ def pytest_configure(config):
 def write_target(name):
     """What a written PV is set to when the suite leaves: the value it had when the suite started.
     A set record that had never been written (UDF) gets the value of its read-back then; one
-    without read-back gets the upper end of its test range (AIM:enable: gauge on, the state the
-    gauge starts in, which the read test checks through the pressure)."""
+    without read-back gets the upper end of its test range. The requests of first_contact.db
+    (valves, pumps, AIM:enable) are not UDF once their device has answered: they hold the
+    device's state (test_11_first_contact)."""
     s = snapshot[name]
     spec = reg.pvs[name]
     if s["status"] != S.UDF or spec.get("role") == "ilimit":

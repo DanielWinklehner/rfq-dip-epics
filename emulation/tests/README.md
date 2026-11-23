@@ -6,8 +6,8 @@ exits with pytest's exit code. An emulation that was running stays running; one 
 stops. Arguments go to pytest: `make -C emulation test ARGS="-k valve"`,
 `ARGS="emulation/tests/test_05_faults.py"`. The IOC and simulator output of the run is saved in
 `emulation/build/<service>.log` (the tests read the IOC logs there), the rate table in
-`emulation/build/update-rate.md`. `ARGS="-m slow"` runs only tests marked slow (there are none
-at present), `ARGS='-m ""'` everything.
+`emulation/build/update-rate.md`. `ARGS="-m slow"` runs only tests marked slow (at present
+one: the first contact under writes with ten IOC restarts in `test_11_first_contact.py`), `ARGS='-m ""'` everything.
 
 Device and PV names come from the registry (`RAS/mist2/ReactApp/src/registry/registry.json`):
 the tests are parametrised over its devices, PVs, written PVs, simulators and units, so a device
@@ -29,6 +29,7 @@ state found, restore at the end, also after a failure).
 | `test_07_update_rate.py` | Monitor update rate of the polled AU supplies of both chains and of the TDK, by Channel Access and by the simulator's counts, within 10 % of the bus arithmetic with even shares |
 | `test_09_loop.py` | The control loops (`docs/emulation/LOOP.md`), without the plant: every setting written and read back, the set point limits (records `spmin`, `spmax`) clamp the set point and bring it along when moved inside it; each permit record reads as words, not fulfilled without alarm; an output limit moved past the actuator in PID brings it to the new limit at the slew rate, with output:get telling the truth; PID refused while a permit fails, with stale data, outside the output limits, with the service stopped (R5); each hand-back from PID with its reason and time limit, request back at MANUAL, actuator left where it was (permits, measurement INVALID, permit without data, stale heartbeat, someone else writes the actuator, the actuator does not accept a set, the service killed); a restart of the service and of the IOC end in MANUAL; the backstop with a test client in the service's place: no value outside the output limits, no step above slew x DT, no write in MANUAL, from outside the limits only towards them, a lowered maximum followed at the slew rate, none after someone else wrote, MANUAL when the client stops counting |
 | `test_10_lost_permit.py` | A lost permit (the rack IOC stopped: its connection closes; paused: it goes silent): the REK, which takes its permit from the rack IOC, switches off, its request is cleared, a request while lost is cleared at once, nothing comes back when the permit returns; the discharge loop in PID hands back with "permit 1 no data"; a platform IOC started while the rack IOC is down cannot switch the REK on, and the loop refuses PID. The AU supplies have the same records but their permit is in their own IOC |
+| `test_11_first_contact.py` | After a start of the rack IOC every request of a valve, a turbopump and the ion gauge (`first_contact.db`) takes over the state of its device at the device's first answer, with NO_ALARM, and no set command reaches a simulator for it; the devices keep their state (foreline valve open, vent valve closed, pump 1 running, gauge on). A device silent at the start (the Opta) leaves its requests INVALID (UDF) until it answers, then they take over; a client's write before the take-over is sent and stays; afterwards writes are acknowledged, an unanswered or rejected set alarms, a changed read-back does not change the request; `SIMM` is NO in every case. One restart of the rack IOC for all of it. The take-over records run in one lock hold (no seq, no delay field, a chain of PP and forward links, the request's SDLY < 0, read from the IOC); a client writing a spare relay in a tight loop through one more restart (ten in the slow variant): every write that returned without error reached the box or alarms |
 | `test_99_clean_end.py` | No fault and no held signal in any simulator, outputs off, valves closed, pumps stopped, set points as found, every PV back to its severity, every loop in MANUAL |
 
 ## Time limits and where they come from
@@ -63,6 +64,8 @@ state found, restore at the end, also after a failure).
 | Loop: hand-back, stale | stale time + 1.5 (and not before stale time - 1.2) | heartbeat counts once per second, plus one cycle |
 | Loop: service stopped or killed | watchdog time + 0.5 | `service:get` scans every 0.1 s, then CP links |
 | Loop: service or IOC back | 30 | the container's start, GRACE of the supplies |
+| First contact: request taken over / after the fault cleared | 3 / 5 | valve box and Opta polled every 0.5 s, the gauge every 1 s, the request follows by a CP link / the reply timeout (1 s) of the waiting poll, then the next one |
+| First contact: silent device's requests watched INVALID / request watched not to follow | 2 / 1.5 | four polls of the Opta / three polls of the box |
 
 Identity records are scanned every 10 s; the fault tests process them once after injecting and
 after clearing a fault, so that the limits above apply to them and the suite stays under 12

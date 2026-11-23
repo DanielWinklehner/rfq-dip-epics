@@ -3328,6 +3328,15 @@
       "PORT": "AIM",
       "DEVICE": "AIM"
      }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "AIM",
+      "N": "enable",
+      "REQ": "AIM:enable",
+      "RB": "AIM:_enable:get"
+     }
     }
    ],
    "pvs": {
@@ -3346,6 +3355,21 @@
       "aim"
      ]
     },
+    "AIM:_enable:get": {
+     "type": "bi",
+     "access": "r",
+     "desc": "Cathode on, status bit 1 (internal)",
+     "states": [
+      "OFF",
+      "ON"
+     ],
+     "internal": true,
+     "log": "none",
+     "sim": "aim",
+     "fails_closed": [
+      "aim"
+     ]
+    },
     "AIM:enable": {
      "type": "bo",
      "access": "w",
@@ -3360,10 +3384,38 @@
       1
      ],
      "ack": true,
-     "note": "no read-back record: getpressure is INVALID while the gauge is off",
+     "note": "no read-back record: getpressure is INVALID while the gauge is off. After an IOC start it takes over the state of the cold cathode at the gauge's first answer (first_contact.db)",
      "readback": null,
      "log": "events",
      "sim": "aim"
+    },
+    "AIM:_take:enable": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of enable (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AIM:_take:enable:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, enable (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AIM:_take:enable:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into enable (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AIM:_take:enable:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, enable (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
@@ -3504,6 +3556,15 @@
      }
     },
     {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "TURBO1",
+      "N": "start",
+      "REQ": "TURBO1:start:set",
+      "RB": "TURBO1:start:get"
+     }
+    },
+    {
      "db": "nt20_monitor.db",
      "macros": {
       "P": "TURBO1",
@@ -3526,7 +3587,7 @@
       1
      ],
      "ack": true,
-     "note": "0 stops the pump and resets a failure",
+     "note": "0 stops the pump and resets a failure. After an IOC start it takes over the run relay's state at the Opta's first answer (first_contact.db)",
      "readback": "TURBO1:start:get",
      "log": "events",
      "sim": "turbo_opta"
@@ -3637,6 +3698,34 @@
      "fails_closed": [
       "turbo_opta"
      ]
+    },
+    "TURBO1:_take:start": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO1:_take:start:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO1:_take:start:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO1:_take:start:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, start (internal)",
+     "internal": true,
+     "log": "none"
     },
     "TURBO1:int:raw": {
      "type": "lsi",
@@ -3810,6 +3899,15 @@
      }
     },
     {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "TURBO2",
+      "N": "start",
+      "REQ": "TURBO2:start:set",
+      "RB": "TURBO2:start:get"
+     }
+    },
+    {
      "db": "nt20_monitor.db",
      "macros": {
       "P": "TURBO2",
@@ -3832,7 +3930,7 @@
       1
      ],
      "ack": true,
-     "note": "0 stops the pump and resets a failure",
+     "note": "0 stops the pump and resets a failure. After an IOC start it takes over the run relay's state at the Opta's first answer (first_contact.db)",
      "readback": "TURBO2:start:get",
      "log": "events",
      "sim": "turbo_opta"
@@ -3943,6 +4041,34 @@
      "fails_closed": [
       "turbo_opta"
      ]
+    },
+    "TURBO2:_take:start": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO2:_take:start:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO2:_take:start:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO2:_take:start:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, start (internal)",
+     "internal": true,
+     "log": "none"
     },
     "TURBO2:int:raw": {
      "type": "lsi",
@@ -4182,6 +4308,78 @@
       "PORT": "AVR12",
       "DEVICE": "VALVE"
      }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s1",
+      "REQ": "VALVE:s1:set",
+      "RB": "VALVE:s1:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s2",
+      "REQ": "VALVE:s2:set",
+      "RB": "VALVE:s2:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s3",
+      "REQ": "VALVE:s3:set",
+      "RB": "VALVE:s3:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s4",
+      "REQ": "VALVE:s4:set",
+      "RB": "VALVE:s4:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s5",
+      "REQ": "VALVE:s5:set",
+      "RB": "VALVE:s5:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s6",
+      "REQ": "VALVE:s6:set",
+      "RB": "VALVE:s6:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s7",
+      "REQ": "VALVE:s7:set",
+      "RB": "VALVE:s7:get"
+     }
+    },
+    {
+     "db": "first_contact.db",
+     "macros": {
+      "P": "VALVE",
+      "N": "s8",
+      "REQ": "VALVE:s8:set",
+      "RB": "VALVE:s8:get"
+     }
     }
    ],
    "pvs": {
@@ -4328,6 +4526,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s1:get",
      "log": "events",
      "sim": "valvebox"
@@ -4343,6 +4542,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s2:get",
      "log": "events",
      "sim": "valvebox"
@@ -4358,6 +4558,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s3:get",
      "confirm": {
       "value": 1,
@@ -4377,6 +4578,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s4:get",
      "log": "events",
      "sim": "valvebox"
@@ -4392,6 +4594,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s5:get",
      "log": "events",
      "sim": "valvebox"
@@ -4407,6 +4610,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s6:get",
      "log": "events",
      "sim": "valvebox"
@@ -4422,6 +4626,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s7:get",
      "log": "events",
      "sim": "valvebox"
@@ -4437,6 +4642,7 @@
       1
      ],
      "ack": true,
+     "note": "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)",
      "readback": "VALVE:s8:get",
      "log": "events",
      "sim": "valvebox"
@@ -4483,6 +4689,230 @@
      "fails_closed": [
       "valvebox"
      ]
+    },
+    "VALVE:_take:s1": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s1:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s1:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s1:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s2": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s2:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s2:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s2:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s3": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s3:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s3:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s3:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s4": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s4:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s4:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s4:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s5": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s5:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s5:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s5:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s6": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s6:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s6:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s6:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s7": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s7:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s7:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s7:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s8": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Take-over check of s8 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s8:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s8 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s8:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over copy into s8 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s8:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s8 (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },

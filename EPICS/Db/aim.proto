@@ -11,7 +11,8 @@
 # and bits 0, 6 and 8 clear; any other state ends in INVALID/CALC. The pressure unit (bits 4-5)
 # is not checked: aim.db assumes torr.
 #
-# Author of the first version: Philip Weigel. 2026-11: status bits, acknowledged enable.
+# Author of the first version: Philip Weigel. 2026-11: status bits, acknowledged enable,
+# cathode_state (the state of the cathode for aim.db's first contact).
 
 Terminator = CR;
 ReplyTimeout = 500;
@@ -26,6 +27,12 @@ get_pressure {
     # A well-formed reply with a bad state: no error message in the log, the record still
     # ends in INVALID/CALC. A malformed reply fails here as well and is logged.
     @mismatch { in "=V752 %*g;%*4x"; }
+}
+
+# The status word of every reply to ?V752, whatever the state (aim.db, _enable:get, SCAN I/O
+# Intr): sends nothing, reads the replies that get_pressure requested. The bi's MASK picks bit 1.
+cathode_state {
+    in "=V752 %*g;%4x";
 }
 
 enable {

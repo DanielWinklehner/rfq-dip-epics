@@ -465,12 +465,15 @@ devices:
     host: ioc_rack
     link: "homemade RS-232 to USB adapter with power feed"
     protocol: "StreamDevice, aim.proto, 9600 baud"
-    epics: {db: aim.db, macros: {PORT: AIM, DEVICE: AIM}}
+    epics:
+      - {db: aim.db, macros: {PORT: AIM, DEVICE: AIM}}
+      - {db: first_contact.db, macros: {P: AIM, N: enable, REQ: "AIM:enable", RB: "AIM:_enable:get"}}
     status: keep
     labels: {p: "nAIM, six-way cross"}
     notes:
       - "On a side flange of the six-way cross, next to the APG. The gauge is set to torr (owner, 2026-11-21)."
       - "AIM:enable now waits for the gauge's answer, so a rejected or unanswered command raises an alarm."
+      - "After an IOC start AIM:enable takes over the state of the cold cathode at the gauge's first answer, sending nothing (first_contact.db). The state is bit 1 of the status word of every pressure reply, read by the internal record AIM:_enable:get (new in T18, SCAN I/O Intr on the replies that AIM:getpressure requests). It is not a read-back for an operator: an I/O Intr record keeps its last value while the gauge is silent."
       - "Assumed (A15): the gauge answers !C752 as in the Edwards manual."
       - "The owner believes the nAIM is calibrated for N2 (2026-11-21; not checked on the gauge). Then with hydrogen the true pressure is roughly twice the reading, because an ionisation gauge calibrated for nitrogen reads hydrogen at about 0.4 to 0.5 of the true pressure."
     questions:
@@ -514,6 +517,7 @@ devices:
     protocol: "libcom1 over TCP (through the Opta), StreamDevice listen only (nt20_monitor.proto)"
     epics:
       - {db: turbo_pump.db, macros: {P: TURBO1, DEVICE: TURBO, PORT: TURBO, RELAY: r1, RUN: "0", NORMAL: "4", ACCEL: "5", FAILURE: "6"}}
+      - {db: first_contact.db, macros: {P: TURBO1, N: start, REQ: "TURBO1:start:set", RB: "TURBO1:start:get"}}
       - {db: nt20_monitor.db, macros: {P: TURBO1, PORT: NT20_1}}
     status: new
     flags: {assumed: "The RS-232 record format is invented: speed and current are parsed from it (A17, P14)"}
@@ -533,6 +537,7 @@ devices:
     protocol: "libcom1 over TCP (through the Opta), StreamDevice listen only (nt20_monitor.proto)"
     epics:
       - {db: turbo_pump.db, macros: {P: TURBO2, DEVICE: TURBO, PORT: TURBO, RELAY: r2, RUN: "1", NORMAL: "7", ACCEL: "8", FAILURE: "9"}}
+      - {db: first_contact.db, macros: {P: TURBO2, N: start, REQ: "TURBO2:start:set", RB: "TURBO2:start:get"}}
       - {db: nt20_monitor.db, macros: {P: TURBO2, PORT: NT20_2}}
     status: new
     flags:
@@ -571,6 +576,14 @@ devices:
     epics:
       - {db: solenoidbox.db, macros: {PORT: AVR12, DEVICE: VALVE}}
       - {db: libcom1_device.db, macros: {PORT: AVR12, DEVICE: VALVE}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s1, REQ: "VALVE:s1:set", RB: "VALVE:s1:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s2, REQ: "VALVE:s2:set", RB: "VALVE:s2:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s3, REQ: "VALVE:s3:set", RB: "VALVE:s3:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s4, REQ: "VALVE:s4:set", RB: "VALVE:s4:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s5, REQ: "VALVE:s5:set", RB: "VALVE:s5:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s6, REQ: "VALVE:s6:set", RB: "VALVE:s6:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s7, REQ: "VALVE:s7:set", RB: "VALVE:s7:get"}}
+      - {db: first_contact.db, macros: {P: VALVE, N: s8, REQ: "VALVE:s8:set", RB: "VALVE:s8:get"}}
     status: replace
     libcom1: true
     labels: {s1: "Foreline Valve", s2: "MFC Shutoff Valve", s3: "Vent Valve", s4: "Faraday Cup"}
@@ -1181,13 +1194,15 @@ databases:
     roles:
       p: getpressure
       enable: {record: enable, readback: null, test: [0, 1], ack: true,
-               note: "no read-back record: getpressure is INVALID while the gauge is off"}
+               note: "no read-back record: getpressure is INVALID while the gauge is off. After an IOC start it takes over the state of the cold cathode at the gauge's first answer (first_contact.db)"}
+    internal: ["_enable:get"]
 
   solenoidbox.db:
     class: valve
     channels:
       "s<n>":
-        cmd: {record: "s<n>:set", readback: state, test: [0, 1], ack: true}
+        cmd: {record: "s<n>:set", readback: state, test: [0, 1], ack: true,
+              note: "after an IOC start it takes over the relay's state at the box's first answer (first_contact.db)"}
         state: "s<n>:get"
     internal: [data, "int:fanout"]
 
@@ -1215,13 +1230,18 @@ databases:
     class: turbo
     roles:
       run_cmd: {record: "start:set", readback: run_state, test: [0, 1], ack: true,
-                note: "0 stops the pump and resets a failure"}
+                note: "0 stops the pump and resets a failure. After an IOC start it takes over the run relay's state at the Opta's first answer (first_contact.db)"}
       run_state: "start:get"
       atspeed: "atspeed:get"
       accel: "accel:get"
       failure: "failure:get"
       state: "state:get"
     internal: ["int:relays", "int:state"]
+
+  first_contact.db:            # loaded once per request record, beside the device's database
+    internal: ["_take:$(N)", "_take:$(N):on", "_take:$(N):copy", "_take:$(N):off"]
+    invalid_on:
+      "_take:$(N):copy": []    # runs once, at the first contact, and then in simulation mode
 
   loop.db:
     class: loop

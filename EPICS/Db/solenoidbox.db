@@ -15,6 +15,14 @@
 #
 # The element records read the array through CA links with MS: when the box stops answering,
 # :data goes INVALID and so does every read-back.
+#
+# First contact: after an IOC start each set record takes over the state of its relay, without
+# sending anything. first_contact.db, loaded once per channel in the st.cmd with
+# REQ=$(DEVICE):s<n>:set and RB=$(DEVICE):s<n>:get, copies the read-back into the set record
+# at the read-back's first valid value, processed in simulation mode (no command to the box),
+# and only if no client has written the set record since the start. Until the box has answered
+# the set records stay INVALID (UDF): their state is not known. Writing a first value at the
+# start instead (PINI) would close the foreline valve at every IOC start.
 
 record(aai, "$(DEVICE):data") {
     field(DESC, "All solenoid statuses")
