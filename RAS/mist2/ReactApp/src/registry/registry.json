@@ -5127,6 +5127,12 @@
     "buffer": "LOGGER:buffer:get",
     "dropped": "LOGGER:dropped:get"
    },
+   "states": {
+    "alive": [
+     "not alive",
+     "alive"
+    ]
+   },
    "simulators": [],
    "loads": [
     {

@@ -55,7 +55,7 @@ loop_actuator=fil_heat
 # Records of the stopped IOC still expected unprocessed (INVALID, UDF) right
 # after its start: they may show INVALID then. Every record that is INVALID/UDF
 # at that moment is named in a note.
-udf_after_start=$(role $loop mode_cmd)   # not saved (LOOP.md section 3): UDF until written
+udf_after_start=""   # none: the loop's mode request is processed at the start now (loop.db, PINI)
 
 failed=0
 step() { echo; echo "== $*"; }

@@ -140,9 +140,9 @@ subsystems:
   - {id: vacuum, name: "Vacuum and gas", phase: 1, page: "Vacuum and gas"}
   - {id: cooling, name: "Cooling and interlocks", phase: 1, page: "Cooling and interlocks"}
   - {id: diag, name: "Beam diagnostics", phase: 1, page: "Diagnostics"}
-  # The services of the control system that have records. Shown on the Diagnostics page until the
-  # GUI can show a subsystem without a page on the Infrastructure page alone (T17 report).
-  - {id: services, name: "Control system services", phase: 1}   # no page: Infrastructure page only (T16b)
+  # The services of the control system that have records. No page: the GUI shows them on the
+  # Infrastructure page only, and each one that has a role "alive" as a chip in the status strip.
+  - {id: services, name: "Control system services", phase: 1}
   - {id: scan, name: "Dipole scan and emittance scanners", phase: 2}
 
 devices:
@@ -707,6 +707,7 @@ devices:
     link: "records of the rack IOC; the logger writes them over Channel Access once a second"
     protocol: "Channel Access"
     epics: {db: logger_status.db, macros: {P: LOGGER}}
+    states: {alive: ["not alive", "alive"]}
     status: new
     notes:
       - "Records every PV of this plan in its tier (section logging) through Channel Access monitors: raw values 30 days, means, minima and maxima per second 2 years and per minute for ever, set commands, alarms and state changes as events for ever. Design and operation: docs/emulation/LOGGER.md, logger/README.md."
