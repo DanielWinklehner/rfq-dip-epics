@@ -317,8 +317,9 @@ State of 2026-11-23, early morning.
 - After the full runs on the merged tree two changes were merged: the fix of the loop's mode
   request (its test run alone, without and with the fix) and T17d (the logger's tests on its
   branch). On the final head the GUI check (exit 0, 289 checks; its note after the IOC start
-  names two internal records only) and the logger's tests (35 passed in 409 s) pass in my
-  runs. The system suite was not run again after these two changes.
+  names two internal records only), the logger's tests (35 passed in 409 s) and the system
+  suite (281 passed in 743 s, saved settings unchanged; run after plan 0.16 as the baseline for
+  T19) pass in my runs.
 - Next: your comments on the drawings (answer 25).
 
 ## Open
