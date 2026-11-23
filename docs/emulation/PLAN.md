@@ -66,6 +66,7 @@ each may touch the shared files (`compose.yaml`, `plan/controls.yaml`, the test 
 | T16b | The logger in the GUI (Infrastructure page only, a widget, a chip in the status strip), the loop's permits by their names, the list of trends from the registry | `RAS/mist2/ReactApp/src/`, `RAS/mist2/tools/`, one line of `plan/controls.yaml` | T16, T17 | `gui-check.sh` passes with the logger running and stopped |
 | T17b | Fix round of the logger after the lead's session: the loop's writes not in the event log while in PID, the right reason in a mode event, Grafana down to raw data, the loop's graphs in the dashboards, a rejected batch given up | `logger/`, `plan/` | T17 | The three acceptance commands of T17, and the lead's session repeated |
 | T18 | Request records of valves, turbopumps and ion gauge take over the device's state at the first contact after an IOC start, without sending anything (open point P25) | `EPICS/Db/` (rack devices), `iocRack/st.cmd`, `emulation/tests/`, `plan/` | T17 (a tier for every PV) | Suite with the IOC restarted while devices are on; `gui-check.sh` without request records in its note |
+| T17c, T17d | Two more rounds of the logger from the lead's sessions: a value that holds is returned to the end of its stretch (T17c); Grafana draws lines in a panel with several series (T17d) | `logger/` | T17b | `make -C logger test`, and the lead looks at the dashboard |
 
 ## What every brief contains
 
