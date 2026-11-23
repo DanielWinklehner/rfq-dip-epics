@@ -45,3 +45,30 @@
     units:
       - {address: 2, vfs: 150, ifs: 55, load_ohm: 2.0}                          # REK150-55
       - {address: 9, vfs: 150, ifs: 55, load_ohm: 2.0}                          # permit test only
+
+# Task T22 (P49), test_stray_reply.py only: a line of its own on which a test makes replies late
+# (fault "slow") without disturbing the supplies above. Units 1 and 2 polled as in the rack,
+# unit 3 loaded but not polled (a test polls it for three supplies on a line).
+- name: mat_late
+  type: matsusada_co
+  port: 5005
+  turnaround_ms: 5
+  options:
+    queries_without_remote: true
+    units:
+      - {address: 1, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}
+      - {address: 2, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}
+      - {address: 3, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}
+
+# Task T22, test_stray_reply.py only: a line whose units send "!" when their output goes off
+# (manual 7-2), a line nobody asked for. Both units polled.
+- name: mat_bang
+  type: matsusada_co
+  port: 5006
+  turnaround_ms: 5
+  options:
+    queries_without_remote: true
+    bang_when_off: true
+    units:
+      - {address: 1, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}
+      - {address: 2, vfs: 20000, ifs: 0.0075, load_ohm: 4.0e+6}

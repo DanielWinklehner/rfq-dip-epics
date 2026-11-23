@@ -14,6 +14,12 @@ REPLY_TIMEOUT = 0.150 + 0.050  # matsusada_co_ctrl.proto: ReplyTimeout, then the
 CHAINS = {"mat_opt": [1, 2], "mat_co": [3, 4]}
 
 
+# Task T22: the state reads (CH0?, SW?, CH1?) begin with a status check (STS), which the
+# simulator counts among the unit's replies. True if the protocol file the IOC loads has it.
+STATUS_CHECK = '"#\\$1 STS"' in re.search(
+    r"\nget_voltage\s*\{([^}]*)\}", open("/repo/EPICS/Db/matsusada_co_ctrl.proto").read()).group(1)
+
+
 # --- bus arithmetic ------------------------------------------------------------------------------
 
 def tx(request, reply, turnaround_ms, dead=False):
@@ -56,7 +62,8 @@ READS = (("MN1", "voltage:read"), ("MN2", "current:read"), ("CH0?", "voltage:get
 def measure(units_by_chain, seconds=20.0):
     """Update rates per (unit, command) seen by a Channel Access client (MDEL -1 for the
     measurement, so that every processing is posted). SW? is read with CH1? (forward link), and
-    STS is what the simulator's reply count leaves: replies - MN1 - MN2 - CH0? - SW? - CH1?."""
+    STS is what the simulator's reply count leaves: replies - MN1 - MN2 - CH0? - SW? - CH1?, and
+    with the status check (T22) once more CH0?, SW? and CH1? (each has an STS before it)."""
     pvs = {(u, n): "AU-20P7-%d:%s" % (u, s) for us in units_by_chain.values() for u in us
            for n, s in READS}
     counts = {k: 0 for k in pvs}
@@ -88,6 +95,8 @@ def measure(units_by_chain, seconds=20.0):
             replies = s["per_unit"].get(str(u), {}).get("replies", 0) / s["elapsed_s"]
             rate[u, "SW?"] = rate[u, "CH1?"]
             rate[u, "STS"] = replies - sum(rate[u, n] for n in ("MN1", "MN2", "CH0?", "SW?", "CH1?"))
+            if STATUS_CHECK:                 # the status checks of CH0?, SW?, CH1? are not polls
+                rate[u, "STS"] -= sum(rate[u, n] for n in ("CH0?", "SW?", "CH1?"))
     return rate
 
 
