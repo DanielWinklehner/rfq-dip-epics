@@ -17,9 +17,12 @@ dashboards; what was run for each is in "Running".
 
 After that (2026-11-23, on your word): the first contact of the Matsusada and REK supplies has
 no gap any more in which a written voltage is accepted and not sent (P40, task T19). Verified
-by me on its branch and merged, plan 0.17. One finding beside it, P45 (a rare case in which the
-interlock gate's off command is not sent), is being fixed on your word as task T20; it is not
-accepted yet (see "Running").
+by me on its branch and merged, plan 0.17.
+
+After that (2026-11-23, on your word): the output permit of the Matsusada and REK supplies acts
+as a state. While it is lost and a supply reports its output on, the off sequence is sent again
+(P45, task T20). Verified by me on its branch and merged, plan 0.18. One finding beside it
+waits for your word: P47, the same rare loss for an operator's own off or on (question 14).
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -365,9 +368,84 @@ on hardware. The PDF printout is not built: the task named it as a later additio
 - Found beside it, both older than this task: P45 (a rare case in the interlock gate's
   switching sequence) and P46 (how long the loop service needs after an IOC start).
 
+**The output permit as a state** (`_permit:enforce` in `EPICS/Db/matsusada_au20p7.db` and `rek.db`; subagent, task T20, two rounds, merged 2026-11-23 on your word, answer 27; open point P45)
+
+- What was wrong: the gate `OutputIntlk` sends its off sequence once, when its result changes.
+  That one write can be lost (P45): `ToggleOutput` still busy with a switch-on, and the gate
+  processed by its own 1-second scan, which EPICS does not let mark a busy record to run
+  again. The supply then stays on with the permit lost and the request cleared. The same
+  state arises when a client writes `ToggleOutput` directly while the permit is lost (P28),
+  or when someone switches on at the front panel.
+- What it is now: one internal record per supply, `_permit:enforce`, evaluated every second.
+  While the gate is enabled, the permit is lost (the gate's and the latch's own condition) and
+  the supply reports its output on by a valid reading (the SW setting `read_output_status`,
+  or the status `status:read` ON or "ON, LOCAL"), it starts the gate's off sequence again:
+  REN, RST, SW0 and the read-back. It acts when this held at two evaluations in a row and
+  then counts again, so the first sequence goes out 1 to 2 s after the IOC has the reading
+  and one more every 2 s while it lasts. It does not count while a switching is under way
+  (`_out:switch` or `ToggleOutput` active). Its value is the number of sequences it has
+  started since the IOC start, 0 in a system where nothing went wrong.
+- It only switches off. It never switches on and never writes the request (the latch does).
+  REN comes first, so a supply under local control is taken back, as the gate does at a
+  permit loss.
+- What changes for an operator: while the permit is lost, a direct write of `ToggleOutput`
+  lasts 1 to 2 s and a switch-on at the front panel 2 to 3 s (the status is polled once a
+  second). With the permit present both act as before. Before the gate is enabled (first
+  contact plus 5 s) nothing is sent. A normal permit loss still sends one off sequence.
+- A supply that does not answer is not flooded: a reading that is INVALID does not count, so
+  the sending stops, and starts again when the supply answers and still reports on.
+- The check and the start of the sequence run under one hold of the lock set. I read the
+  lines the argument rests on in the base of our image: the periodic scan processes a record
+  between `dbScanLock` and `dbScanUnlock`; a `seq` fixes its link groups when it starts and
+  stays active until its last group has been written (`seqRecord.c`), so a later write of its
+  selection does not change a running sequence; a write through a database link marks a busy
+  target to run again only when the writer carries the put flag (`dbDbLink.c`,
+  `processTarget`), which a change event and a client's write give (`db_access.c`,
+  `db_process`; `dbAccess.c`, `dbPutField`) and the periodic scan does not.
+- **The first version had a fault that came from my brief.** I had asked that the rule wait
+  while a read of the SW setting is under way. The engineer found that this stretched the
+  reaction to 1 to 4 s, because that read runs every 5 s on the same time grid as the rule.
+  Reading the scan code I found it worse: a periodic scan list is ordered by record type, so
+  with the read period `SCAN_GET` set to 1 second the read stands before the rule at every
+  evaluation and the rule never acts. The engineer showed it (supply on for the 20 s watched,
+  count 0) and showed it gone (off after 1.78 s) with that input removed. A structure test
+  now refuses any such input whose record is scanned periodically.
+- Tests, device case `emulation/devtest/matsusada` (19 new, for one AU unit and one REK unit
+  unless said): the state the fault leaves (also for a unit that is not polled); the front
+  panel; nothing with the permit present; 120 normal permit losses with one SW0 each and the
+  count unchanged; a supply that reports on and falls silent; an IOC start with the output
+  on and the permit lost; the structure read from the running IOC. In the system suite one
+  addition: while the door is open `ToggleOutput` of all five gated supplies is written to 1
+  and all are off again within 4 s, counted once each.
+- How the tests were seen to fail (the engineer's runs): with the rule switched off the tests
+  of the state, the front panel, the silent supply, the structure and the suite's addition
+  fail; with a rule that acts at once and ignores the gate's state the 120 losses fail in the
+  first round and the IOC start fails; with a rule without the permit condition the test
+  "nothing with the permit present" fails.
+- One test was changed by me: the IOC-start test wrote the permit after its Channel Access
+  client had found the restarted IOC, which in my first run took longer than the 5 s after
+  which the gate is enabled, so it failed. The supplies now stay silent until the permit is
+  written. It passed twice alone and in the whole case, and failed against a rule that reads
+  the permit itself and ignores the gate's state.
+- Verified by me on the branch: plan check; system suite (284 passed in 777 s, saved settings
+  unchanged); the Matsusada device case (47 passed in 437 s, after the change above; before
+  it 46 passed and that one test failed); the GUI check (PASS). By hand with the door open:
+  `ToggleOutput` written to 1 switched AU-20P7-1 on and it was off again after 1.54 s, the
+  REK after 1.59 s, each counted once, the simulators had received RST, SW1 and then RST, SW0.
+  AU-20P7-3 taken under local control and switched on at the front panel received REN, RST,
+  SW0 after 2.27 s. With the permit present the same direct write stayed on for the 6 s I
+  watched and was not counted. A normal permit loss with AU-20P7-1 and the REK on sent one
+  RST, SW0 to each and the counts did not move.
+- On the merged head (plan 0.18): plan check, and the system suite once more (MERGED).
+- Asked of the engineer as a report, confirmed by me in the source, not changed: P47.
+- Seen once in the engineer's runs, not in mine: the older device test
+  `test_limit_survives_an_ioc_restart` did not find all PVs of AU-20P7-1 valid within 20 s of
+  a restart. It passed in every other full run of the case (three of the engineer's, two of mine). Its
+  failure message names the PVs now. P48.
+
 ## Running
 
-State of 2026-11-23, morning. Nothing is running.
+State of 2026-11-23, afternoon. Nothing is running.
 
 - T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
   the merged head. The GUI check, the device case and the hand check ran on the branch, whose
@@ -379,11 +457,10 @@ State of 2026-11-23, morning. Nothing is running.
   names two internal records only), the logger's tests (35 passed in 409 s) and the system
   suite (281 passed in 743 s, saved settings unchanged; run after plan 0.16 as the baseline for
   T19) pass in my runs.
-- **T20 is running** (since 2026-11-23, on your word, answer 27): the interlock gate of the AU supplies and
-  the REK keeps the output off as a state (P45). An engineer on Opus 5.5 in the worktree
-  `.claude/worktrees/t20`, branch `emu/t20-permit-enforce`, brief `briefs/T20-permit-enforce.md`.
-  Not accepted until I have run its acceptance commands myself.
-- Next: your comments on the drawings (answer 25).
+- T20 (P45) is merged, see "Done". As with T19, after its merge only the plan check and the
+  system suite were run again, on the merged head: the merge added the plan's revision number
+  and this document to what I had run on the branch.
+- Next: your comments on the drawings (answer 25), and your word on P47 (question 14).
 
 ## Open
 
@@ -481,6 +558,12 @@ State of 2026-11-23, morning. Nothing is running.
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
     the entry?
 13. Answered on 2026-11-23 (answer 27): fix P45; the supplies will have a hardware interlock.
+14. P47: an operator's own off (or on) can be lost in the same rare way as the gate's off was,
+    with the permit present. Shall the gate be changed so that it cannot (its periodic
+    evaluation then goes through Channel Access inside its own IOC, once a second per supply)?
+    My recommendation: leave it. It needs an on and an off within about 80 ms, it shows
+    itself (`ToggleOutput` in alarm, output on, request off), and switching the other way and
+    back clears it.
 
 ## Not verified
 
@@ -514,7 +597,15 @@ State of 2026-11-23, morning. Nothing is running.
   records passed the new writer test. The test fails when the gap is widened to 0.3 s, and the
   structure test fails on the old records. The argument rests on the source of the base. The
   slow variant (ten restarts of the platform IOC) was not run.
-- P45 is read from the source, not seen.
+- The race of P45 itself was never seen and cannot be hit on purpose. What is tested is the
+  state it leaves (permit lost, request off, output on), reached by a direct write and by the
+  front panel. P47 is read from the source only.
+- The front panel in the tests is the simulator's: it answers queries under local control
+  (A24, not known for the real supplies), and it keeps a SW setting made at the panel only
+  while the test holds it. If the real supplies do not answer under local control, both
+  readings are INVALID there and the rule does not act; nothing is worse than before.
+- With a line so held up that the read-back of the SW setting takes longer than a second, one
+  more off sequence may go out after a normal permit loss. Read from the records, not tested.
 - The ion gauge's read-back of its on/off state on the real serial port (A40).
 - Grafana by a person in a browser: I looked at screenshots of one dashboard.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
@@ -533,6 +624,10 @@ State of 2026-11-23, morning. Nothing is running.
 - T19 needed one round: its brief named the fault with the source lines and the pattern that
   holds (T18 had needed two). The subagent worked 75 minutes, my verification took about as
   long, most of it the four acceptance runs one after the other.
+- T20 needed two rounds, the second because of my brief (an input that made the rule depend
+  on a scan period). The subagent worked two hours on the first round, most of it waiting for
+  its own test runs, and a quarter of an hour on the second. One of its new tests depended
+  on how fast its client reconnects and failed in my run; I changed it myself.
 - A subagent's experiment script from the first hours kept starting a stray IOC container
   (`docker run` without a terminal never ends). Stopped on 2026-11-22.
 
@@ -567,6 +662,13 @@ State of 2026-11-23, morning. Nothing is running.
 | A request record takes over its device's state with one check and three chained records, not with a `seq` | In EPICS 7.0.10 a `seq` runs every step as its own callback and releases the lock set between them (`seqRecord.c`, `processNextLink`). Chained records are processed inside the caller's lock, and a record in simulation mode finishes without its device support |
 | The supplies' first contact has a database file of its own (`supply_first_contact.db`) beside `first_contact.db` | A supply's set point starts in simulation mode and a write before the take-over must lose, and the output take-over writes three records and stops the probe. The request records' file would have had to be bent for it. The structure is the same: one check, chained records, no `seq` |
 | The interlock gate's rare case (P45) was reported and not changed in T19 | It is older than the task, it could not be shown with a test, and a remedy changes what the gate does. The brief said: change a `seq` outside the first contact only with a failing test |
+| P45 is fixed by a rule on the state, not by repairing the one write that can be lost | A rule that holds for as long as the permit is lost does not depend on any single moment, and it covers a direct write and the front panel as well. The supplies get a hardware interlock (answer 27), so the rule is kept simple: one record, 1 to 2 s |
+| `_permit:enforce` takes "on" from the SW setting or from the status, whichever is valid | The SW setting is read back after every switching, so the rule sees a lost off command within its two evaluations. The status is polled every second and also shows a switch-on at the front panel, which the SW setting would show only at its next read, up to 5 s later |
+| It acts at two evaluations in a row, and not while a switching is under way | After a normal permit loss the readings still show "on" for some tens of milliseconds. Without the two evaluations the rule would send a second off sequence in some of them |
+| No periodically read record among the inputs that make the rule wait | In the first version the read of the SW setting was one. With its period at 1 second the rule never acted (shown). A scan macro must not be able to switch the rule off |
+| The rule also takes back a switch-on at the front panel while the permit is lost | The gate does the same at a permit loss (its off sequence begins with REN). With the permit present the front panel is not touched |
+| The count of `_permit:enforce` is an internal record without alarm and is not logged | What it does shows in the logged records: the output state goes on and off again. If you want the count in the logger or on a page, it is one line in the plan |
+| The operator's direction of the same race (P47) was reported and not changed | The owner ordered P45. The remedy for P47 is a different one (the gate's periodic evaluation through Channel Access) with a cost of its own, so it is his decision |
 | The logger stores what a loop writes to its actuator as a signal while the loop is in PID | Five writes a second are not set commands of an operator. The plan names the PV and the condition (`drives`), so a second loop needs no change in the logger |
 
 ## Assumptions that need your confirmation
@@ -619,7 +721,7 @@ A19 (the output gate is wanted, and it latches).
 Closed by your answers or by later work and removed from this table: P1, P2, P4, P8, P16, P17,
 P18, P19, P20, P22, P25 (request records undefined after an IOC start: they take over the
 device's state now, see "Done"), P40 (the supplies' first contact: one hold of the lock now, see
-"Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
+"Done"), P45 (the gate's off command that could be lost: the permit acts as a state now, see "Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
 loop, see "Done").
 
 | # | Point | Needs |
@@ -640,11 +742,11 @@ loop, see "Done").
 | P24 | A supply that does not answer gets the same share of the line as a healthy one, and each of its polls costs the reply timeout (200 ms). Its neighbour on the chain drops to 1.4 Hz until it answers again | Later, if wanted |
 | P26 | The RAS pvServer was seen giving a long text (`TURBO<n>:raw:get` through `VAL$`) a time stamp that did not belong to that text. The GUI check tolerates it. Not investigated | Later |
 | P27 | `status:read` of the AU and REK supplies is a multi-state record now. 0 OFF and 1 ON as before, 2 and 3 are new (local control). A client that reads the number sees no difference in remote mode | You, if a script depends on the type |
-| P28 | A client that writes `<supply>:ToggleOutput` directly bypasses the permit, the remote command and the limit. In the lab's database it bypassed the permit too. The operator's PV is `SetToggleOutput` | Access security, later |
+| P28 | A client that writes `<supply>:ToggleOutput` directly bypasses the remote command and the limit, and with the permit present nothing stops it. While the permit is lost such a switch-on lasts 1 to 2 s (`_permit:enforce`, T20). In the lab's database it bypassed the permit altogether. The operator's PV is `SetToggleOutput` | Access security, later |
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver. The logger subscribes with monitors and never polls |
-| P32 | The system suite takes 12.4 to 12.8 minutes with the tests of the request records and of the supplies' first contact (766 s in my run on the merged tree with other work on the machine, 757 s with T19 and nothing else). The budget I set for it is 13, and nothing enforces it | The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
+| P32 | The system suite takes 12.6 to 13.1 minutes. With T20 it took 757 s in the engineer's run back to back with the base (757 s), 777 s in my run on the branch, 787 s in an earlier run of the engineer, and 757 s on the merged head. The addition of T20 costs 3 s; the spread between runs on the same tree is 30 s. The budget I set for it is 13 minutes, and nothing enforces it | The margin is used up. The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 | P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
@@ -654,8 +756,9 @@ loop, see "Done").
 | P42 | Once, during a logger test run with four users on the machine (2026-11-23 02:29:35), the TDK and the REK were INVALID for 86 ms at the same moment (reply timeouts). The logger recorded it correctly. Taken as a stall of the platform simulators under load, not proven | Watch for it, like P31 |
 | P43 | The loop's limit flag is an event (kept for ever). At a steady set point it did not change in two minutes of PID; in the closed-loop test with steps and limits it changed 15 times in 2.5 minutes | Watch on the machine. A rule in the plan's section `logging` makes it a signal if it is too many |
 | P44 | The GUI check failed twice for its engineer on connections that did not come within 20 s while three engineers loaded the machine, and once showed every PV in every window as not connected while Channel Access was fine. Not seen in my runs | Watch. The check now names the PVs that are not connected |
-| P45 | The interlock gate of the Matsusada and REK supplies (first round) starts its switching sequence only when its result changes, and the off command of that sequence reaches a `ToggleOutput` that is still busy with a switch-on (RST, SW1 and the read-back on the line; about 10 ms per command in the emulation) only if EPICS marks the busy record to run again. It does so when the gate was processed by a change event or a write, and not when it was processed by its own 1-second scan (`dbDbLink.c`, `processTarget`: `psrc->putf`). So if the permit is lost while a switch-on is on the line, and the gate's scan happens to see it before the permit's change event arrives (the hand-over between two threads, well below a millisecond, once per second), the off value is written into the record and not sent. The supply would stay on with its request cleared, and the gate does not try again, because its result no longer changes. Read from the source by the engineer of T19 and by me. Not reproduced. The normal path (the change event while the command is on the line) switched off in 3 of 3 runs of the engineer in a device case; I did not repeat that | Task T20, running (your word of 2026-11-23, answer 27): while the permit is lost and a supply reports its output on, the off sequence is sent again, so that switching off does not depend on one moment. It changes what a direct write to `ToggleOutput` does while the permit is lost (P28) |
 | P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
+| P47 | The operator's direction of the race that P45 was. An off written to `SetToggleOutput` while a switch-on is still on the line (about 80 ms), and seen by the gate's 1-second scan before the change event arrives (well below a millisecond), is written into the busy `ToggleOutput` and not sent. The supply stays on with the request off, and the gate does not try again. `ToggleOutput` then shows 0 with an INVALID alarm (its read-back compare fails), the output state and the status show ON. Writing off again does nothing, because an unchanged request raises no event; on and then off clears it. The mirror case, an on that is lost, leaves the supply off. `_permit:enforce` does not act here: the permit is present. Read from the source by the engineer of T20 and by me (`dbDbLink.c` `processTarget`, `seqRecord.c`, `boRecord.c` `monitor`). Not reproduced. A remedy exists: the gate's periodic evaluation through a CA link to its own `PROC` field, which carries the put flag; then each gate depends on Channel Access inside its own IOC once a second, and access security (P28) must allow that write | Your word (question 14). I recommend to leave it |
+| P48 | The device test `test_limit_survives_an_ioc_restart` (Matsusada case, older than T20) failed once in the engineer's runs of T20: not all PVs of AU-20P7-1 were valid within 20 s of an IOC restart. Which PV is not known, the log was overwritten. It passed in every other full run of the case, three of the engineer's and two of mine. Its failure message names the PVs now | Watch it. If it fails again the message says where to look |
 
 ## Found in RAS V8.1.0
 
