@@ -105,7 +105,7 @@ server=$!
 # Both test files, unless the arguments name test files (tests/test_system.py::...)
 paths=0
 for a in "$@"; do case $a in tests/*|*.py|*.py::*) paths=1;; esac; done
-[ "$paths" = 1 ] || set -- "$@" tests/test_core.py tests/test_system.py
+[ "$paths" = 1 ] || set -- "$@" tests/test_core.py tests/test_dashboards.py tests/test_system.py
 
 t0=$(date +%s)
 docker run --rm --network host -u "$MIST2_UID:$MIST2_GID" -v "$REPO:/repo" -w /repo/logger \

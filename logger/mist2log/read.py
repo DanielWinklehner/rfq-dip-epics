@@ -13,8 +13,9 @@ In Python:
 A row: t (datetime, UTC), value (the value, or the interval's mean), min, max, text (word of an
 enumeration, or the text), severity, valid (share of the interval with a valid value), kind
 ('value': stored, 'held': the value in effect, 'gap': no valid value), tier. The reader hides
-how constant values and gaps are stored: a value that holds is returned where it holds, and a
-gap is a row of kind 'gap' with value None. Tiers: raw, seconds, minutes, events, or best (the
+how constant values and gaps are stored: a value that holds is returned where it holds (at the
+start of the range, and again where its stretch ends: at the next gap or at the end), and a gap
+is a row of kind 'gap' with value None. Tiers: raw, seconds, minutes, events, or best (the
 finest tier the PV is kept in that covers the range in at most max_points rows).
 
 Connection: the environment variables MIST2LOG_DB_HOST, _PORT, _NAME, and MIST2LOG_READ_USER and

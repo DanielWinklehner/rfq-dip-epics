@@ -196,7 +196,14 @@ stands). It is on no drawing.
 The database functions do the work, so that Grafana, the Python module and SQL give the same
 answer: `log_read(pv, from, to, tier)` (tier `raw`, `events`, `seconds`, `minutes` or `best`) and
 `log_trend(pvs[], from, to, step_ms)` for Grafana. Each row has `kind`: `value` (a stored row),
-`held` (the value in effect, repeated where needed), `gap` (no valid value). "best" is the finest
+`held` (the value in effect, repeated where needed), `gap` (no valid value). In tiers raw and
+events a value reaches to the end of the stretch in which it holds: it is repeated (`held`) at
+the start of the range, 1 ms before the next gap (the next disconnect or INVALID value, or
+where the data ends) and at the end of the range. So a PV that changes rarely (a set point, a
+valve, an output state, the loop's output after a trip) is a line or a step over the whole
+window in Grafana and in any plot of the rows; the seconds and minutes tiers are a row per
+interval anyway. The reader gets the same rows as Grafana: one function for both, and a
+notebook plotting the rows needs the same end points. "best" is the finest
 tier the PV is kept in whose life time covers the start and that gives at most 20 000 rows (raw
 counted at 10 rows per second): raw up to 33 minutes, seconds up to 5.5 hours, minutes beyond.
 The module `mist2log.read` (`Reader.read`, `Reader.events`) and its command line tool wrap them.
@@ -324,6 +331,9 @@ time it did not run is a gap. Or move the volume `mist2log-data` with the databa
 ## 11. Tests (`make -C logger test`)
 
 `logger/tests/test_core.py` tests the rules alone (16 tests, under a second).
+`logger/tests/test_dashboards.py` builds the dashboards from the registry as it is: one per GUI
+page as `gui-check.mjs` computes the tabs (a device without a page gets none), and the loop's two
+graphs.
 `logger/tests/test_system.py` runs against the emulation, in this order:
 
 | Test | Proves | Time limit and its source |
@@ -343,7 +353,9 @@ time it did not run is a gap. Or move the volume `mist2log-data` with the databa
 | database stopped longer than the buffer | with a buffer of 3000 rows and 45 s without database: `dropped:get` > 0 (MINOR), one event "rows lost" with the same count, a logger gap row, then a resumed row; the reader shows a gap in between | as above |
 | life times | the production policies are 30 and 730 days; in a scratch database with life times shortened to 1 h (raw) and 2 h (seconds) and chunks of 10 min, rows 10 min, 90 min and 3 h old: raw keeps the newest, seconds two, changes, minutes and events all | |
 | refused batch | in a scratch database, a batch with a status no smallint holds between two good ones: both good ones written within 5 s, the bad one counted as lost with the database's message, a gap and one "rows lost" event | 5 s: three transactions |
-| Grafana | health OK; one dashboard per GUI page with the page's title; the plasma generator's page has the loop's measured value with its set point and its output; asked through its query API as a viewer, with the interval its front end would use (the data source's minimum), a 2-minute window of the busiest raw PV gives every raw row at its own time, up to the newest; the panels' queries of one page return data as the read-only user | 40 s: Grafana rereads the files every 30 s; 90 s for a minute of data; 3 s: one tick and the write |
+| Grafana | health OK; one dashboard per GUI page with the page's title; the plasma generator's page has the loop's measured value with its set point and its output; asked through its query API as a viewer, with the interval its front end would use (the data source's minimum), a 2-minute window of the busiest raw PV gives every raw row at its own time, up to the newest; the loop's set point, which does not change
+in a minute, gives points from the start of the window to where the data ends; the panel of the
+loop's measured value gives two series, each a line; the panels' queries of one page return data as the read-only user | 40 s: Grafana rereads the files every 30 s; 90 s for a minute of data; 3 s: one tick and the write |
 | load | rows per second, rows per tier, bytes per row, CPU and memory (`logger/build/load.md`) | |
 
 **How the tests were seen to fail.** Each rule of `core.py` was broken on purpose and the unit
@@ -362,6 +374,11 @@ the old `log_trend` (tier by the panel's interval) and the data source without `
 the Grafana test gets 0 of 323 raw rows; `dashboards.py` without `beside`: the Grafana test finds
 no graph of measured value and set point; the writer treating a refused batch as a lost database:
 "not within 5 s: the writer goes on after the refused batch".
+
+**Round T17c, seen to fail with the old code:** `log_rows` without the held value before a gap:
+the Grafana test's last point is the PV's last row, not the end of the data (and the set point
+gives one point); `dashboards.py` putting the devices without a page into the Overview and the
+pages: both dashboard tests fail (the build stops on the page `None`).
 
 ## 12. Not built
 

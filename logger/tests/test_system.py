@@ -144,39 +144,43 @@ def test_raw_rows_of_a_10_hz_pv_equal_the_monitor_updates_of_a_second_client():
 
 
 def expected_intervals(rows, start, width, count):
-    """Mean, min, max per interval from the raw rows, independently of the logger: each value holds
-    until the next row, weighted by time; rows before `start` give the value held at it."""
+    """Mean, min, max and the valid share per interval from the raw rows (t, value, severity),
+    independently of the logger: each value holds until the next row, weighted by time; a row
+    INVALID or without severity holds no valid value; rows before `start` give the state at it."""
     out = []
     for k in range(count):
         a, b = start + k * width, start + (k + 1) * width
         segs = []
-        for i, (t, v) in enumerate(rows):
+        for i, (t, v, sev) in enumerate(rows):
             end = rows[i + 1][0] if i + 1 < len(rows) else math.inf
             lo, hi = max(t, a), min(end, b)
-            if hi > lo:
+            if hi > lo and sev is not None and sev < 3:
                 segs.append((hi - lo, v))
         total = sum(d for d, _ in segs)
-        out.append((a, sum(d * v for d, v in segs) / total, min(v for _, v in segs), max(v for _, v in segs)))
+        out.append((a, sum(d * v for d, v in segs) / total if total else None, min((v for _, v in segs), default=None),
+                    max((v for _, v in segs), default=None), total / width))
     return out
 
 
 def test_seconds_and_minutes_of_a_changing_pv_against_the_raw_rows():
     t0, t1 = WINDOWS["fast"]
-    rows = [(r[0].timestamp(), r[1]) for r in q(
-        "SELECT t, value FROM raw WHERE pv = %s AND t >= %s AND t < %s ORDER BY t", (pv_id(FAST), ts(t0 - 5), ts(t1)))]
-    assert all(r[1] is not None for r in rows)
+    rows = [(r[0].timestamp(), r[1], r[2]) for r in q(
+        "SELECT t, value, severity FROM raw WHERE pv = %s AND t >= %s AND t < %s ORDER BY t", (pv_id(FAST), ts(t0 - 5), ts(t1)))]
     for table, width in (("seconds", 1), ("minutes", 60)):
         start = math.ceil(t0 / width) * width
         count = int((t1 - start) // width)
         if count == 0:
             continue
         want = expected_intervals(rows, start, width, count)
-        got = q("SELECT t, mean, min, max, valid FROM %s WHERE pv = %%s AND t >= %%s AND t < %%s ORDER BY t" % table,
-                (pv_id(FAST), ts(start), ts(start + count * width)))
-        assert len(got) == count, (table, len(got), count)        # every interval changed: all stored
-        for (a, mean, mn, mx), (t, gmean, gmn, gmx, valid) in zip(want, got):
-            assert t.timestamp() == a and valid == pytest.approx(1.0)
-            assert (gmean, gmn, gmx) == (pytest.approx(mean, rel=1e-9), mn, mx), (table, a)
+        # every interval as the reader gets it: its own row, or (no update in it) the value held
+        got = q("SELECT t, value, min, max, valid FROM log_read(%s, %s, %s, %s)",
+                (FAST, ts(start), ts(start + count * width), table))
+        assert len(got) == count, (table, len(got), count)
+        stored = q("SELECT count(*) FROM %s WHERE pv = %%s AND t >= %%s AND t < %%s" % table, (pv_id(FAST), ts(start), ts(start + count * width)))
+        assert stored[0][0] >= count / 2, (table, stored)           # most intervals hold a change
+        for (a, mean, mn, mx, share), (t, gmean, gmn, gmx, valid) in zip(want, got):
+            assert t.timestamp() == a and valid == pytest.approx(share, abs=1e-6), (table, a, valid, share)
+            assert (gmean, gmn, gmx) == ((pytest.approx(mean, rel=1e-9) if mean is not None else None), mn, mx), (table, a)
 
 
 def test_a_constant_pv_reads_as_its_value_in_every_second_and_minute():
@@ -241,11 +245,13 @@ def test_reading_tool_returns_the_numbers_of_a_direct_query_and_marks_gaps(tmp_p
         return list(csv.DictReader(open(out)))
 
     rows = tool(FAST, "--from", ts(t0).isoformat(), "--to", ts(t1).isoformat(), "--tier", "raw")
-    direct = q("SELECT t, value FROM raw WHERE pv = %s AND t >= %s AND t < %s ORDER BY t", (pv_id(FAST), ts(t0), ts(t1)))
+    direct = q("SELECT t, value FROM raw WHERE pv = %s AND t >= %s AND t < %s AND severity < 3 ORDER BY t",
+               (pv_id(FAST), ts(t0), ts(t1)))
     values = [(datetime.datetime.fromisoformat(r["t"]), float(r["value"])) for r in rows if r["kind"] == "value"]
     assert values == [(t, v) for t, v in direct]
     assert rows[0]["kind"] == "held" and rows[-1]["kind"] == "held"      # the value at both ends
-    rows = tool(FAST, "--from", ts(math.ceil(t0)).isoformat(), "--to", ts(math.floor(t1)).isoformat(), "--tier", "seconds")
+    rows = [r for r in tool(FAST, "--from", ts(math.ceil(t0)).isoformat(), "--to", ts(math.floor(t1)).isoformat(),
+                            "--tier", "seconds") if r["kind"] == "value"]
     direct = q("SELECT t, mean, min, max FROM seconds WHERE pv = %s AND t >= %s AND t < %s ORDER BY t",
                (pv_id(FAST), ts(math.ceil(t0)), ts(math.floor(t1))))
     assert [(datetime.datetime.fromisoformat(r["t"]), float(r["value"]), float(r["min"]), float(r["max"])) for r in rows] == direct
@@ -529,7 +535,8 @@ def test_grafana_answers_and_has_one_dashboard_per_page_of_the_gui():
     health = json.load(urllib.request.urlopen(base + "/api/health", timeout=5))
     assert health["database"] == "ok"
     installed = [d for d, dev in reg.devices.items() if not dev["flags"].get("not_installed")]
-    pages = ["Overview"] + list(dict.fromkeys(reg.devices[d]["page"] for d in installed)) + ["Trends", "Infrastructure"]
+    pages = ["Overview"] + list(dict.fromkeys(p for p in (reg.devices[d]["page"] for d in installed) if p)) + \
+        ["Trends", "Infrastructure"]
     # Limit 40 s: Grafana rereads the dashboard files every 30 s
     def titles():
         found = json.load(urllib.request.urlopen(base + "/api/search?type=dash-db", timeout=5))
@@ -565,14 +572,59 @@ def test_grafana_answers_and_has_one_dashboard_per_page_of_the_gui():
     points = [(t / 1000.0, v) for t, v in zip(frame[0], frame[1]) if v is not None]
     stored = raw_stamps(busiest, asked - window + 5, asked - 5)
     inside = [t for t, _ in points if asked - window + 5 <= t < asked - 5]
-    # raw: every row, at its own time (seconds or minutes would give one point per interval)
-    assert len(stored) > 10 and len(inside) == len(stored), (len(inside), len(stored))
-    assert max(abs(a - b) for a, b in zip(inside, stored)) < 0.002
-    # the newest data is drawn: the PV's newest raw row is the last point, and the data is complete
-    # up to at most one tick and the write before the query (limit 3 s)
+    # raw: every row, at its own time (seconds or minutes would give one point per interval); the
+    # only other points are the held value 1 ms before a gap (F7)
+    assert len(stored) > 10
+    ms = lambda t: math.floor(t * 1000 + 1e-6)          # Grafana keeps milliseconds
+    drawn = {round(t * 1000) for t in inside}
+    missing = [t for t in stored if ms(t) not in drawn]
+    assert not missing, (len(missing), len(stored))
+    gaps = {ms(r[0].timestamp() - 0.001) for r in q("SELECT t FROM raw WHERE pv = %s AND t >= %s AND (severity IS NULL "
+                                                         "OR severity >= 3)", (pv_id(busiest), ts(asked - window)))}
+    extra = drawn - {ms(t) for t in stored}
+    assert extra <= gaps, sorted(extra - gaps)[:5]
+    # the newest data is drawn, and the data is complete up to at most one tick and the write
+    # before the query (limit 3 s)
     newest = q("SELECT max(t) FROM raw WHERE pv = %s AND t < %s", (pv_id(busiest), ts(asked)))[0][0].timestamp()
     through = q("SELECT raw_through FROM state")[0][0].timestamp()
-    assert abs(points[-1][0] - newest) < 0.002 and through > asked - 3, (points[-1][0], newest, through, asked)
+    # (F7: the last point is that value held up to where the data ends, 1 ms before it)
+    assert newest - 0.001 <= points[-1][0] and abs(points[-1][0] - (through - 0.001)) < 0.002 and through > asked - 3, \
+        (points[-1][0], newest, through, asked)
+    # F7: a PV that does not change within the window is drawn over the whole window, up to the
+    # newest data: the loop's set point (an events PV). The window lies after the logger's start.
+    def ask(sql, window):
+        body = {"from": "now-%ds" % window, "to": "now", "queries": [{"refId": "A", "datasource": {"uid": "mist2log"},
+                "rawSql": sql, "format": "time_series", "intervalMs": int(1000 * max(minimum, window / 1000.0)),
+                "maxDataPoints": 1000}]}
+        req = urllib.request.Request(base + "/api/ds/query", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        frames = json.load(urllib.request.urlopen(req, timeout=10))["results"]["A"]["frames"]
+        out = {}
+        for f in frames:                    # long or wide: a time field, then one field per series
+            times = f["data"]["values"][0]
+            for field, values in zip(f["schema"]["fields"][1:], f["data"]["values"][1:]):
+                name = (field.get("labels") or {}).get("metric") or field["name"]
+                out[name] = [(t / 1000.0, v) for t, v in zip(times, values) if v is not None]
+        return out
+    roles = reg.devices[LOOP]["roles"]
+    constant = roles["sp_cmd"]
+    window = 60
+    # Limit 120 s: a window of a minute in which the set point has no row of its own (the tests
+    # before restart the logger, whose start writes a gap and the value again)
+    S.wait_for(lambda: not q("SELECT 1 FROM changes WHERE pv = %s AND t > now() - interval '65 seconds'", (pv_id(constant),)),
+               120, "a minute without a row of %s" % constant)
+    asked = time.time()
+    held = ask("SELECT * FROM log_trend(ARRAY['%s'], $__timeFrom(), $__timeTo(), $__interval_ms) ORDER BY 1" % constant, window)
+    points = next(iter(held.values()))
+    through = q("SELECT raw_through FROM state")[0][0].timestamp()
+    assert len(points) >= 2 and points[0][0] <= asked - window + 1 and points[-1][0] >= through - 1.5, (points, asked, through)
+    assert len({v for _, v in points}) == 1
+    # the plasma generator's graph of the loop's measured value: two series, each a line
+    with open(os.path.join(BUILD, "dashboards", "plasma-generator.json")) as handle:
+        panel = next(p for p in json.load(handle)["panels"] if constant in p["targets"][0]["rawSql"])
+    series = ask(panel["targets"][0]["rawSql"], 300)
+    assert len(series) == 2 and all(len(v) >= 2 for v in series.values()), {k: len(v) for k, v in series.items()}
+
     # every trend of the generated panels draws from the database (as the read-only user)
     with open(os.path.join(BUILD, "dashboards", "plasma-generator.json")) as handle:
         board = json.load(handle)

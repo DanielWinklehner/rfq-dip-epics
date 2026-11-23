@@ -107,7 +107,9 @@ CREATE OR REPLACE VIEW event_log AS
 -- running, rows lost, or not written yet).
 
 -- Tier raw (table raw) or events (table changes): the value in effect at `from` (held), every
--- row in [from, to), and the end: the value held at `to`, or a gap where the data ends. The
+-- row in [from, to), and the end: the value held at `to`, or a gap where the data ends. Before
+-- every gap that follows a value, that value once more just before the gap (held): a value reaches
+-- to the end of the stretch in which it holds, so that a line or a step is drawn up to there. The
 -- events tier reads raw too: a PV a loop writes is in raw while the loop is in PID, in changes
 -- else (the gap that ends a time in raw, flag 16, is not part of that series).
 CREATE OR REPLACE FUNCTION log_rows(p_pv integer, p_table text, p_from timestamptz, p_to timestamptz)
@@ -145,8 +147,17 @@ BEGIN
                    CASE WHEN $4 < $3 THEN 'gap' ELSE 'held' END, 3
               FROM z WHERE $4 < $3 OR z.kind <> 'gap'
             UNION ALL
-            SELECT $2, NULL, NULL, NULL, 'gap', 0 WHERE NOT EXISTS (SELECT 1 FROM k))
-        SELECT out.t, out.value, out.text, out.severity, out.kind FROM out ORDER BY out.t, out.o
+            SELECT $2, NULL, NULL, NULL, 'gap', 0 WHERE NOT EXISTS (SELECT 1 FROM k)),
+        w AS (SELECT out.*, lag(out.kind) OVER s AS p_kind, lag(out.value) OVER s AS p_value, lag(out.t) OVER s AS p_t,
+                     lag(out.text) OVER s AS p_text, lag(out.severity) OVER s AS p_severity
+                FROM out WINDOW s AS (ORDER BY out.t, out.o)),
+        fin AS (
+            SELECT w.t, w.value, w.text, w.severity, w.kind, w.o FROM w
+            UNION ALL   -- a value that holds up to a gap reaches it: the held value 1 ms before the gap
+                        -- (Grafana keeps one value per time stamp, and a millisecond is its resolution)
+            SELECT greatest(w.t - interval '1 millisecond', w.p_t), w.p_value, w.p_text, w.p_severity, 'held', -1 FROM w
+             WHERE w.kind = 'gap' AND w.p_kind IS NOT NULL AND w.p_kind <> 'gap')
+        SELECT fin.t, fin.value, fin.text, fin.severity, fin.kind FROM fin ORDER BY fin.t, fin.o
     $q$, p_table)
     USING p_pv, p_from, p_to, coalesce(through, '-infinity'::timestamptz);
 END $$;
