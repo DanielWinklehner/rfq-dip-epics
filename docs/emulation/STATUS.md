@@ -21,9 +21,13 @@ by me on its branch and merged, plan 0.17.
 
 After that (2026-11-23, on your word): the output permit of the Matsusada and REK supplies acts
 as a state. While it is lost and a supply reports its output on, the off sequence is sent again
-(P45, task T20). Verified by me on its branch and merged, plan 0.18. The same rare loss for an
-operator's own off or on (P47) is being fixed on your word (answer 29) as task T21; it is not
-accepted yet (see "Running").
+(P45, task T20). Verified by me on its branch and merged, plan 0.18.
+
+After that (2026-11-23, on your word, answer 29): a switching command written into a supply's
+switching record while it is still busy with the previous one is no longer lost; it is sent
+when the record is free (P47, task T21). Verified by me on its branch and merged, plan 0.19.
+One finding from the acceptance runs waits for your word: P49, replies of a Matsusada line that
+stay out of step for tens of seconds after one late reply (question 15).
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -444,9 +448,61 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   a restart. It passed in every other full run of the case (three of the engineer's, two of mine). Its
   failure message names the PVs now. P48.
 
+**A switching command is not lost** (`_out:resend` in `EPICS/Db/matsusada_au20p7.db` and `rek.db`; subagent, task T21, one round, merged 2026-11-23 on your word, answer 29; open point P47)
+
+- What was wrong: `ToggleOutput` sends RST and SW0 or SW1 and reads the SW setting back, which
+  takes some tens of milliseconds. A value written into it meanwhile is stored and not sent,
+  unless EPICS marks the record to run again, which it does only for a writer with the put
+  flag: a client's write and a change event have it, a periodic scan has not. The gate is
+  also evaluated by its own 1-second scan. So an off that followed an on within the switching
+  time could be stored and not sent (P47), and the supply stayed on with its request off.
+- What it is now: one internal record per supply, `_out:resend`, evaluated every second. When
+  `ToggleOutput` is not busy and its value differs from the value it last started to send
+  (`VAL` against `RVAL`), it processes `ToggleOutput` once. It sends what is in the record, on
+  or off, which is the gate's latest command, and changes no value. Its value counts the times
+  since the IOC start, 0 in a system where nothing went wrong.
+- Not the remedy I had named to you (the gate evaluated through Channel Access). That one
+  rests on EPICS's "run again" mark, which a second change within the start of a sequence
+  takes away again, and it adds a dependency. This rule looks at the state of the record and
+  holds for any number of writes.
+- What it rests on, read by me in the base and StreamDevice of our image before the brief and
+  again in the engineer's citations: a `bo` record sets `RVAL` from `VAL` when it starts to
+  process and not while it is busy (`boRecord.c`, `process`); the command line is formatted
+  from `VAL` when it is reached (`devboStream.c`, `StreamCore.cc` `evalOut`); the reply is
+  only compared; a record processed while busy is left alone (`dbAccess.c`, `dbProcess`).
+- It ends: after its processing `VAL` equals `RVAL` unless a new value was written, also when
+  the supply does not answer. A silent supply gets the stored command once.
+- Nothing goes out twice on the event path, where EPICS runs the record again by itself: the
+  rule then finds the record busy or `VAL` equal to `RVAL`.
+- Nothing else writes `ToggleOutput` without processing it; I went through every writer in
+  the databases ("All HV off" goes through the requests, the first contact processes it in
+  simulation mode under one hold of the lock).
+- Tests, device case only (25 new; the suite's time is used up, P32). The lost write is made
+  on purpose by a helper that exists only in the device case: records processed by a
+  periodic scan write into `ToggleOutput` through a database link while the simulator
+  answers 100 ms late. For one AU unit and one REK unit, both directions, without and with
+  the rule; several values while busy (the last is sent); a row that ends on the value being
+  sent (nothing more is sent); an off by the request during a switch-on (each command once);
+  a silent supply; an IOC restart (both counts stay 0); the structure. The 120 normal permit
+  losses of T20 also check that this count does not move.
+- Seen by me, in my run of the device case: an off written 100 ms into a switch-on of
+  AU-20P7-3. Without the rule `ToggleOutput` showed 0 with an INVALID alarm, `RVAL` 1, and
+  the simulator's output stayed on for the 4 s or so until the test enabled the rule. With the rule
+  RST and SW0 went out 0.64 s after the record was free and the alarm cleared. With the
+  rule's scan set to Passive in the database (my own change, restored afterwards) 20 of the
+  25 new tests failed; the 5 that passed are those that check that nothing extra is sent.
+- Verified by me on the branch: plan check; system suite (284 passed in 767 s, saved settings
+  unchanged); GUI check (PASS); the Matsusada device case 72 passed in 602 s in its second
+  run. In its first run 70 passed and two tests of T20 failed, before any test of T21 had
+  run: the cause was P49, not the rule (the simulator had received no switching command
+  beyond the expected ones).
+- On the merged head (plan 0.19): plan check, and the system suite once more (MERGED).
+- Known and harmless, P50: two cases in which a command goes out without or twice.
+- Found in my first device-case run, older than both tasks: P49.
+
 ## Running
 
-State of 2026-11-23, afternoon.
+State of 2026-11-23, evening. Nothing is running.
 
 - T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
   the merged head. The GUI check, the device case and the hand check ran on the branch, whose
@@ -461,11 +517,9 @@ State of 2026-11-23, afternoon.
 - T20 (P45) is merged, see "Done". As with T19, after its merge only the plan check and the
   system suite were run again, on the merged head: the merge added the plan's revision number
   and this document to what I had run on the branch.
-- **T21 is running** (since 2026-11-23, on your word, answer 29): a switching command written
-  into `ToggleOutput` while it is busy is sent when it is free (P47). An engineer on Opus 5.5
-  in the worktree `.claude/worktrees/t21`, branch `emu/t21-switch-resend`, brief
-  `briefs/T21-switch-resend.md`. Not accepted until I have run its acceptance commands myself.
-- Next: your comments on the drawings (answer 25).
+- T21 (P47) is merged, see "Done". After its merge the plan check and the system suite were
+  run again on the merged head; the device case and the GUI check ran on the branch.
+- Next: your word on P49 (question 15), and your comments on the drawings (answer 25).
 
 ## Open
 
@@ -566,6 +620,11 @@ State of 2026-11-23, afternoon.
     the entry?
 13. Answered on 2026-11-23 (answer 27): fix P45; the supplies will have a hardware interlock.
 14. Answered on 2026-11-23: first "leave it" (answer 28), then corrected to "fix it" (answer 29). Task T21.
+15. P49: after one reply that comes later than about 200 ms, the requests and replies of a
+    Matsusada line stay out of step for tens of seconds, and a supply can then show its
+    neighbour's voltage and current without alarm. Shall I fix the protocol's handling of a
+    late reply as a task of its own? My recommendation: yes, before the supplies are used on
+    the machine.
 
 ## Not verified
 
@@ -606,6 +665,13 @@ State of 2026-11-23, afternoon.
   (A24, not known for the real supplies), and it keeps a SW setting made at the panel only
   while the test holds it. If the real supplies do not answer under local control, both
   readings are INVALID there and the rule does not act; nothing is worse than before.
+- T21: that nothing is sent twice when the rule is evaluated between a completion and EPICS's
+  own queued reprocessing is argued from the source; that moment cannot be hit on purpose.
+  The window of P50 was not measured.
+- P49: that a supply accepted its neighbour's values is inferred from the counts of logged
+  mismatches (about 260 per record for one unit, about 31 for the other on the same line).
+  Both outputs were near zero, so no wrong value was seen as such. The cause of the stall
+  that started it is not known. It happened once in the nine full runs of the device case for T20 and T21.
 - With a line so held up that the read-back of the SW setting takes longer than a second, one
   more off sequence may go out after a normal permit loss. Read from the records, not tested.
 - The ion gauge's read-back of its on/off state on the real serial port (A40).
@@ -630,6 +696,8 @@ State of 2026-11-23, afternoon.
   on a scan period). The subagent worked two hours on the first round, most of it waiting for
   its own test runs, and a quarter of an hour on the second. One of its new tests depended
   on how fast its client reconnects and failed in my run; I changed it myself.
+- T21 needed one round: the brief named the mechanism with the source lines I had read
+  first, and asked for the fault to be made on purpose. The subagent worked 75 minutes.
 - A subagent's experiment script from the first hours kept starting a stray IOC container
   (`docker run` without a terminal never ends). Stopped on 2026-11-22.
 
@@ -671,6 +739,11 @@ State of 2026-11-23, afternoon.
 | The rule also takes back a switch-on at the front panel while the permit is lost | The gate does the same at a permit loss (its off sequence begins with REN). With the permit present the front panel is not touched |
 | The count of `_permit:enforce` is an internal record without alarm and is not logged | What it does shows in the logged records: the output state goes on and off again. If you want the count in the logger or on a page, it is one line in the plan |
 | The operator's direction of the same race (P47) was reported and not changed | The owner ordered P45. The remedy for P47 is a different one (the gate's periodic evaluation through Channel Access) with a cost of its own, so it is his decision. He first left it (answer 28) and then ordered the fix (answer 29) |
+| P47 is fixed at the switching record (`_out:resend`), not by evaluating the gate through Channel Access | The remedy I had named first rests on EPICS marking a busy record to run again. A second change within the start of a sequence takes that mark away, so a command could still be lost, and each gate would depend on Channel Access inside its IOC. The rule on the record's own state (value against value last sent) holds for any number of writes and needs neither |
+| `_out:resend` sends what is in the record, also an on | The stored value is the gate's latest command. If the permit or the request changes meanwhile, the gate writes the new value into the same record, and that is what is sent |
+| It is evaluated once a second | A lost command then goes out at most a second late, in a case that needs two commands within some tens of milliseconds. A faster scan would buy nothing an operator sees |
+| T21 has no test in the system suite | The suite's time is used up (P32), and the lost write can only be made by a helper record, which belongs in the device case and not in an IOC |
+| P49 was found in an acceptance run of T21 and is reported, not changed there | It is in the protocol files, older than both tasks, and its remedy needs a test of its own (one reply made late, two supplies at different voltages) |
 | The logger stores what a loop writes to its actuator as a signal while the loop is in PID | Five writes a second are not set commands of an operator. The plan names the PV and the condition (`drives`), so a second loop needs no change in the logger |
 
 ## Assumptions that need your confirmation
@@ -723,7 +796,7 @@ A19 (the output gate is wanted, and it latches).
 Closed by your answers or by later work and removed from this table: P1, P2, P4, P8, P16, P17,
 P18, P19, P20, P22, P25 (request records undefined after an IOC start: they take over the
 device's state now, see "Done"), P40 (the supplies' first contact: one hold of the lock now, see
-"Done"), P45 (the gate's off command that could be lost: the permit acts as a state now, see "Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
+"Done"), P45 (the gate's off command that could be lost: the permit acts as a state now, see "Done"), P47 (an operator's off or on that could be lost: a stored switching command is sent when the record is free, see "Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
 loop, see "Done").
 
 | # | Point | Needs |
@@ -748,7 +821,7 @@ loop, see "Done").
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver. The logger subscribes with monitors and never polls |
-| P32 | The system suite takes 12.6 to 13.1 minutes. With T20 it took 757 s in the engineer's run back to back with the base (757 s), 777 s in my run on the branch, 787 s in an earlier run of the engineer, and 757 s on the merged head. The addition of T20 costs 3 s; the spread between runs on the same tree is 30 s. The budget I set for it is 13 minutes, and nothing enforces it | The margin is used up. The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
+| P32 | The system suite takes 12.6 to 13.1 minutes: between 757 and 787 s in the runs of 2026-11-23 on the trees of T20 and T21 (767 s on the merged head with T21), with a spread of 30 s between runs of the same tree. T20 added 3 s, T21 nothing. The budget I set for it is 13 minutes (780 s), and nothing enforces it | The margin is used up. The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 | P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
@@ -759,8 +832,9 @@ loop, see "Done").
 | P43 | The loop's limit flag is an event (kept for ever). At a steady set point it did not change in two minutes of PID; in the closed-loop test with steps and limits it changed 15 times in 2.5 minutes | Watch on the machine. A rule in the plan's section `logging` makes it a signal if it is too many |
 | P44 | The GUI check failed twice for its engineer on connections that did not come within 20 s while three engineers loaded the machine, and once showed every PV in every window as not connected while Channel Access was fine. Not seen in my runs | Watch. The check now names the PVs that are not connected |
 | P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
-| P47 | The operator's direction of the race that P45 was. An off written to `SetToggleOutput` while a switch-on is still on the line (about 80 ms), and seen by the gate's 1-second scan before the change event arrives (well below a millisecond), is written into the busy `ToggleOutput` and not sent. The supply stays on with the request off, and the gate does not try again. `ToggleOutput` then shows 0 with an INVALID alarm (its read-back compare fails), the output state and the status show ON. Writing off again does nothing, because an unchanged request raises no event; on and then off clears it. The mirror case, an on that is lost, leaves the supply off. `_permit:enforce` does not act here: the permit is present. Read from the source by the engineer of T20 and by me (`dbDbLink.c` `processTarget`, `seqRecord.c`, `boRecord.c` `monitor`). Not reproduced. A remedy exists: the gate's periodic evaluation through a CA link to its own `PROC` field, which carries the put flag; then each gate depends on Channel Access inside its own IOC once a second, and access security (P28) must allow that write | Task T21, running (your word of 2026-11-23, answer 29, which corrects answer 28). Until it is merged: if a supply stays on after an off that followed an on at once, write on and then off |
-| P48 | The device test `test_limit_survives_an_ioc_restart` (Matsusada case, older than T20) failed once in the engineer's runs of T20: not all PVs of AU-20P7-1 were valid within 20 s of an IOC restart. Which PV is not known, the log was overwritten. It passed in every other full run of the case, three of the engineer's and two of mine. Its failure message names the PVs now | Watch it. If it fails again the message says where to look |
+| P48 | The device test `test_limit_survives_an_ioc_restart` (Matsusada case, older than T20) failed once in the engineer's runs of T20: not all PVs of AU-20P7-1 were valid within 20 s of an IOC restart. Which PV is not known, the log was overwritten. It passed in every other full run of the case, three of the engineer's and two of mine for T20, and the three full runs of T21. Its failure message names the PVs now | Watch it. If it fails again the message says where to look |
+| P49 | After one reply that comes later than about 200 ms (the reply timeout of 150 ms plus the 50 ms the protocol waits after it), the requests and replies of a Matsusada line stay out of step for as long as the line is busy: each request is paired with the reply to the previous one. StreamDevice ends a protocol at the first mismatch, and the next request goes out before the reply that is still on its way has arrived. Seen once, in my first device-case run of T21 and not caused by it: all four simulated lines gave no reply within 150 ms at the same moment (it looks like a pause of the whole machine, cause unknown), and mismatches were logged for 40 s, about 45 per second at first. Two tests of T20 failed in that time. The replies to the monitor queries carry no unit number. On the line of AU-20P7-1 and -2, unit 1 logged about 260 mismatches per monitor record and unit 2 about 31, which fits requests that alternate between the units with unit 2 accepting unit 1's voltage and current as its own, without alarm. That is inferred from the counts, not seen as a wrong value. A supply alone on its line (the REK) shows INVALID instead. In `matsusada_co_ctrl.proto` and `rek.proto` since the first round | Your word (question 15). I recommend a task of its own before the supplies are used on the machine: after a mismatch or a late reply the line is kept quiet until the stray reply has arrived and is discarded, and a test makes one reply late on purpose with two supplies at different voltages |
+| P50 | Two things the rules of T20 and T21 leave as they are, both harmless. A value written into `ToggleOutput` in the first milliseconds of a switching, before its SW line is formatted, is sent by that switching itself and then once more by `_out:resend`: the supply gets the same setting twice. And when the gate's result changes in the microseconds in which the switching sequence is starting, and the gate's own scan sees it before the change event, the output still follows the latest result, but an on that overtakes an off sequence goes out without the current limit having been sent again just before; that matters only for a supply that has forgotten its limit. Read from the source (`seqRecord.c`, `StreamCore.cc`), the window not measured | Know it |
 
 ## Found in RAS V8.1.0
 
