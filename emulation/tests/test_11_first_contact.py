@@ -13,8 +13,12 @@ answer at once, the Opta only when its fault is cleared.
 
 The request records and their read-backs come from the registry: every load of first_contact.db
 (macros REQ and RB). The device's state is read from the simulator: the channel of a libcom1
-set (the argument of its protocol in OUT), the cathode of the nAIM (signal "on")."""
+set (the argument of its protocol in OUT), the cathode of the nAIM (signal "on").
+
+The take-over runs under one hold of the lock set (no seq, no delay: checked from the running
+IOC), and a client writing through repeated first contacts is never silently swallowed."""
 import re
+import threading
 import time
 
 import pytest
@@ -286,3 +290,119 @@ def test_a_later_change_of_the_read_back_does_not_change_the_request(restart):
     finally:
         S.sim_release(sim_of(req), signal_of(req))
         S.sim_release(sim_of(gauge), "on")
+
+
+# --- the take-over runs under one hold of the lock set (R4) --------------------------------------
+
+TAKE_RECORDS = {"": "calcout", ":on": "dfanout", ":copy": "dfanout", ":off": "dfanout"}
+DEFERRING = {"seq", "sseq"}      # run their links in callbacks of their own (seqRecord.c)
+DB_FILE = S.REPO / "EPICS" / "Db" / "first_contact.db"
+
+
+def take_records(req):
+    load = next(l for d in reg.devices.values() for l in d.get("loads", [])
+                if l["db"] == "first_contact.db" and l["macros"]["REQ"] == req)
+    base = "%s:_take:%s" % (load["macros"]["P"], load["macros"]["N"])
+    return base, [base + suffix for suffix in TAKE_RECORDS]
+
+
+def test_no_record_of_the_take_over_defers_its_work():
+    """The check and its three steps run in one dbProcess call of _take (first_contact.db,
+    header): no record that runs its links from a callback (seq), no delay field set, a chain of
+    database links (PP output, forward links) from the check to the end, and the request's
+    simulation mode synchronous (SDLY < 0). Read from the running IOC and from the file."""
+    text = DB_FILE.read_text()
+    types = re.findall(r"^\s*record\(\s*(\w+)", text, re.M)
+    assert types and not set(types) & DEFERRING, types
+    assert not re.search(r'field\(\s*(DLY\w*|ODLY|SDLY)\s*,\s*"(?!0")[^"]*"', text), "a delay is set in %s" % DB_FILE
+    for req in TAKEN:
+        base, names = take_records(req)
+        found = {n: S.field(n, "RTYP") for n in names}
+        assert found == {base + s: t for s, t in TAKE_RECORDS.items()}, found
+        assert float(S.field(base, "ODLY")) == 0.0
+        assert S.field(base, "OUT").split()[:2] == [base + ":on", "PP"], S.field(base, "OUT")
+        assert S.field(base + ":on", "FLNK").split()[0] == base + ":copy"
+        assert S.field(base + ":copy", "FLNK").split()[0] == base + ":off"
+        assert S.field(base + ":copy", "OUTA").split()[:2] == [req, "PP"]
+        assert [S.field(base + s, "OUTA").split()[0] for s in (":on", ":off")] == [req + ".SIMM"] * 2
+        assert float(S.field(req, "SDLY")) < 0, "%s: simulation mode asynchronous" % req
+        extra = [n for n in reg.pvs if n.startswith(base) and n not in names]
+        assert extra == [], extra
+
+
+STRESS_PAUSE = 1.0     # s of writes after each take-over before the next restart
+
+
+@pytest.mark.parametrize("restarts", [1, pytest.param(10, marks=pytest.mark.slow)])
+def test_writes_through_the_first_contact_are_sent_or_alarm(restarts, capsys):
+    """The rack IOC restarted `restarts` times while a client writes a spare relay (0, 1, 0, ...)
+    in a tight loop through each first contact. Every write that returned without error was
+    received by the box (its set count went up, the relay has the value) or left the request in
+    alarm; SIMM is NO after every take-over and at the end. "Returned without error" is: put
+    completed, the record read right after by the same IOC (heartbeat not reset); a write that the
+    stopping IOC's disconnection completed is counted apart, it can neither be confirmed nor fail. The race this is about (a write
+    inside the take-over) cannot be hit on purpose; the default run restarts once, the slow one
+    ten times: make -C emulation test ARGS='-m slow emulation/tests/test_11_first_contact.py'."""
+    import epics
+    from mist2sim.control import ControlClient
+    req = SPARE[3]
+    sim, signal = sim_of(req), signal_of(req)
+    host, port = reg.simulators[sim]["host"], reg.simulators[sim]["control_port"]
+    results, stop = [], threading.Event()
+
+    def writer():
+        pv = epics.PV(req, form="time", auto_monitor=False)
+        beat = epics.PV(hb, auto_monitor=False)
+        ctl = ControlClient(host, port, timeout=5.0)
+        value = 1
+        while not stop.is_set():
+            if not pv.connected:
+                time.sleep(0.005)
+                continue
+            try:
+                sent = ctl.stats()["heads"].get("S", 0)
+                before = beat.get(use_monitor=False, timeout=1.0)
+                ok = pv.put(value, wait=True, timeout=2.0)
+                d = pv.get_with_metadata(use_monitor=False, form="time", timeout=1.0)
+                after = beat.get(use_monitor=False, timeout=1.0)
+                delta = ctl.stats()["heads"].get("S", 0) - sent
+                state = int(round(ctl.get(signal)["value"]))
+                if ok != 1 or d is None or before is None or after is None or after < before:
+                    # not confirmed by the IOC that took it: pyepics reports a put that the
+                    # disconnection completed (ECA_DISCONN) as done (epics/ca.py, _onPutEvent
+                    # ignores the status), so a write into the stopping IOC counts here
+                    results.append(("unconfirmed", value, ok, delta, state))
+                else:
+                    results.append(("ok", value, d["severity"], delta, state))
+                value = 1 - value
+            except Exception as exc:                    # noqa: BLE001  the IOC goes away
+                results.append(("error", value, repr(exc)))
+                time.sleep(0.01)
+        ctl.close()
+
+    hb = reg.iocs[RACK_IOC]["roles"]["heartbeat"]
+    thread = epics.ca.CAThread(target=writer, daemon=True)
+    thread.start()
+    simm = []
+    try:
+        for _ in range(restarts):
+            S.container("restart", RACK)
+            S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, BACK_LIMIT, "the rack IOC up again")
+            S.wait_for(lambda: S.sevr(TAKEN[req]) != S.INVALID, TAKE_LIMIT, "the box answers")
+            time.sleep(STRESS_PAUSE)
+            simm.append({n: S.field(n, "SIMM") for n in TAKEN})
+    finally:
+        stop.set()
+        thread.join(10)
+    ok = [r for r in results if r[0] == "ok"]
+    bad = [r for r in ok if not (r[2] == S.INVALID or (r[2] == S.NO_ALARM and r[3] >= 1 and r[4] == r[1]))]
+    S.report("first contact under writes: %d restarts, %d writes confirmed by the IOC (%d in alarm), %d not "
+             "confirmed while the IOC restarted (%d of them reached the box)" % (
+                 restarts, len(ok), sum(1 for r in ok if r[2] == S.INVALID), len(results) - len(ok),
+                 sum(1 for r in results if r[0] == "unconfirmed" and r[3] >= 1)), capsys)
+    assert ok, "no write completed"
+    assert bad == [], "accepted without reaching the box (value, severity, sets, relay): %s" % bad[:5]
+    assert all(set(s.values()) == {"NO"} for s in simm), simm
+    S.put(req, 0)
+    S.wait_for(lambda: device_state(req) == 0 and S.sevr(req) == S.NO_ALARM, ECHO_LIMIT, S.describe([req]))
+    assert {n: S.field(n, "SIMM") for n in TAKEN} == {n: "NO" for n in TAKEN}
