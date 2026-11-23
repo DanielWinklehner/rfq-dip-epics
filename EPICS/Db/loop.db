@@ -34,10 +34,12 @@
 
 # The operator's request. Cleared (MANUAL) by the service when it hands back or refuses, and by
 # _drop when the service is not alive: nothing returns to PID by itself.
-# PINI: processed once at the start with MANUAL, so that the request is a valid value from the
-# IOC's start on and not a record that was never processed (UDF, INVALID) until it is written.
+# UDF 0 and PINI: MANUAL is its defined value from the IOC's start on, and it is processed once
+# at the start, so that the request is not undefined (UDF, INVALID) until somebody writes it.
+# PINI alone does not do it: a bo without a first value stays undefined when it is processed.
 record(bo, "$(P):mode:setpoint") {
     field(DESC, "Mode request")
+    field(UDF,  "0")
     field(PINI, "YES")
     field(ZNAM, "MANUAL")
     field(ONAM, "PID")

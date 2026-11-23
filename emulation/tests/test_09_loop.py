@@ -499,13 +499,20 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     time.sleep(AUTOSAVE)                            # the settings of `ready` saved by autosave
     settings = {pv: S.get(pv) for pv in ready.settings()}
     needs_heartbeat()
-    S.container("restart", S.ioc_container(ioc))
-    S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
-    assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
-    assert reason(ready) == "IOC start"
-    # what the loop shows is valid from the IOC's start on, not undefined until it is written
-    shown = [ready[role] for role in ("mode_cmd", "reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
-    assert all(S.sevr(pv) == S.NO_ALARM for pv in shown), S.describe(shown)
+    # The service is held while the IOC starts, so that what follows is the IOC's own state and
+    # not what the service wrote after it reconnected.
+    S.container("pause", SERVICE)
+    try:
+        S.container("restart", S.ioc_container(ioc))
+        S.wait_for(lambda: S.connected(hb) and S.get(hb) >= 1, START_LIMIT, "IOC back")
+        assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
+        assert reason(ready) == "IOC start"
+        # the request and what the loop shows are valid from the IOC's start on, not undefined
+        # until somebody writes them
+        shown = [ready[role] for role in ("mode_cmd", "reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
+        assert all(S.sevr(pv) == S.NO_ALARM for pv in shown), S.describe(shown)
+    finally:
+        S.container("unpause", SERVICE)
     assert {pv: S.get(pv) for pv in settings} == settings, "settings kept (autosave)"
     service_alive(ready)
     time.sleep(1.0)
