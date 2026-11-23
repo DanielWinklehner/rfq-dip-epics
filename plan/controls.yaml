@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.17"
+  revision: "0.18"
   date: "2026-11-23"
   author: "D. Winklehner"
   basis:
@@ -36,6 +36,7 @@ meta:
     - "Revision 0.15: the request records of valves, turbopumps and ion gauge take over the device's state at the first contact after an IOC start (first_contact.db, T18); the PV a loop writes while in PID (drives of loop.db), logged as a signal then; the control system services without a page (Infrastructure page and status strip), words for the logger's alive state."
     - "Revision 0.16: the mass flow controller's set point of -20 % is its most closed state and wanted (owner, 2026-11-23)."
     - "Revision 0.17: the first contact of the Matsusada and REK supplies is a database of its own, loaded with every supply (supply_first_contact.db, T19): output state and voltage setting are taken over without a gap in which a write is accepted and not sent. Its records are internal; _init:vcopy is removed."
+    - "Revision 0.18: the output permit of the Matsusada and REK supplies acts as a state (T20, owner's word of 2026-11-23): while it is lost and a supply reports its output on, the off sequence is sent again every 2 s (internal record _permit:enforce, which counts them). A direct write of ToggleOutput and a switch-on at the front panel are switched off again while the permit is lost."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
