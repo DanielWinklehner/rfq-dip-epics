@@ -37,8 +37,10 @@ dbLoadRecords("$(MIST2_DB)/tdk.db",            "PORT=TDK,DEVICE=TDK,ADR=6")
 
 # Filament discharge: Matsusada REK150-24, unit 1. For the REK150-55 add IFS=55.
 # PERMIT (default interlock_open) is a PV of the rack IOC, read over Channel Access. Losing it
-# switches the output off and clears the request (latch).
+# switches the output off and clears the request (latch). With it its first contact
+# (supply_first_contact.db): output state and voltage setting taken over, nothing sent.
 dbLoadRecords("$(MIST2_DB)/rek.db",            "PORT=REK,UNITNUM=1")
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-1")
 
 # Thermocouple board (libcom1)
 dbLoadRecords("$(MIST2_DB)/thermocouples.db",  "PORT=thermo,DEVICE=THM")

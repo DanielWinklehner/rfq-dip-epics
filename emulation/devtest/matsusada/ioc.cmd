@@ -9,15 +9,23 @@ drvAsynIPPortConfigure("REK55", "$(SIM_HOST):5004")
 dbLoadRecords("$(CASE_DIR)/permit.db")
 
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,IFS=15")  # ion source
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-1")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=2")         # puller
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-2")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=3")          # lens 1
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-3")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=4")          # lens 2
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-4")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=6,SCAN_MON=Passive,SCAN_GET=Passive,SCAN_STS=Passive")  # not polled
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-6")
 dbLoadRecords("$(MIST2_DB)/au_alloff.db", "R1=AU-20P7-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-4:SetToggleOutput")
 
 dbLoadRecords("$(MIST2_DB)/rek.db", "PORT=REK,UNITNUM=1")                          # filament discharge
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-1")
 dbLoadRecords("$(MIST2_DB)/rek.db", "PORT=REK55,UNITNUM=2,IFS=55")                 # the 55 A model
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-2")
 dbLoadRecords("$(MIST2_DB)/rek.db", "PORT=REK55,UNITNUM=9,PERMIT=no:such:permit,SCAN_MON=Passive,SCAN_GET=Passive,SCAN_STS=Passive")
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-9")
 
 # Limits: defaults of the case, then the file saved at run time. /tmp of the IOC container
 # survives an IOC restart of the harness (same container).

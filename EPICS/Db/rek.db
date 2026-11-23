@@ -6,11 +6,13 @@
 #   matsusada_au20p7.db: UNITNUM, PORT, POL, VDRVL, VDRVH, PERMIT (interlock_open),
 #   SCAN_MON (.1 second), SCAN_GET (5 second), SCAN_STS (1 second), GRACE (5), POLL_LIMIT (30).
 # Keep both files in step: the record part is matsusada_au20p7.db with these defaults.
+# Load supply_first_contact.db with every load of this file (macro S = DEV-UNITNUM, REK-1).
 #
 # Author: Philip Weigel; reworked for MIST-2 in 2026 (current in A, not mA; power in W).
 
 # Voltage set point. Simulation mode (nothing sent) until it has taken over the supply's
-# setting after the first contact; a write before that is not sent.
+# setting after the first contact (supply_first_contact.db); a write before that is not sent and
+# is replaced by the supply's setting.
 record(ao, "$(DEV=REK)-$(UNITNUM):voltage:setpoint") {
     field(DESC, "Set voltage of $(PORT):$(UNITNUM)")
     field(DTYP, "stream")
@@ -163,7 +165,8 @@ record(dfanout, "$(DEV=REK)-$(UNITNUM):_poll:done") {
 # --- first contact (internal records, _init) --------------------------------------------------
 
 # Until the first answer after the IOC start: REN and SW? every SCAN_STS (and once at PINI).
-# Then disabled by :output:init (STAT DISABLE, no alarm).
+# Each answer runs the take-over check _init:otake (supply_first_contact.db), which disables the
+# probe at the first valid one (STAT DISABLE, no alarm).
 record(bi, "$(DEV=REK)-$(UNITNUM):_init:probe") {
     field(DESC, "First contact: REN, SW? (internal)")
     field(DTYP, "stream")
@@ -174,64 +177,28 @@ record(bi, "$(DEV=REK)-$(UNITNUM):_init:probe") {
     field(ZNAM, "OFF")
     field(ONAM, "ON")
     field(DISV, "1")
-    field(FLNK, "$(DEV=REK)-$(UNITNUM):output:init")
+    field(FLNK, "$(DEV=REK)-$(UNITNUM):_init:otake")
 }
 
-# Takes over the output state the probe read: ToggleOutput (in simulation mode: nothing sent),
-# the request and OutputIntlk's previous value, so that its first evaluation sends nothing.
-# Stops the probe, reads the voltage echo (the set point takes it over, _init:vtake), sends the
-# current limit (_limit:apply). GRACE seconds later (permit link connected) OutputIntlk starts.
-# Runs only on a valid answer of the probe (disabled otherwise: STAT DISABLE, no alarm).
+# What follows the take-over of the output state (supply_first_contact.db, _init:otake:off runs
+# it by its forward link, once per IOC start): reads the voltage echo (the set point takes it
+# over, _init:vtake), sends the current limit if it is not applied (_limit:apply), and GRACE
+# seconds later enables OutputIntlk and processes it. A seq: its steps are callbacks, which is
+# what the delay needs; none of them switches a simulation mode or copies a value into a record
+# that a client writes.
 record(seq, "$(DEV=REK)-$(UNITNUM):output:init") {
-    field(DESC, "First contact: take over output state")
-    field(SDIS, "$(DEV=REK)-$(UNITNUM):_init:probe.SEVR NPP")
-    field(DISV, "3")
+    field(DESC, "First contact: echo, limit, gate")
+    field(UDFS, "NO_ALARM")
     field(SELM, "All")
     field(DO1,  "1")
-    field(LNK1, "$(DEV=REK)-$(UNITNUM):_init:probe.DISA NPP")
+    field(LNK1, "$(DEV=REK)-$(UNITNUM):voltage:get.PROC CA")
     field(DO2,  "1")
-    field(LNK2, "$(DEV=REK)-$(UNITNUM):ToggleOutput.SIMM NPP")
-    field(DOL3, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
-    field(LNK3, "$(DEV=REK)-$(UNITNUM):ToggleOutput PP")
-    field(DO4,  "0")
-    field(LNK4, "$(DEV=REK)-$(UNITNUM):ToggleOutput.SIMM NPP")
-    field(DOL5, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
-    field(LNK5, "$(DEV=REK)-$(UNITNUM):SetToggleOutput PP")
-    field(DOL6, "$(DEV=REK)-$(UNITNUM):_init:probe NPP")
-    field(LNK6, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PVAL NPP")
-    field(DO7,  "1")
-    field(LNK7, "$(DEV=REK)-$(UNITNUM):voltage:get.PROC CA")
-    field(DO8,  "1")
-    field(LNK8, "$(DEV=REK)-$(UNITNUM):_limit:apply.PROC NPP")
-    field(DLY9, "$(GRACE=5)")
-    field(DO9,  "0")
-    field(LNK9, "$(DEV=REK)-$(UNITNUM):OutputIntlk.DISA NPP")
-    field(DOA,  "1")
-    field(LNKA, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PROC NPP")
-}
-
-# After the first contact, at the first valid echo: the voltage set point takes over the
-# supply's setting (_init:vcopy). Evaluated after every read of voltage:get.
-record(calcout, "$(DEV=REK)-$(UNITNUM):_init:vtake") {
-    field(DESC, "Voltage set point takes over (internal)")
-    field(UDFS, "NO_ALARM")
-    field(INPA, "$(DEV=REK)-$(UNITNUM):voltage:get.SEVR NPP")
-    field(INPB, "$(DEV=REK)-$(UNITNUM):voltage:setpoint.SIMM NPP")
-    field(INPC, "$(DEV=REK)-$(UNITNUM):_init:probe.DISA NPP")
-    field(CALC, "A<3&&B&&C")
-    field(OOPT, "When Non-zero")
-    field(OUT,  "$(DEV=REK)-$(UNITNUM):_init:vcopy PP")
-}
-
-# Set point := echo, processed in simulation mode (nothing sent), then normal mode.
-record(seq, "$(DEV=REK)-$(UNITNUM):_init:vcopy") {
-    field(DESC, "Copies the voltage echo (internal)")
-    field(UDFS, "NO_ALARM")
-    field(SELM, "All")
-    field(DOL1, "$(DEV=REK)-$(UNITNUM):voltage:get NPP")
-    field(LNK1, "$(DEV=REK)-$(UNITNUM):voltage:setpoint PP")
-    field(DO2,  "0")
-    field(LNK2, "$(DEV=REK)-$(UNITNUM):voltage:setpoint.SIMM NPP")
+    field(LNK2, "$(DEV=REK)-$(UNITNUM):_limit:apply.PROC NPP")
+    field(DLY3, "$(GRACE=5)")
+    field(DO3,  "0")
+    field(LNK3, "$(DEV=REK)-$(UNITNUM):OutputIntlk.DISA NPP")
+    field(DO4,  "1")
+    field(LNK4, "$(DEV=REK)-$(UNITNUM):OutputIntlk.PROC NPP")
 }
 
 # Sends the current limit while it is not applied (never sent since the start: STAT UDF, also
@@ -278,7 +245,7 @@ record(ai, "$(DEV=REK)-$(UNITNUM):_permit:read") {
 # 0 while the permit is open, INVALID or disconnected (C: this record's own new severity, which
 # input A raises to INVALID through MS from _permit:read), otherwise the request. Starts the
 # switching sequence (_out:switch) only when the result changes. Disabled until GRACE seconds
-# after the first contact (:output:init).
+# after the first contact (output:init).
 record(calcout, "$(DEV=REK)-$(UNITNUM):OutputIntlk") {
     field(DESC, "Forces the output off, permit open")
     field(INPA, "$(DEV=REK)-$(UNITNUM):_permit:read CP MS")
@@ -341,8 +308,9 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
 }
 
 # Sends RST (cancel a cut-off) and SW, reads SW? back and compares it, after _out:limit or
-# _out:remote (REN) of the switching sequence. In simulation mode only while :output:init takes
-# it over. A client that writes ToggleOutput directly bypasses the permit, REN and the limit.
+# _out:remote (REN) of the switching sequence. In simulation mode only while the first contact
+# takes it over (supply_first_contact.db). A client that writes ToggleOutput directly bypasses
+# the permit, REN and the limit.
 record(bo, "$(DEV=REK)-$(UNITNUM):ToggleOutput") {
     field(DESC, "Toggle the status of the PS output")
     field(DTYP, "stream")
