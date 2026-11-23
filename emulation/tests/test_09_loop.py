@@ -504,7 +504,7 @@ def test_restart_of_the_ioc_starts_in_manual(ready):
     assert S.get(ready["mode"]) == 0 and S.get(ready["mode_cmd"]) == 0, "MANUAL after the start"
     assert reason(ready) == "IOC start"
     # what the loop shows is valid from the IOC's start on, not undefined until it is written
-    shown = [ready[role] for role in ("reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
+    shown = [ready[role] for role in ("mode_cmd", "reason", "limit", "out", "error", "pterm", "iterm", "dterm")]
     assert all(S.sevr(pv) == S.NO_ALARM for pv in shown), S.describe(shown)
     assert {pv: S.get(pv) for pv in settings} == settings, "settings kept (autosave)"
     service_alive(ready)
