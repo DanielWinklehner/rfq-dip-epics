@@ -178,7 +178,7 @@ is the loop's while in PID is shown by the tag alone (its mode row), without cod
 | Cooling and interlocks | sensor box t1 to t7 and f1 to f5; interlock inputs and summary; later the new interlock with first fault |
 | Diagnostics | Faraday cup current, cup actuator (valve 4), diagnostic box gauge |
 | Trends | any PV, picked from the registry; later the archiver |
-| Expert / infrastructure | IOC heartbeat and mode, identity of every Arduino or Opta device, raw channels, simulator faults |
+| Expert / infrastructure | IOC heartbeat and mode, identity of every Arduino or Opta device, raw channels, simulator faults; the services of the control system (devices whose subsystem has no page: the data logger), with their widget, and a chip of each in the status strip of every window (T16b) |
 
 ### 1.6 From the 2023 GUI
 

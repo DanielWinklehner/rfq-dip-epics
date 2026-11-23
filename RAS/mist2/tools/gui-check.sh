@@ -25,6 +25,10 @@
 #   9  tabs as windows: a page opened in a window of its own shows the values
 #      Channel Access reads, its tab is marked and brings it to the front,
 #      "attach" and closing bring it back, the windows close with the main window
+#  10  the data logger (and any service with a role `alive`): its chip in the
+#      strip, its widget on the Infrastructure page, on no drawing; in the state
+#      Channel Access reads, and when no logger runs also alive, with a stand-in
+#      counting in its place for 90 s
 # Screenshots go to tools/screenshots/. Exit code 1 on any failure.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -37,6 +41,10 @@ registry=ReactApp/src/registry/registry.json
 shots=tools/screenshots
 playwright_image=mcr.microsoft.com/playwright:v1.59.1-noble
 
+# A value of the registry's devices (d), and the PV of a device's role.
+reg() { python3 -c "import json; d = json.load(open('$registry'))['devices']; print($1)"; }
+role() { reg "d['$1']['roles']['$2']"; }
+
 # The devices and the IOC the fault checks use, by registry id.
 fault_devices="thermo_hv au_lens2"
 stopped_ioc=ioc_hv
@@ -44,6 +52,10 @@ stopped_ioc=ioc_hv
 loop=dis_loop
 loop_supplies="fil_heat fil_dis_old"
 loop_actuator=fil_heat
+# Records of the stopped IOC still expected unprocessed (INVALID, UDF) right
+# after its start: they may show INVALID then. Every record that is INVALID/UDF
+# at that moment is named in a note.
+udf_after_start=$(role $loop mode_cmd)   # not saved (LOOP.md section 3): UDF until written
 
 failed=0
 step() { echo; echo "== $*"; }
@@ -137,7 +149,7 @@ for _ in $(seq 1 60); do
 done
 sleep 8   # pvServer reconnects; the IOC takes no set point in its first 5 s (P20)
 ca read "$cwork/ca-r.json"
-browser recovered ca-r.json; result $?
+browser recovered ca-r.json $udf_after_start; result $?
 
 # ---- 5: writes ------------------------------------------------------------------
 step "5: set point, confirmation, output, ALL HV OFF"
@@ -175,8 +187,6 @@ ca wait "$request" DISABLED 15; result $?
 
 # ---- 7: the loop ------------------------------------------------------------------
 step "7: the loop $loop: a refusal, PID, a set point, MANUAL"
-reg() { python3 -c "import json; d = json.load(open('$registry'))['devices']; print($1)"; }
-role() { reg "d['$1']['roles']['$2']"; }
 mode_get=$(role $loop mode)
 # What the check changes, and how it was: written back at the end, also on an abort.
 for pv in $(role $loop mode_cmd) $(role $loop sp_cmd) $(role $loop_actuator iset) \
@@ -221,6 +231,25 @@ ca read "$cwork/ca-a.json"
 browser windows plasma-generator; result $?
 ca read "$cwork/ca-b.json"
 ca compare "$cwork/ca-a.json" "$cwork/ca-b.json" "$cwork/window.json"; result $?
+
+# ---- 10: the data logger -----------------------------------------------------------
+step "10: the data logger"
+alive_pv=$(role logger alive)
+count_pv=$(role logger count)
+alive=$(python3 -c "print(int(float('$(ca get "$alive_pv")')))")
+browser logger "$alive"; result $?
+if [ "$alive" != 1 ]; then
+    # No logger runs (the emulation alone): a stand-in counts in its place for
+    # 90 s, so the check sees the live state too, then the counter is put
+    # back and the logger is dead again.
+    count=$(ca get "$count_pv")
+    ca beat "$count_pv" 90 >/dev/null & beat=$!
+    ca wait "$alive_pv" 1 10; result $?
+    browser logger 1; result $?
+    wait $beat
+    ca put "$count_pv" "$count" >/dev/null
+    ca wait "$alive_pv" 0 15; result $?
+fi
 
 # ---- 6: no PV names in the sources ---------------------------------------------
 step "6: no PV name or prefix in the application sources"

@@ -49,6 +49,13 @@ accepts the write, and the record may be INVALID only because the device has not
 answered since its start); without a connection it is disabled. Saved settings
 stay in the device window.
 
+A device whose subsystem has no page in the registry is infrastructure: the
+services of the control system, today the data logger. It is on the
+Infrastructure page only, with its widget, on no drawing. A service with a role
+`alive` has a chip in the status strip of every window (main, page and device
+windows): plain while it is alive, in the alarm look of its record otherwise
+(MAJOR when the logger is dead, also when it was never started).
+
 Everything about the devices comes from the registry: names, labels, the words
 of every state (valves closed/open, cup out/in, the supply status with
 remote/local), which channels are spare (shown only in the device window), and
@@ -82,7 +89,7 @@ SI unit (A, V, W, Hz, s) takes a prefix when a value is below 0.01 or from
 `tools/gui-check.sh` checks the GUI against the running emulation (pages,
 values against Channel Access, a silent simulator, a stopped IOC, writes,
 sources, the latch of the interlock permit, the loop, values set in place, pages in
-windows of their own) with a
+windows of their own, the data logger) with a
 headless browser and saves
 screenshots to `tools/screenshots/`.
 It needs `make -C emulation up` and `make dev-up`, takes about ten minutes and

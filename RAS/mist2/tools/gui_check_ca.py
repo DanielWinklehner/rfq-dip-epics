@@ -10,6 +10,8 @@ with the repository at /repo. Every name comes from the registry.
     release SIM SIGNAL          give it back to the simulator
     get PV                      print the PV's value (as a string)
     put PV VALUE                write VALUE and wait for the write to complete
+    beat PV SECONDS             add 1 to PV once a second for that long, as the
+                                logger does with its counter (a stand-in)
     wait PV VALUE [SECONDS]     until PV reads VALUE (as a string), exit 1 if not
     hold PV VALUE SECONDS       PV reads VALUE all that time, exit 1 if not
     compare A.json B.json GUI.json
@@ -153,6 +155,20 @@ def put(name, value):
     return 0
 
 
+def beat(name, seconds):
+    pv = epics.PV(name)
+    if not pv.wait_for_connection(5):
+        print(f"FAIL {name}: not connected")
+        return 1
+    value = pv.get(use_monitor=False, timeout=2)
+    for _ in range(int(seconds)):
+        value += 1
+        pv.put(value, wait=True, timeout=2)
+        time.sleep(1)
+    print(f"beat: {name} counted {seconds} times")
+    return 0
+
+
 def first_number(text):
     try:
         return float(text.split()[0])
@@ -229,6 +245,8 @@ def main():
         return get(*args)
     elif command == "put":
         return put(*args)
+    elif command == "beat":
+        return beat(*args)
     elif command == "wait":
         return wait(*args)
     elif command == "hold":

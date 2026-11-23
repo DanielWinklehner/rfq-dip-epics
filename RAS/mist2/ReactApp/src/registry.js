@@ -28,8 +28,21 @@ export const installedDevices = (page) =>
     (id) => isInstalled(id) && (page === undefined || devices[id].page === page)
   );
 
+// A device whose subsystem has no page is infrastructure (the services of the
+// control system, such as the data logger): on the Infrastructure page only.
+export const isInfrastructure = (id) => !devices[id].page;
+export const infrastructureDevices = installedDevices().filter(isInfrastructure);
+
+// The installed devices that the drawings show: all but the infrastructure.
+export const drawnDevices = installedDevices().filter((id) => !isInfrastructure(id));
+
 // The subsystem pages, in the order their first device appears in the registry.
-export const subsystemPages = [...new Set(installedDevices().map((id) => devices[id].page))];
+export const subsystemPages = [...new Set(drawnDevices.map((id) => devices[id].page))];
+
+// The read-back roles drawn as a trend, and the set points drawn in the graph
+// of their read-back ({ read-back role: set point role }); the logger's
+// dashboards read the same list (plan, `trends`).
+export const trends = registry.trends;
 
 // Record types whose value is a text: the state strings of binary and
 // multi-bit records, and string records.
@@ -49,17 +62,11 @@ export const connectedChannels = (id) => channelsOf(id).filter((channel) => !isS
 
 export const channelLabel = (id, channel) => devices[id].channels[channel].label;
 
-// Words of a role that the registry does not give yet. STAND-IN until
-// plan/controls.yaml has them as device-level `states` (T16 report): the loop
-// service's calc record is 1 while the service counts, 0 (MAJOR) else (LOOP.md).
-const standInStates = { service: ["not alive", "alive"] };
-
 // The words of a role's values (index = value): those of the channel, else
 // the device's words for the role, else the record's own state strings.
 export const wordsOf = (id, channel, role) =>
   (channel ? devices[id].channels[channel].states : devices[id].states?.[role]) ??
-  pvInfo(rolesOf(id, channel)[role]).states ??
-  standInStates[role];
+  pvInfo(rolesOf(id, channel)[role]).states;
 
 // The label of a device-level role, if the registry has one.
 export const roleLabel = (id, role) => devices[id].labels?.[role];
