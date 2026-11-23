@@ -322,6 +322,12 @@
       "PORT": "REK",
       "UNITNUM": "1"
      }
+    },
+    {
+     "db": "supply_first_contact.db",
+     "macros": {
+      "S": "REK-1"
+     }
     }
    ],
    "pvs": {
@@ -477,21 +483,7 @@
     "REK-1:output:init": {
      "type": "seq",
      "access": "r",
-     "desc": "First contact: take over output state",
-     "internal": true,
-     "log": "none"
-    },
-    "REK-1:_init:vtake": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Voltage set point takes over (internal)",
-     "internal": true,
-     "log": "none"
-    },
-    "REK-1:_init:vcopy": {
-     "type": "seq",
-     "access": "r",
-     "desc": "Copies the voltage echo (internal)",
+     "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
@@ -633,6 +625,55 @@
      "fails_closed": [
       "rek:1"
      ]
+    },
+    "REK-1:_init:otake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Output take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:otake:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM on (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:otake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:otake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:vtake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Voltage take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:vtake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "REK-1:_init:vtake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
@@ -1610,6 +1651,12 @@
       "UNITNUM": "1",
       "IFS": "15"
      }
+    },
+    {
+     "db": "supply_first_contact.db",
+     "macros": {
+      "S": "AU-20P7-1"
+     }
     }
    ],
    "pvs": {
@@ -1765,21 +1812,7 @@
     "AU-20P7-1:output:init": {
      "type": "seq",
      "access": "r",
-     "desc": "First contact: take over output state",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-1:_init:vtake": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Voltage set point takes over (internal)",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-1:_init:vcopy": {
-     "type": "seq",
-     "access": "r",
-     "desc": "Copies the voltage echo (internal)",
+     "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
@@ -1921,6 +1954,55 @@
      "fails_closed": [
       "mat_opt:1"
      ]
+    },
+    "AU-20P7-1:_init:otake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Output take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:otake:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM on (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:otake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:otake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:vtake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Voltage take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:vtake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-1:_init:vtake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
@@ -1954,6 +2036,12 @@
      "macros": {
       "PORT": "mat_opt",
       "UNITNUM": "2"
+     }
+    },
+    {
+     "db": "supply_first_contact.db",
+     "macros": {
+      "S": "AU-20P7-2"
      }
     }
    ],
@@ -2110,21 +2198,7 @@
     "AU-20P7-2:output:init": {
      "type": "seq",
      "access": "r",
-     "desc": "First contact: take over output state",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-2:_init:vtake": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Voltage set point takes over (internal)",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-2:_init:vcopy": {
-     "type": "seq",
-     "access": "r",
-     "desc": "Copies the voltage echo (internal)",
+     "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
@@ -2266,6 +2340,55 @@
      "fails_closed": [
       "mat_opt:2"
      ]
+    },
+    "AU-20P7-2:_init:otake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Output take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:otake:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM on (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:otake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:otake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:vtake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Voltage take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:vtake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-2:_init:vtake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
@@ -2299,6 +2422,12 @@
      "macros": {
       "PORT": "mat_co",
       "UNITNUM": "3"
+     }
+    },
+    {
+     "db": "supply_first_contact.db",
+     "macros": {
+      "S": "AU-20P7-3"
      }
     }
    ],
@@ -2455,21 +2584,7 @@
     "AU-20P7-3:output:init": {
      "type": "seq",
      "access": "r",
-     "desc": "First contact: take over output state",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-3:_init:vtake": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Voltage set point takes over (internal)",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-3:_init:vcopy": {
-     "type": "seq",
-     "access": "r",
-     "desc": "Copies the voltage echo (internal)",
+     "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
@@ -2611,6 +2726,55 @@
      "fails_closed": [
       "mat_co:3"
      ]
+    },
+    "AU-20P7-3:_init:otake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Output take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:otake:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM on (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:otake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:otake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:vtake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Voltage take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:vtake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-3:_init:vtake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
@@ -2644,6 +2808,12 @@
      "macros": {
       "PORT": "mat_co",
       "UNITNUM": "4"
+     }
+    },
+    {
+     "db": "supply_first_contact.db",
+     "macros": {
+      "S": "AU-20P7-4"
      }
     }
    ],
@@ -2800,21 +2970,7 @@
     "AU-20P7-4:output:init": {
      "type": "seq",
      "access": "r",
-     "desc": "First contact: take over output state",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-4:_init:vtake": {
-     "type": "calcout",
-     "access": "r",
-     "desc": "Voltage set point takes over (internal)",
-     "internal": true,
-     "log": "none"
-    },
-    "AU-20P7-4:_init:vcopy": {
-     "type": "seq",
-     "access": "r",
-     "desc": "Copies the voltage echo (internal)",
+     "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
@@ -2956,6 +3112,55 @@
      "fails_closed": [
       "mat_co:4"
      ]
+    },
+    "AU-20P7-4:_init:otake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Output take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:otake:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM on (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:otake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:otake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Output take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:vtake": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Voltage take-over check (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:vtake:copy": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over copy (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AU-20P7-4:_init:vtake:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Voltage take-over SIMM off (internal)",
+     "internal": true,
+     "log": "none"
     }
    }
   },
