@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS pv (
     severity    smallint,               -- last severity written to the event log
     value_text  text                    -- last value of an events PV written to the event log
 );
+-- the mode PV of the loop that writes this PV (its actuator), NULL for every other PV
+ALTER TABLE pv ADD COLUMN IF NOT EXISTS driven_by text;
 
 -- The tiers as the plan defines them (plan/controls.yaml, software.tiers), written at the start.
 CREATE TABLE IF NOT EXISTS tier (
@@ -105,7 +107,9 @@ CREATE OR REPLACE VIEW event_log AS
 -- running, rows lost, or not written yet).
 
 -- Tier raw (table raw) or events (table changes): the value in effect at `from` (held), every
--- row in [from, to), and the end: the value held at `to`, or a gap where the data ends.
+-- row in [from, to), and the end: the value held at `to`, or a gap where the data ends. The
+-- events tier reads raw too: a PV a loop writes is in raw while the loop is in PID, in changes
+-- else (the gap that ends a time in raw, flag 16, is not part of that series).
 CREATE OR REPLACE FUNCTION log_rows(p_pv integer, p_table text, p_from timestamptz, p_to timestamptz)
 RETURNS TABLE (t timestamptz, value double precision, text text, severity smallint, kind text)
 LANGUAGE plpgsql STABLE AS $$
@@ -115,25 +119,30 @@ DECLARE
 BEGIN
     SELECT s.raw_through INTO through FROM state s;
     RETURN QUERY EXECUTE format($q$
-        WITH r AS (
-            (SELECT $2::timestamptz AS t, x.value, x.text, x.severity, 'held'::text AS kind, 0 AS o
-               FROM %1$I x WHERE x.pv = $1 AND x.t < $2 ORDER BY x.t DESC LIMIT 1)
+        WITH x AS (
+            SELECT y.t, y.value, y.text, y.severity, 1 AS src FROM %1$I y WHERE y.pv = $1
             UNION ALL
-            SELECT x.t, x.value, x.text, x.severity, 'value', 1
-              FROM %1$I x WHERE x.pv = $1 AND x.t >= $2 AND x.t < $3),
+            SELECT y.t, y.value, y.text, y.severity, 0 FROM raw y
+             WHERE %1$L = 'changes' AND y.pv = $1 AND NOT (y.flags = 16 AND y.severity IS NULL)),
+        r AS (
+            (SELECT $2::timestamptz AS t, x.value, x.text, x.severity, 'held'::text AS kind, 0 AS o
+               FROM x WHERE x.t < $2 ORDER BY x.t DESC, x.src DESC LIMIT 1)
+            UNION ALL
+            SELECT x.t, x.value, x.text, x.severity, 'value', 1 + x.src
+              FROM x WHERE x.t >= $2 AND x.t < $3),
         k AS (SELECT r.t, r.value, r.text, r.severity,
                      CASE WHEN r.severity IS NULL OR r.severity >= 3 THEN 'gap' ELSE r.kind END AS kind, r.o
                 FROM r),
         z AS (SELECT * FROM k ORDER BY k.t DESC, k.o DESC LIMIT 1),
         out AS (
             SELECT k.t, k.value, k.text, k.severity, k.kind, k.o FROM k   -- a row at `from` itself wins
-             WHERE NOT (k.o = 0 AND EXISTS (SELECT 1 FROM k AS k2 WHERE k2.o = 1 AND k2.t = $2))
+             WHERE NOT (k.o = 0 AND EXISTS (SELECT 1 FROM k AS k2 WHERE k2.o >= 1 AND k2.t = $2))
             UNION ALL
             SELECT CASE WHEN $4 < $3 THEN greatest($4, z.t) ELSE $3 END,
                    CASE WHEN $4 < $3 THEN NULL ELSE z.value END,
                    CASE WHEN $4 < $3 THEN NULL ELSE z.text END,
                    CASE WHEN $4 < $3 THEN NULL ELSE z.severity END,
-                   CASE WHEN $4 < $3 THEN 'gap' ELSE 'held' END, 2
+                   CASE WHEN $4 < $3 THEN 'gap' ELSE 'held' END, 3
               FROM z WHERE $4 < $3 OR z.kind <> 'gap'
             UNION ALL
             SELECT $2, NULL, NULL, NULL, 'gap', 0 WHERE NOT EXISTS (SELECT 1 FROM k))
@@ -194,7 +203,7 @@ RETURNS text LANGUAGE sql STABLE AS $$
     span AS (SELECT extract(epoch FROM p_to - p_from) AS s),
     k AS (SELECT id, keep_days FROM tier)
     SELECT CASE
-        WHEN p.tier = 'events' THEN 'events'
+        WHEN p.tier = 'events' THEN 'events'     -- also a PV a loop writes: both of its tables
         WHEN p.tier = 'raw' AND span.s * 10 <= p_max_points
              AND (SELECT keep_days IS NULL OR p_from >= now() - keep_days * interval '1 day' FROM k WHERE id = 'raw')
              THEN 'raw'
@@ -223,8 +232,8 @@ BEGIN
     END IF;
     use := CASE WHEN p_tier = 'best' THEN log_best(p.id, p_from, p_to, p_max_points) ELSE p_tier END;
     IF use NOT IN ('raw', 'events', 'seconds', 'minutes')
-       OR (use = 'events') <> (p.tier = 'events')
-       OR (use = 'raw' AND p.tier <> 'raw') OR (use = 'seconds' AND p.tier NOT IN ('raw', 'seconds')) THEN
+       OR (p.driven_by IS NULL AND ((use = 'events') <> (p.tier = 'events')
+           OR (use = 'raw' AND p.tier <> 'raw') OR (use = 'seconds' AND p.tier NOT IN ('raw', 'seconds')))) THEN
         RAISE EXCEPTION 'PV % is logged in tier %, it has no tier %', p_name, p.tier, use;
     END IF;
     IF use IN ('raw', 'events') THEN
@@ -238,8 +247,9 @@ BEGIN
     END IF;
 END $$;
 
--- For Grafana: several PVs as (time, metric, value), the tier chosen by the panel's interval,
--- intervals merged to the panel's step (mean weighted by the valid time). A gap is a NULL value.
+-- For Grafana: several PVs as (time, metric, value), in the tier 'best' gives for the range
+-- (raw up to 33 minutes); seconds and minutes merged to the panel's step (mean weighted by the
+-- valid time). A gap is a NULL value.
 CREATE OR REPLACE FUNCTION log_trend(p_names text[], p_from timestamptz, p_to timestamptz, p_step_ms bigint)
 RETURNS TABLE ("time" timestamptz, metric text, value double precision)
 LANGUAGE plpgsql STABLE AS $$
@@ -254,7 +264,7 @@ BEGIN
     FOREACH pv_name IN ARRAY p_names LOOP
         SELECT * INTO p FROM pv WHERE pv.name = pv_name;
         CONTINUE WHEN NOT FOUND OR p.tier = 'none';
-        use := log_best(p.id, p_from, p_to, greatest(1, (extract(epoch FROM p_to - p_from) / step)::integer));
+        use := log_best(p.id, p_from, p_to, 20000);       -- the tier of 'best' (LOGGER.md, reading)
         IF use IN ('raw', 'events') THEN
             RETURN QUERY SELECT r.t, pv_name, CASE WHEN r.kind = 'gap' THEN NULL ELSE r.value END
                            FROM log_rows(p.id, CASE use WHEN 'raw' THEN 'raw' ELSE 'changes' END, p_from, p_to) r;

@@ -122,7 +122,7 @@ def test_a_set_point_written_appears_as_a_change_and_as_an_event_with_old_and_ne
         S.wait_for(lambda: q("SELECT value FROM changes WHERE pv = %s AND t >= %s AND value = %s",
                              (pv_id(name), ts(t0 - 0.5), new)), WRITTEN + 2, "the change of %s in the database" % name)
         events = q("SELECT old, new FROM events WHERE pv = %s AND kind = 'set' AND t >= %s ORDER BY t", (pv_id(name), ts(t0 - 0.5)))
-        assert [(float(o), float(n)) for o, n in events][:1] == [(old, new)], events
+        assert (old, new) in [(float(o), float(n)) for o, n in events], events
     finally:
         S.put(name, old)
 
@@ -254,6 +254,73 @@ def test_reading_tool_returns_the_numbers_of_a_direct_query_and_marks_gaps(tmp_p
     assert rows and {r["kind"] for r in rows} == {"gap"} and {r["value"] for r in rows} == {""}
 
 
+# --- a loop in PID (F1, F2) ------------------------------------------------------------------------
+LOOP = next(d for d, dev in reg.devices.items() if dev.get("drives"))
+
+
+def door():
+    """The interlock simulator and the signal of its first door switch (as test_06, test_09)."""
+    ilk = next(d for d, dev in reg.devices.items() if dev["class"] == "interlock")
+    return reg.devices[ilk]["simulators"][0], sorted(reg.devices[ilk]["channels"])[0]
+
+
+def test_a_loop_in_pid_writes_a_signal_not_set_commands_and_its_mode_event_has_its_reason():
+    lp = reg.devices[LOOP]
+    roles, macros = lp["roles"], lp["loads"][0]["macros"]
+    act = lp["drives"][0]["pv"]
+    conds = [(macros["C%d" % n], float(macros["R%d" % n])) for n in (1, 2, 3)]
+    outs = [reg.role(reg.pvs[c]["device"], "out_cmd") for c, _ in conds if reg.devices[reg.pvs[c]["device"]]["class"] == "supply"]
+    before = {pv: S.get(pv) for pv in outs + [act]}
+    sim, signal = door()
+    # Limit 30 s: the service alive (its counter), the supplies' first contact (GRACE)
+    S.wait_for(lambda: S.get(roles["service"]) == 1, 30, "the loop service alive")
+    try:
+        for pv in outs:
+            S.put(pv, 1)
+        # Limit 10 s: output states polled every 1 s, the permit records every period
+        S.wait_for(lambda: all(S.get(c) == r for c, r in conds), 10, lambda: S.describe([c for c, _ in conds]))
+        S.put(act, S.get(roles["outmin"]) + 1.0)       # inside the output limits: the output ramps
+        time.sleep(1.5)                                 # the service sees the heartbeat change once
+        counter = Counter(act)
+        S.put(roles["mode_cmd"], 1)
+        # Limit 1 s: the service decides in its next cycle (0.2 s), LOOP.md
+        S.wait_for(lambda: S.get(roles["mode"]) == 1, 1.0, lambda: S.describe([roles["mode"], roles["reason"]]))
+        t_pid = time.time()
+        time.sleep(4)
+        t_back0 = time.time()
+        S.sim_set(sim, signal, 0)                       # a door open: hand-back "interlock open"
+        # Limit 1 s: interlock box polled every 0.1 s, then one cycle (LOOP.md, section 4)
+        S.wait_for(lambda: S.get(roles["mode"]) == 0, 1.0, "hand-back")
+        t_back = time.time()
+        words = S.get(roles["reason"], as_string=True)
+    finally:
+        if (sim, signal) in S.forced:
+            S.sim_release(sim, signal)
+        S.put(roles["mode_cmd"], 0)
+        for pv, value in before.items():
+            S.put(pv, value)
+    writes = counter.between(t_pid + 0.3, t_back0)
+    counter.close()
+    time.sleep(WRITTEN + core.CONTEXT_WAIT + CLOSE_DELAY)
+    assert len(writes) >= 10, "the loop wrote %d times in PID" % len(writes)
+    a = pv_id(act)
+    sets = q("SELECT t FROM events WHERE pv = %s AND kind = 'set' AND t > %s AND t < %s", (a, ts(t_pid + 0.3), ts(t_back0)))
+    changes = q("SELECT t FROM changes WHERE pv = %s AND t > %s AND t < %s", (a, ts(t_pid + 0.3), ts(t_back0)))
+    assert (sets, changes) == ([], []), "the loop's writes became set commands"
+    raw = raw_stamps(act, t_pid + 0.3, t_back0)
+    assert len(raw) == len(writes) and max(abs(x - y) for x, y in zip(raw, writes)) < 2e-6     # every write, as a signal
+    assert q("SELECT count(*) FROM seconds WHERE pv = %s AND t >= %s AND t < %s", (a, ts(math.ceil(t_pid)), ts(math.floor(t_back0))))[0][0] \
+        == math.floor(t_back0) - math.ceil(t_pid)
+    # outside PID a write is a set command again: the restore above
+    assert q("SELECT count(*) FROM events WHERE pv = %s AND kind = 'set' AND t > %s", (a, ts(t_back)))[0][0] >= 1
+    # the reader gets the whole series of the actuator: before, in and after PID
+    kinds = {r[0] for r in q("SELECT kind FROM log_read(%s, %s, %s)", (act, ts(t_pid - 2), ts(t_back + 1)))}
+    assert "gap" not in kinds, kinds
+    mode = q("SELECT old, new, detail FROM events WHERE pv = %s AND t >= %s ORDER BY t", (pv_id(roles["mode"]), ts(t_back0 - 0.5)))
+    assert mode and mode[0][:2] == ("PID (1)", "MANUAL (0)"), mode
+    assert mode[0][2] == "%s: %s (%d)" % (roles["reason"], words, reg.pvs[roles["reason"]]["states"].index(words)), mode
+
+
 def test_an_ioc_stopped_and_started_gives_disconnect_and_return():
     names = [n for n, s in LOGGED.items() if s["ioc"] == "ioc_hv"]
     t0 = time.time()
@@ -356,7 +423,7 @@ def test_database_stopped_for_a_minute_nothing_lost_order_kept():
 
 
 def test_database_stopped_longer_than_the_buffer_the_loss_is_counted_and_logged():
-    request("buffer 3000")        # rows: about 20 s of the full emulation (140 rows per second)
+    request("buffer 3000")        # rows: about 20 s of the full emulation (139.6 rows per second at rest, LOGGER.md section 10)
     S.wait_for(lambda: status("alive") == 1 and status("connected") == len(LOGGED), 30, "the logger with the small buffer")
     try:
         counter, t0, t1, fill = outage(45, 3000)
@@ -411,6 +478,52 @@ def test_life_times_with_shortened_values_drop_each_tier_on_its_own():
 
 
 # --- R10: Grafana ------------------------------------------------------------------------------------
+def test_a_batch_the_database_refuses_is_given_up_counted_and_logged():
+    with psycopg.connect(**DSN, autocommit=True) as conn:
+        conn.execute("DROP DATABASE IF EXISTS mist2log_refused")
+        conn.execute("CREATE DATABASE mist2log_refused")
+    try:
+        tiers = {"raw": {"interval": None, "keep_days": 30}, "seconds": {"interval": 1, "keep_days": 730},
+                 "minutes": {"interval": 60, "keep_days": None}, "events": {"interval": None, "keep_days": None}}
+        with store.connect(dict(DSN, dbname="mist2log_refused")) as conn:
+            store.apply_schema(conn, tiers)
+
+        class Settings:
+            db = dict(DSN, dbname="mist2log_refused")
+            reader_password = ""
+            buffer_rows = 100000
+        st = store.Store(Settings(), tiers)
+        st.db_ok = True
+        ch = core.Channel(1, "X", "raw", "number")
+        rec = core.Recorder([ch])
+        now = time.time()
+
+        def batch(t, status):
+            rec.update(ch, 1.0, None, 0, status, t, t)
+            return rec.tick(t + 0.5)
+        st.start()
+        st.put(batch(now - 3, 0))
+        st.put(batch(now - 2, 70000))                     # a status no smallint holds: the database refuses
+        st.put(batch(now - 1, 0))
+        # Limit 5 s: three batches, each one transaction
+        S.wait_for(lambda: not st.queue, 5, "the writer goes on after the refused batch")
+        refused = st.take_rejected()
+        assert len(refused) == 1 and "out of range" in refused[0][3] and st.dropped == refused[0][2] > 0, refused
+        from mist2log.service import loss_batch
+        st.put(loss_batch(rec, refused[0][0], refused[0][1], refused[0][2], time.time(), "the database refused %d rows: %s"
+                          % (refused[0][2], refused[0][3])), force=True)
+        S.wait_for(lambda: not st.queue, 5, "the loss written")
+        st.close()
+        rows = q("SELECT t, severity, flags FROM raw ORDER BY t", dbname="mist2log_refused")
+        events = q("SELECT new, value, detail FROM events WHERE kind = 'logger'", dbname="mist2log_refused")
+    finally:
+        with psycopg.connect(**DSN, autocommit=True) as conn:
+            conn.execute("DROP DATABASE mist2log_refused")
+    assert len([r for r in rows if r[2] == 0]) == 2              # both good batches written
+    assert any(r[2] == core.FLAG_LOGGER for r in rows)           # a gap where the refused one was
+    assert len(events) == 1 and events[0][0] == "rows lost" and "out of range" in events[0][2], events
+
+
 def test_grafana_answers_and_has_one_dashboard_per_page_of_the_gui():
     base = "http://127.0.0.1:%s" % os.environ["MIST2LOG_GRAFANA_PORT"]
     health = json.load(urllib.request.urlopen(base + "/api/health", timeout=5))
@@ -422,9 +535,52 @@ def test_grafana_answers_and_has_one_dashboard_per_page_of_the_gui():
         found = json.load(urllib.request.urlopen(base + "/api/search?type=dash-db", timeout=5))
         return sorted(b["title"] for b in found)
     S.wait_for(lambda: titles() == sorted(pages), 40, lambda: "dashboards %s, pages %s" % (titles(), pages))
+    # F3: a short window of a 10 Hz PV is drawn from raw, up to the newest seconds. The interval
+    # is computed as Grafana's front end does: the range over the panel's points, not below the
+    # data source's minimum interval.
+    admin = urllib.request.Request(base + "/api/datasources/uid/mist2log")
+    import base64
+    admin.add_header("Authorization", "Basic " + base64.b64encode(("admin:" + os.environ["GRAFANA_ADMIN_PASSWORD"]).encode()).decode())
+    minimum = json.load(urllib.request.urlopen(admin, timeout=5))["jsonData"].get("timeInterval", "1m")
+    seconds = {"ms": 0.001, "s": 1, "m": 60}
+    unit = minimum.lstrip("0123456789")
+    minimum = float(minimum[:len(minimum) - len(unit)]) * seconds[unit]
+    window = 120
+    interval_ms = int(1000 * max(minimum, window / 1000.0))
+    # the raw PV with the most rows in the last minute (the TDK's read-back is constant while its
+    # output is off)
+    def busiest():
+        return q("SELECT p.name, count(*) FROM raw r JOIN pv p ON p.id = r.pv WHERE r.t > now() - interval '1 minute' "
+                 "GROUP BY p.name ORDER BY count(*) DESC LIMIT 1")
+    # Limit 90 s: a minute of data after the logger's start, from a PV updated at 5 Hz or more
+    S.wait_for(lambda: busiest() and busiest()[0][1] >= 300, 90, lambda: "a busy raw PV: %s" % busiest())
+    busiest = busiest()[0][0]
+    sql = ("SELECT * FROM log_trend(ARRAY['%s'], $__timeFrom(), $__timeTo(), $__interval_ms) ORDER BY 1" % busiest)
+    body = {"from": "now-%ds" % window, "to": "now", "queries": [{"refId": "A", "datasource": {"uid": "mist2log"},
+            "rawSql": sql, "format": "time_series", "intervalMs": interval_ms, "maxDataPoints": 1000}]}
+    asked = time.time()
+    request_ = urllib.request.Request(base + "/api/ds/query", data=json.dumps(body).encode(),
+                                      headers={"Content-Type": "application/json"})
+    frame = json.load(urllib.request.urlopen(request_, timeout=10))["results"]["A"]["frames"][0]["data"]["values"]
+    points = [(t / 1000.0, v) for t, v in zip(frame[0], frame[1]) if v is not None]
+    stored = raw_stamps(busiest, asked - window + 5, asked - 5)
+    inside = [t for t, _ in points if asked - window + 5 <= t < asked - 5]
+    # raw: every row, at its own time (seconds or minutes would give one point per interval)
+    assert len(stored) > 10 and len(inside) == len(stored), (len(inside), len(stored))
+    assert max(abs(a - b) for a, b in zip(inside, stored)) < 0.002
+    # the newest data is drawn: the PV's newest raw row is the last point, and the data is complete
+    # up to at most one tick and the write before the query (limit 3 s)
+    newest = q("SELECT max(t) FROM raw WHERE pv = %s AND t < %s", (pv_id(busiest), ts(asked)))[0][0].timestamp()
+    through = q("SELECT raw_through FROM state")[0][0].timestamp()
+    assert abs(points[-1][0] - newest) < 0.002 and through > asked - 3, (points[-1][0], newest, through, asked)
     # every trend of the generated panels draws from the database (as the read-only user)
     with open(os.path.join(BUILD, "dashboards", "plasma-generator.json")) as handle:
         board = json.load(handle)
+    # the registry's trends: the loop's measured value with its set point beside it, its output
+    roles = reg.devices[LOOP]["roles"]
+    graphs = [p["targets"][0]["rawSql"] for p in board["panels"] if p["type"] == "timeseries"]
+    assert any("'%s', '%s'" % (roles["pv"], roles["sp_cmd"]) in g for g in graphs), graphs
+    assert any("ARRAY['%s']" % roles["out"] in g for g in graphs), graphs
     now = time.time()
     for panel in board["panels"]:
         sql = panel["targets"][0]["rawSql"]

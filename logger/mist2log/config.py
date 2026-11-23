@@ -48,12 +48,15 @@ class Channel:
         self.kind = "enum" if self.type in ENUM_TYPES else "text" if self.type in TEXT_TYPES else "number"
         self.ca_name = name + ".VAL$" if self.type in LONG_STRINGS else name
         self.context = None     # name of the PV whose value goes with each event of this one
+        self.driver = None      # (name of a loop's mode PV, its value in PID) for a PV a loop writes
 
 
 def load_registry(path):
     with open(path, encoding="utf-8") as handle:
         data = json.load(handle)
     channels = []
+    drivers = {d["pv"]: (d["while"]["pv"], d["while"]["value"])
+               for entry in data["devices"].values() for d in entry.get("drives", [])}
     for group in ("iocs", "devices"):
         for device, entry in data[group].items():
             roles = entry.get("roles", {})
@@ -61,6 +64,7 @@ def load_registry(path):
                 if spec.get("log", "none") == "none":
                     continue
                 ch = Channel(name, spec, device)
+                ch.driver = drivers.get(name)
                 # A loop's mode is logged with the reason of its last hand-back or refusal.
                 if spec.get("role") == "mode" and "reason" in roles:
                     ch.context = roles["reason"]

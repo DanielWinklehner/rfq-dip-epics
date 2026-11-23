@@ -443,6 +443,7 @@ class Model:
         self._check_roles()
         self._check_loads()
         self._assign_tiers()
+        self._check_drives_and_trends()
         self.faults(lambda pv, port, unit: (port, unit))   # only for its warnings here
         self.warnings = list(dict.fromkeys(self.warnings))   # the same problem once, even if several devices load the file
 
@@ -721,6 +722,38 @@ class Model:
         for name in rules.get("classes") or {}:
             if name not in classes:
                 self.warnings.append("logging: classes names %s, which no database has" % name)
+
+    def drives(self, owner):
+        """What a device writes by itself: [(PV name, PV of the condition, value)] from 'drives'
+        of its databases (a control loop's actuator while the loop is in PID)."""
+        out = []
+        for load in loads_of(owner):
+            spec = (self.rules.get(load["db"]) or {}).get("drives")
+            if spec:
+                target = self.macros(load).get(spec["macro"])
+                cond = [pv["name"] for pv in owner["pvs"] if pv.get("role") == spec["while"]["role"] and pv["db"] == load["db"]]
+                out.append((target, cond[0] if cond else None, spec["while"]["value"]))
+        return out
+
+    def _check_drives_and_trends(self):
+        existing = {pv["name"]: pv for o in self.owners for pv in o["pvs"] if pv["state"] == "existing"}
+        for owner in self.owners:
+            for target, cond, value in self.drives(owner):
+                if target not in existing:
+                    self.warnings.append("%s: drives %s, which is no existing PV" % (owner["id"], target))
+                elif existing[target]["type"] not in WRITE_TYPES:
+                    self.warnings.append("%s: drives %s, which is not a written record" % (owner["id"], target))
+                if cond is None:
+                    self.warnings.append("%s: the condition of drives names a role the device does not have" % owner["id"])
+        roles = set()
+        for rule in self.rules.values():
+            roles |= set(rule.get("roles") or {})
+            for members in (rule.get("channels") or {}).values():
+                roles |= set(members)
+        trends = self.d.get("trends") or {}
+        for role in list(trends.get("roles") or []) + [r for pair in (trends.get("beside") or {}).items() for r in pair]:
+            if role not in roles:
+                self.warnings.append("trends: role %s, which no database under 'databases' has" % role)
 
     def public(self, owner):
         """The PVs of a device without its internal records."""

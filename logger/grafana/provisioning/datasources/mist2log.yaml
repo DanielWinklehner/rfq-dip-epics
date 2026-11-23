@@ -13,5 +13,8 @@ datasources:
       sslmode: disable
       timescaledb: true
       postgresVersion: 1600
+      # The smallest $__interval Grafana hands the panels (its default for SQL sources is one
+      # minute): log_trend chooses the tier by the range, and merges no finer than one second.
+      timeInterval: 1s
     secureJsonData:
       password: ${MIST2LOG_READER_PASSWORD}

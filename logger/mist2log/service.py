@@ -36,7 +36,8 @@ class Service:
         chans = []
         for ch in channels:
             c = core.Channel(ids[ch.name], ch.name, ch.tier, ch.kind, ch.written, ch.states,
-                             ids.get(ch.context) if ch.context else None)
+                             ids.get(ch.context) if ch.context else None,
+                             (ids[ch.driver[0]], ch.driver[1]) if ch.driver and ch.driver[0] in ids else None)
             chans.append(c)
         self.recorder = rec = core.Recorder(chans, s.clock_skew, s.close_delay)
         now = time.time()
@@ -73,12 +74,11 @@ class Service:
             lost = self.store.take_loss()
             if lost:
                 through_kept, first, rows = lost
-                b = rec.resume(through_kept or (first, math.floor(first), math.floor(first / 60) * 60), now)
-                b.events.append((first, None, "logger", None, "rows lost", rows, None, None,
-                                 "%d rows did not fit into the buffer from %s to %s" % (
-                                     rows, time.strftime("%H:%M:%S", time.localtime(first)),
-                                     time.strftime("%H:%M:%S", time.localtime(now)))))
-                self.store.put(b, force=True)
+                self.store.put(loss_batch(rec, through_kept, first, rows, now, "%d rows did not fit into the buffer from %s to %s" % (
+                    rows, time.strftime("%H:%M:%S", time.localtime(first)), time.strftime("%H:%M:%S", time.localtime(now)))), force=True)
+            for through_kept, first, rows, message in self.store.take_rejected():
+                self.store.put(loss_batch(rec, through_kept, first, rows, now,
+                                          "the database refused %d rows: %s" % (rows, message)), force=True)
             count += 1
             st = self.store.status()
             up = sum(1 for c in chans if c.connected)
@@ -89,7 +89,7 @@ class Service:
                     status[key].put(value, wait=False)
         now = time.time()
         self._drain(now)
-        b = rec.tick(now)
+        b = rec.tick(now, final=True)
         b.events.append((now, None, "logger", None, "stop", None, None, None, None))
         self.store.put(b, force=True)
         self.store.close()
@@ -125,6 +125,14 @@ class Service:
             else:
                 value = float(value)
             rec.update(ch, value, text, severity, status, stamp if stamp is not None else now, now)
+
+
+def loss_batch(rec, through, first, rows, now, why):
+    """After rows that were not written (the buffer full, or a batch the database refused): a gap
+    from the end of what was written, the present state of every PV, and the event."""
+    b = rec.resume(through or (first, math.floor(first), math.floor(first / 60) * 60), now)
+    b.events.append((first, None, "logger", None, "rows lost", rows, None, None, why))
+    return b
 
 
 def main():

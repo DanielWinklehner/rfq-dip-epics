@@ -75,6 +75,7 @@ class Store:
         self.written_through = None      # through of the last batch written
         self.lost = None                 # [through of the last kept batch, first time lost, rows]
         self.dropped = 0                 # rows lost since the start
+        self.rejected = []               # [through before it, its time, rows, message]: batches the database refused
         self.db_ok = False
         self.written = collections.deque(maxlen=10)    # (time, rows) of the last writes
         self.stopping = False
@@ -96,11 +97,13 @@ class Store:
         with self.conn.cursor() as cur:
             ids = {}
             for ch in channels:
-                cur.execute("INSERT INTO pv (name, tier, kind, type, egu, states, device, role) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (name) DO UPDATE SET "
+                cur.execute("INSERT INTO pv (name, tier, kind, type, egu, states, device, role, driven_by) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (name) DO UPDATE SET "
                             "tier = excluded.tier, kind = excluded.kind, type = excluded.type, egu = excluded.egu, "
-                            "states = excluded.states, device = excluded.device, role = excluded.role RETURNING id",
-                            (ch.name, ch.tier, ch.kind, ch.type, ch.egu, ch.states, ch.device, ch.role))
+                            "states = excluded.states, device = excluded.device, role = excluded.role, "
+                            "driven_by = excluded.driven_by RETURNING id",
+                            (ch.name, ch.tier, ch.kind, ch.type, ch.egu, ch.states, ch.device, ch.role,
+                             ch.driver[0] if ch.driver else None))
                 ids[ch.name] = cur.fetchone()[0]
             cur.execute("UPDATE pv SET connected = false")
             cur.execute("SELECT raw_through, seconds_through, minutes_through, alive FROM state WHERE id = 1")
@@ -143,6 +146,12 @@ class Store:
             lost, self.lost = self.lost, None
             return lost
 
+    def take_rejected(self):
+        """The batches the database refused since the last call: [(through, time, rows, message)]."""
+        with self.cond:
+            out, self.rejected = self.rejected, []
+            return out
+
     def status(self):
         with self.cond:
             now = time.time()
@@ -183,6 +192,20 @@ class Store:
                     self.written_through = batch.through or self.written_through
                     self.written.append((time.time(), batch.rows()))
                     self.db_ok = True
+                    self.cond.notify_all()
+            except (psycopg.DataError, psycopg.IntegrityError) as exc:
+                # The database answered and refuses this batch: trying it again would block the
+                # writer for ever. Give it up, count its rows, and go on with the next batch.
+                log.error("database refused a batch of %d rows: %s", batch.counted, str(exc).strip())
+                try:
+                    self.conn.rollback()
+                except psycopg.Error:
+                    self._close()
+                with self.cond:
+                    self.queue.popleft()
+                    self.buffered -= batch.counted
+                    self.dropped += batch.counted
+                    self.rejected.append((self.written_through, batch.now, batch.counted, str(exc).strip()[:300]))
                     self.cond.notify_all()
             except (psycopg.Error, OSError) as exc:
                 if self.db_ok:
