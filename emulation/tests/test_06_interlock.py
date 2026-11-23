@@ -3,7 +3,10 @@ outputs of every supply gated by the permit, the AU supplies on the rack IOC and
 discharge supply on the platform IOC (through a Channel Access link), and clears their requests.
 The permit latches (owner's decision, 2026-11-21): a request made while the door is open is
 cleared at once, and when the door closes nothing switches on by itself; the operator switches on
-again, and that works. "All HV off" switches all AU supplies off and clears their requests."""
+again, and that works. While the door is open the output is kept off as a state (P45): a client
+that writes a supply's switching record ToggleOutput directly (P28) switches it on for a moment,
+and _permit:enforce switches it off again and counts it. "All HV off" switches all AU supplies
+off and clears their requests."""
 import time
 
 import pytest
@@ -19,6 +22,10 @@ SWITCH_LIMIT = 3.0     # permit -> output: OutputIntlk follows the permit by a C
                        # every 1 s); the switching protocol is sent at once (PRIO HIGH)
 SETTLED = 2            # processings of each gate record after the door closed, before the
                        # outputs are checked to have stayed off (it scans every 1 s)
+ENFORCE_LIMIT = 5.0    # a direct write of ToggleOutput while the permit is lost -> output off
+                       # again: the read-back of SW? (its forward link), two evaluations of
+                       # _permit:enforce (scans every 1 s; two more when the periodic read of SW?
+                       # every 5 s breaks the row, matsusada_au20p7.db), the off sequence
 
 
 def gated():
@@ -32,6 +39,14 @@ ALLOFF = reg.role(ALLOFF_DEV, "cmd")
 ALLOFF_SUPPLIES = [d for d in reg.devices if d != ALLOFF_DEV and any(
     s.split(":")[0] in reg.devices[ALLOFF_DEV]["simulators"] and ":" in s
     for s in reg.devices[d]["simulators"])]
+
+
+def direct(device, record):
+    """A record of a gated supply beside its gate (ToggleOutput, _permit:enforce): internal, no
+    role; named from the gate record's prefix and found in the registry."""
+    name = reg.gate_record(device).rsplit(":", 1)[0] + ":" + record
+    assert name in reg.devices[device]["pvs"], name
+    return name
 
 
 def output_on(device):
@@ -96,6 +111,19 @@ def test_open_door_switches_off_and_latches(everything_off):
     S.wait_for(lambda: not any(requests(GATED).values()), SWITCH_LIMIT,
                lambda: "requests made while the door is open, cleared: %s" % requests(GATED))
     assert not any(outputs(GATED).values()), outputs(GATED)
+    # a direct write of the switching record while the door is open (P28): on for a moment, off
+    # again by _permit:enforce, which counts it (P45)
+    counts = {d: S.get(direct(d, "_permit:enforce")) for d in GATED}
+    t0 = time.monotonic()
+    for d in GATED:
+        S.put(direct(d, "ToggleOutput"), 1)
+    S.wait_for(lambda: all(outputs(GATED).values()), 1.0,
+               lambda: "outputs on by a direct write: %s" % outputs(GATED))
+    S.wait_for(lambda: not any(outputs(GATED).values()), ENFORCE_LIMIT - (time.monotonic() - t0),
+               lambda: "outputs off again while the door is open: %s" % outputs(GATED))
+    after = {d: S.get(direct(d, "_permit:enforce")) for d in GATED}
+    assert after == {d: n + 1 for d, n in counts.items()}, (counts, after)
+    assert not any(requests(GATED).values()), requests(GATED)
     S.sim_set(INTERLOCK_SIM, DOOR, 1)                     # door closed
     S.sim_release(INTERLOCK_SIM, DOOR)
     S.wait_for(lambda: S.get(PERMIT) == 0, SWITCH_LIMIT, lambda: S.describe([PERMIT]))

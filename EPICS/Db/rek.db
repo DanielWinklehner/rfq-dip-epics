@@ -327,6 +327,10 @@ record(calcout, "$(DEV=REK)-$(UNITNUM):_permit:latch") {
 #   the first sequence goes out 1 to 2 s after the IOC has the reading, then one every 2 s while
 #   the condition lasts. A normal permit loss starts none: the gate's own sequence keeps H, I or
 #   J at 1 until SW? has been read back OFF, and status:read is read again within a second.
+#   The periodic scans run on one time grid (each scan thread waits for its start plus n
+#   periods, dbScan.c 798, 807, all started at iocInit), so with SCAN_GET 5 s every fifth
+#   evaluation can find the periodic read of SW? under way (J = 1), which breaks the row: then
+#   the first sequence goes out 1 to 4 s after the reading, and 2 or 3 s lie between two.
 #   VAL: the number of sequences started since the IOC start (0 if nothing went wrong), for
 #   diagnosis. No alarm of its own. It only switches off (SELN 6, never 5) and writes no request
 #   (the latch does that). REN comes first, so a supply under local control is taken back.
