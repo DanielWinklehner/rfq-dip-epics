@@ -1,7 +1,8 @@
 # ioc.cmd of the Matsusada case: both AU chains with the four supplies, one AU unit loaded but
 # not polled (6, test only), two REK supplies (24 A and 55 A), one more REK unit whose permit PV
 # does not exist, the "all off" PV, and the limits by autosave as in the IOCs' st.cmd. Two asyn
-# records (line trace for test_permit_enforce.py).
+# records (line trace for test_permit_enforce.py and test_switch_resend.py), and the helper that
+# writes into a busy ToggleOutput without the put flag (lost_write.db, test_switch_resend.py).
 drvAsynIPPortConfigure("mat_opt", "$(SIM_HOST):5001")
 drvAsynIPPortConfigure("mat_co", "$(SIM_HOST):5002")
 drvAsynIPPortConfigure("REK", "$(SIM_HOST):5003")
@@ -33,6 +34,11 @@ dbLoadRecords("$(MIST2_DB)/rek.db", "PORT=REK55,UNITNUM=2,IFS=55")              
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-2")
 dbLoadRecords("$(MIST2_DB)/rek.db", "PORT=REK55,UNITNUM=9,PERMIT=no:such:permit,SCAN_MON=Passive,SCAN_GET=Passive,SCAN_STS=Passive")
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=REK-9")
+
+# Test helper of test_switch_resend.py (this case only): writes into ToggleOutput from a periodic
+# scan, so that a write into the busy record carries no put flag, as the gate's own scan does.
+dbLoadRecords("$(CASE_DIR)/lost_write.db", "S=AU-20P7-3")
+dbLoadRecords("$(CASE_DIR)/lost_write.db", "S=REK-1")
 
 # Limits: defaults of the case, then the file saved at run time. /tmp of the IOC container
 # survives an IOC restart of the harness (same container).

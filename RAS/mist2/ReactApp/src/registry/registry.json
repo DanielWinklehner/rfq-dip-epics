@@ -594,6 +594,13 @@
      "log": "none",
      "sim": "rek:1"
     },
+    "REK-1:_out:resend": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Resends a stored switching (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "REK-1:status:read": {
      "type": "mbbi",
      "access": "r",
@@ -1930,6 +1937,13 @@
      "log": "none",
      "sim": "mat_opt:1"
     },
+    "AU-20P7-1:_out:resend": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Resends a stored switching (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "AU-20P7-1:status:read": {
      "type": "mbbi",
      "access": "r",
@@ -2322,6 +2336,13 @@
      "internal": true,
      "log": "none",
      "sim": "mat_opt:2"
+    },
+    "AU-20P7-2:_out:resend": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Resends a stored switching (internal)",
+     "internal": true,
+     "log": "none"
     },
     "AU-20P7-2:status:read": {
      "type": "mbbi",
@@ -2716,6 +2737,13 @@
      "log": "none",
      "sim": "mat_co:3"
     },
+    "AU-20P7-3:_out:resend": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Resends a stored switching (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "AU-20P7-3:status:read": {
      "type": "mbbi",
      "access": "r",
@@ -3108,6 +3136,13 @@
      "internal": true,
      "log": "none",
      "sim": "mat_co:4"
+    },
+    "AU-20P7-4:_out:resend": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Resends a stored switching (internal)",
+     "internal": true,
+     "log": "none"
     },
     "AU-20P7-4:status:read": {
      "type": "mbbi",

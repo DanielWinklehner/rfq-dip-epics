@@ -1,0 +1,101 @@
+# lost_write.db - test helper of the Matsusada device case only (loaded by its ioc.cmd, never by an
+# IOC's st.cmd): writes values into a supply's ToggleOutput from a periodic scan, so that a write
+# into the busy record carries no put flag, as the gate's own 1 s scan does (P47, task T21). A
+# client cannot make such a write: a Channel Access put carries the flag (dbAccess.c, dbPutField).
+#
+# Macro:
+#   S     PV prefix of the supply (AU-20P7-3, REK-1)
+#
+# A test prepares the values and then increments :go. At the next scan of .1 s (step 1) :s writes
+# :start into ToggleOutput if it is not busy (the switching begins); at the scan after it, 100 ms
+# later (step 2), :b1, :b2 and :b3 write :w1, :w2 and :w3 in that order, each only while
+# ToggleOutput is busy (same scan list and type, ordered by PHAS: dbScan.c, addToList). A value
+# of -1 writes nothing. The field L of each writer counts its writes.
+# Each write goes through a PP database link from a record processed by the periodic scan, so its
+# put flag is 0: a busy ToggleOutput gets the value in VAL and is not marked to run again
+# (dbDbLink.c, processTarget).
+
+record(longout, "DEVTEST:$(S):lost:start") {
+    field(DESC, "Value to start the switching with")
+    field(VAL,  "-1")
+}
+record(longout, "DEVTEST:$(S):lost:w1") {
+    field(DESC, "First value written while busy")
+    field(VAL,  "-1")
+}
+record(longout, "DEVTEST:$(S):lost:w2") {
+    field(DESC, "Second value written while busy")
+    field(VAL,  "-1")
+}
+record(longout, "DEVTEST:$(S):lost:w3") {
+    field(DESC, "Third value written while busy")
+    field(VAL,  "-1")
+}
+record(longout, "DEVTEST:$(S):lost:go") {
+    field(DESC, "Incremented by a test: one run")
+}
+
+# VAL 1 at the first scan after :go changed, 2 at the next, otherwise 0
+record(calcout, "DEVTEST:$(S):lost:step") {
+    field(DESC, "Step of the run")
+    field(SCAN, ".1 second")
+    field(PHAS, "0")
+    field(INPA, "DEVTEST:$(S):lost:go NPP")
+    field(CALC, "K:=A#J?1:(K=1?2:0);J:=A;K")
+}
+
+record(calcout, "DEVTEST:$(S):lost:s") {
+    field(DESC, "Step 1: start value into ToggleOutput")
+    field(SCAN, ".1 second")
+    field(PHAS, "1")
+    field(INPA, "DEVTEST:$(S):lost:step NPP")
+    field(INPB, "DEVTEST:$(S):lost:start NPP")
+    field(INPC, "$(S):ToggleOutput.PACT NPP")
+    field(CALC, "L:=L+(A=1&&B>=0&&C=0);A=1&&B>=0&&C=0")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "B")
+    field(OUT,  "$(S):ToggleOutput PP")
+}
+
+record(calcout, "DEVTEST:$(S):lost:b1") {
+    field(DESC, "Step 2: w1 into the busy ToggleOutput")
+    field(SCAN, ".1 second")
+    field(PHAS, "2")
+    field(INPA, "DEVTEST:$(S):lost:step NPP")
+    field(INPB, "DEVTEST:$(S):lost:w1 NPP")
+    field(INPC, "$(S):ToggleOutput.PACT NPP")
+    field(CALC, "L:=L+(A=2&&B>=0&&C=1);A=2&&B>=0&&C=1")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "B")
+    field(OUT,  "$(S):ToggleOutput PP")
+}
+
+record(calcout, "DEVTEST:$(S):lost:b2") {
+    field(DESC, "Step 2: w2 into the busy ToggleOutput")
+    field(SCAN, ".1 second")
+    field(PHAS, "3")
+    field(INPA, "DEVTEST:$(S):lost:step NPP")
+    field(INPB, "DEVTEST:$(S):lost:w2 NPP")
+    field(INPC, "$(S):ToggleOutput.PACT NPP")
+    field(CALC, "L:=L+(A=2&&B>=0&&C=1);A=2&&B>=0&&C=1")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "B")
+    field(OUT,  "$(S):ToggleOutput PP")
+}
+
+record(calcout, "DEVTEST:$(S):lost:b3") {
+    field(DESC, "Step 2: w3 into the busy ToggleOutput")
+    field(SCAN, ".1 second")
+    field(PHAS, "4")
+    field(INPA, "DEVTEST:$(S):lost:step NPP")
+    field(INPB, "DEVTEST:$(S):lost:w3 NPP")
+    field(INPC, "$(S):ToggleOutput.PACT NPP")
+    field(CALC, "L:=L+(A=2&&B>=0&&C=1);A=2&&B>=0&&C=1")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "B")
+    field(OUT,  "$(S):ToggleOutput PP")
+}

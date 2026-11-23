@@ -1122,12 +1122,13 @@ databases:
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
                "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
-               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce"]
+               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce", "_out:resend"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
       "output:init": []        # runs once, after the take-over of the output state
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
+      "_out:resend": []        # writes only when a value was stored in the busy ToggleOutput; then LINK on a closed port, until its next evaluation
 
   rek.db:
     class: supply
@@ -1148,12 +1149,13 @@ databases:
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
                "_init:probe", "_limit:apply", "_limit:send", "_permit:latch", "_permit:read",
-               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce"]
+               "_out:switch", "_out:limit", "_out:remote", "_permit:enforce", "_out:resend"]
     invalid_on:                # the running state, after the first contact
       "_init:probe": []        # disabled at the first contact (supply_first_contact.db; before it: INVALID on a closed port)
       "output:init": []        # runs once, after the take-over of the output state
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
+      "_out:resend": []        # writes only when a value was stored in the busy ToggleOutput; then LINK on a closed port, until its next evaluation
 
   au_alloff.db:
     class: command
