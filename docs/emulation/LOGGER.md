@@ -185,10 +185,11 @@ once a second (Channel Access puts). The logger does not log these records.
 | `LOGGER:buffer:get` | share of the buffer in use, % | MINOR from 50 %, MAJOR from 90 % |
 | `LOGGER:dropped:get` | rows lost since the logger started | MINOR from 1 |
 
-They are the device `logger` (class `logger`, subsystem `services`) of the registry. The GUI
-shows them without new code: on the Infrastructure page in the device table with their worst
-alarm, in the device window (generic widget), and as a tag on the Diagnostics page and the
-Overview. A dead logger is MAJOR there.
+They are the device `logger` (class `logger`, subsystem `services`) of the registry. The
+subsystem has no page, so the GUI shows the logger as infrastructure: on the Infrastructure
+page with a widget of its own and its worst alarm, in its device window, and as a chip in the
+status strip of every window ("Data logger: alive", red with "not alive" while the counter
+stands). It is on no drawing.
 
 ## 7. Reading
 
