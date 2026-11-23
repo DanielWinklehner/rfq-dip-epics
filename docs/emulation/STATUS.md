@@ -313,8 +313,9 @@ State of 2026-11-23, early morning.
 - No subagent is working.
 - After the full runs on the merged tree two changes were merged: the fix of the loop's mode
   request (its test run alone, without and with the fix) and T17d (the logger's tests on its
-  branch). A last GUI check and the logger's tests on the final head are running; the system
-  suite was not run again after these two changes.
+  branch). On the final head the GUI check (exit 0, 289 checks; its note after the IOC start
+  names two internal records only) and the logger's tests (35 passed in 409 s) pass in my
+  runs. The system suite was not run again after these two changes.
 - Next: your comments on the drawings (answer 25), and P40 when you say so.
 
 ## Open
