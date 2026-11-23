@@ -111,6 +111,16 @@ def enabled():
     yield
 
 
+def taken_over(d):
+    """The unit that is not polled probes only once, at PINI: after an IOC start while its chain
+    was closed (test_matsusada.py) it has had no first contact, so its gate is disabled and the
+    rule rightly does nothing. Restart the IOC then (its chain is reachable now)."""
+    if get(d + ":OutputIntlk.DISA") == 1:
+        restart_ioc()
+        wait_for(lambda: get(d + ":OutputIntlk.DISA") == 0, GRACE + 10, "%s: gate enabled" % d)
+        gates_enabled()
+
+
 def switch_off_directly(d):
     """Back to off after a test that switched on without a request (the request is 0, so writing
     it does not reach the gate): ToggleOutput 0, as a client would."""
@@ -128,6 +138,8 @@ def test_direct_write_while_the_permit_is_lost_is_switched_off(d):
     REN, RST, SW0 after the SW1, ToggleOutput and the request 0, the count up by one. Also for
     the unit that is not polled: its SW? is read after every switching (FLNK of ToggleOutput),
     its status never (INVALID, UDF), so the rule sees the read-back of the direct write."""
+    if d == UNPOLLED:
+        taken_over(d)
     lose_permit()
     n0 = count(d)
     mark = sim_log_mark()
