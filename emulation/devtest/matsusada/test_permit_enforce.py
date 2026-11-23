@@ -241,9 +241,11 @@ SETTLE = 3.0      # s after the output went off: a second sequence would start w
 
 def test_a_normal_permit_loss_sends_exactly_one_off_sequence(capsys):
     """Every polled supply on, the permit lost: each supply receives SW0 exactly once and the
-    count does not move. Repeated ROUNDS times."""
+    count does not move, nor does that of _out:resend (no switching command was stored in a busy
+    ToggleOutput, T21). Repeated ROUNDS times."""
     supplies = list(POLLED)
     n0 = {d: count(d) for d in supplies}
+    r0 = {d: get(d + ":_out:resend") for d in supplies}
     mark = sim_log_mark()
     for _ in range(ROUNDS):
         for d in supplies:
@@ -257,6 +259,7 @@ def test_a_normal_permit_loss_sends_exactly_one_off_sequence(capsys):
             wait_for(lambda: off_in_sim(d), 3, "%s off by the permit" % d)
         time.sleep(SETTLE)
         assert {d: count(d) for d in supplies} == n0
+        assert {d: get(d + ":_out:resend") for d in supplies} == r0
         put("interlock_open", 0)
         for d in supplies:
             wait_for(lambda: get(d + ":OutputIntlk.A") == 0, 3, "%s: permit back" % d)
@@ -268,7 +271,8 @@ def test_a_normal_permit_loss_sends_exactly_one_off_sequence(capsys):
         sw1 = [l for l in lines if l.endswith("SW1")]
         assert (len(sw1), len(sw0)) == (ROUNDS, ROUNDS), (d, len(sw1), len(sw0))
     with capsys.disabled():
-        print("\n%d permit losses (%d rounds x %d supplies): one SW0 each, counts unchanged"
+        print("\n%d permit losses (%d rounds x %d supplies): one SW0 each, counts of "
+              "_permit:enforce and _out:resend unchanged"
               % (ROUNDS * len(supplies), ROUNDS, len(supplies)))
 
 
