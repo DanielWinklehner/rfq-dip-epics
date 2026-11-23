@@ -310,13 +310,16 @@ on hardware. The PDF printout is not built: the task named it as a later additio
 
 State of 2026-11-23, early morning.
 
-- No subagent is working.
+- T19, started 2026-11-23 on your word ("Do P40 now"), one subagent on Opus 5.5 in
+  `.claude/worktrees/t19` (`briefs/T19-supply-first-contact.md`): the first contact of the
+  Matsusada and REK supplies without a gap in which a voltage written by an operator is
+  accepted and not sent (P40).
 - After the full runs on the merged tree two changes were merged: the fix of the loop's mode
   request (its test run alone, without and with the fix) and T17d (the logger's tests on its
   branch). On the final head the GUI check (exit 0, 289 checks; its note after the IOC start
   names two internal records only) and the logger's tests (35 passed in 409 s) pass in my
   runs. The system suite was not run again after these two changes.
-- Next: your comments on the drawings (answer 25), and P40 when you say so.
+- Next: your comments on the drawings (answer 25).
 
 ## Open
 
