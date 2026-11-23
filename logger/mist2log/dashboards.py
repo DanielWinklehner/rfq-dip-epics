@@ -106,10 +106,12 @@ def page_dashboard(reg, title, devices):
 
 def build(reg):
     devices = installed(reg)
-    # A device without a page (a service of the control system, such as the logger itself) has no
-    # dashboard of its own: it is in the Overview and in Infrastructure.
-    pages = list(dict.fromkeys(reg["devices"][d]["page"] for d in devices if reg["devices"][d]["page"]))
-    out = [page_dashboard(reg, "Overview", devices)]
+    # A device without a page (a service of the control system, such as the logger itself) is
+    # infrastructure, as in the GUI (registry.js isInfrastructure): no dashboard of its own, not
+    # in the Overview; its events are in Infrastructure.
+    drawn = [d for d in devices if reg["devices"][d]["page"]]
+    pages = list(dict.fromkeys(reg["devices"][d]["page"] for d in drawn))
+    out = [page_dashboard(reg, "Overview", drawn)]
     out += [page_dashboard(reg, page, [d for d in devices if reg["devices"][d]["page"] == page]) for page in pages]
     variable = {"type": "query", "name": "pv", "label": "PVs", "datasource": DATASOURCE, "multi": True,
                 "includeAll": False, "refresh": 1, "query": "SELECT name FROM pv WHERE tier IN ('raw', 'seconds', 'minutes') ORDER BY name",
