@@ -62,6 +62,19 @@ class ProcessFaultTest(unittest.TestCase):
         self.bus.clear_faults(unit=2)
         self.assertEqual(self.bus.process(b"#2 Q"), [b"#2 A"])
 
+    def test_slow_second_delays_the_second_reply_once(self):
+        """slow_second: the unit's first reply after the fault is on time, the second is late,
+        then the fault is gone; replies of other units do not count."""
+        self.bus.add_fault("slow_second", unit=2, ms=300)
+        self.assertEqual(self.bus._process(b"#1 Q"), ([b"#1 A"], 0.0))     # other unit
+        self.assertEqual(self.bus._process(b"#2 Q"), ([b"#2 A"], 0.0))     # first reply
+        self.assertEqual(self.bus._process(b"#9 Q"), ([], 0.0))            # no reply
+        self.assertEqual(self.bus._process(b"#2 Q"), ([b"#2 A"], 0.3))     # second: late
+        self.assertEqual(self.bus.fault_list(), [])
+        self.assertEqual(self.bus._process(b"#2 Q"), ([b"#2 A"], 0.0))
+        with self.assertRaises(ValueError):
+            self.bus.add_fault("slow_second", unit=2)                      # needs ms
+
     def test_bad_fault_arguments(self):
         for kwargs in ({"mode": "melt"}, {"mode": "slow"}, {"mode": "slow", "ms": -1},
                        {"mode": "silent", "duration": 0}, {"mode": "silent", "unit": 1},
