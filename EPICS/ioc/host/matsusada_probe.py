@@ -26,7 +26,9 @@ import time
 
 REPLY_TIMEOUT = 0.5  # s. matsusada_co_ctrl.proto waits 150 ms; a first contact may take longer.
 
-# query -> the reply matsusada_co_ctrl.proto expects ({unit} is the unit number)
+# query -> the reply matsusada_co_ctrl.proto expects ({unit} is the unit number). The protocol
+# file also sends STS before every SW?, CH0? and CH1? and checks the unit number in its reply
+# (task T22): every state read depends on this form of the STS reply.
 QUERIES = {
     "STS": r"#{unit} (CF|CO) (RM|LO)",
     "SW?": r"SW[01]",

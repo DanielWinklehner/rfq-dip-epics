@@ -7,6 +7,10 @@
 # Set commands get NO reply. Every set is therefore followed by a read of its setting and
 # compared with what was sent (%=): a supply that does not execute the set, or does not
 # answer, turns the set-point record INVALID (CALC or TIMEOUT).
+# Of the replies only the one to STS carries the unit number ("#<unit> CO RM"); the replies to
+# SW?, CH0?, CH1?, MN1 and MN2 do not. So every protocol whose reply is copied or compared as a
+# state or a setting asks the same unit for its status first and checks the unit number in that
+# reply (the status check, below); the monitors do not (one request, one reply).
 # The set points have no @init: StreamDevice 2.8.26 converts a LONG input of an ao record with
 # ASLO only, not ESLO (devaoStream.c, readData). The database does it instead: at the first
 # contact the voltage set point takes over the setting the supply reports (:voltage:get), and
@@ -20,34 +24,84 @@
 Terminator = CR;
 
 # All supplies of a chain share one 9600 baud line, so a supply that does not answer must not
-# hold it long. A reply takes 17 to 19 ms plus the adapter's turnaround (5 to 16 ms). 150 ms
-# leaves four times that. The supplies of a chain share the line evenly, so while one of two is
-# silent (150 ms timeout + 50 ms wait per request) the other keeps about 1.4 updates per second
-# (the default 1000 ms: 0.3).
+# hold it long. A request and its reply take at most 19 ms on the line (MN1 and its reply: 18
+# characters with the CRs, 1.04 ms each; STS: 16, SW?: 11) plus the adapter's turnaround (5 to
+# 16 ms). 150 ms leaves four times that. The
+# supplies of a chain share the line evenly, so while one of two is silent (150 ms timeout +
+# 50 ms wait per request) the other keeps about 1.4 updates per second (the default 1000 ms:
+# 0.3). A silent supply costs that once per protocol also where a protocol has two replies:
+# the first in (the status check) fails and ends it.
 ReplyTimeout = 150;
 ReadTimeout = 50;
 # A record waits at most this long for the line. Each supply has at most one monitor, one status
-# and two echo reads queued, so even a chain of three silent supplies is through its queue in
-# about 2 s; a disconnected chain turns the records INVALID within 3 s (default 5000 ms).
+# and two echo reads queued; a silent supply holds the line 200 ms for each (the first in of a
+# protocol fails and ends it), so even a chain of three silent supplies is through its queue in
+# about 2.4 s; a disconnected chain turns the records INVALID within 3 s (default 5000 ms). An
+# answering supply's state read holds the line one status check longer (about 22 ms at 5 ms
+# turnaround, 33 ms at 16 ms) than before T22.
 LockTimeout = 3000;
 
+# A reply that comes after the reply timeout and the wait below belongs to a request that has
+# given up; the next request on the line, possibly of another supply, reads it (a stray reply),
+# and its own reply is then still on its way. StreamDevice discards input that arrived before a
+# write: every out empties the protocol's own buffer (StreamCore.cc 603-606, evalOut) and reads
+# and drops what the port holds with timeout 0 (AsynDriverInterface.cc 652-676, writeHandler).
+# So a reply does harm only when it arrives after the next request has been written. Two
+# handlers keep the line for as long as a reply still on its way needs, so that the next write
+# drops it: StreamDevice runs a handler's commands before it releases the line (StreamCore.cc,
+# finishProtocol: 501-508 pick @replytimeout or @mismatch, 532-538 start it and return; the line
+# is released at 541-545 only when finishProtocol runs again at the handler's end), and the
+# record still gets the original result (runningHandler, 480-488), INVALID with TIMEOUT or CALC
+# (StreamEpics.cc 1073-1084).
 # After a reply timeout keep the line 50 ms longer: a reply that comes late then arrives before
-# the next request and is discarded (StreamDevice flushes old input before every write) instead
-# of being taken as the reply to the next request, possibly of another supply.
+# the next request and is discarded instead of being taken as the reply to the next request.
 @replytimeout { wait 50; }
+# After a mismatch keep the line 50 ms longer (R1 of task T22). A mismatch on a line in normal
+# operation means this request read a stray (or a line nobody asked for: the "!" of a unit whose
+# output goes off, manual 7-2, SRQ), and its own reply is still to come. That request was written
+# before the mismatch was found, so its reply arrives within its request's characters (at most 9:
+# 9.4 ms, if the adapter sends it only after the stray), the turnaround (at most 16 ms) and the
+# reply's characters (at most 11: 11.5 ms) after the mismatch: 37 ms at most. 50 ms leaves 13 ms,
+# and is the wait of @replytimeout. Then the line is in step after one mismatch. A mismatch of a
+# reply that was not a stray (a set that the supply did not execute, compared by %=) costs 50 ms
+# of line time and nothing else. (A handler that starts with "in" would re-parse the input,
+# StreamCore.cc 507-520, and silence StreamDevice's mismatch messages, 1180-1182 and 1260-1300:
+# not wanted here.)
+@mismatch { wait 50; }
+
+# The status check of a state or setting read (R2 of task T22): STS to the same unit, the reply
+# must carry its unit number; the status itself is discarded (%*{...}: the skip flag on an enum,
+# StreamFormatConverter.cc 73-81; StreamCore.cc 1221-1232 scans it with the enum converter and
+# stores nothing). It comes before the protocol's own query because a stray is older than the
+# reply to every request written after it (one line, replies in the order of the requests, and
+# what arrived before a write is dropped, see above): it is always the first input a protocol
+# reads after its first write, so it meets the check, which it fails (CALC, then @mismatch)
+# unless it is this unit's own status reply. In that last case the check passes on the old
+# status, the reply to this protocol's STS is still on its way and arrives after the query is
+# written: the query's in reads it and mismatches (CALC): INVALID, never another supply's value.
+# A set or a switching command goes out first, as before, so a stray never stops a command: the
+# check stands between the command and the read-back of the setting.
 
 # Voltage (hex)
 set_voltage {
     out "#\$1 CH0 %04X";
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 CH0?";
     in "CH0=%=04XH";
 }
 
 get_voltage {
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 CH0?";
     in "CH0=%XH";
 }
 
+# The monitors are not checked (owner's decision, task T22): read ten times a second on a full
+# line, a status request in front of each would cost nearly half the update rate. A monitor can
+# take a neighbour's reply of the same kind for one cycle, until the first mismatch puts the line
+# in step (@mismatch).
 read_voltage {
     out "#\$1 MN1";
     in "MONI1=%XH";
@@ -56,11 +110,15 @@ read_voltage {
 # Current (hex)
 set_current {
     out "#\$1 CH1 %04X";
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 CH1?";
     in "CH1=%=04XH";
 }
 
 get_current {
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 CH1?";
     in "CH1=%XH";
 }
@@ -72,8 +130,9 @@ read_current {
 
 # Switching, as in manual 6-7: on = REN, the current limit (CH1, instead of the manual's
 # "ICN 100"), RST, SW1; off = REN, RST, SW0. The REN and the limit come from switch_on_limit or
-# remote (records _out:limit, _out:remote), then toggle_output: RST (cancel a cut-off), SW, and
-# the SW setting read back and compared. $2 of switch_on_limit is the PV prefix of the supply.
+# remote (records _out:limit, _out:remote), then toggle_output: RST (cancel a cut-off), SW, the
+# status check, and the SW setting read back and compared. $2 of switch_on_limit is the PV prefix
+# of the supply.
 switch_on_limit {
     out "#\$1 REN";
     out "#\$1 CH1 %(\$2current:limit.RVAL)04X";
@@ -86,24 +145,31 @@ remote {
 toggle_output {
     out "#\$1 RST";
     out "#\$1 SW%{0|1}";
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 SW?";
     in "SW%={0|1}";
 }
 
-# First contact after the IOC start: remote control on, and the SW setting.
+# First contact after the IOC start: remote control on, the status check, and the SW setting.
 probe {
     out "#\$1 REN";
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 SW?";
     in "SW%d";
 }
 
 get_output_status {
+    out "#\$1 STS";
+    in "#\$1 %*{CF RM|CO RM|CF LO|CO LO}";
     out "#\$1 SW?";
     in "SW%d";
 }
 
 # Output really on (CO) or off (CF), differs from SW? after a cut-off; remote (RM) or local
-# (LO). Values 0 to 3 for the mbbi. No REN: the front panel may have taken local control.
+# (LO). Values 0 to 3 for the mbbi. No REN: the front panel may have taken local control. Its
+# reply carries the unit number: a stray fails here as in the status check.
 read_status {
     out "#\$1 STS";
     in "#\$1 %{CF RM|CO RM|CF LO|CO LO}";
