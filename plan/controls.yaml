@@ -371,7 +371,7 @@ devices:
     status: keep
     notes:
       - "Full scale 5 sccm, calibrated for hydrogen, which is the gas in use. Typical set point about 20 % (owner, 2026-11-21)."
-      - "The set point goes down to -20 %. The lab sets -20 % for the most closed state the controller can reach (owner, 2026-11-23). The unit starts there."
+      - "The set point goes down to -20 %. The lab sets -20 % for the most closed state the controller can reach (owner, 2026-11-23). The simulator starts there."
       - "Works as it is, no change planned."
       - "The Ethernet port of the unit is for setup only, not for control."
       - "mfc.db and mfc.proto are now in the repository: the lab's draft of 2023 (set point only, commented out in its st.cmd), completed from the MKS RS-485 supplement 1046411-001 Rev. A. Sets are acknowledged. The set point is in percent of full scale, MFC:getFlow in flow units (sccm)."
