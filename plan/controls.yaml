@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.18"
+  revision: "0.19"
   date: "2026-11-23"
   author: "D. Winklehner"
   basis:
@@ -37,6 +37,7 @@ meta:
     - "Revision 0.16: the mass flow controller's set point of -20 % is its most closed state and wanted (owner, 2026-11-23)."
     - "Revision 0.17: the first contact of the Matsusada and REK supplies is a database of its own, loaded with every supply (supply_first_contact.db, T19): output state and voltage setting are taken over without a gap in which a write is accepted and not sent. Its records are internal; _init:vcopy is removed."
     - "Revision 0.18: the output permit of the Matsusada and REK supplies acts as a state (T20, owner's word of 2026-11-23): while it is lost and a supply reports its output on, the off sequence is sent again every 2 s (internal record _permit:enforce, which counts them). A direct write of ToggleOutput and a switch-on at the front panel are switched off again while the permit is lost."
+    - "Revision 0.19: a switching command written into a supply's switching record while it is still busy with the previous one is sent when the record is free, within 1 s (T21, owner's word of 2026-11-23): internal record _out:resend of the Matsusada and REK supplies, which counts them."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -1117,7 +1118,7 @@ databases:
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them). A request that follows the previous one within the switching time (some tens of ms) is not lost: it is sent when the switching record is free, within 1 s (_out:resend)"}
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
@@ -1144,7 +1145,7 @@ databases:
       iread: "current:read"
       power: "power:read"
       out_cmd: {record: SetToggleOutput, readback: out_state, test: [0, 1], ack: false,
-                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them)"}
+                note: "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them). A request that follows the previous one within the switching time (some tens of ms) is not lost: it is sent when the switching record is free, within 1 s (_out:resend)"}
       out_state: read_output_status
       status: {record: "status:read", note: "OFF, ON (remote), OFF, LOCAL and ON, LOCAL (MINOR: front panel in control)"}
     internal: [OutputIntlk, ToggleOutput, "output:init", "_poll:tick", "_poll:gate", "_poll:start", "_poll:done",
