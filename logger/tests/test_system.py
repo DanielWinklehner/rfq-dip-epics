@@ -625,6 +625,44 @@ def test_grafana_answers_and_has_one_dashboard_per_page_of_the_gui():
     series = ask(panel["targets"][0]["rawSql"], 300)
     assert len(series) == 2 and all(len(v) >= 2 for v in series.values()), {k: len(v) for k, v in series.items()}
 
+    # F8: every series of a panel with several is a line of its own: asked as the dashboard's panel
+    # asks (its format, its query), a series holds NULL only at its own gap rows, not at the time
+    # stamps of the other series. The truth: the panel's query run in the database directly.
+    with open(os.path.join(BUILD, "dashboards", "plasma-generator.json")) as handle:
+        multi = [p for p in json.load(handle)["panels"] if p["type"] == "timeseries" and p["targets"][0]["rawSql"].count("), (") >= 1]
+    assert multi
+    t_to = math.floor(time.time() * 1000) - 5000        # data complete there: both queries see the same rows
+    t_from = t_to - 300000
+    for panel in multi:
+        target = panel["targets"][0]
+        step = int(max(minimum * 1000, (t_to - t_from) / 1000))
+        body = {"from": str(t_from), "to": str(t_to), "queries": [dict(target, intervalMs=step, maxDataPoints=1000)]}
+        req = urllib.request.Request(base + "/api/ds/query", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        frames = json.load(urllib.request.urlopen(req, timeout=10))["results"]["A"]["frames"]
+        got = {}
+        for f in frames:
+            names = [fl["name"] for fl in f["schema"]["fields"]]
+            values = f["data"]["values"]
+            if "metric" in names:                       # long: one row per point of one series
+                for t, m, v in zip(values[0], values[names.index("metric")], values[names.index("value")]):
+                    got.setdefault(m, []).append((t, v))
+            else:                                       # wide: one field per series
+                for fl, vals in zip(f["schema"]["fields"][1:], values[1:]):
+                    name = (fl.get("labels") or {}).get("metric") or fl["name"]
+                    got.setdefault(name, []).extend(zip(values[0], vals))
+        sql = target["rawSql"].replace("$__timeFrom()", "'%s'" % ts(t_from / 1000).isoformat()).replace(
+            "$__timeTo()", "'%s'" % ts(t_to / 1000).isoformat()).replace("$__interval_ms", str(step))
+        want = {}
+        for t, metric, value in q(sql):
+            want.setdefault(metric, []).append((math.floor(t.timestamp() * 1000 + 1e-6), value))
+        assert set(got) == set(want), (panel["title"], set(got), set(want))
+        for name in want:
+            own_gaps = {t for t, v in want[name] if v is None}
+            nulls = {t for t, v in got[name] if v is None}
+            assert nulls <= own_gaps, "%s, %s: NULL at %d time stamps that are no gap of its own" % (
+                panel["title"], name, len(nulls - own_gaps))
+            assert sum(v is not None for _, v in got[name]) == sum(v is not None for _, v in want[name]), (panel["title"], name)
+
     # every trend of the generated panels draws from the database (as the read-only user)
     with open(os.path.join(BUILD, "dashboards", "plasma-generator.json")) as handle:
         board = json.load(handle)
