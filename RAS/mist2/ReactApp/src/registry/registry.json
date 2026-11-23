@@ -3387,10 +3387,24 @@
      "internal": true,
      "log": "none"
     },
+    "AIM:_take:enable:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, enable (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "AIM:_take:enable:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into enable (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "AIM:_take:enable:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, enable (internal)",
      "internal": true,
      "log": "none"
     }
@@ -3683,10 +3697,24 @@
      "internal": true,
      "log": "none"
     },
+    "TURBO1:_take:start:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, start (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "TURBO1:_take:start:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO1:_take:start:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, start (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4012,10 +4040,24 @@
      "internal": true,
      "log": "none"
     },
+    "TURBO2:_take:start:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, start (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "TURBO2:_take:start:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into start (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TURBO2:_take:start:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, start (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4646,10 +4688,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s1:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s1:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s1 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s1:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s1 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4660,10 +4716,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s2:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s2:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s2 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s2:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s2 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4674,10 +4744,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s3:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s3:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s3 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s3:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s3 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4688,10 +4772,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s4:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s4:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s4 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s4:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s4 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4702,10 +4800,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s5:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s5:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s5 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s5:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s5 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4716,10 +4828,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s6:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s6:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s6 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s6:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s6 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4730,10 +4856,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s7:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s7:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s7 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s7:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s7 (internal)",
      "internal": true,
      "log": "none"
     },
@@ -4744,10 +4884,24 @@
      "internal": true,
      "log": "none"
     },
+    "VALVE:_take:s8:on": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM on, s8 (internal)",
+     "internal": true,
+     "log": "none"
+    },
     "VALVE:_take:s8:copy": {
-     "type": "seq",
+     "type": "dfanout",
      "access": "r",
      "desc": "Take-over copy into s8 (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "VALVE:_take:s8:off": {
+     "type": "dfanout",
+     "access": "r",
+     "desc": "Take-over SIMM off, s8 (internal)",
      "internal": true,
      "log": "none"
     }
