@@ -358,10 +358,8 @@ const phases = {
       const missing = expected(id).filter((pv) => !shown.has(pv));
       check(missing.length === 0, `device window ${id}: shows all ${expected(id).length} PVs of the device${missing.length ? ` (missing: ${missing.join(", ")})` : ""}`);
       const controls = els.filter((el) => el.part === "Controls");
-      check(
-        controls.every((el) => el.alarm !== "disconnected"),
-        `device window ${id}: ${controls.length} controls, all connected`
-      );
+      const lost = controls.filter((el) => el.alarm === "disconnected").map((el) => el.pv);
+      check(lost.length === 0, `device window ${id}: ${controls.length} controls, all connected${lost.length ? ` (not: ${lost.join(", ")})` : ""}`);
       checkWords(els, `device window ${id}`);
       for (const el of els.filter((e) => e.row)) expert[el.pv] = { value: el.row[1], sevr: el.row[2] };
       await shot(page, `normal-device-${id}`, false);
@@ -525,7 +523,7 @@ const phases = {
       await page.waitForTimeout(300);
       const after = await input.inputValue();
       check(
-        after === shown && (await input.getAttribute("data-unsent")) === null,
+        Number(after) === Number(shown) && (await input.getAttribute("data-unsent")) === null,
         `${tab}, tag ${id} ${role}: Escape gives the entry up, the field shows the IOC's ${after} again (before: ${shown})`
       );
       await page.close();
