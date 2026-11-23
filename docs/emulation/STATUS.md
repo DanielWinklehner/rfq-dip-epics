@@ -1,6 +1,6 @@
 # Status
 
-Last update: 2026-11-22. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
+Last update: 2026-11-23. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
 nothing is pushed.
 
 Everything is built and merged. The system suite and the GUI check pass on the final state.
@@ -14,6 +14,11 @@ with all of it (plan 0.15) the system suite (281 passed in 766 s), the GUI check
 and the logger's tests (35 passed in 407 s) pass in my own runs. Two changes came after those
 runs: a fix of the loop's mode request with its test, and the last round of the logger's
 dashboards; what was run for each is in "Running".
+
+After that (2026-11-23, on your word): the first contact of the Matsusada and REK supplies has
+no gap any more in which a written voltage is accepted and not sent (P40, task T19). Verified
+by me on its branch and merged, plan 0.17. One finding beside it waits for your word: P45, a
+rare case in which the interlock gate's off command is not sent.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -303,24 +308,77 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   relay and the gauge on, then the rack IOC restarted. Every request showed its device's state
   without alarm, simulation mode was off, the simulators had received no set, the Overview
   had no INVALID request, and a write afterwards was sent.
-- The same `seq` pattern is in the first contact of the Matsusada and REK supplies from the
-  first round (P40).
+- The same `seq` pattern was in the first contact of the Matsusada and REK supplies from the
+  first round (P40): removed by T19, next block.
+
+**The supplies' first contact without a gap** (`EPICS/Db/supply_first_contact.db`; subagent, task T19, one round, merged 2026-11-23 on your word; open point P40)
+- What was wrong: the voltage set point of a supply starts in simulation mode, takes the
+  supply's own setting at the first valid echo, and then leaves simulation mode. The two steps
+  were two callbacks of a `seq` record with the lock released in between. A voltage written
+  between them was accepted without alarm, not sent and not replaced: the set point then
+  showed a voltage the supply did not have. The take-over of the output state had the same
+  structure.
+- What it is now: a database file of its own, loaded with every supply (four AU supplies on
+  the rack IOC, the REK on the platform IOC, macro `S`). The take-over of the output state
+  (`_init:otake`) and of the voltage setting (`_init:vtake`) are each one check and two or
+  three chained records that run under one hold of the lock. A write comes before the check
+  (in simulation mode, then replaced by the supply's setting) or after the last step (sent).
+  `_init:vcopy` is removed. `output:init` keeps what follows the take-over: the echo read,
+  the current limit, and the gate 5 s later.
+- What an operator sees is unchanged: nothing is sent before the first answer, a voltage or a
+  request written before it is replaced by the supply's state (P20, P29), the current limit
+  is sent after the first contact, and a supply that answers late is taken over then.
+- I read the source lines the design rests on in the base of our image: StreamDevice finishes
+  a record between `dbScanLock` and `dbScanUnlock` (`StreamEpics.cc`, `recordProcessCallback`),
+  an input record runs its forward link inside its own processing, `calcout` with a delay of
+  0 writes at once, `dfanout` writes all its outputs and then its forward link without a
+  callback, and a client's write takes the same lock (`dbAccess.c`, `dbPutField`).
+- Tests: the structure from the running IOCs (types, no delay field, the chain of links, no
+  step of a take-over left in the supplies' own files), and a client that writes an AU
+  supply's and the REK's voltage set point in a tight loop while their IOC restarts, the
+  supply silent at the start so that writes really go into simulation mode. Whenever
+  simulation mode is off, the set point equals the simulator's setting. They ride on the two
+  IOC restarts the suite had, so the suite got 3 s longer, not 30.
+- How the new test was seen to fail: with the gap widened to 0.3 s (the engineer's run) it
+  reports set point 40 V against 0 V at the supply. With the old records as they were it did
+  not fail in 11 637 writes over 11 restarts: the real gap was too short to hit on purpose.
+  The structure test fails on the old records.
+- Verified by me on the branch: plan check, system suite (284 passed in 757 s, saved settings
+  unchanged, 1101 writes through the REK's restart and 1454 through the AU supply's), the
+  Matsusada device case (28 passed in 238 s) and the GUI check (exit 0, 289 checks). By hand:
+  AU-20P7-1 on at 12 kV and AU-20P7-3 off at 3 kV, the rack IOC restarted; the REK on at
+  100 V, the platform IOC restarted. Each time set point, echo, request, `ToggleOutput` and
+  the supply's state were as before, simulation mode off, the gate enabled after its 5 s
+  without switching, and the simulators had received one command per supply: the current
+  limit. With AU-20P7-1 silent at the start I wrote 5 kV and "off" before it answered: both
+  were replaced by 12 kV and "on" when it answered, and nothing was sent. Writes afterwards
+  were sent (11 kV, 80 V, on, off).
+- On the merged head (plan 0.17): plan check, and the system suite once more (284 passed in
+  757 s, saved settings unchanged, nothing left running).
+- `output:init` lost its guard (it was disabled while the probe had no valid answer), because
+  only the take-over starts it now. A client that writes this internal record before the
+  first contact would enable the gate early. With the request and the gate's previous value
+  both at 0 nothing is sent then. Read from the records, not tested.
+- Seen in the hand check, and as designed: a restart of the rack IOC switches the REK off and
+  clears its request, because the REK's permit is a PV of the rack IOC.
+- Found beside it, both older than this task: P45 (a rare case in the interlock gate's
+  switching sequence) and P46 (how long the loop service needs after an IOC start).
 
 ## Running
 
-State of 2026-11-23, early morning.
+State of 2026-11-23, morning. Nothing is running.
 
-- T19, started 2026-11-23 on your word ("Do P40 now"), one subagent on Opus 5.5 in
-  `.claude/worktrees/t19` (`briefs/T19-supply-first-contact.md`): the first contact of the
-  Matsusada and REK supplies without a gap in which a voltage written by an operator is
-  accepted and not sent (P40).
+- T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
+  the merged head. The GUI check, the device case and the hand check ran on the branch, whose
+  databases, tests and GUI are the same files: the merge added the plan's revision number and
+  this document.
 - After the full runs on the merged tree two changes were merged: the fix of the loop's mode
   request (its test run alone, without and with the fix) and T17d (the logger's tests on its
   branch). On the final head the GUI check (exit 0, 289 checks; its note after the IOC start
   names two internal records only), the logger's tests (35 passed in 409 s) and the system
   suite (281 passed in 743 s, saved settings unchanged; run after plan 0.16 as the baseline for
   T19) pass in my runs.
-- Next: your comments on the drawings (answer 25).
+- Next: your comments on the drawings (answer 25), and your word on P45.
 
 ## Open
 
@@ -416,6 +474,10 @@ State of 2026-11-23, early morning.
     is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
     the entry?
+13. P45: shall the interlock gate of the AU supplies and the REK send its off command again
+    for as long as the permit is lost and the supply reports its output on? Today it sends it
+    once, when the permit goes. And do these supplies have a hardware interlock of their own,
+    so that the software gate is the second line and not the only one?
 
 ## Not verified
 
@@ -445,6 +507,12 @@ State of 2026-11-23, early morning.
   What is tested is the structure (no record that defers its work) and a client that writes
   through an IOC restart (311 writes, none swallowed). The argument itself rests on the source
   of the base.
+- The gap in the supplies' old first contact could not be hit on purpose either: the old
+  records passed the new writer test. The test fails when the gap is widened to 0.3 s, and the
+  structure test fails on the old records. The argument rests on the source of the base. The
+  slow variant (ten restarts of the platform IOC) was not run.
+- P45 is read from the source, not seen. Whether the supplies have a hardware interlock of
+  their own beside the software gate I do not know.
 - The ion gauge's read-back of its on/off state on the real serial port (A40).
 - Grafana by a person in a browser: I looked at screenshots of one dashboard.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
@@ -460,6 +528,9 @@ State of 2026-11-23, early morning.
   RAS sources are a submodule).
 - With three subagents and me on one emulation every acceptance run waits for the lock. A
   round of one task took two to four hours of wall time, most of it waiting.
+- T19 needed one round: its brief named the fault with the source lines and the pattern that
+  holds (T18 had needed two). The subagent worked 75 minutes, my verification took about as
+  long, most of it the four acceptance runs one after the other.
 - A subagent's experiment script from the first hours kept starting a stray IOC container
   (`docker run` without a terminal never ends). Stopped on 2026-11-22.
 
@@ -492,6 +563,8 @@ State of 2026-11-23, early morning.
 | P25 is done now, not later | Values set in place put the request buttons on the Overview, where INVALID after every IOC start reads as a fault of half the machine |
 | The roles drawn as trends are in the plan (section `trends`), not in the GUI's sources | The GUI and the Grafana dashboards each had a list, and they differed within a day (the loop's graphs) |
 | A request record takes over its device's state with one check and three chained records, not with a `seq` | In EPICS 7.0.10 a `seq` runs every step as its own callback and releases the lock set between them (`seqRecord.c`, `processNextLink`). Chained records are processed inside the caller's lock, and a record in simulation mode finishes without its device support |
+| The supplies' first contact has a database file of its own (`supply_first_contact.db`) beside `first_contact.db` | A supply's set point starts in simulation mode and a write before the take-over must lose, and the output take-over writes three records and stops the probe. The request records' file would have had to be bent for it. The structure is the same: one check, chained records, no `seq` |
+| The interlock gate's rare case (P45) was reported and not changed in T19 | It is older than the task, it could not be shown with a test, and a remedy changes what the gate does. The brief said: change a `seq` outside the first contact only with a failing test |
 | The logger stores what a loop writes to its actuator as a signal while the loop is in PID | Five writes a second are not set commands of an operator. The plan names the PV and the condition (`drives`), so a second loop needs no change in the logger |
 
 ## Assumptions that need your confirmation
@@ -543,7 +616,8 @@ A19 (the output gate is wanted, and it latches).
 
 Closed by your answers or by later work and removed from this table: P1, P2, P4, P8, P16, P17,
 P18, P19, P20, P22, P25 (request records undefined after an IOC start: they take over the
-device's state now, see "Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
+device's state now, see "Done"), P40 (the supplies' first contact: one hold of the lock now, see
+"Done"), P41 (the MFC's set point of -20 % is wanted, answer 26), P35 (the REK output with the rack IOC stopped: fixed with the
 loop, see "Done").
 
 | # | Point | Needs |
@@ -568,17 +642,18 @@ loop, see "Done").
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver. The logger subscribes with monitors and never polls |
-| P32 | The system suite takes 12.4 to 12.8 minutes with the tests of the request records (766 s in my run on the merged tree, with other work on the machine). The budget I set for it is 13, and nothing enforces it | The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
+| P32 | The system suite takes 12.4 to 12.8 minutes with the tests of the request records and of the supplies' first contact (766 s in my run on the merged tree with other work on the machine, 757 s with T19 and nothing else). The budget I set for it is 13, and nothing enforces it | The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 | P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
 | P37 | The logger needs its database when it starts (it registers its PVs there). After that a lost database is buffered | Later, if the two start in the wrong order on the real computer |
 | P38 | The saved settings of the emulated IOCs are one Docker volume for every checkout. A set point changed by hand stays for the next user: my session of T16 left the loop's set point at 21 A, found and written back the same hour | The suite prints at its start what differs from the defaults. Write back by hand |
 | P39 | The Grafana dashboards have their own small table of words for the trend titles, beside the GUI's | Later, with the role words in the plan |
-| P40 | The first contact of the Matsusada and REK supplies (first round) uses `seq` records, whose steps are separate callbacks with the lock released in between. (1) `_init:vcopy` copies the supply's voltage setting into `voltage:setpoint` in one step and switches the record's simulation mode off in the next: a voltage written by an operator between the two is accepted without alarm and not sent, and unlike a write in the seconds before (P20) it is not replaced by the supply's real setting afterwards. The set point then shows a voltage the supply does not have, until the next write. (2) `output:init` switches the simulation mode of `ToggleOutput` on, copies, and switches it off in three steps: this matters only for something that writes `ToggleOutput` itself, because the gate that normally writes it is held for 5 s (P29). Each window is as long as the IOC's callback thread needs for the next step, normally far below a millisecond, once per IOC start and supply. Found by the engineer of T18; I read the records again on 2026-11-23 | A task of its own with the pattern of `first_contact.db` (the check and the steps under one hold of the lock). Recommended before the supplies are used on the machine |
 | P42 | Once, during a logger test run with four users on the machine (2026-11-23 02:29:35), the TDK and the REK were INVALID for 86 ms at the same moment (reply timeouts). The logger recorded it correctly. Taken as a stall of the platform simulators under load, not proven | Watch for it, like P31 |
 | P43 | The loop's limit flag is an event (kept for ever). At a steady set point it did not change in two minutes of PID; in the closed-loop test with steps and limits it changed 15 times in 2.5 minutes | Watch on the machine. A rule in the plan's section `logging` makes it a signal if it is too many |
 | P44 | The GUI check failed twice for its engineer on connections that did not come within 20 s while three engineers loaded the machine, and once showed every PV in every window as not connected while Channel Access was fine. Not seen in my runs | Watch. The check now names the PVs that are not connected |
+| P45 | The interlock gate of the Matsusada and REK supplies (first round) starts its switching sequence only when its result changes, and the off command of that sequence reaches a `ToggleOutput` that is still busy with a switch-on (RST, SW1 and the read-back on the line; about 10 ms per command in the emulation) only if EPICS marks the busy record to run again. It does so when the gate was processed by a change event or a write, and not when it was processed by its own 1-second scan (`dbDbLink.c`, `processTarget`: `psrc->putf`). So if the permit is lost while a switch-on is on the line, and the gate's scan happens to see it before the permit's change event arrives (the hand-over between two threads, well below a millisecond, once per second), the off value is written into the record and not sent. The supply would stay on with its request cleared, and the gate does not try again, because its result no longer changes. Read from the source by the engineer of T19 and by me. Not reproduced. The normal path (the change event while the command is on the line) switched off in 3 of 3 runs of the engineer in a device case; I did not repeat that | Your word. I recommend a task of its own before the supplies are used on the machine: while the permit is lost and a supply reports its output on, the off command is sent again, so that switching off does not depend on one moment. It changes what a direct write to `ToggleOutput` can do (P28), which is why I ask |
+| P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
 
 ## Found in RAS V8.1.0
 
