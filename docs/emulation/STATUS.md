@@ -9,9 +9,11 @@ Nothing is running.
 Second round (2026-11-22 and 23): the discharge current loop, the GUI round (the loop's widget,
 values set in place, tabs as windows, the logger in the GUI), the data logger with two fix
 rounds, and the request records that take over their device's state after an IOC start are
-built and merged. Each was verified by me on its branch before its merge. The runs on the final
-merged tree (suite, GUI check, logger tests) and one more fix of the logger's Grafana
-dashboards are under "Running".
+built and merged. Each was verified by me on its branch before its merge. On the merged tree
+with all of it (plan 0.15) the system suite (281 passed in 766 s), the GUI check (289 checks)
+and the logger's tests (35 passed in 407 s) pass in my own runs. Two changes came after those
+runs: a fix of the loop's mode request with its test, and the last round of the logger's
+dashboards; what was run for each is in "Running".
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -226,8 +228,12 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   plan. Verified by me: the acceptance command exit 0 at the first attempt (289 checks). The
   engineer's own run passed at the fourth attempt: two runs failed on connections that did not
   come in time while three engineers loaded the machine, one on a text comparison (corrected).
-- Fixed by me at that merge: the loop's mode request is processed once at the IOC's start
-  like the records it shows, so its buttons are not drawn INVALID after a start.
+- Fixed by me, at the second attempt: the loop's mode request is defined from the IOC's start
+  on, so its buttons are not drawn INVALID after a start. My first fix only had the record
+  processed at the start, which leaves a binary output without a first value undefined, and
+  its test passed only when the loop service had already written the request. The GUI check's
+  note after an IOC start showed it. Now the record starts defined, and the test holds the
+  service paused across the IOC's restart: seen failing without the fix and passing with it.
 - Known: with values set in place a filament current typed on the Overview takes the source
   out of PID at once (question 12).
 
@@ -269,9 +275,12 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   as one point. The trend function and the reader now repeat it before every gap and at the
   end of the data. Verified by me: `make -C logger test` (35 passed in 406 s) and the rows the
   function returns for the loop's set point.
-- Open, in the round T17d: Grafana still draws no line for such a value. In a panel with
-  several series the lines are broken at every point of the other series, so dense series
-  show as rows of dots and a constant one disappears.
+- Round T17d (merged 2026-11-23): Grafana still drew no line for such a value. In a panel with
+  several series the lines were broken at every point of the other series, so dense series
+  showed as rows of dots and a constant one disappeared. The panels now split the rows into
+  one series each. Verified by me: `make -C logger test` (35 passed in 408 s) and a dashboard
+  over 5 minutes after a minute of PID and a trip: every trace a continuous line, the loop's
+  set point a line at 22 A.
 - Not done: where it runs (the plan's question), a backup timer, synchronised clocks (P33).
 
 **Request records after an IOC start** (`EPICS/Db/first_contact.db`; subagent, task T18, two rounds, merged 2026-11-23; open point P25)
@@ -301,13 +310,12 @@ on hardware. The PDF printout is not built: the task named it as a later additio
 
 State of 2026-11-23, early morning.
 
-- T17d, by the logger's subagent: Grafana draws no line in a panel with several series (see
-  "Data logger").
-- My runs on the final merged tree (plan 0.15): system suite, GUI check, logger tests. On the
-  tree before the last merge (without the request records) the plan check, the GUI check (289
-  checks) and the system suite (271 passed) passed; one logger test failed on a device
-  without a page and was corrected in T17c.
-- Then your comments on the drawings (answer 25).
+- No subagent is working.
+- After the full runs on the merged tree two changes were merged: the fix of the loop's mode
+  request (its test run alone, without and with the fix) and T17d (the logger's tests on its
+  branch). A last GUI check and the logger's tests on the final head are running; the system
+  suite was not run again after these two changes.
+- Next: your comments on the drawings (answer 25), and P40 when you say so.
 
 ## Open
 
@@ -554,7 +562,7 @@ loop, see "Done").
 | P29 | After an IOC start a supply ignores a switch request until 5 s after its first answer. A request written earlier is overwritten by the state the supply reports | Know it |
 | P30 | The emulation's saved limit of the REK is 20 A, not the default 24 A. I did not write it, and no test writes that value | You |
 | P31 | Seen once by the test subagent, not proven: a client that reads about 200 PVs every 0.1 s from the rack IOC made Matsusada monitors INVALID for a moment. Not at idle, and gone when the suite read less | Watch for it with the real GUI and archiver. The logger subscribes with monitors and never polls |
-| P32 | The system suite takes 12.4 minutes with the tests of the request records. The budget I set for it is 13, and nothing enforces it | The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
+| P32 | The system suite takes 12.4 to 12.8 minutes with the tests of the request records (766 s in my run on the merged tree, with other work on the machine). The budget I set for it is 13, and nothing enforces it | The next test that restarts an IOC must come with a trim: the NT 20 and Matsusada fault tests are the slowest |
 | P33 | A trend takes the time of a value from the IOC and the present from the browser's computer. With clocks that differ, the end of each line is drawn too long or not at all | Synchronised clocks (NTP) on the IOC computers and the operator's computer |
 | P34 | The USB-OPT has no device name: its serial number is not known, and its USB ID is known only if Matsusada's current driver package (one ID, `1192:1000`) is its driver. No package names the USB-OPT | The PowerShell command in `EPICS/ioc/host/README.md` on the rack PC, or `lsusb` |
 | P36 | With the loop's set point minimum at or above its maximum nothing clamps the set point (the output limits still hold). Documented in `LOOP.md`, not prevented | Later, two more records per loop |
