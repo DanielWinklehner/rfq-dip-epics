@@ -1236,7 +1236,7 @@ databases:
     internal: ["int:relays", "int:state"]
 
   first_contact.db:            # loaded once per request record, beside the device's database
-    internal: ["_take:$(N)", "_take:$(N):copy"]
+    internal: ["_take:$(N)", "_take:$(N):on", "_take:$(N):copy", "_take:$(N):off"]
     invalid_on:
       "_take:$(N):copy": []    # runs once, at the first contact, and then in simulation mode
 
