@@ -1,0 +1,25 @@
+# mist2daq.service - the dipole supplies' NI USB-6001 as a libcom1 device, on the lab computer (Ubuntu).
+# Installation: daq/README.md. NOT VERIFIED on the real computer, and NOT VERIFIED that NI-DAQmx
+# for Linux serves the USB-6001 at all (docs/emulation/DAQ.md, "NI on Linux").
+#
+# The service writes no output at its start, at a lost client or at its stop (SIGTERM). It is not
+# restarted after a crash on purpose: Restart=no, so that a failing box is seen and not hidden
+# behind restarts; the IOC shows its records INVALID meanwhile. Change to on-failure if the owner
+# prefers (a restart writes nothing either, the set value is "not known" until the next set).
+[Unit]
+Description=MIST-2 dipole DAQ service (mist2daq, NI USB-6001)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mist2
+WorkingDirectory=/opt/mist2/rfq-dip-epics/daq
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/mist2/venv-mist2daq/bin/python -m mist2daq --config config/dipole.yaml
+Restart=no
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+# daq.yaml - mist2daq in the device case "dipole": the sim backend, TEST VALUES ONLY.
+# Nothing here describes the machine (daq/config/dipole.yaml has the placeholders for the lab).
+service:
+  identity: DipoleDAQ
+  listen_host: 0.0.0.0        # the IOC is in another container
+  listen_port: 5000
+  status_host: 0.0.0.0        # the test reads the output voltage and the counters here
+  status_port: 6000
+  takeover_s: 10
+  comm_timeout_s: 5
+  on_comm_lost: hold
+
+backend:
+  type: sim
+  sim:
+    inputs:
+      Dev1/ai0: {follow: Dev1/ao0, gain: 1.0, tau_s: 1.0}   # monitor = set, lag 1 s
+
+channels:
+  - {id: o1, name: dipole1_current_set, direction: out, physical: Dev1/ao0, unit: A,
+     per_volt: 10.0, offset: 0.0, limits: [0.0, 100.0], volts: [0.0, 10.0]}
+  - {id: i1, name: dipole1_current_monitor, direction: in, physical: Dev1/ai0, unit: A,
+     per_volt: 10.0, offset: 0.0, volts: [-10.0, 10.0]}

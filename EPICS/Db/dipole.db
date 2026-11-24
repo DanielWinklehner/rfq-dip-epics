@@ -1,0 +1,92 @@
+# dipole.db - one dipole magnet supply on the NI USB-6001, served by daq/mist2daq (libcom1 over TCP)
+#
+# The supplies have an analog interface only. mist2daq owns the NI box and serves its channels as
+# a libcom1 protocol 2 device, so this database uses the unmodified libcom1.proto (design:
+# docs/emulation/DAQ.md). The service converts between volts and the unit; the records here see
+# the unit only.
+#
+# Channel map of the service (daq/config/dipole.yaml), query-all order:
+#   index  channel  meaning
+#     0     o1      the set value the service holds, in A; nan = "not known" (no set since the
+#                   service started, or the last write to the NI box failed)
+#     1     i1      the supply's current monitor, in A
+#
+# Macros:
+#   DEVICE   PV prefix, default dipole
+#   PORT     asyn port (drvAsynIPPortConfigure to the service)
+#   CH_SET   libcom1 channel of the output, default o1
+#   I_HELD   position of that output in the query-all order, default 0
+#   I_GET    position of the read-back, default 1
+#   NELM     number of channels of the service, default 2
+#   EGU      unit, default A
+#   DRVL, DRVH   drive limits of the set record (REQUIRED: the current range is not known). The
+#            service has limits of its own and refuses a set outside them (ERR5, the record goes
+#            into alarm); keep DRVL/DRVH within those.
+#   PREC     display precision, default 3
+#   SCAN     poll period, default ".5 second" (as the other libcom1 databases)
+#
+#   drvAsynIPPortConfigure("DIPOLE", "127.0.0.1:5100")
+#   dbLoadRecords("db/dipole.db",         "PORT=DIPOLE,DEVICE=dipole,DRVL=0,DRVH=100")
+#   dbLoadRecords("db/libcom1_device.db", "PORT=DIPOLE,DEVICE=dipole")
+#   dbLoadRecords("db/first_contact.db",  "P=dipole,N=current,REQ=dipole:current:set,RB=dipole:current:held")
+#
+# First contact (first_contact.db, loaded beside this file as above): after an IOC start the set
+# record takes over what the service holds, without sending anything, at the first valid value of
+# $(DEVICE):current:held. While the service holds no value (nan, after its own start) the held
+# record is INVALID/UDF, so the set record stays INVALID/UDF too: the set value is not known, and
+# it is not shown as 0. One limit of first_contact.db with an analog value: the copy is processed
+# through the ao record, which clamps it to DRVL/DRVH (aoRecord.c, convert). A held value outside
+# the drive limits (written by another client, or after the limits were changed) would be shown
+# clamped. Set DRVL/DRVH equal to the service's limits, or within them.
+#
+# Alarms: the element records read the array through CA links (CP) with MS. When the service stops
+# answering, $(DEVICE):data goes INVALID and so do :held and :get (EPICS/README, Alarms). A nan in
+# the array gives an ai INVALID/UDF (aiRecord.c: udf = isnan(val)). The set record is processed
+# only when it is written: it keeps its last value and alarm while the service is silent; what
+# the service holds is $(DEVICE):current:held.
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "All channels of the dipole DAQ service")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, "$(SCAN=.5 second)")
+    field(NELM, "$(NELM=2)")
+    field(FTVL, "DOUBLE")
+}
+
+# The element records below are processed by their CP links, when the array's new value arrives.
+# Not by a forward link from :data, as in faradaycup.db and solenoidbox.db: a record processed by
+# the forward link reads its CA link's value before the monitor of the new array has arrived, and
+# so shows the PREVIOUS poll (measured in the device case: the read-back one poll, 0.5 s, late).
+
+# Acknowledged set: the service answers "ok" after the NI box took the value, "ERR5" for a value
+# outside the service's limits (not applied), "ERR7" when the write to the box failed.
+record(ao, "$(DEVICE):current:set") {
+    field(DESC, "Dipole current setpoint")
+    field(DTYP, "stream")
+    field(OUT, "@libcom1.proto com1_setLink_flt_ack($(CH_SET=o1)) $(PORT)")
+    field(EGU, "$(EGU=A)")
+    field(PREC, "$(PREC=3)")
+    field(DRVL, "$(DRVL)")
+    field(DRVH, "$(DRVH)")
+    field(LOPR, "$(DRVL)")
+    field(HOPR, "$(DRVH)")
+}
+
+record(ai, "$(DEVICE):current:held") {
+    field(DESC, "Set value held by the DAQ service")
+    field(INP, "$(DEVICE):data.VAL[$(I_HELD=0)] CP MS")
+    field(EGU, "$(EGU=A)")
+    field(PREC, "$(PREC=3)")
+    field(LOPR, "$(DRVL)")
+    field(HOPR, "$(DRVH)")
+}
+
+record(ai, "$(DEVICE):current:get") {
+    field(DESC, "Dipole current read-back")
+    field(INP, "$(DEVICE):data.VAL[$(I_GET=1)] CP MS")
+    field(EGU, "$(EGU=A)")
+    field(PREC, "$(PREC=3)")
+    field(LOPR, "$(DRVL)")
+    field(HOPR, "$(DRVH)")
+}
