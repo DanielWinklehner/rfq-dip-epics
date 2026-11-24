@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.21"
+  revision: "0.22"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -40,6 +40,7 @@ meta:
     - "Revision 0.19: a switching command written into a supply's switching record while it is still busy with the previous one is sent when the record is free, within 1 s (T21, owner's word of 2026-11-23): internal record _out:resend of the Matsusada and REK supplies, which counts them."
     - "Revision 0.20: after one late reply the requests and replies of a Matsusada or REK line are in step again after the first mismatch, and every read of an output state or a setting first checks the unit number in a status reply (T22, owner's word of 2026-11-23). No record added; the protocol files only. The monitors are not checked: a monitor can show a neighbour's value for one cycle after a late reply."
     - "Revision 0.21: the lab computer runs Ubuntu, not Windows (owner, 2026-11-24); it gets the data logger; the rack computer is wiped and gets a fresh Ubuntu, operated over SSH; the owner wants the dipole scan off LabVIEW (WP11). No record changed."
+    - "Revision 0.22: the rack IOC follows the lab's files copied on 2026-11-24 (reference/lab-2026, T26): the source supply is AU-20P15-1, the Faraday cup FC1 with two values on a USB serial line, five flow meters FLOW replace the sensor box, names of serial devices by serial number. The dipole scan's first stage (T23 to T27): the scan program scans/mist2scan, the DAQ service daq/mist2daq for the NI USB-6001 with dipole.db, the picoammeter for an assumed Keithley 6485, proven together in a device case; loaded by no IOC yet."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -764,27 +765,39 @@ devices:
     host: lab_pc
     via: ni_desk
     link: "analog 0-10 V"
-    protocol: "LabVIEW, not in EPICS"
+    protocol: "LabVIEW today. Built: libcom1 over TCP from the service daq/mist2daq, which owns the NI USB-6001 (T24); loaded by no IOC yet"
     status: later
     proposed:
-      - {name: "dipole:current:set", type: ao, egu: A, desc: "Current setpoint"}
+      - {name: "dipole:current:set", type: ao, egu: A, desc: "Current setpoint (acknowledged)"}
       - {name: "dipole:current:get", type: ai, egu: A, desc: "Current read-back"}
+      - {name: "dipole:current:held", type: ai, egu: A, desc: "The set value the service holds; INVALID while not known"}
     notes:
-      - "Keep the NI USB-6001. Serve it from a small Python soft IOC (nidaqmx) instead of LabVIEW."
+      - "Keep the NI USB-6001. Built (T24, docs/emulation/DAQ.md): the Python service daq/mist2daq owns the box and serves it as a libcom1 device over TCP; EPICS/Db/dipole.db with libcom1_device.db and first_contact.db. The service writes no output by itself; its set value is not known until the first set. Proven in the device cases dipole and dipolescan; the backend for the real box is not verified."
+      - "Not known: how many supplies, the channels of the NI box, amperes per volt, the current range, an enable input, whether the supplies need slow changes. All are ASSUMED values in daq/config/dipole.yaml."
+      - "Whether NI's driver for Linux serves the USB-6001 is not shown (docs/emulation/DAQ.md, NI on Linux)."
       - "The lab computer runs Ubuntu (owner, 2026-11-24). Whether NI's Linux driver serves the USB-6001 on its Ubuntu version is not checked."
 
   - id: keithley_desk
     name: "Picoammeter (dipole scan)"
-    model: "Keithley, model tbc"
+    model: "Keithley, model tbc (6485 assumed)"
     subsystem: scan
     location: control
     host: lab_pc
-    link: "RS-485 to USB converter"
-    protocol: "direct, not in EPICS"
+    link: "RS-485 to USB converter (device list); the 6485 has RS-232"
+    protocol: "direct, not in EPICS. Built for the assumed model: SCPI through StreamDevice (T25); loaded by no IOC yet"
     status: later
     proposed:
-      - {name: "pico1:current:get", type: ai, egu: A, desc: "Measured current"}
-      - {name: "pico1:range:set", type: mbbo, desc: "Range"}
+      - {name: "pico1:current:get", type: ai, egu: A, desc: "Measured current; INVALID while the reading is no measurement"}
+      - {name: "pico1:range:set", type: mbbo, desc: "Range request: automatic or fixed"}
+      - {name: "pico1:range:get", type: mbbi, desc: "Range in use"}
+      - {name: "pico1:zcheck:set", type: bo, desc: "Zero check request"}
+      - {name: "pico1:zcheck:get", type: bi, desc: "Zero check as reported"}
+      - {name: "pico1:nplc:get", type: calc, desc: "Integration time in power line cycles"}
+      - {name: "pico1:idn:get", type: lsi, desc: "Model, serial number, firmware"}
+    notes:
+      - "Built (T25, docs/emulation/PICOAMMETER.md) for a Keithley 6485, which is an assumption: EPICS/Db/picoammeter.db with keithley6485.proto, from the manual 6485-901-01. Zero check is on after power-on, and the reading is INVALID until it is switched off. An IOC start sets nothing. Proven in the device cases picoammeter and dipolescan."
+    questions:
+      - "Which model is it (type plate, or its answer to *IDN?), what sits between it and the computer, and which line settings are set in its COMM menu?"
 
   - id: emit_motors
     name: "Emittance scanner stepper motors"
@@ -961,6 +974,7 @@ work_packages:
     items:
       - "Python soft IOC for the NI USB-6001 (magnet current), picoammeter via StreamDevice."
       - "Replace the LabVIEW scan by a Python scan tool that only talks to PVs."
+      - "Built in the emulation, 2026-11-24 (T23 to T27): the scan program scans/mist2scan (docs/emulation/SCAN.md), the DAQ service with dipole.db, the picoammeter for an assumed Keithley 6485, and the three together in the device case dipolescan. Open: the owner's values for the scan and the supplies, the picoammeter's model, whether NI's Linux driver serves the USB-6001, which computer's IOC serves the dipole, and everything on hardware."
       - "Owner, 2026-11-24: the dipole scan is to move off LabVIEW, into the control system or a standalone Python script. Proposal: both of the items above, the devices as PVs and the scan as a Python program that is a Channel Access client. A script that talks to the hardware itself would be a second master beside an IOC, and its values would not reach the logger or the GUI."
   - id: WP12
     name: "Emittance scanners in EPICS"
