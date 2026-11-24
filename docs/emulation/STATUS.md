@@ -44,8 +44,15 @@ of it was run on hardware.
 After that (2026-11-24, answers 32 to 34): nothing runs in the lab, the rack computer is wiped
 and gets a fresh Ubuntu, the lab computer runs Ubuntu and gets the logger, and you want the
 dipole scan off LabVIEW. `LAB-SETUP.md` follows it, the plan is at revision 0.21 (hosts, the
-logger's home, a note in work package WP11; no record changed). The dipole scan itself is not
-started (question 17).
+logger's home, a note in work package WP11; no record changed).
+
+After that (2026-11-24, on your word, answer 35): the first stage of the dipole scan is built
+and merged, three tasks, each verified by me on its branch and again on the merged tree: the
+scan program (T23), the magnet supplies through the NI box (T24), the picoammeter for an
+assumed model (T25). Each is proven in a device case of its own. No IOC loads the new devices
+yet, nothing of it ran on hardware, and the three have not run together yet. See "Done".
+The lab's files from the rack computer are read (answer 39); a fourth task (T26) brings the
+system in line with them and is still running.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -598,10 +605,59 @@ on hardware. The PDF printout is not built: the task named it as a later additio
   polls from the simulator's reply count and now subtracts the status checks. Nothing else
   in it changed.
 
+**The dipole scan, first stage** (three subagents in parallel, tasks T23, T24, T25, one round
+each, merged 2026-11-24 on your word, answer 35; work package WP11)
+
+- What it is: the devices of the dipole scan as PVs and the scan as a Python program that
+  talks to PVs only, in place of LabVIEW. Three parts, each proven in a device case of its own.
+  No IOC of the emulation loads the new databases, so the system suite, the GUI and the logger
+  are untouched. Nothing ran on hardware.
+- **The scan program** (`scans/mist2scan`, `docs/emulation/SCAN.md`, T23): steps one set point
+  through a list of values, in part steps where a move is large; waits until the read-back is
+  valid and within the tolerance; then collects each detector for the dwell time and writes
+  one row per point (time-weighted mean, spread, number of values, minimum, maximum, validity).
+  A value taken while its PV is INVALID or not connected is not used, and a point without a
+  valid value is recorded as missing with the reason. It writes one PV, the actuator, never
+  outside the definition's limits or the PV's control limits, and refuses to start otherwise.
+  Every end (completed, a condition lost, a detector lost, ctrl-c, SIGTERM, an error) takes the
+  actuator back in part steps and leaves the data on disk with the reason; after a lost
+  actuator nothing more is written. `scans/config/dipole.yaml` is the dipole scan with the
+  plan's PV names; every number in it is ASSUMED.
+- **The magnet supplies** (`daq/mist2daq`, `EPICS/Db/dipole.db`, `docs/emulation/DAQ.md`, T24):
+  a Python service owns the NI USB-6001 and serves its channels as a libcom1 device over TCP,
+  so the IOC uses the unmodified `libcom1.proto`. Records `dipole:current:set` (acknowledged),
+  `dipole:current:get`, `dipole:current:held` (what the service holds). The service writes no
+  output by itself: at its start the held value is "not known" (shown INVALID, not 0), a set
+  outside its limits is refused, and when the IOC goes silent it holds (a ramp to zero is a
+  setting, off). After an IOC restart the set record takes over the held value and nothing is
+  sent. The backend for the real box is written from NI's documentation and NOT VERIFIED.
+- **The picoammeter** (`EPICS/Db/picoammeter.db`, `keithley6485.proto`, simulator,
+  `docs/emulation/PICOAMMETER.md`, T25): built for a Keithley 6485 (assumption A44) from its
+  manual, every command with its page. `pico1:current:get` is INVALID, with the number kept,
+  while the reading is no measurement (zero check on, which is the state after power-on;
+  overflow; overvoltage). Range and zero check are requests that take over the instrument's
+  state at the first contact; an IOC start sets nothing. Every poll starts with `ABOR` and
+  ends with `INIT`: while it measures continuously the instrument executes no query (manual
+  7-4, read by me in the manual's text), and neither command changes a setting.
+- **Verified by me** on each branch and again on the merged head `b94a089`, all exit 0: the
+  scan program's unit tests (57) and device case (10 passed in 105 s; the three peaks of the
+  case's database found at -6.003, 0.500, 5.499); the DAQ service's unit tests (47), its
+  replies against the real libcom1 library (122 lines, 0 differences) and its device case (12
+  passed in 48 s); the simulators' tests (143) and the picoammeter's device case (11 passed in
+  122 s); the plan check. One variant of my own per task, each seen to fail and put back: an
+  INVALID value taken as valid (the scan's test of the INVALID detector fails), `PINI` on the
+  magnet's set record (the tests of "nothing written at the start" fail), zero check left out
+  of the bits that make a reading no measurement (the power-on test fails).
+- **Not done yet:** the three together (the scan program against the DAQ service and the
+  picoammeter simulator in one case); the scan in the full emulation by my own hand (the
+  engineer ran it once: extraction voltage against the Faraday cup current, 15 points in 67 s;
+  I repeat it after T26, which renames both PVs); the plan's entries (with T26's merge, one
+  revision); an IOC that serves the dipole (which computer: your word).
+
 ## Running
 
-State of 2026-11-24. Three engineers are at work, each in its own worktree
-(`.claude/worktrees/t23`, `t24`, `t25`), on the dipole scan you ordered (answer 35):
+State of 2026-11-24, afternoon. T23, T24 and T25 are merged (see "Done"). One engineer is at
+work in `.claude/worktrees/t26`. The table of the tasks ordered today:
 
 | Task | What | Brief |
 |---|---|---|
@@ -610,9 +666,10 @@ State of 2026-11-24. Three engineers are at work, each in its own worktree
 | T25 | The picoammeter as PVs, for an assumed model (A44) | `briefs/T25-picoammeter.md` |
 | T26 | The system brought in line with the lab's files of 2026-11-24: the source supply's name, the Faraday cup, the flow meters, the sensor box out, names of the serial devices | `briefs/T26-lab-files-2026.md` |
 
-Each is proven in a device case of its own. None of it is loaded by an IOC of the emulation
-yet, so the system suite, the GUI and the logger are not touched: which computer's IOC serves
-these devices is decided with you when the facts of question 17 are there.
+After the merges of T23, T24 and T25 I ran, on the merged head: the simulators' tests, the
+three new device cases, both sets of unit tests and the plan check. The system suite was not
+run: the merges changed no file of an IOC, no database in use, no test of the suite and
+nothing of the simulator but a new module with its tests and a line of its README.
 
 - T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
   the merged head. The GUI check, the device case and the hand check ran on the branch, whose
@@ -785,6 +842,15 @@ these devices is decided with you when the facts of question 17 are there.
     model of the Keithley picoammeter; how the NI USB-6001 is wired to the magnet supplies
     (channels, volts per ampere); and whether LabVIEW runs on the Ubuntu lab computer today,
     which would mean NI's Linux driver already serves the USB-6001 there.
+    More from the three tasks: (a) the picoammeter: its model (type plate or its answer to
+    `*IDN?`), what sits between it and the computer (the plan says RS-485, the 6485 has
+    RS-232), its line settings, and what the LabVIEW program sets (zero check, range,
+    integration time); (b) the magnet supplies: how many, amperes per volt for the program
+    input and for the monitor, the current range, an enable input, whether they need slow
+    changes; whether the NI box's power-on glitch (-7 V for 10 microseconds, its data sheet)
+    is acceptable at the program input; on a lost IOC hold the current (as built) or ramp to
+    zero; (c) the scan: range, step, settling and dwell of the LabVIEW scan, what it saves,
+    and conditions that must hold during a scan; (d) which computer's IOC serves the dipole.
 18. From the lab's files (answer 39). (a) Which UNIT number does the lens 2 supply have: 4, as
     you said on 2026-11-21, or 5, as the lab's `st.cmd` has it (there unit 4 is "Lens 3")? And
     which supplies hang on which adapter now? (b) What are the two values of the Faraday cup
@@ -811,6 +877,12 @@ these devices is decided with you when the facts of question 17 are there.
   `linux-image-generic` depends on, and that `ubuntu-server` depends on `tmux` and `usbutils`,
   is read from the packages (2026-11-24), not from an installed computer. Whether the server
   installer's shell has the driver was not checked.
+- The dipole scan (T23 to T25): nothing on hardware. The backend for the real NI box beyond
+  its message when no driver is installed; whether NI's driver for Linux serves the USB-6001
+  at all (P56); the picoammeter's model and with it every command (A44); the real reply
+  formats, line settings and times of the picoammeter; the 6487; Python 3.8 for the scan
+  program and the service (run on 3.10 and 3.12); their installation on the lab computer;
+  the three parts together.
 - `LAB-SETUP.md` on hardware: none of its steps. What was run is its step 2 (clone and build)
   in containers of Ubuntu 20.04, 22.04 and 24.04 on the development PC, and a start of both
   IOCs there in `real` mode without any device. Not run: the udev rule and the probe with the
@@ -873,6 +945,9 @@ these devices is decided with you when the facts of question 17 are there.
 ## Subagents
 
 - All subagents report the model ID `claude-opus-5-5`.
+- 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
+  600 s") near its end; resumed with a message, it finished in four minutes. Its work was
+  committed up to that point.
 - The Agent tool's own worktree isolation cuts worktrees from `master`, not from the current
   branch. The lead creates each worktree from `emulated-iocs` under `.claude/worktrees/<task>`
   (ignored by git) and names it in the brief (`briefs/`).
@@ -944,6 +1019,10 @@ these devices is decided with you when the facts of question 17 are there.
 | Only `emulated-iocs` was pushed, under its own name | The branch tracked `origin/libcom1-robustness-fixes`, so a plain push could have gone there. The task branches `emu/t*` are all merged and would be 21 more branches on the remote |
 | On the real computers the IOCs are built on the computer (`build-epics.sh`), not run from the Docker image | `run-ioc.sh`, autosave's directory and the loop service's installation are written for it, serial devices and udev names need no pass-through, and the mini PC's system is not known well enough to count on Docker there. The script takes the release tags and the build steps of the image |
 | The dipole scan is proposed as devices in the control system plus a Python program that is a Channel Access client, not as a script that talks to the hardware | You named both ways (answer 34). A script on the hardware would be a second master beside an IOC on the same device, and its magnet current and cup current would reach neither the logger nor the GUI. A scan is a sequence (set, wait, read, average, save), which is easier to read and change in Python than in records, and the loop service already works this way. It is what work package WP11 said |
+| The dipole's devices are proven in device cases and loaded by no IOC yet | Where the NI box and the picoammeter sit in the new lab, and so which computer's IOC serves them, is not known. A third IOC in the emulation touches the suite, the GUI and the logger; that step waits for the facts |
+| The NI box is served by a Python service that speaks libcom1 over TCP, not by a Python soft IOC as the plan first said | The IOC side is then the protocol file and the alarm rules that every libcom1 device already uses and that are tested; the service's replies are compared with the real library. The plan's note is brought up to date with T26's merge |
+| The picoammeter is polled with `ABOR`, the queries, `INIT` | In its power-on state it measures continuously and executes no query until it is idle (manual 7-4). The brief forbade setting anything at an IOC start; these two commands stop and restart the measuring and set nothing. Price: the display updates once per poll, and a reading that takes longer than the poll period never completes (INVALID then, not an old value) |
+| The plan's entries for T23 to T25 wait for T26's merge | T26 changes the plan in its branch; two regenerations of the plan's documents on two branches would only collide |
 | The first installation uses the names under `/dev/serial/by-id/` in `ports.real.cmd` | They exist without any rule and stay the same across re-plugging. Only the Matsusada adapters need a rule, to get a serial port at all. Names under `/dev/mist2/` for the others can follow when the adapters are known |
 | The wait after a mismatch is 50 ms | The reply still on its way arrives within 37 ms (9 request characters, 16 ms turnaround, 11 reply characters at 9600 baud). 50 ms is also the wait after a reply timeout. A mismatch for another reason (a set the supply did not execute) costs 50 ms of line time and nothing else |
 | In a protocol with a command, the command goes out before the status check | A stray reply must never stop a switching or a set. The check stands between the command and its read-back, so a read-back cannot be confirmed by a neighbour's reply |
@@ -998,6 +1077,7 @@ A19 (the output gate is wanted, and it latches).
 | A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: the same input line in eight places of each of the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
 | A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build. The rack computer is wiped and gets a fresh Ubuntu (your plan, answer 32; I recommend Server 24.04, operated over SSH with the IOC in `tmux`, since it runs without screen) | The build script ran in containers of these three versions. Your answer 22 for the mini PC, answer 32 for the rack computer | `lsb_release -a` on both, and the first build there |
 | A43 | Windows on the rack computer still lists the Matsusada adapters and the other serial adapters with COM number, USB ID and serial number although they are not plugged in | `Get-PnpDevice` lists devices that are not present (seen on the development PC, which has no serial adapter, so no COM port line was seen) | The command of `LAB-SETUP.md` section 1 on the rack computer, before the wipe |
+| A46 | The picoammeter's line: 9600 baud, 8 data bits, no parity, 1 stop bit, CR as terminator both ways, no flow control | The 6485 manual names the choices (9-16, 9-17), not what is set. The reply formats are taken as the manual prints them | The instrument's COMM menu |
 | A44 | The picoammeter of the dipole scan is a Keithley 6485 on its serial port | The plan says "Keithley, model tbc" on an "RS-485 to USB converter". The 6485 is my guess at the most likely model; T25 builds for it from its manual, with everything that depends on the model in the protocol file and the simulator | You: the type plate, or the instrument's answer to `*IDN?` |
 | A45 | The magnet supplies are set and read through analog channels of one NI USB-6001 (plan: "analog 0-10 V"), and nothing else of them is remote | The plan's device list. Channels, volts per ampere, range, polarity, the number of supplies and whether NI's Linux driver serves the box are not known: configuration values in T24 | You (question 17), and NI's documentation, which T24 reads |
 
@@ -1048,6 +1128,9 @@ loop, see "Done").
 | P52 | A supply whose every reply is late (300 ms, left on for 10 s in the device case) leaves its neighbour on the line almost without readings: nearly all of the neighbour's records INVALID, one monitor value of the late supply accepted, no state or setting of the other supply shown. In step within a quarter of a second when the fault is cleared (the engineer measured 2 s with the old files). Part of it is the simulator, which holds the line for the late reply. A supply or an adapter that is always slower than 150 ms would need a longer reply timeout in the protocol files | Know it. Measure the reply times on hardware (WP4) before the timeout is trusted |
 | P53 | One full run of the Matsusada device case by the engineer of T22 had three failures that did not repeat in three later full runs, one of them mine: `AU-20P7-1:output:init` in alarm in the test that every PV is valid, and two supplies not valid again within 12 s and 20 s after a fault. Cause not shown. For the first there is a reading from the source: `output:init` writes `voltage:get.PROC` through a Channel Access link, a put through a link that is not connected yet returns an error (`dbCa.c`, `dbCaPutLinkCallback`), the seq goes on (`seqRecord.c`), and the record keeps a LINK alarm because it runs once per IOC start. The voltage echo is then read at its next 5-second scan, and the gate is enabled as usual. The case's IOC has five more supplies since T22, so its links connect later. The helper `not_valid` prints the alarm status now, so a second time will say more | Watch for it. If it shows again: start `output:init` only when its link is connected, or read the echo through a database link |
 | P54 | A pause of a simulator process (or of the whole machine) longer than 150 ms makes every Matsusada line of that simulator miss one reply at the same moment. Seen twice: in a device-case run for T21 (all four lines; it showed P49), and in the first suite run on the merged head of T22 (both rack lines, 5 ms apart, one monitor of each INVALID for one cycle; `test_05_faults` then fails, because another device's PV was INVALID while a fault lasted). Cause not known; the host is a WSL2 machine. Since T22 such a pause costs one TIMEOUT per line and, if the reply comes later than 200 ms, one mismatch, and the line is in step again | Know it: a failed `test_05` that names monitors of AU supplies on both lines at once is this, and the suite passes when run again. If it gets frequent: let the simulator log a late wake-up, to see how long the pauses are |
+| P55 | In the libcom1 databases whose element records are processed by a forward link of the array record (`faradaycup.db`, `solenoidbox.db` and the others of that pattern), an element record may show the value of the previous poll: the engineer of T24 measured it on his own database (one poll, 0.5 s, late) and used CP links there. Not checked on the other databases, not changed. For the interlock box that would be 0.1 s on `interlock_open` | Check it on one of them (T26's Faraday cup case can show it). The hardware interlock is the first line |
+| P56 | Whether NI's driver for Linux serves the USB-6001 is not shown: the NI-DAQmx for Linux readme 21.3 lists no USB-600x device, later readmes point to a compatibility page the engineer could not read, a knowledge-base article that says "not supported" could not be fetched. If it does not, the choices are in `DAQ.md` (a Windows computer for the service, NI hardware that is supported, a microcontroller with libcom1) | You: does LabVIEW drive the box on the Ubuntu lab computer today, and with which NI driver? |
+| P57 | The scan program and the DAQ service use `max_step`, limits and a communication timeout whose values are all ASSUMED (`scans/config/dipole.yaml`, `daq/config/dipole.yaml`). A first scan on the machine needs your values in both files | Question 17 |
 
 ## Found in RAS V8.1.0
 

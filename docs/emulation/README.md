@@ -90,7 +90,8 @@ defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them a
 |---|---|---|
 | `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock latch across both IOCs, a lost permit (the rack IOC stopped or silent), the control loop's switching, hand-backs and backstop, local control, the update rates against the bus arithmetic. Starts the emulation if needed Fails when a run changes an IOC's saved settings | about 11.5 min |
 | `make -C emulation test ARGS="-k valve"` | A part of it | |
-| `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `turbo`, `libcom1_devices` | 10 s to 4 min |
+| `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `turbo`, `libcom1_devices`; for the dipole scan, loaded by no IOC yet: `dipole` (the magnet supply through `daq/mist2daq`), `picoammeter`, `scan` (the scan program on soft records) | 10 s to 18 min |
+| `python3 -m unittest discover -s scans/tests -t scans` and `-s daq/tests -t daq` | The scan program's logic and the DAQ service without EPICS (in `mist2-tools:dev`: the commands are in `SCAN.md` and `DAQ.md`) | 2 s |
 | `emulation/sim/run_tests.sh` | The simulators without an IOC, and the libcom1 simulator against the real library | 1 min |
 | `make -C emulation test-loop` | The discharge current loop closed on the plant model: bumpless switching, set point steps, a disturbance, limits, a hand-back. Prints a table (`docs/emulation/LOOP.md` section 6) | 5 min |
 | `python3 -m unittest discover -s loops/tests -t loops` | The loop's algorithm and logic alone, without EPICS, including a closed loop on a small plant in Python | 1 s |
@@ -213,6 +214,8 @@ Matsusada CO-U32 has its udev rule and a read-only probe, both not tested on har
 | `EPICS/ioc/host/` | Setup of the real rack computer on Linux: udev rule and probe for the Matsusada adapter |
 | `loops/` | The loop service (Python): algorithm, service, unit tests, systemd unit. Design and operation: `docs/emulation/LOOP.md` |
 | `logger/` | The data logger: Channel Access logger (Python), TimescaleDB and Grafana as a Compose project of its own. Design and operation: `docs/emulation/LOGGER.md` |
+| `scans/` | The scan program (Python, Channel Access only): definitions in `scans/config`. Design and operation: `docs/emulation/SCAN.md` |
+| `daq/` | The service that owns the NI USB-6001 and serves it to an IOC as a libcom1 device (the dipole magnet supplies). `docs/emulation/DAQ.md` |
 | `emulation/` | Images, Compose file, simulators, test cases, system tests |
 | `emulation/sim/config/` | Which simulator stands behind which port, with all assumed values marked |
 | `plan/` | `controls.yaml`, the single source of truth, and its generators |
