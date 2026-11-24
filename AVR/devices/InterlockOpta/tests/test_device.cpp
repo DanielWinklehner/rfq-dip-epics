@@ -149,15 +149,10 @@ static void test_no_line_switches_the_interlock_relays()
     check_line("P0", closed != 0);
     // random lines of any byte but NUL and line feed, up to 140 characters (longer than the
     // input buffer, which discards them).
-    // Bytes 0x80 to 0xFF only where char is unsigned, as on the Opta (-funsigned-char): where
-    // char is signed (PC, AVR), such a byte as the channel letter makes libcom1's i16u_iden()
-    // shift a negative value left (libcom1_com.hpp:70, undefined behaviour, reported by
-    // -fsanitize=undefined). That is the library's, not this sketch's (see the report of T28).
-#ifdef __CHAR_UNSIGNED__
+    // Bytes 0x80 to 0xFF too, with signed and with unsigned char: this test found that
+    // libcom1's i16u_iden() shifted a negative value left for such a byte as the channel
+    // letter where char is signed (fixed in the library, with a test of its own).
     const uint32_t BYTES = 255;
-#else
-    const uint32_t BYTES = 127;
-#endif
     uint32_t x = 12345u + (uint32_t)closed;
     for (int n = 0; n < 20000; ++n) {
       x = x * 1103515245u + 12345u;

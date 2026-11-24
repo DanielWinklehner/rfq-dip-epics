@@ -38,17 +38,9 @@ fi
 # The build directory lives in the container's /tmp and goes away with it.
 # The image's download directory is not writable for this user and nothing is downloaded
 # (--network none): point it at /tmp.
-#
-# AVR/libcom1/examples/StandaloneExample holds symbolic links back to AVR/libcom1 (libcom1 ->
-# ../../../libcom1). arduino-cli 1.5.1 scans a library's examples and refuses the whole library:
-#   loading library from /repo/AVR/libcom1: scanning sketch examples: directories symlink loop detected
-# and the sketch then fails with "libcom1.hpp: No such file or directory". An empty tmpfs is
-# laid over that one directory inside the container; the checkout is not changed, and the
-# headers compiled are those of the checkout.
 docker run --rm --network none -u "$(id -u):$(id -g)" \
     -e ARDUINO_DIRECTORIES_DOWNLOADS=/tmp/staging \
     -v "$REPO:/repo:ro" \
-    --mount type=tmpfs,destination=/repo/AVR/libcom1/examples \
     -w /repo "$IMAGE" \
     arduino-cli compile \
         --fqbn "$FQBN" \

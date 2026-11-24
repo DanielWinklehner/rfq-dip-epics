@@ -102,10 +102,12 @@ in github.com/arduino/docs-content, commit 8fd71db of 2026-11-02, read on 2026-1
 | Relay response | 6 ms on, 4 ms off | datasheet 3.6 |
 | Lamps | STATUS 1 to 4 = `LED_D0`..`LED_D3`; USER (`LED_USER`) WiFi variant only; RESET green `LEDG`, RESET red `LEDR` | user manual "LEDs" |
 
-The minimum load matters here: the Opta's relays are power relays. An interlock input of a
-supply that carries less than 5 mA, or less than 5 V, is below the contact's minimum and is not
-switched reliably by them (datasheet 5.9). What the supplies' interlock inputs carry is not known
-to me.
+The minimum load matters here: the Opta's relays are power relays, and all three numbers hold
+together. In the datasheet's words (5.9): "with 5 V the current must be at least 60 mA, with
+24 V, it must be at least 12.5 mA, and with 5 mA the voltage must be at least 60 V". An interlock
+input of a supply that carries a few milliamperes at 5 to 24 V is below that and is not switched
+reliably by these contacts; it would need a small signal relay in between. What the supplies'
+interlock inputs carry is not known here.
 
 Not read: the full pinout PDF <https://docs.arduino.cc/resources/pinouts/opta-full-pinout.pdf>
 (the server returned an HTML page, not the PDF). The user manual page itself renders with
@@ -119,11 +121,11 @@ JavaScript only; I read its source on GitHub.
 2. **Libraries.** Copy the two folders `AVR/libcom1` and `AVR/libutil` of this repository into the
    `libraries` folder of your sketchbook (its location is shown under File > Preferences >
    Sketchbook location; restart the IDE afterwards).
-   **Leave out `libcom1/examples/StandaloneExample`** (or the whole `examples` folder): it holds
-   symbolic links back to `libcom1`, and arduino-cli 1.5.1, which the IDE uses, then refuses the
-   whole library ("directories symlink loop detected", followed by
-   `libcom1.hpp: No such file or directory`). Seen in the container here; on Windows a Git checkout
-   usually has no symbolic links and the problem may not appear (not checked).
+   Take them from a checkout of 2026-11-25 or later. Before that, `libcom1/examples/StandaloneExample`
+   held symbolic links back to `libcom1`, and arduino-cli 1.5.1, which the IDE uses, then refused
+   the whole library ("directories symlink loop detected", followed by
+   `libcom1.hpp: No such file or directory`). If the IDE says that, delete the old `libcom1` in
+   the sketchbook and copy it again.
 3. **Sketch.** Open `AVR/devices/InterlockOpta/InterlockOpta.ino`. The two headers beside it
    (`door_logic.hpp`, `interlock_device.hpp`) open as tabs and must stay in the same folder.
 4. **Board.** Tools > Board > Arduino Mbed OS Opta Boards > **Opta**. Leave the menus at their
@@ -215,5 +217,5 @@ Compile without the IDE (Docker): `AVR/tools/compile.sh AVR/devices/InterlockOpt
 - Do the door switches close when the door closes (A48)? Are they and their cable still there?
 - Must the interlock contact latch (stay open after a door was opened until someone resets it),
   or is the latch of the IOC enough? Nothing is built for a latch.
-- What do relays 1 and 2 go to, and with how much voltage and current? Below 5 V or 5 mA the
-  Opta's relays are not reliable (datasheet 5.9).
+- What do relays 1 and 2 go to, and with how much voltage and current? Below 300 mW (12.5 mA
+  at 24 V, 60 mA at 5 V) the Opta's relays are not reliable (datasheet 5.9).

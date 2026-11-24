@@ -65,9 +65,12 @@ namespace com1 {
     static constexpr uint8_t MAX_VALUE_CHARS = 13;
   }
 
+  // The letter goes through uint8_t and uint16_t before the shift: a received byte of 0x80 or
+  // more is a negative char where char is signed (AVR, a PC), and shifting a negative value
+  // left is undefined behaviour.
   constexpr uint16_t i16u_iden(char a, uint8_t b)
   {
-     return static_cast<uint16_t>( (a << 8u) | b );
+     return static_cast<uint16_t>( (static_cast<uint16_t>(static_cast<uint8_t>(a)) << 8u) | b );
   }
 
   // Each channel has two identifications (one letter and one digit), a getter function, and a setter function.

@@ -477,6 +477,21 @@ static void test_unknown_and_empty()
   CHECK(dev.communicate() == mist1::com1::ERR_NO_DATA);
 }
 
+// A received byte of 0x80 or more as the channel letter. Where char is signed (a PC, AVR),
+// i16u_iden() shifted a negative value left, which is undefined behaviour: reported by
+// -fsanitize=undefined when the tests of AVR/devices/InterlockOpta sent random bytes. Such a
+// line names no channel and gets the reply of any other unknown channel.
+static void test_channel_letter_with_high_bit()
+{
+  CHECK_STR(talk(dev, "g\xCE" "1\n"), "ERR4");
+  CHECK_STR(talk(dev, "g\x80" "1\n"), "ERR4");
+  CHECK_STR(talk(dev, "g\xFF" "1\n"), "ERR4");
+  CHECK_STR(talk(dev, "S\xCE" "11\n"), "ERR4");
+  CHECK_STR(talk(dev, "q01\xCE" "13\n"), talk(dev, "q01z13\n"));
+  // and the device still answers
+  CHECK_STR(talk(dev, "Sz11\n"), "ERR4");
+}
+
 static void test_streaming()
 {
   g_v[0] = 1.0f; g_v[1] = 2.0f; g_idx[2] = 3.0f; g_idx[3] = 4.0f;
@@ -619,6 +634,7 @@ int main()
   test_channel_kinds();
   test_identity();
   test_unknown_and_empty();
+  test_channel_letter_with_high_bit();
   test_streaming();
   test_comm_timeout();
   test_legacy_intr_communicate();

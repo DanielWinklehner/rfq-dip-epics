@@ -23,11 +23,9 @@ uploaded: this is for checking that a sketch builds, and how large it is.
   Arduino's package index). Rebuild after changing a version:
   `docker build -t mist2-arduino:dev -f AVR/tools/arduino.Dockerfile AVR/tools`.
 
-One workaround is built in: `AVR/libcom1/examples/StandaloneExample` holds symbolic links back
-to the library, and arduino-cli refuses a library whose examples contain a link loop
-("directories symlink loop detected"). `compile.sh` lays an empty directory over
-`AVR/libcom1/examples` inside the container. The Arduino IDE 2 uses arduino-cli as well: copy
-the library without that example (see `AVR/devices/InterlockOpta/README.md`, "Flashing").
+arduino-cli, and with it the Arduino IDE 2, refuses a library whose examples contain a link
+loop ("directories symlink loop detected"). `AVR/libcom1/examples/StandaloneExample` held such
+links until 2026-11-25; they are gone, and its build file names the directories instead.
 
 To read the core's sources (pin names, APIs), copy them out of the image:
 

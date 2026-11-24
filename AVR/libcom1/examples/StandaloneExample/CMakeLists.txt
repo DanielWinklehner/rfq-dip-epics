@@ -60,10 +60,14 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${FLAGS_RELEASE}")
 set(BASE_PATH    "${CMAKE_SOURCE_DIR}")
 set(INC_PATH     "${BASE_PATH}")
 set(SRC_PATH     "${BASE_PATH}")
-#get_filename_component(LIBCOM_PATH ${BASE_PATH}/../../ ABSOLUTE)
-set(LIBCOM_PATH "${BASE_PATH}/libcom1")
-set(LIBUTIL_PATH "${BASE_PATH}/libutil")
-set(LIBIO_PATH   "${BASE_PATH}/libstaticio")
+# The libraries of this repository, three directories up (AVR/). There used to be symbolic
+# links to them in this directory; a link back to libcom1 inside libcom1/examples makes
+# arduino-cli, and with it the Arduino IDE 2, refuse the whole library ("directories symlink
+# loop detected").
+get_filename_component(AVR_PATH "${BASE_PATH}/../../.." ABSOLUTE)
+set(LIBCOM_PATH  "${AVR_PATH}/libcom1")
+set(LIBUTIL_PATH "${AVR_PATH}/libutil")
+set(LIBIO_PATH   "${AVR_PATH}/libstaticio")
 
 ## Libraries (are recompiled with the binary)
 file(GLOB LIB_SRC LIST_DIRECTORIES true CONFIGURE_DEPENDS
