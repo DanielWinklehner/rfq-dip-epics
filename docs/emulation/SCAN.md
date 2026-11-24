@@ -64,10 +64,13 @@ records INVALID (`EPICS/README`, "Alarms"); the scan relies on that and does not
 6. A required detector `missing` at this point ends the scan (exit code 6) after the row.
 
 While it waits (part step pauses, settling, settle time, dwell) the program checks every 50 ms:
-a stop signal, the set PV and the read-back connected, the set PV not INVALID (the IOC did not
-confirm the write), every required detector connected, every condition holding (connected, not
-INVALID, the comparison true). The first that fails ends the scan (section 5). A point
-interrupted in this way has no row.
+a stop signal; the actuator (the set PV, the read-back and the held PV connected; the set PV not
+INVALID: the IOC did not confirm the write; the held PV not INVALID: what the device holds is not
+known; the read-back not without a valid value for longer than `readback_lost_after`, a shorter
+INVALID stretch is waited out); every required detector connected; every condition holding
+(connected, not INVALID, the comparison true). The first that fails ends the scan (section 5). A
+point interrupted in this way has no row. (The held PV and `readback_lost_after`: T27, second
+round.)
 
 ### What a dwell counts
 
@@ -90,8 +93,17 @@ then right within the dead band.
 Invalid stretches (an INVALID value, a disconnect) are left out of the weights; `valid` is the
 fraction of the dwell with a valid value, the status `partial` and the reason says why. No valid
 value in the whole dwell: the status is `missing`, mean, spread, minimum and maximum are `nan`,
-`n` is 0, and the reason says why ("INVALID", "not connected", "no answer"). An older value is
-never carried into a point.
+`n` is 0, and the reason says why ("INVALID (STATE)", "not connected", "no answer"). An older
+value is never carried into a point.
+
+An INVALID value's reason names the alarm status the IOC gave, as the IOC names it
+(`menuAlarmStat`: "INVALID (STATE)", "INVALID (TIMEOUT)", "INVALID (UDF)", ...), in `points.csv`,
+in `scan.json` and in the refusals (T27, second round). Channel Access sends it with every value
+of type DBR_TIME (status and severity of the TIME structure, pyepics 3.5.8 `dbr.py`
+`_STAT_SEV_TS`; `ca.py` `_unpack_metadata` puts it into `md["status"]`; the monitor callback gets
+it as the keyword `status`, `get_with_metadata(form="time")` as `md["status"]`). When it does not
+come, the reason says "INVALID (status not delivered)"; a number beyond the table "INVALID (status
+<n>)".
 
 ## 3. The definition, key by key
 
@@ -104,6 +116,8 @@ become a default). All numbers in the PV's own units (EGU of the set PV).
 | `description` | no | Text, copied into `scan.json` |
 | `actuator.set` | yes | The set PV: the only PV the program writes |
 | `actuator.readback` | yes | The read-back PV, compared with the point |
+| `actuator.held` | no | The PV that shows the value the device holds (the dipole: `dipole:current:held`). With it, refused when it is not connected or INVALID ("the value the device holds is not known") or differs from the set PV's value by more than the tolerance (both values named); during the scan and the end move, INVALID or not connected = the actuator lost |
+| `actuator.readback_lost_after` | no | Seconds the read-back may be without a valid value (INVALID) before the actuator counts as lost (exit 5), during a point and during the end move; default 5, > 0. A shorter stretch is waited out. A read-back that disconnects is lost at once, as before |
 | `actuator.tolerance` | yes | Settled when \|read-back - point\| <= tolerance, > 0 |
 | `actuator.settle_timeout` | yes | Seconds from the last write until the read-back must be within the tolerance, > 0 |
 | `actuator.settle_time` | yes | Seconds to wait after that, >= 0 |
@@ -126,8 +140,9 @@ Command line: `--start`, `--stop`, `--step` replace the point range (all three w
 definition lists values), `--dwell`, `--output`; `-v` logs every write.
 
 `check` connects, reads and prints the points, the limits used, the actuator's value now, the
-detectors, conditions, end, units and the estimated time (moves, settle times and dwells; at
-most, every point to its settle timeout), and says whether the scan would start. It writes
+detectors, conditions, end, units and the time: at least the moves, settle times and dwells (a
+lower bound: the settling is not counted, it is not known before), at most every point to its
+settle timeout. It says whether the scan would start. It writes
 nothing. Exit code 0 (would start) or 3 (would be refused).
 
 ## 4. Files
@@ -146,10 +161,11 @@ reads it with numpy).
 end; a scan killed hard (SIGKILL, power) still says `running`. Keys: program, version, python and
 pyepics versions, host, command, definition file and the definition as it ran,
 `EPICS_CA_ADDR_LIST`, `start_time`, `end_time`, `duration_s`, `state` (`completed`, `ended`),
-`outcome` (`code`, `reason`, `detail`, the `point` and `phase` it ended in), `actuator_left`
-(end mode, target, last value written, set PV and read-back as last seen, whether the read-back
-reached the target, writes of the end move, notes), `limits` (definition, control limits of the
-set PV, the ones used), `before` (set PV and read-back before the scan), `pvs` (per PV: connected,
+`outcome` (`code`, `reason`, `detail`, the `point` and `phase` it ended in, `first`: the end that
+came first when the end move lost the actuator, else null), `actuator_left` (end mode, target,
+last value written, set PV, read-back and held value as last seen, whether the read-back reached
+the target, writes of the end move, notes), `limits` (definition, control limits of the set PV,
+the ones used), `before` (set PV, read-back and held value before the scan), `pvs` (per PV: connected,
 units, precision, control and display limits as the IOC reports them), warnings, planned points,
 the estimate, the columns, the number of rows and every write (time, value, phase).
 
@@ -161,9 +177,9 @@ the estimate, the columns, the number of rows and every write (time, value, phas
 |---|---|---|---|---|
 | All points done | 0 | | to `end` in part steps | all |
 | Definition or command line wrong | 2 | before connecting | not written | no files |
-| Refused: actuator or required detector not connected or INVALID, a condition not holding, a point, the end value or the actuator's present value outside the limits (definition and DRVL/DRVH), limits that do not overlap | 3 | before the first write; every reason listed | not written | no files |
+| Refused: actuator (set PV, read-back, held PV) or required detector not connected or INVALID, the held value more than the tolerance from the set PV's, a condition not holding, a point, the end value or the actuator's present value outside the limits (definition and DRVL/DRVH), limits that do not overlap | 3 | before the first write; every reason listed | not written | no files |
 | A condition lost (false, INVALID, not connected) | 4 | within 50 ms | to `end` in part steps | the points done |
-| The actuator lost: set PV or read-back not connected, set PV INVALID | 5 | within 50 ms | **nothing written after it**, also when it reconnects: an IOC that restarted starts from its own values, and a write the program decided on before would act on a state it did not see | the points done |
+| The actuator lost: set PV, read-back or held PV not connected, set PV or held PV INVALID; the read-back INVALID for longer than `readback_lost_after`; any of these during the end move | 5 | within 50 ms (the read-back: after `readback_lost_after`) | **nothing written after it**, also when it reconnects: an IOC that restarted starts from its own values, and a write the program decided on before would act on a state it did not see | the points done |
 | A required detector lost: not connected, or no valid value at a point | 6 | within 50 ms / after the point | to `end` in part steps | the points done (with the missing row) |
 | A point not settled, `on_not_settled: end` | 7 | after `settle_timeout` | to `end` in part steps | including the `not_settled` row |
 | An error in the program (an exception) | 8 | | to `end` in part steps, if it can still be written; the traceback in `scan.json` | the points done |
@@ -174,18 +190,19 @@ the estimate, the columns, the number of rows and every write (time, value, phas
 The end move: from the last value written to the end target (`previous`, the number, or none for
 `stay`) in part steps with `step_pause` between them; conditions are not checked during it (a lost
 condition is usually the reason to go back). A write that fails (set PV disconnected) stops it,
-and the note says where it stopped; so does a set PV that is INVALID after a part step's pause
-(the IOC did not confirm the write, e.g. the device behind it stopped answering): nothing more is
-written, and the note names the unconfirmed write and the last write before it (correction of
-T27: the end move used to write every part step into a set PV the IOC no longer confirmed). Then the program waits up to `settle_timeout` for the
-read-back to reach the target and records whether it did. A second ctrl-c or SIGTERM during the
+and the note says where it stopped. The actuator lost during the end move (as in the table:
+before each write, during each pause and while it waits for the read-back) stops it: nothing more
+is written, the note names the last write, the exit code is 5, and `outcome.first` keeps the end
+that started the move (T27; in the first round only the set PV INVALID after a pause was
+checked, and the exit code stayed that of the first end). Then the program waits up to
+`settle_timeout` for the read-back to reach the target and records whether it did. A second ctrl-c or SIGTERM during the
 end move is logged and ignored; SIGKILL stops the program without the move.
 
 ## 6. Tests
 
 | Test | What it shows |
 |---|---|
-| `python3 -m unittest discover -s scans/tests -t scans` (58 tests, under a second) | The point list (sign of the step, the end point, rounding near 0), part steps, unknown keys at every level, settling and its timeout (skip and end), nothing collected before the settle, settle time and dwell waited, the statistics with constructed sequences (held value, steps, bursts, invalid stretches, missing), invalid values left out, a missing point, a disconnect inside a dwell, each end with the actuator's writes checked (part steps, nothing after the actuator is lost, a failed write during the end move, a write the IOC did not confirm during the end move), every refusal with no write and no file, the rows on disk after an abort, `scan.json` "running" while the scan runs |
+| `python3 -m unittest discover -s scans/tests -t scans` (73 tests, under a second) | The point list (sign of the step, the end point, rounding near 0), part steps, unknown keys at every level, settling and its timeout (skip and end), nothing collected before the settle, settle time and dwell waited, the statistics with constructed sequences (held value, steps, bursts, invalid stretches, missing), invalid values left out, a missing point, a disconnect inside a dwell, each end with the actuator's writes checked (part steps, nothing after the actuator is lost, a failed write during the end move, a write the IOC did not confirm during the end move), the held PV (refusals: not known, not connected, different from the set PV; lost in the middle and in the end move), `readback_lost_after` (waited out when shorter, lost after it, in the end move, a shorter value), the alarm status in the reasons, every refusal with no write and no file, the rows on disk after an abort, `scan.json` "running" while the scan runs |
 | `emulation/devtest/run.sh emulation/devtest/scan` (10 tests, about 2 min) | The program, started as `python -m mist2scan run`, against soft records (`scan.db`): a lagging read-back, three peaks with noise, a constant detector, a detector the test makes INVALID, a condition. The peaks found where the database puts them (fields E, F, G); read-back means within the tolerance; the constant detector `n` 1 at every point; missing values exactly at the points where the detector was INVALID; a condition lost, ctrl-c and SIGTERM: the actuator back in part steps (seen by a monitor of the test), the rows so far in the file; the IOC restarted: exit 5 and no write after it; a required detector not connected and a definition beyond the control limits: refused, nothing written; `check` writes nothing |
 
 Each test of the device case was seen to fail once with the property it checks removed from the
@@ -238,8 +255,14 @@ service `daq/mist2daq` (sim backend) and the Keithley 6485 simulator. No IOC of 
 emulation loads these databases; the case is the only place where they run together.
 
 ```
-emulation/devtest/run.sh emulation/devtest/dipolescan        # 9 tests, about 7.5 min
+emulation/devtest/run.sh emulation/devtest/dipolescan        # 11 tests, about 8 min
+emulation/devtest/run.sh emulation/devtest/dipolescan -k test_4c    # one test alone
 ```
+
+Every test sets its own preconditions (the fixture `ready`: the service running, the
+picoammeter on, without a simulator fault, on autorange, zero check off, the set record not in
+simulation mode, the magnet at 6 A and held there; test 1 makes its own power-on state), so each
+passes alone with `-k` as well as in the order of the file.
 
 The case's simulator side (`run_sim.sh`) runs three processes in one container: the service
 (through the dipole case's `run_service.sh`, so a test stops and starts it with `build/daq-run`),
@@ -251,42 +274,44 @@ times per second and sets the picoammeter simulator's input through its control 
 15 and 8 nA high, sigma 0.4 A; picoammeter noise 0.1 nA per reading (`sim.yaml`); monitor lag
 0.5 s (`daq.yaml`). **None of these numbers is measured on MIST-2**: they are properties of the
 case. The scan is started as the owner starts it, `python -m mist2scan run config/dipole.yaml`,
-with `--start`, `--stop`, `--step`, `--dwell`, `--output` only. Two tests use a copy of the
-definition with one key changed, each a finding (below), not a second definition.
+with `--start`, `--stop`, `--step`, `--dwell`, `--output` only (tests 3 to 6 use `--dwell 1` to
+stay short). Test 3 uses a copy of the definition with one key changed (a question below), test
+4a writes the set record in simulation mode to make it differ from the service; neither is a
+second definition.
 
 ### Before a scan: what an operator must do
 
 1. **Switch zero check off**: `caput pico1:zcheck:set 0` (OFF). After its power-on the 6485 has
    zero check on (PICOAMMETER.md), `pico1:current:get` is INVALID and both `check` and `run`
-   refuse with "detector pico1 (pico1:current:get): INVALID", writing nothing (test 1). Leave the
-   range on AUTO (`pico1:range:set 0`) unless there is a reason: on a fixed range a peak above
-   105 % of it is INVALID, and with the shipped definition that ends the scan (test 3).
+   refuse with "detector pico1 (pico1:current:get): INVALID (STATE)", writing nothing (test 1).
+   Leave the range on AUTO (`pico1:range:set 0`) unless there is a reason: on a fixed range a
+   peak above 105 % of it is INVALID (STATE), and with the shipped definition that ends the scan
+   (test 3).
 2. **Set the magnet once after every start of the DAQ service**: `caput dipole:current:set <A>`.
-   After its start the service holds no value; `dipole:current:set` is INVALID/UDF and the scan
-   refuses with "actuator set PV dipole:current:set: INVALID" (test 1). This set is a step from
-   an output the service does not know (the NI box may still be at its last value, or at 0 V):
-   choose it near where the supply is believed to be.
-3. **After the service was restarted while no scan ran, set the magnet anyway.** Nothing marks
-   that case: the set record keeps its last value and NO_ALARM (it is processed only when
-   written, DAQ.md section 3), `check` says "it would start" and the scan would move from that
-   value, which the service does not hold (test 4: set 6.0 A shown, read-back 0.0 A). See the
-   findings.
-4. `python -m mist2scan check config/dipole.yaml`, then `run`.
+   After its start the service holds no value; the scan refuses with "actuator held PV
+   dipole:current:held: INVALID (UDF): the value the device holds is not known" (tests 1 and
+   4b), also when the set record still shows a value from before (it is processed only when
+   written, DAQ.md section 3). This set is a step from an output the service does not know (the
+   NI box may still be at its last value, or at 0 V): choose it near where the supply is
+   believed to be.
+3. `python -m mist2scan check config/dipole.yaml`, then `run`.
 
 ### What the case shows (tests of `test_dipolescan.py`)
 
 | Test | Result |
 |---|---|
-| 1 after power-on | Refused by `check` and `run` (exit 3) with both reasons named, no file, no set at the service (status port: 0 commands `S`, 0 writes). With the magnet set once, only the picoammeter's reason remains; with zero check OFF through its PV, `check` exits 0 |
-| 2 the spectrum | 7 to 19.5 A, step 0.5, dwell 1 s (shipped), 26 points, exit 0, 126 s. Peaks (vertex of the parabola through the logarithms of three points) at 10.002, 14.148, 17.314 A against 10.000, 14.142, 17.321 A of the coupling; every read-back mean within 0.05 A; at the peak points measured minus model -0.16, -0.06, -0.18 nA, over all points at most 0.48 nA, rms 0.16 nA (noise 0.1 nA per reading). Magnet back to 6 A |
-| 3 overflow | Fixed 20 nA range, 8 to 16 A. Shipped (picoammeter `required: true`): exit 6 at 9.5 A, the first point on the mass-1 peak, row `missing`, reason `INVALID`; magnet back in part steps. With `required: false` (finding): exit 0, missing exactly at 9.5, 10, 10.5 A (model above 21 nA), all others within 0.5 nA of the model |
-| 4 the service stops | Stopped 0.3 s after the set of 10 A. The read-back goes INVALID, the program waits the settle timeout (30 s) and ends "not settled" (exit 7, about 50 s in all), row `not_settled` with "last read-back INVALID". The end move's first part step (9 A) goes to the IOC, which cannot send it: the set PV goes INVALID and nothing more is written (the correction of section 5); `scan.json` says "end move stopped: the set PV dipole:current:set INVALID after the write of 9 ...; the last write before it 10". The service held 10 A. Started again it holds nothing and received nothing; `check` and `run` refuse (set PV INVALID) until the operator sets the magnet |
-| 5 the picoammeter silent | Silenced in the settling of 10 A: `pico1:current:get` INVALID, the row of 10 A `missing`, exit 6, the magnet back 10 to 6 A in four part steps (9, 8, 7, 6 seen by a monitor), the read-back reached 6 A, the service holds 6 A |
+| 1 after power-on | Refused by `check` and `run` (exit 3) with both reasons, "detector pico1 (pico1:current:get): INVALID (STATE)" and the held value not known (UDF); no file, no set at the service (status port: 0 commands `S`, 0 writes). With the magnet set once, only the picoammeter's reason remains; with zero check OFF through its PV, `check` exits 0 and shows "held 6.0 (dipole:current:held)" |
+| 2 the spectrum | 7 to 19.5 A, step 0.5, the shipped dwell of 3 s, 26 points, exit 0, 178 s (`check`'s lower bound 136.5 s). Peaks (vertex of the parabola through the logarithms of three points) at 10.001, 14.141, 17.322 A against 10.000, 14.142, 17.321 A of the coupling; every read-back mean within 0.05 A; at the peak points measured minus model -0.07, -0.04, +0.07 nA, over all points at most 0.14 nA, rms 0.05 nA (noise 0.1 nA per reading). Magnet back to 6 A |
+| R4 | dwell 1 s and 5 s, three points each (numbers below) |
+| 3 overflow | Fixed 20 nA range, 8 to 16 A. Shipped (picoammeter `required: true`): exit 6 at 9.5 A, the first point on the mass-1 peak, row `missing`, reason "INVALID (STATE)"; magnet back in part steps. With `required: false`: exit 0, missing exactly at 9.5, 10, 10.5 A (model above 21 nA), all others within 0.5 nA of the model |
+| 4a the set PV differs | The set record shows 7 A, the service holds 6 A: refused, "the set PV dipole:current:set shows 7, the device holds 6 (dipole:current:held): more than the tolerance 0.05 apart"; nothing sent |
+| 4b service restarted, no scan running | The set record keeps 6 A and NO_ALARM, the service holds nothing: `check` and `run` refuse with the held value not known (UDF); the service received nothing |
+| 4c the service stops in the middle | Stopped 0.3 s after the set of 10 A: "actuator lost" (exit 5) 0.10 s after the stop, detail "actuator held PV dipole:current:held INVALID (LINK): what the device holds is not known" (the IOC sees the closed connection at its next poll). Nothing written after it: every write in `scan.json` is before the stop, `writes_in_end_move` 0, a monitor on the set PV saw no value after the stop, and the service, started again, holds nothing and received no set. Then `check` refuses (held not known). In the first round, without the held PV, the same stop ended "not settled" after the 30 s settle timeout |
+| 5 the picoammeter silent | Silenced in the settling of 10 A: the row of 10 A `missing`, reason "INVALID (TIMEOUT)", exit 6, the magnet back 10 to 6 A in four part steps (9, 8, 7, 6 seen by a monitor), the read-back reached 6 A, the service holds 6 A |
 | 6 an IOC restart | Restarted in the settling of 10 A: exit 5, no write after it (`writes_in_end_move` 0, every write in `scan.json` before the restart); after the restart the set record took over 10 A from the service (first contact); the service, asked through its status port: no set received after the restart, held 10 A, monitor 10 A |
-| R4 | dwell 3 s and 5 s, three points each (numbers below) |
 
-Each of tests 1 to 6 was seen to fail once with the property it checks removed (the report of T27
-lists how).
+Each of tests 1 to 6 was seen to fail once with the property it checks removed (the reports of
+T27 list how).
 
 ### The numbers of the three parts together (measured in the case)
 
@@ -297,50 +322,38 @@ during it (section 2).
 
 | dwell | picoammeter values per point (`pico1_n`) | time per point (0.5 A steps) | 100 points (computed) |
 |---|---|---|---|
-| 1 s (shipped) | 2 at every one of 26 points | 4.45 to 4.53 s | about 7.5 min |
-| 3 s | 4 | 6.50 s | about 11 min |
+| 1 s | 2 | 4.45 to 4.53 s | about 7.5 min |
+| 3 s (shipped since T27) | 4 at every one of 26 points | 6.45 to 6.53 s | about 11 min |
 | 5 s | 6 | 8.5 s | about 14 min |
 
 Time per point = move (one write: 0.5 A < `max_step`) + settling (here about 1.5 s: the case's
 lag of 0.5 s to within 0.05 A, and the 0.5 s poll of `dipole.db`) + `settle_time` 2 s + dwell.
-`check` estimates without settling: 84.5 s for the 26 points of test 2, which took 126 s.
+`check` prints a lower bound without the settling: 136.5 s for the 26 points of test 2, which
+took 178 s.
 
 What it means:
 
-- With the shipped dwell of 1 s a point gets two values: the reading the fresh read finds, which
-  was taken up to 1.3 s before the dwell began (poll period plus reading time), and the next one.
-  Of the 4.5 s per point, about 0.2 s of current is integrated. That is enough to find the peaks
-  here (noise 0.1 nA against heights of 8 to 150 nA); whether it is enough on MIST-2 depends on
-  the noise there, which is not known.
+- With a dwell of 1 s a point gets two values: the reading the fresh read finds, which was taken
+  up to 1.3 s before the dwell began (poll period plus reading time), and the next one. About
+  0.2 s of current is integrated per point. The shipped dwell is now 3 s: three new readings and
+  the fresh read (still ASSUMED: whether that is enough on MIST-2 depends on the noise there).
+  A dwell of N s gives N or N+1 values, so a whole number of poll periods.
 - `settle_time` must cover the picoammeter's poll period plus a reading time (1.3 s) on top of the
   magnet's own settling, or the first value of a dwell is a reading from before the magnet got
-  there. The shipped 2 s does; it must not be shortened below 1.3 s for speed.
-- Proposed (recommendations, none of these files is the case's): **dwell 3 s** in
-  `scans/config/dipole.yaml` (3 new readings and the fresh read per point; 100 points in about
-  11 min here); a dwell of N s gives N or N+1 values, so a whole number of poll periods.
-  **Poll period of the picoammeter: keep 1 s** (`picoammeter.db` SCAN): the arithmetic gives a
+  there. The shipped 2 s does; `scans/config/dipole.yaml` says so at the key.
+- **Poll period of the picoammeter: keep 1 s** (`picoammeter.db` SCAN): the arithmetic gives a
   minimum of 0.46 s at NPLC 6 and 9600 baud, which leaves no room for the identity request and
   the instrument's response time, which is not known. **Integration time: keep NPLC 6** (the
   instrument's power-on value and its maximum at 60 Hz, Table 4-4); the database reads it and
   sets nothing. **`dipole.db` SCAN: keep 0.5 s**: it sets how fast settling is seen.
 
-### Findings (questions for the owner, nothing changed)
+### Decided (owner, T27 second round) and open
 
-- **A lost DAQ service is not "the actuator lost".** The read-back goes INVALID within about a
-  second, but section 5 counts only a disconnected set PV or read-back and an INVALID set PV: the
-  scan waits the settle timeout (30 s), ends "not settled" and tries its end move. Counting an
-  INVALID read-back as the actuator lost (exit 5, nothing written) would end it at once.
-- **After a service restart the set PV can show a value the service does not hold** (operator
-  step 3). A condition `{pv: dipole:current:held, op: ">=", value: 0}` in the definition refuses
-  the scan then (shown in test 4: "condition dipole:current:held >= 0: INVALID"); a running scan
-  would end "condition lost" when the service stops (not measured). Alternatively `dipole.db` could
-  make the set record follow the held record's alarm. Either is a change of a part, not made.
-- **An overflow ends the dipole scan** with the shipped `required: true`. On a fixed range a
-  peak above the range is an ordinary event of a spectrum; `required: false` records it as
-  missing and goes on (test 3), autorange avoids it.
-- **The reason of a missing value is only "INVALID"**: the scan records the severity, not the
-  alarm status, so an overflow (STATE), zero check (STATE) and a silent instrument (TIMEOUT,
-  COMM) look alike in `points.csv`.
+- Built: the held PV (`actuator.held`, test 4), the read-back lost after `readback_lost_after`
+  (unit tests), the alarm status in every INVALID reason, the dwell of 3 s.
+- **Open, the owner's decision: an overflow ends the dipole scan** with the shipped `required:
+  true`. On a fixed range a peak above the range is an ordinary event of a spectrum; `required:
+  false` records it as missing and goes on (test 3), autorange avoids it. Left as shipped.
 
 ## 9. Not built
 
