@@ -1,0 +1,86 @@
+# flowmeters.db - cooling water flow meters, Arduino Opta on a USB serial line, libcom1
+#
+# From the lab's IOC.flowmeters.db (reference/lab-2026/EPICS/Db, copied from the rack computer on
+# 2026-11-24), same record names. Loaded there as DEVICE=FLOW on COM23, 115200 8N1
+# (reference/lab-2026/EPICS/st.cmd, lines 39 to 47). It replaces the sensor box, which that
+# st.cmd no longer loads (owner, answer 5 in docs/emulation/STATUS.md).
+#
+# Five flows f1..f5 in the query-all order, in litres per minute. The sketch
+# (reference/lab-2026/AVR/devices/FlowMeters/FlowMeters.ino, line 129) counts the pulses of each
+# meter for 0.5 s and multiplies them by 0.095238, with the comment "1260 pulses per l, 60 s in a
+# min, measuring for 0.5 s": pulses / 1260 per litre / 0.5 s * 60 s = pulses * 0.095238 l/min.
+# (Its other comment, line 119, says "litres/hour"; the arithmetic gives litres per minute.)
+# One pulse in 0.5 s is 0.095 l/min, the resolution of every value.
+# NOT KNOWN: which cooling circuit each meter is (question 18 c).
+#
+# Firmware: the sketch is libcom1 protocol 1 (the library of the rack computer, README of
+# reference/lab-2026): the query A works, identity (I) and acknowledged sets (S) do not. Nothing
+# here needs more than A. Do NOT load libcom1_device.db for this device until it runs protocol 2.
+#
+# Added to the lab's file: MS on the CA links (EPICS/README, "Alarms": a silent board turns every
+# value INVALID), EGU, PREC.
+#
+# Macros:
+#   DEVICE  PV prefix (FLOW in the lab)
+#   PORT    asyn port (AVR23 in the lab)
+#
+#   dbLoadRecords("db/flowmeters.db", "PORT=AVR23,DEVICE=FLOW")
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "Flow meters from OPTA")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".5 second")
+    field(NELM, "5")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+    field(LNK0, "$(DEVICE):f1:getflow")
+    field(LNK1, "$(DEVICE):f2:getflow")
+    field(LNK2, "$(DEVICE):f3:getflow")
+    field(LNK3, "$(DEVICE):f4:getflow")
+    field(LNK4, "$(DEVICE):f5:getflow")
+}
+
+record(ai, "$(DEVICE):f1:getflow") {
+    field(DESC, "Get f1 flow")
+    field(INP, "$(DEVICE):data.VAL[0] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "l/min")
+    field(PREC, "2")
+}
+
+record(ai, "$(DEVICE):f2:getflow") {
+    field(DESC, "Get f2 flow")
+    field(INP, "$(DEVICE):data.VAL[1] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "l/min")
+    field(PREC, "2")
+}
+
+record(ai, "$(DEVICE):f3:getflow") {
+    field(DESC, "Get f3 flow")
+    field(INP, "$(DEVICE):data.VAL[2] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "l/min")
+    field(PREC, "2")
+}
+
+record(ai, "$(DEVICE):f4:getflow") {
+    field(DESC, "Get f4 flow")
+    field(INP, "$(DEVICE):data.VAL[3] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "l/min")
+    field(PREC, "2")
+}
+
+record(ai, "$(DEVICE):f5:getflow") {
+    field(DESC, "Get f5 flow")
+    field(INP, "$(DEVICE):data.VAL[4] CA MS")
+    field(SCAN, "Passive")
+    field(EGU, "l/min")
+    field(PREC, "2")
+}
