@@ -31,8 +31,9 @@ dbLoadRecords("$(MIST2_DB)/logger_status.db", "P=LOGGER")
 
 # High-voltage supplies Matsusada AU, four on two optical chains (owner, 2026-11-21). The PV
 # name is built from DEV (default AU-20P7) and the unit number. The source supply is an AU20P15
-# and the lab names it AU-20P15-1 (its matsusada_au20p15.db, reference/lab-2026): DEV=AU-20P15. PERMIT (default interlock_open) forces an output off while
-# it is non-zero or INVALID, and clears its request (latch). With each supply its first contact
+# and the lab names it AU-20P15-1 (its matsusada_au20p15.db, reference/lab-2026): DEV=AU-20P15.
+# PERMIT (default interlock_open) forces an output off while it is non-zero or INVALID, and
+# clears its request (latch). With each supply its first contact
 # (supply_first_contact.db): output state and voltage setting taken over, nothing sent.
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,DEV=AU-20P15,IFS=15")  # ion source, AU20P15
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P15-1")
