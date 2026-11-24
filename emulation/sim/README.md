@@ -52,6 +52,7 @@ command (`info()`, `fault(mode, unit, duration, ms)`, `clear(mode, unit)`, `get(
 {"cmd": "fault", "mode": "garbage"}               replies corrupted, same length, correctly timed
 {"cmd": "fault", "mode": "trip"}                  device specific (error if the type has none)
 {"cmd": "fault", "mode": "slow", "ms": 200}       extra reply delay
+{"cmd": "fault", "mode": "slow_second", "unit": 1, "ms": 300}   the second reply after this comes late, once; then the fault ends
 {"cmd": "clear"}           {"cmd": "clear", "mode": "silent", "unit": 2}
 {"cmd": "get"}             all signals {value, target, external} and the active faults
 {"cmd": "get", "signal": "s1"}

@@ -97,7 +97,8 @@ get_voltage {
     in "CH0=%XH";
 }
 
-# The monitors are not checked (owner's decision, task T22): read ten times a second on a full
+# The monitors are not checked (task T22; whether they should be is the owner's decision, open
+# point P51 in docs/emulation/STATUS.md): read ten times a second on a full
 # line, a status request in front of each would cost nearly half the update rate. A monitor can
 # take a neighbour's reply of the same kind for one cycle, until the first mismatch puts the line
 # in step (@mismatch).
