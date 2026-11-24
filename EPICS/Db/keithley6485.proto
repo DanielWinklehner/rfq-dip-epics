@@ -1,0 +1,93 @@
+# keithley6485.proto - Keithley 6485 picoammeter, SCPI over RS-232 (database: picoammeter.db)
+#
+# The model is assumed (assumption A44): the plan says "Keithley, model tbc". Everything that
+# depends on the model is here and in the simulator (emulation/sim/mist2sim/devices/
+# keithley_6485.py); picoammeter.db only names the entries poll, identify, zero_check and range
+# and the bits of the status word (macro BADBITS). docs/emulation/PICOAMMETER.md has the details.
+#
+# Source: Keithley "Model 6485 Picoammeter Instruction Manual", 6485-901-01 Rev. A (Nov 2001),
+# download.tek.com. Pages are the manual's (section-page):
+#   9-14   several commands in one message, separated by ";"; ":" after ";" returns to the root
+#   9-15   an invalid command is not executed, the commands after it are ignored; the answers to
+#          several queries come in order, separated by ";" (printed "0; 1; 1; 0")
+#   9-17   commands are processed after CR; the instrument ends its messages with LF, CR, LFCR or
+#          CRLF (a menu choice, not given as a default): CR assumed here, both ways
+#   7-4    with the factory setup (as shipped, 1-15) the instrument leaves idle at power-on and
+#          keeps measuring (arm count INF, Table 1-3). "While operating within the trigger model
+#          (not in idle), most commands will not be executed until the instrument ... returns to
+#          the idle state"; ABORt is executed at once. So every message starts with ABOR and is
+#          followed by INIT (7-9, Table 7-3), which starts the measuring again. Neither changes a
+#          setting. 12-3 gives this way for an infinite count: INITiate, ABORt, SENSe:DATA?.
+#   3-5    SENS:DATA? returns the last reading without triggering one; no reading yet: error -230
+#          and no answer (then the rest of the message, INIT included, would be ignored: INIT is
+#          therefore a message of its own, also sent after a failed exchange)
+#   13-4   ASCII reading string with the default elements READing, UNITs, TIME, STATus
+#          ("All 4", Table 13-2), Figure 13-1: "+1.040564E-06A, +2.236299E+02, +1.380000E+02"
+#   13-6   overflow and overvoltage read +9.9E37; status word in decimal: bit 0 overflow,
+#          bit 7 overvoltage (13-7), bit 9 zero check, bit 10 zero correct
+#   Table 2-4 / 14-8   SYST:ZCH <b>, SYST:ZCH? (power-on: ON, Table 1-3)
+#   Table 4-2, 4-3, 14-4   CURR:RANG <n> with 2E-9 ... 2E-2, CURR:RANG:AUTO <b>, their queries
+#   Table 4-4   CURR:NPLC? (power-on 6 at 60 Hz, 5 at 50 Hz)
+#   11-3   *IDN?: "KEITHLEY INSTRUMENTS INC., MODEL 6485, xxxxxxx, yyyyy/zzzzz/w"
+#
+# Nothing here is sent at an IOC start that changes a setting: no @init, no reset, no format.
+# The reply format parsed is the instrument's default one. The requests (zero check, range) take
+# over the instrument's state at the first contact through first_contact.db.
+#
+# Argument \$1 of poll: the PV prefix (the redirection targets $(DEVICE):_zch ... in the database).
+
+Terminator = CR;
+# The longest answer (poll) is about 80 characters, 83 ms at 9600 baud; the instrument's own
+# response time is not in the manual: 500 ms assumed until the first character.
+ReplyTimeout = 500;
+ReadTimeout = 100;
+
+# Once per scan (picoammeter.db, $(DEVICE):_raw): the settings shown as read-backs and the last
+# reading, in one stop of the measuring. The reading goes into the record itself, the rest into
+# the internal records named by the prefix. Numbers skip leading blanks, so "; " and ", " as
+# printed in the manual and ";" and "," without blanks both match.
+poll {
+    out "ABOR;:SYST:ZCH?;:CURR:RANG?;:CURR:RANG:AUTO?;:CURR:NPLC?;:SENS:DATA?";
+    in "%(\$1:_zch)d;%(\$1:_rng)f;%(\$1:_auto)d;%(\$1:_nplc)f;%fA,%(\$1:_stamp)f,%(\$1:_status)f";
+    out "INIT";
+    @mismatch { out "INIT"; }
+    @replytimeout { out "INIT"; }
+    @readtimeout { out "INIT"; }
+}
+
+# Identity (11-3): "KEITHLEY INSTRUMENTS INC., MODEL 6485, <serial>, <firmware>". The
+# manufacturer must match, the rest goes into the record (an lsi: more than 40 characters):
+# "MODEL 6485, <serial>, <firmware>". Another answer, or garbage, ends in INVALID.
+identify {
+    out "ABOR;*IDN?";
+    in "KEITHLEY INSTRUMENTS INC.,%#s";
+    out "INIT";
+    @mismatch { out "INIT"; }
+    @replytimeout { out "INIT"; }
+    @readtimeout { out "INIT"; }
+}
+
+# Requests. SCPI does not acknowledge a command; the query after it is the acknowledgement: it is
+# answered only when the command before it was accepted (9-15), and "%=" compares the answer with
+# what was requested. A wrong or missing answer ends in INVALID on the request record.
+zero_check {
+    out "ABOR;:SYST:ZCH %{OFF|ON};:SYST:ZCH?";
+    in "%={0|1}";
+    out "INIT";
+    @mismatch { out "INIT"; }
+    @replytimeout { out "INIT"; }
+    @readtimeout { out "INIT"; }
+}
+
+# mbbo states (picoammeter.db): 0 automatic ranging, 1..8 the fixed ranges 2 nA ... 20 mA.
+# A fixed range switches automatic ranging off first (the manual does not say whether
+# CURR:RANG alone does). The answer checks the automatic ranging; the range itself is shown by
+# range:get after the next poll.
+range {
+    out "ABOR;:CURR:RANG:%{AUTO ON|AUTO OFF;:CURR:RANG 2E-9|AUTO OFF;:CURR:RANG 2E-8|AUTO OFF;:CURR:RANG 2E-7|AUTO OFF;:CURR:RANG 2E-6|AUTO OFF;:CURR:RANG 2E-5|AUTO OFF;:CURR:RANG 2E-4|AUTO OFF;:CURR:RANG 2E-3|AUTO OFF;:CURR:RANG 2E-2};:CURR:RANG:AUTO?";
+    in "%={1|0|0|0|0|0|0|0|0}";
+    out "INIT";
+    @mismatch { out "INIT"; }
+    @replytimeout { out "INIT"; }
+    @readtimeout { out "INIT"; }
+}

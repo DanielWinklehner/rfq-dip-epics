@@ -1,0 +1,11 @@
+# Keithley 6485 (assumed model, A44) on its RS-232 port. 9600 baud and CR are assumptions: the
+# manual names the choices (9-17), not the factory values (the instrument ships with GPIB
+# selected, Table 1-3).
+- name: pico1
+  type: keithley_6485
+  port: 5001                  # control port 6001
+  baud: 9600
+  turnaround_ms: 5            # response time: not in the manual, assumed
+  options:
+    current: 1.0e-7           # A, the input until a test sets it
+    noise: 0.0                # the tests compare the reading with what was set
