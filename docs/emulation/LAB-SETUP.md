@@ -122,8 +122,9 @@ Send me `lsb_release -a` of the mini PC (A22).
 
 ## 3. Rack computer: the device names
 
-`EPICS/ioc/iocBoot/iocRack/ports.real.cmd` names placeholders (`/dev/mist2/...`, `opta-fc`,
-`opta-turbo`). Replace each with the real name before the device is used.
+`EPICS/ioc/iocBoot/iocRack/ports.real.cmd` names `/dev/mist2/...` and `opta-turbo`. Four of
+those names come from a rule file by serial number (step 3); replace every other one with the
+real name before the device is used.
 
 1. **Matsusada adapters.** They get no serial port without the rule file:
 
@@ -154,9 +155,21 @@ Send me `lsb_release -a` of the mini PC (A22).
    Compare the values with the front panels. **The status reply must be `#<unit>` and `CO RM`,
    `CF RM`, `CO LO` or `CF LO`:** since T22 every state read checks it (A41). Then once with
    `--repeat 100`: the reply times decide whether the 150 ms reply timeout holds (A6, P52).
-3. **Every other serial device:** plug in one at a time, `ls -l /dev/serial/by-id/`, and put
-   that name into its line of `ports.real.cmd` (`/dev/serial/by-path/` if two adapters carry
-   no serial number). The Optas: their IP addresses in place of the host names.
+3. **The devices with a serial number** (Windows' list of 2026-11-24 with the lab's `st.cmd`,
+   `reference/lab-2026`): gauge controller, interlock box, valve box and MFC get their names
+   from `99-mist2-serial.rules`:
+
+   ```bash
+   sudo cp rfq-dip-epics/EPICS/ioc/host/99-mist2-serial.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+   ```
+
+   Plug them in, then `ls -l /dev/mist2/`: `gauges`, `interlock`, `valves`, `mfc`. A missing
+   one: `udevadm info -q property -n /dev/ttyACM0` (or `ttyUSB0`) shows the serial number
+   Linux reads; send it to me. Table and sources: `EPICS/ioc/host/README.md`.
+4. **Every other serial device** (nAIM, the Faraday cup Opta, the flow meter Opta, the NT 20
+   lines; Windows saw no serial number for the first three): plug in one at a time,
+   `ls -l /dev/serial/by-path/`, put that name into its line of `ports.real.cmd`, and keep the
+   device in that socket. The turbopump Opta: its IP address in place of the host name.
 
 ## 4. Start and look
 
@@ -186,28 +199,35 @@ the first time, or a port file changed, restart the IOC. Read with alarm state f
 terminal:
 
 ```bash
-caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:voltage:read
+caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:voltage:read AU-20P15-1:status:read
 ```
 
 | Device (port) | Line as configured | Read first | Known gap |
 |---|---|---|---|
-| AU 3, 4 on CO-U32 (`mat_co`); AU 1, 2 on USB-OPT (`mat_opt`) | 9600 8N1 | `AU-20P7-<n>:status:read`, `:voltage:read`, `:current:limit` | A41 reply format; A24 behaviour in local control |
+| AU 3, 4 on CO-U32 (`mat_co`); AU 1, 2 on USB-OPT (`mat_opt`) | 9600 8N1 | `AU-20P15-1:` (the source supply, the lab's name) and `AU-20P7-<n>:` (2, 3, 4) `status:read`, `:voltage:read`, `:current:limit` | A41 reply format; A24 behaviour in local control; the lab's `st.cmd` puts units 2, 3, 4 on one line and 1, 5 on the other (question 18) |
 | Interlock box (`AVR11`) | 115200 8N1 | `INTLK:id`, `interlock_open` | firmware, see below |
 | Gauge controller (`AVR6`) | 115200, **even** parity as in the lab's `st.cmd` (A10) | `PRESSURE:id`, `PRESSURE:apg:getpressure` | firmware |
-| Sensor box (`AVR10`), valve box (`AVR12`) | 115200 8N1 | `SENSOR:id`, `VALVE:id`, `VALVE:s1:get` | firmware |
+| Valve box (`AVR12`) | 115200 8N1 | `VALVE:id`, `VALVE:s1:get` | firmware |
+| Flow meter Opta (`AVR23`, the lab's COM23) | 115200 8N1 | `FLOW:f1:getflow` to `FLOW:f5:getflow` (l/min) | which circuit each is (question 18 c); no identity records (protocol 1) |
 | nAIM (`AIM`) | 9600 8N1 | `AIM:getpressure`, `AIM:enable` | protocol from INFICON's description (A15, A40) |
 | MFC (`MFC`) | 9600 8N1, address 254 | `MFC:getFlow`, `MFC:setSP` | written from a draft (A11, P11) |
-| Faraday cup Opta (`FC`), turbo Opta (`TURBO`) | TCP port 5025 | `FC:id`, `TURBO:id` | firmware not known to me, turbo's does not exist (P12, P13): expect INVALID |
+| Faraday cup Opta (`AVR16`, the lab's COM16) | 115200 8N1 | `FC1:i1:getcurrent`, `FC1:i2:getcurrent` | what i1 and i2 are and their unit, the sketch (question 18 b); no identity records (protocol 1) |
+| Turbo Opta (`TURBO`) | TCP port 5025 | `TURBO:id` | firmware does not exist (P13): expect INVALID |
 | NT 20 (`NT20_1`) | 9600 8N1, listen only | `TURBO1:raw:get` | record format invented (P14): send me what it shows |
 | TDK (`TDK`), platform | 19200 8N1, address 6 | `TDK:voltage:read`, `TDK:status:get` | A8 |
 | REK (`REK`), platform | 9600 8N1, unit 1 | `matsusada_probe.py <its device> 1` first, then `REK-1:status:read` | A7, A41 |
 | Thermocouples (`thermo`), platform | 19200 8N1; the lab's `st.cmd` said 9600 (A9) | `THM:id`, `THM:t1:get` | firmware |
 
-**Firmware of the Arduino boxes.** `<DEVICE>:id` and every valve or relay command need libcom1
-protocol 2. A box with the old firmware still gives its readings, but its `:id` is INVALID and
-a set is refused and not executed (`AVR/libcom1/README.md`). The sketches are in
-`AVR/devices/` (InterlockBox, SolenoidValveBox, SensorBox, IonGaugeController_Teensy) and
-`AVR/Thermocouple`. I have not compiled or flashed them.
+**Firmware of the Arduino boxes.** The boards as last flashed speak libcom1 **protocol 1**: the
+Arduino library on the rack computer had no protocol 2 (`reference/lab-2026/README.md`). They
+give their readings (query `A`), but answer identity and acknowledged sets with `ERR0`. So
+`<DEVICE>:id` is INVALID and every valve or relay command is refused and not executed
+(`AVR/libcom1/README.md`) until a box is flashed with protocol 2. The sketches of this branch
+are in `AVR/devices/` (InterlockBox, SolenoidValveBox, IonGaugeController_Teensy; SensorBox is
+no longer used) and `AVR/Thermocouple`, with the rack computer's local changes (same pins). I
+have not compiled or flashed them. The two Optas need only `A` and get no identity records:
+the flow meter sketch, protocol 1, is in `reference/lab-2026/AVR/devices/FlowMeters`; the
+Faraday cup Opta's sketch is not known.
 
 **If a reply does not match,** the IOC log prints the bytes it got and what it expected. That
 line is what I need. A Matsusada status reply in another form means changing the same input
@@ -261,5 +281,5 @@ The probe's output with reply times, `ls -l /dev/serial/by-id/` of both computer
 `lsb_release -a`, both IOC logs, the raw line of the NT 20, your `ports.real.cmd` files, and
 every reply that did not match.
 
-Not there yet: udev names for the devices other than the CO-U32, a start of the IOCs at boot
+Not there yet: udev names for the devices without a serial number (they are named by socket), a start of the IOCs at boot
 (systemd), and the one-hour acceptance run of the CO-U32 (`plan/CO-U32_driver_brief.md`).

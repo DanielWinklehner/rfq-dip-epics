@@ -90,7 +90,7 @@ defaults are in `EPICS/ioc/iocBoot/<ioc>/limits.defaults`. How to look at them a
 |---|---|---|
 | `make -C emulation test` | The whole system: clean start of both IOCs, every PV read, every set point written and followed, alarms on unacknowledged sets, every fault on every simulator with recovery, the interlock latch across both IOCs, a lost permit (the rack IOC stopped or silent), the control loop's switching, hand-backs and backstop, local control, the update rates against the bus arithmetic. Starts the emulation if needed Fails when a run changes an IOC's saved settings | about 11.5 min |
 | `make -C emulation test ARGS="-k valve"` | A part of it | |
-| `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `turbo`, `libcom1_devices` | 10 s to 4 min |
+| `emulation/devtest/run.sh emulation/devtest/<case>` | One device alone against its simulator. Cases: `matsusada`, `tdk`, `naim`, `mfc`, `faradaycup`, `flowmeters`, `turbo`, `libcom1_devices` | 10 s to 4 min |
 | `emulation/sim/run_tests.sh` | The simulators without an IOC, and the libcom1 simulator against the real library | 1 min |
 | `make -C emulation test-loop` | The discharge current loop closed on the plant model: bumpless switching, set point steps, a disturbance, limits, a hand-back. Prints a table (`docs/emulation/LOOP.md` section 6) | 5 min |
 | `python3 -m unittest discover -s loops/tests -t loops` | The loop's algorithm and logic alone, without EPICS, including a closed loop on a small plant in Python | 1 s |
