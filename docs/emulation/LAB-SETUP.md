@@ -45,9 +45,13 @@ the computer is wiped and gets a fresh Ubuntu, and the devices come back one by 
    lsusb -d 1192: ; ls -l /dev/mist2/ /dev/serial/by-id/ ; sudo dmesg | tail -5
    ```
 
-   Expected: `1192:1000`, "FTDI USB Serial Device converter now attached to ttyUSB0", and
-   `/dev/mist2/co-u32`. If so, wipe. If not, keep Windows (or its disk) and send me the
-   output. This shows that the adapter gets its serial port. That the supplies answer through
+   Expected: `1192:1000` and "FTDI USB Serial Device converter now attached to ttyUSB0". If
+   so, wipe. If not, keep Windows (or its disk) and send me the output.
+   `/dev/mist2/co-u32` will probably **not** appear: the list of devices Windows remembers
+   (2026-11-24) shows the Matsusada adapters without a serial number over USB, three times
+   under names made from the USB socket. Then the rule file's name by serial number cannot
+   work, and the adapter is named by its socket: `ls -l /dev/serial/by-path/`. Send me that
+   line and `udevadm info -q property -n /dev/ttyUSB0`. This shows that the adapter gets its serial port. That the supplies answer through
    it needs a powered supply on the fiber, outputs off, and the probe of section 3, which
    runs there as well (Python 3, no IOC).
 4. **Install Ubuntu Server 24.04 LTS** for a computer without screen: the ordinary
@@ -133,10 +137,12 @@ Send me `lsb_release -a` of the mini PC (A22).
    lsusb -d 1192: ; ls -l /dev/mist2/ /dev/serial/by-id/
    ```
 
-   Expected: `1192:1000` and `/dev/mist2/co-u32` for the CO-U32, and one name per adapter in
-   `by-id`. Put the USB-OPT's `by-id` name into the `mat_opt` line of `ports.real.cmd`. That
-   the USB-OPT reports the same ID is not confirmed (P34). If an adapter shows another ID or
-   serial number (A29): `EPICS/ioc/host/README.md`.
+   Expected: `1192:1000` for each adapter. Windows remembers three such devices, all without
+   a serial number over USB (2026-11-24), so expect no `/dev/mist2/co-u32` and no separate
+   names under `by-id`: take each adapter's name from `ls -l /dev/serial/by-path/` (it
+   belongs to the USB socket, so keep each adapter in its socket) and put it into the
+   `mat_co` and `mat_opt` lines of `ports.real.cmd`. Which adapter is which: plug one in
+   at a time.
 2. **Read-only first contact**, before any IOC, outputs off:
 
    ```bash
