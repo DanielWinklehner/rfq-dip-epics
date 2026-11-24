@@ -11,9 +11,17 @@ description: "Dipole magnet current against the picoammeter current"
 actuator:
   set: "dipole:current:set"          # plan: ao, A
   readback: "dipole:current:get"     # plan: ai, A
+  held: "dipole:current:held"        # what the DAQ service holds (dipole.db): refused when it is not
+                                     # known or differs from the set PV; lost = the actuator lost
+  readback_lost_after: 5.0           # s of an INVALID read-back before the actuator counts as lost
+                                     # (the default). ASSUMED
   tolerance: 0.05                    # A. ASSUMED
   settle_timeout: 30.0               # s. ASSUMED
-  settle_time: 2.0                   # s after the read-back is within the tolerance. ASSUMED (magnet and field settle)
+  settle_time: 2.0                   # s after the read-back is within the tolerance. ASSUMED (magnet and field settle).
+                                     # Never below the picoammeter's poll period plus one reading time
+                                     # (1 s + 0.3 s = 1.3 s with the defaults of picoammeter.db and the
+                                     # 6485 after power-on): the dwell's first value would be a reading
+                                     # taken before the magnet got there (docs/emulation/SCAN.md, section 8)
   max_step: 1.0                      # A per write. ASSUMED: whether the old supplies need slow changes is not known
   step_pause: 0.5                    # s between part steps. ASSUMED
   limits: [0.0, 100.0]               # A. ASSUMED: the supplies' range is not known; the IOC's DRVL/DRVH also apply
@@ -27,7 +35,10 @@ points:
 detectors:
   - {pv: "pico1:current:get", name: pico1, required: true}     # plan: ai, A
 
-dwell: 1.0                           # s per point. ASSUMED
+dwell: 3.0                           # s per point. ASSUMED. The picoammeter gives one new reading per
+                                     # second (picoammeter.db SCAN 1 s): 3 s = three new readings and the
+                                     # one read at the start of the dwell (measured in the case
+                                     # emulation/devtest/dipolescan: 4 values per point; 1 s gave 2)
 
 conditions: []                       # none known yet. Form: {pv: <name>, op: "==", value: 1}
 
