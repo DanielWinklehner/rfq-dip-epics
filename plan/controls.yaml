@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.22"
+  revision: "0.23"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -41,6 +41,7 @@ meta:
     - "Revision 0.20: after one late reply the requests and replies of a Matsusada or REK line are in step again after the first mismatch, and every read of an output state or a setting first checks the unit number in a status reply (T22, owner's word of 2026-11-23). No record added; the protocol files only. The monitors are not checked: a monitor can show a neighbour's value for one cycle after a late reply."
     - "Revision 0.21: the lab computer runs Ubuntu, not Windows (owner, 2026-11-24); it gets the data logger; the rack computer is wiped and gets a fresh Ubuntu, operated over SSH; the owner wants the dipole scan off LabVIEW (WP11). No record changed."
     - "Revision 0.22: the rack IOC follows the lab's files copied on 2026-11-24 (reference/lab-2026, T26): the source supply is AU-20P15-1, the Faraday cup FC1 with two values on a USB serial line, five flow meters FLOW replace the sensor box, names of serial devices by serial number. The dipole scan's first stage (T23 to T27): the scan program scans/mist2scan, the DAQ service daq/mist2daq for the NI USB-6001 with dipole.db, the picoammeter for an assumed Keithley 6485, proven together in a device case; loaded by no IOC yet."
+    - "Revision 0.23: the computers as installed on 2026-11-24 (owner): Ubuntu 26.04.1, desktop installation, on the rack server and the lab computer; the platform computer stays on its older 32-bit Linux. The Optas in hand: three, and one analog expansion AFX00007. No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -70,7 +71,7 @@ hosts:
     name: "Lab computer"
     location: control
     role: "Serves the GUI (React Automation Studio). Runs the data logger. Runs the LabVIEW dipole scan until work package WP11 replaces it."
-    os: "Ubuntu (owner, 2026-11-24); version not known"
+    os: "Ubuntu 26.04.1, desktop installation (installed by the owner, 2026-11-24)"
     uplink: "Ethernet"
     status: keep
     notes:
@@ -84,7 +85,7 @@ hosts:
     model: "1U server"
     location: rack
     role: "EPICS IOC for everything in the rack"
-    os: "Windows until 2026-11; then a fresh Ubuntu Server 24.04 (owner's plan of 2026-11-24)"
+    os: "Ubuntu 26.04.1, desktop installation (installed by the owner on 2026-11-24, after Windows was copied and wiped)"
     uplink: "Fiber to the new switch"
     status: modify
     change: "Move from Windows to Linux: data copied, disk wiped, fresh installation. Runs without screen, operated over SSH."
@@ -101,15 +102,15 @@ hosts:
     model: "ASUS mini PC"
     location: hv
     role: "EPICS IOC for the supplies on the high-voltage platform"
-    os: "Ubuntu, a light variant (owner, 2026-11-22); variant and version not known"
+    os: "An older 32-bit Linux, a light Ubuntu variant; it stays (owner, 2026-11-24). Variant and version not known"
     uplink: "Fiber to the new switch (the only link that crosses to the platform)"
     status: keep
     st_cmd: EPICS/ioc/iocBoot/iocHV/st.cmd
     epics: {db: ioc_info.db, macros: {P: IOC-HV}}
     notes:
-      - "Assumed (A22): it runs the same EPICS top as the rack IOC (EPICS/ioc, st.cmd in iocBoot/iocHV)."
+      - "Assumed (A22): it runs the same EPICS top as the rack IOC (EPICS/ioc, st.cmd in iocBoot/iocHV). The build script builds it for linux-x86: run in containers of 32-bit Ubuntu 16.04 and 18.04, not on this computer."
       - "Saved limits as on the rack IOC (autosave, iocBoot/iocHV/limits.defaults, then limits.sav): the current limit of the REK, and the settings of the control loops."
-      - "Also runs the loop service loops/mist2loop (Python 3.8 or later, pyepics in a virtual environment, systemd unit loops/systemd/mist2loop.service; loops/README.md, not verified on this computer). The loops' records are in this IOC (EPICS/Db/loop.db)."
+      - "Also runs the loop service loops/mist2loop (Python 3.8 or later, pyepics in a virtual environment, systemd unit loops/systemd/mist2loop.service; loops/README.md, not verified on this computer). The loops' records are in this IOC (EPICS/Db/loop.db). On a 32-bit Linux with a Python older than 3.8 the service cannot run there: it then runs on the rack server and talks to this IOC over the network (docs/emulation/LAB-SETUP.md, section 6)."
     questions:
       - "Which Ubuntu variant and version runs on the mini PC (lsb_release -a)? Please send its st.cmd and dbl output as well."
   - id: emit_pc
@@ -937,6 +938,7 @@ work_packages:
       - "New Ethernet switch: fiber to the rack IOC and to the platform IOC, copper ports for Ethernet devices in the rack."
       - "Nothing on the HV platform connects to the switch by copper. Fiber is the only link that crosses."
       - "Optas from USB to Ethernet with fixed addresses."
+      - "In hand (owner, 2026-11-24): three Arduino Optas (with RS-485, not Lite, not WiFi) and one analog expansion AFX00007 (Opta Analog Expansion A0602). Two Optas are in use as flashed: the flow meters and the Faraday cup. How the third and the expansion are used until more are ordered is the owner's decision (docs/emulation/STATUS.md, question 20)."
       - "Decide the PV naming convention before new PVs are added. Keep old names as aliases."
   - id: WP7
     name: "GUI overhaul"
