@@ -241,7 +241,7 @@ caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:volta
 | Device (port) | Line as configured | Read first | Known gap |
 |---|---|---|---|
 | AU 3, 4 on CO-U32 (`mat_co`); AU 1, 2 on USB-OPT (`mat_opt`) | 9600 8N1 | `AU-20P15-1:` (the source supply, the lab's name) and `AU-20P7-<n>:` (2, 3, 4) `status:read`, `:voltage:read`, `:current:limit` | A41 reply format; A24 behaviour in local control; the lab's `st.cmd` puts units 2, 3, 4 on one line and 1, 5 on the other (question 18) |
-| Interlock box (`AVR11`) | 115200 8N1 | `INTLK:id`, `interlock_open` | firmware, see below |
+| Interlock box, an Opta now (`AVR11`) | USB serial | `INTLK:id` (InterlockOpta), `interlock_open` | "The interlock box is an Opta", below |
 | Gauge controller (`AVR6`) | 115200, **even** parity as in the lab's `st.cmd` (A10) | `PRESSURE:id`, `PRESSURE:apg:getpressure` | firmware |
 | Valve box (`AVR12`) | 115200 8N1 | `VALVE:id`, `VALVE:s1:get` | firmware |
 | Flow meter Opta (`AVR23`, the lab's COM23) | 115200 8N1 | `FLOW:f1:getflow` to `FLOW:f5:getflow` (l/min) | which circuit each is (question 18 c); no identity records (protocol 1) |
@@ -259,11 +259,12 @@ Arduino library on the rack computer had no protocol 2 (`reference/lab-2026/READ
 give their readings (query `A`), but answer identity and acknowledged sets with `ERR0`. So
 `<DEVICE>:id` is INVALID and every valve or relay command is refused and not executed
 (`AVR/libcom1/README.md`) until a box is flashed with protocol 2. The sketches of this branch
-are in `AVR/devices/` (InterlockBox, SolenoidValveBox, IonGaugeController_Teensy; SensorBox is
-no longer used) and `AVR/Thermocouple`, with the rack computer's local changes (same pins). The
-valve box and the interlock box sketches compile for the Arduino Mega 2560 (avr-gcc 7.3.0,
-Arduino AVR core 1.8.6, built with Ubuntu's Arduino packages, not with the IDE); the others I
-have not compiled, and none is flashed by me. The two Optas need only `A` and get no identity records:
+are in `AVR/devices/` (InterlockOpta, SolenoidValveBox, IonGaugeController_Teensy; InterlockBox
+is the lost box's, SensorBox is no longer used) and `AVR/Thermocouple`, with the rack computer's
+local changes (same pins). The valve box sketch and the old interlock box sketch compile for the
+Arduino Mega 2560, the new interlock sketch for the Opta, all with one command in a container
+(`AVR/tools/compile.sh`, fixed versions of Arduino's tools); the others I have not compiled, and
+none is flashed by me. The two Optas in use need only `A` and get no identity records:
 the flow meter sketch, protocol 1, is in `reference/lab-2026/AVR/devices/FlowMeters`; the
 Faraday cup Opta's sketch is not known.
 
@@ -305,6 +306,54 @@ button. Not done, not needed for IOC restarts.
 The relays are SRD-05VDC-SL-C (5 V coil), and the relay board has its own supply cable: USB
 feeds only the Arduino. The firmware before this one is `AVR/devices/SolenoidValveBox` at
 commit `3790bda` of `master`.
+
+**The interlock box is an Opta** (your third one; the old box was not found). The sketch is
+`AVR/devices/InterlockOpta`, and its `README.md` has the wiring table, the limits from the data
+sheet and the full check list. The IOC needs no change: same port, same PVs. **The sketch is
+compiled and tested on a PC and has never run on an Opta**, so the bench comes first.
+
+It is not personnel protection: it reports the doors to the IOC and gives a contact that
+follows them.
+
+1. **Wiring.** 12 to 24 V DC on the Opta's supply terminals (USB alone does not power the
+   relays). Each door switch between the supply's plus and one input: door 1 on I1, door 2 on
+   I2. An input reads "closed" from 6.6 V and takes up to 24 V. On the bench a wire from plus
+   to I1 and I2 stands in for the switches.
+2. **Flash** with the Arduino IDE 2, as the valve box, with these differences: in the Boards
+   Manager install "Arduino Mbed OS Opta Boards" (this repository compiles with 4.6.0), board
+   "Opta". Copy `AVR/libcom1` and `AVR/libutil` again from a fresh `git pull` into the
+   sketchbook's `libraries` folder, the old `libcom1` there deleted first. Open
+   `AVR/devices/InterlockOpta/InterlockOpta.ino`; its two headers must stay beside it.
+3. **Serial monitor** (line ending "Newline", any baud rate except 1200, which sends the Opta
+   into its bootloader): `I` must answer `oID=InterlockOpta;FW=...;PROTO=2;CH=i1,i2,s1,s2`.
+   `A` answers `o0:0:0:0` with nothing on the inputs, and `o1:1:0:0` once both inputs have been
+   at plus for a second: relays 1 and 2 click, their lamps and the green lamp come on. Take one
+   wire off: `A` shows that door as 0 at once and the relays drop; put it back and it takes a
+   second.
+4. **Three things only the bench can show.** Tell me each result.
+   - **24 V alone:** unplug USB, switch the 24 V off and on with both inputs at plus. Relays 1
+     and 2 must come on after about a second, without a computer.
+   - **A second flash:** upload the sketch once more while it runs. If the upload fails or the
+     board restarts in the middle, that is the watchdog (the sketch's README says what to do).
+   - **USB pulled while the IOC reads:** with the IOC running and both inputs at plus, pull the
+     USB cable, then take one wire off an input. Relay 1 must drop at once. If it takes seconds,
+     tell me: the sketch then needs a change before its contacts are used for anything (P62).
+5. **The name for the IOC.** With the Opta plugged into the rack server, send me the output of
+
+   ```bash
+   for d in /dev/ttyACM*; do echo "$d"; udevadm info -q property -n "$d" | grep -E "ID_VENDOR_ID|ID_MODEL_ID|ID_SERIAL_SHORT|ID_PATH="; done
+   ```
+
+   and I add its line to `99-mist2-serial.rules` (the line there is still the lost box's).
+   Until then the name under `/dev/serial/by-path/` in the `AVR11` line of `ports.real.cmd`
+   works as well.
+6. **With the IOC:**
+
+   ```bash
+   caget -a INTLK:id INTLK:i1:get_interlock INTLK:i2:get_interlock interlock_open
+   ```
+
+   `interlock_open` must be 0 without alarm while both inputs are at plus, and 1 with a wire off.
 
 **If a reply does not match,** the IOC log prints the bytes it got and what it expected. That
 line is what I need. A Matsusada status reply in another form means changing the same input

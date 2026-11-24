@@ -61,7 +61,10 @@ asynSetOption("AVR6",-1,"stop","1")
 asynSetOption("AVR6",-1,"clocal","Y")
 asynSetOption("AVR6",-1,"crtscts","N")
 
-# Old interlock box, Arduino, libcom1. Device name: EPICS/ioc/host/99-mist2-serial.rules
+# Interlock box, libcom1 on USB serial: an Arduino Opta (AVR/devices/InterlockOpta) in place of
+# the lost Arduino Mega box since 2026-11-25. The baud rate means nothing to the Opta's USB port.
+# Device name: EPICS/ioc/host/99-mist2-serial.rules (its line is the lost box's until the Opta's
+# serial number is known; until then the name under /dev/serial/by-path/ goes here).
 drvAsynSerialPortConfigure("AVR11","/dev/mist2/interlock")
 asynSetOption("AVR11",-1,"baud","115200")
 asynSetOption("AVR11",-1,"bits","8")
@@ -78,7 +81,7 @@ asynSetOption("AVR11",-1,"crtscts","N")
 # was plugged in or the computer booted does restart the box. Any other program that opens this
 # port and switches DTR (the Arduino IDE and its serial monitor) restarts it as well.
 # Seen: the flag is off after this IOC had a pseudo-terminal open. NOT SEEN on the box itself.
-# The same holds for the interlock box above (also an Arduino Mega).
+# (The interlock box above is an Opta: it restarts only when its port is opened at 1200 baud.)
 drvAsynSerialPortConfigure("AVR12","/dev/mist2/valves")
 asynSetOption("AVR12",-1,"baud","115200")
 asynSetOption("AVR12",-1,"bits","8")

@@ -728,6 +728,47 @@ merged 2026-11-24; answer 39, `reference/lab-2026`)
 - One line of the logger's tests was changed by me, with the engineer's diff: the logger's
   database keeps the PVs of earlier registries, and a test took the first of them by name.
 
+**The interlock box as an Opta** (subagent, task T28, one round, merged 2026-11-25; answers 53
+and 54)
+
+- **The firmware** `AVR/devices/InterlockOpta` answers with the old box's four channels in the
+  same order on USB serial, so `interlockbox.db`, the port and every PV stay; only `INTLK:id`
+  reads `InterlockOpta`. The doors are on inputs I1 and I2 (high = closed, A48). Relays 1 and 2
+  are on only while both doors are reported closed, decided in the Opta without the IOC; relays
+  3 and 4 are the old box's two relays switched by command. A door that opens is reported open
+  for at least 1 s. No latch. A hardware watchdog of 8 s. **It is compiled for the Opta and
+  tested on a PC. It has never run on a board** (P61, P62).
+- **A compile in a container** with fixed versions (`AVR/tools/compile.sh`, image
+  `mist2-arduino:dev`: arduino-cli 1.5.1, Arduino's core 4.6.0 for the Opta and 1.8.8 for the
+  Mega): the Opta sketch (143072 bytes, no warning) and the two Mega sketches, the valve box's
+  as flashed on 2026-11-24 among them.
+- **Tests on a PC** (`make -C AVR/devices/InterlockOpta/tests`): the door decision (hold time,
+  a bouncing switch, an opening of a millisecond, the wrap of the millisecond counter after 49
+  days), the device through the real library (no line received switches relays 1 and 2, tried
+  with every command and 40 000 random lines), and the simulator's entry compared with the
+  firmware line by line. The simulated interlock box now reports the Opta's identity and number
+  format.
+- **Two faults in the firmware library, found by these tests and fixed by me:** a received
+  byte of 0x80 or more as the channel letter shifted a negative value (undefined behaviour on
+  an Arduino Mega and a PC; a regression test fails without the fix, and a simulated ATmega
+  gives the same replies as the PC afterwards). And three symbolic links in the library's
+  stand-alone example made the Arduino IDE 2 refuse the whole library on Linux; they are gone,
+  the example builds before and after. The valve box as flashed has the old line of the first
+  fault: the IOC sends no such byte, so nothing changes for it.
+- **The data sheet, read by me** (Arduino's collective data sheet of the Opta, revision of
+  2026-11-19): supply 12 to 24 V DC; a digital input takes 0 to 24 V, low up to 4.46 V, high
+  from 6.6 V; the relays are normally open with a minimum switching load of 300 mW (12.5 mA at
+  24 V, 60 mA at 5 V).
+- **Verified by me:** the eight acceptance commands from the engineer's worktree, all exit 0.
+  Three variants of my own: with the hold time halved the door test fails, with a command
+  allowed to switch relay 2 the device test fails, with the simulator's entry in the old number
+  format the comparison fails. The pin names and the calls the sketch uses, read in the
+  installed core. On the merged branch, with the library fixes: the system suite (282 passed
+  in 767 s, saved settings unchanged), the library's tests (289 checks in each of four
+  builds), the sketch's tests, the three compiles, the simulators' tests, the device case
+  `libcom1_devices` (82 passed), the plan check. Not rerun: the GUI check (no PV, channel or
+  role changed; the registry got the device's new name and notes).
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
@@ -989,8 +1030,16 @@ nothing of the simulator but a new module with its tests and a line of its READM
     serial number goes into `99-mist2-serial.rules`).
     Neither an Opta nor an Arduino is personnel protection: for that the door switches have
     to break the supplies' own interlock input or their mains (layer A of the plan).
-    Shall I have the Opta firmware written? Are the two door switches and their cable to the
-    rack still there, and do they close when the door closes?
+    Answered by answer 54: yes, and the firmware is written (T28). Still open: are the two
+    door switches and their cable to the rack still there, and do they close when the door
+    closes (A48)?
+22. The Opta's interlock contacts, relays 1 and 2 (T28). (a) Must the contact itself latch,
+    that is stay open after a door was opened until someone resets it, or is the IOC's latch of
+    the supplies enough? Nothing is built for a latch. (b) What will the contacts switch, at
+    which voltage and current? The Opta's relays need at least 300 mW (12.5 mA at 24 V); an
+    interlock input of a supply that carries a few milliamperes needs a small signal relay in
+    between (P63). (c) A new flash opens the contacts until the new sketch has run for 1 s. Is
+    that acceptable?
 
 ## Not verified
 
@@ -1085,6 +1134,7 @@ nothing of the simulator but a new module with its tests and a line of its READM
 - With a line so held up that the read-back of the SW setting takes longer than a second, one
   more off sequence may go out after a normal permit loss. Read from the records, not tested.
 - The ion gauge's read-back of its on/off state on the real serial port (A40).
+- The Opta interlock firmware on an Opta: compiled and tested on a PC only (P61, P62).
 - Grafana by a person in a browser: I looked at screenshots of one dashboard.
 - The GUI over hours. The checks keep a window open for a minute at most. Each trend line
   keeps its last 3000 values, which is 5 minutes of a value that changes ten times a second.
@@ -1093,6 +1143,7 @@ nothing of the simulator but a new module with its tests and a line of its READM
 
 - All subagents report the model ID `claude-opus-5-5`.
 - 2026-11-24: T26 one round (2.4 h), T27 two rounds (1 h and 50 min).
+- 2026-11-25: T28 one round (50 min).
 - 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
   600 s") near its end; resumed with a message, it finished in four minutes. Its work was
   committed up to that point.
@@ -1184,6 +1235,12 @@ nothing of the simulator but a new module with its tests and a line of its READM
 | T22's tests have two simulated lines of their own in the device case | Late replies on the lines of the other tests would disturb them. The price is five more supplies in the case's IOC and a run of 18 minutes instead of 10 |
 | T22 has no test in the system suite | The suite's time is used up (P32). The same databases and protocol files run in the device case; I checked the rack configuration by hand in the full emulation |
 | The logger stores what a loop writes to its actuator as a signal while the loop is in PID | Five writes a second are not set commands of an operator. The plan names the PV and the condition (`drives`), so a second loop needs no change in the logger |
+| The Opta interlock keeps the old box's four channels, their order and USB serial (T28) | No PV, no database and no port changes. The IOC sees the difference only in the identity |
+| Its interlock relays have no channel | Nothing received over the line may switch them. Tested with every command and with random lines |
+| A door is reported closed only after its input has read closed for 1 s without interruption | The IOC reads the box ten times a second and latches the supplies off. A short opening or a bouncing switch must reach it |
+| No latch in the Opta | As the old box's outputs. The IOC latches the supplies. Whether the hardware contact must latch is question 22 |
+| The door decision runs in the loop that also communicates, with a watchdog of 8 s | As the old box, and simple enough to test on a PC. Its weakness is P62, to be tried on the bench before the contacts are used |
+| Sketches are compiled in a container with fixed versions of the tools | A firmware build that can be repeated and checked here. Flashing stays with the Arduino IDE on the owner's computer |
 
 ## Assumptions that need your confirmation
 
@@ -1207,6 +1264,7 @@ A19 (the output gate is wanted, and it latches).
 | A13 | The Faraday cup Opta's first value, `FC1:i1`, is the cup current in A; `FC1:i2` is not known | The names and the line are the lab's now (T26). The meaning is my assumption for the plant model only; the database claims no unit. The sketch was not found | You (question 18), the sketch |
 | A47 | The flow meters give 1260 pulses per litre, so `FLOW:f<n>:getflow` is in l/min | The sketch's comment and factor (`reference/lab-2026`, `FlowMeters.ino`) | You (question 18), the flow meters' data sheet |
 | A48 | The two door switches of the HV cage close when their door closes, so the Opta counts a high input as a closed door (T28) | The old sketch treats the interlock as closed when both inputs are high; how the switches were wired to the lost box is not recorded. Asked in question 21, not answered | One constant per input in the sketch. A switch that opens when the door closes would have to be read the other way round, and a broken wire would then read as a closed door |
+| A49 | An input of the Opta reads its voltage against the supply's minus terminal (T28) | The data sheet gives the input's thresholds and names no reference terminal in words | Seen at the first bench check: an input at the supply's plus must read as a closed door |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
@@ -1290,7 +1348,10 @@ loop, see "Done").
 | P55 | In the libcom1 databases whose element records are processed by a forward link of the array record (`faradaycup.db`, `solenoidbox.db` and the others of that pattern), an element record may show the value of the previous poll: the engineer of T24 measured it on his own database (one poll, 0.5 s, late) and used CP links there. Not checked on the other databases, not changed. For the interlock box that would be 0.1 s on `interlock_open` | Check it on one of them (T26's Faraday cup case can show it). The hardware interlock is the first line |
 | P56 | Whether NI's driver for Linux serves the USB-6001 is not shown: the NI-DAQmx for Linux readme 21.3 lists no USB-600x device, later readmes point to a compatibility page the engineer could not read, a knowledge-base article that says "not supported" could not be fetched. If it does not, the choices are in `DAQ.md` (a Windows computer for the service, NI hardware that is supported, a microcontroller with libcom1) | You: does LabVIEW drive the box on the Ubuntu lab computer today, and with which NI driver? |
 | P57 | The scan program and the DAQ service use `max_step`, limits and a communication timeout whose values are all ASSUMED (`scans/config/dipole.yaml`, `daq/config/dipole.yaml`). A first scan on the machine needs your values in both files | Question 17 |
-| P60 | That an IOC restart leaves the valve box's relays as they are (answer 52) is shown for the IOC's side only: the serial driver's hang-up flag on a pseudo-terminal, and the kernel's rule that DTR is dropped at close only with that flag on, read and not run. Not seen on the Arduino Mega. The same reasoning holds for the interlock box, which is not connected yet | One test on the box: relay 5 on, restart the IOC, the relay stays on and `VALVE:s5:set` and `VALVE:s5:get` read 1. If it drops, the automatic reset has to be disabled on the board |
+| P60 | That an IOC restart leaves the valve box's relays as they are (answer 52) is shown for the IOC's side only: the serial driver's hang-up flag on a pseudo-terminal, and the kernel's rule that DTR is dropped at close only with that flag on, read and not run. Not seen on the Arduino Mega. The interlock box is an Opta now (T28): it does not restart on DTR at all, only when its port is opened at 1200 baud | One test on the box: relay 5 on, restart the IOC, the relay stays on and `VALVE:s5:set` and `VALVE:s5:get` read 1. If it drops, the automatic reset has to be disabled on the board |
+| P61 | The Opta sketch has never run on a board (T28). Not shown: that `digitalRead` of I1 and I2 reads those terminals (the core's two pin tables name different processor pins for the second input; the user manual's example reads it this way), that a high output closes a relay, what the relays do while the bootloader runs, whether the watchdog disturbs an upload, and that the box starts with 24 V alone, without USB | The bench checks in `LAB-SETUP.md` and in the sketch's README |
+| P62 | In the Opta sketch the door decision and the communication share one loop, as in the old box. The Opta's USB write waits until the computer has taken the data (`USBCDC::send` in the core). If a write ever hangs (the USB cable pulled in the middle of a reply, a computer that stops with the port open), the doors are not read and relays 1 and 2 keep their state until the watchdog restarts the board, up to 8 s later. The IOC's side is safe in that state: no reply, `interlock_open` INVALID, supplies off. Whether a write can hang at all is not known | A bench test (`LAB-SETUP.md`): with the IOC reading, pull the USB cable, then open one input; relay 1 must drop at once. If it does not, the door decision moves into a thread of its own before the contacts are wired to anything |
+| P63 | The Opta's relays have a minimum switching load of 300 mW (data sheet: 12.5 mA at 24 V, 60 mA at 5 V, 60 V at 5 mA). An interlock input of a power supply usually carries less; what the Matsusada and REK inputs carry is not known here | Question 22 b. A small signal relay between the Opta's contact and such an input |
 
 ## Found in RAS V8.1.0
 

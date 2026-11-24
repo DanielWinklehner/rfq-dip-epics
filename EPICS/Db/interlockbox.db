@@ -1,4 +1,8 @@
-# interlockbox.db - old interlock box in the rack: two door switches (AVR/devices/InterlockBox)
+# interlockbox.db - interlock box in the rack: two door switches
+#
+# The box was an Arduino Mega (AVR/devices/InterlockBox), not found after the move of 2026.
+# Since 2026-11-25 an Arduino Opta stands in for it (AVR/devices/InterlockOpta) with the same
+# four channels in the same order, so this file is unchanged for it.
 #
 # Author: Philip Weigel
 #

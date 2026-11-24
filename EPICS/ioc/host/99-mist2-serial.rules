@@ -26,6 +26,9 @@
 #   USB Serial Device (COM6) USB\VID_16C0&PID_0483\3596460
 SUBSYSTEM=="tty", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0483", ATTRS{serial}=="3596460", SYMLINK+="mist2/gauges", ENV{ID_MM_DEVICE_IGNORE}="1"
 
+# Interlock box. The Arduino Mega of this line was not found after the move (owner, 2026-11-24);
+# an Arduino Opta takes its place and gets its own line here when its serial number is known
+# (docs/emulation/LAB-SETUP.md, "The interlock box is an Opta"). The lost box's line stays until then.
 # Interlock box (Arduino Mega), COM11 in the lab's st.cmd (line 30). rack-serial-devices.txt line 5:
 #   Arduino Mega 2560 (COM11) USB\VID_2341&PID_0042\954323138373519002A2
 SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", ATTRS{serial}=="954323138373519002A2", SYMLINK+="mist2/interlock", ENV{ID_MM_DEVICE_IGNORE}="1"

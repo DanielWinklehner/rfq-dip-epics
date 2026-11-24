@@ -58,7 +58,8 @@ dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=AIM,N=enable,REQ=AIM:enable,RB=
 # It replaces the sensor box (sensorbox.db), which the lab's st.cmd of 2026 no longer loads.
 dbLoadRecords("$(MIST2_DB)/flowmeters.db",     "PORT=AVR23,DEVICE=FLOW")
 
-# Old interlock box: two door switches and interlock_open (libcom1)
+# Interlock box: two door switches and interlock_open (libcom1). An Opta in place of the lost
+# Arduino box since 2026-11-25, with the same channels (AVR/devices/InterlockOpta).
 dbLoadRecords("$(MIST2_DB)/interlockbox.db",   "PORT=AVR11,DEVICE=INTLK")
 dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR11,DEVICE=INTLK")
 
