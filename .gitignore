@@ -12,6 +12,7 @@ EPICS/ioc/dbd/
 EPICS/ioc/db/
 EPICS/ioc/include/
 EPICS/ioc/iocBoot/*/envPaths
+EPICS/ioc/configure/RELEASE.local
 
 # Local build and test output
 build/

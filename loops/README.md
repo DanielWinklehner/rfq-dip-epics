@@ -47,7 +47,7 @@ into a virtual environment.
 sudo apt install python3-venv git                    # Python from the distribution
 sudo useradd --system --create-home mist2            # if the IOC does not have its own user yet
 sudo mkdir -p /opt/mist2 && sudo chown mist2: /opt/mist2
-sudo -u mist2 git clone https://github.com/DanielWinklehner/rfq-dip-epics.git /opt/mist2/rfq-dip-epics
+sudo -u mist2 git clone -b emulated-iocs https://github.com/DanielWinklehner/rfq-dip-epics.git /opt/mist2/rfq-dip-epics
 sudo -u mist2 python3 -m venv /opt/mist2/venv-mist2loop
 sudo -u mist2 /opt/mist2/venv-mist2loop/bin/pip install pyepics==3.5.8 PyYAML
 sudo -u mist2 sh -c 'cd /opt/mist2/rfq-dip-epics && /opt/mist2/venv-mist2loop/bin/python -m unittest discover -s loops/tests -t loops'

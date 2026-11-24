@@ -180,9 +180,11 @@ EPICS/ioc/iocBoot/iocRack/ports.sim.cmd     TCP ports of the simulators
 EPICS/ioc/iocBoot/iocRack/ports.real.cmd    serial devices and Ethernet devices
 ```
 
-On the real computer: build the top (`make -C EPICS/ioc`, local paths in
-`EPICS/ioc/configure/RELEASE.local`) and start `EPICS/ioc/iocBoot/run-ioc.sh iocRack real`, or
-`iocHV real` on the platform computer. An IOC that is started without a valid mode stops with
+The steps of a first installation, in order: [LAB-SETUP.md](LAB-SETUP.md).
+
+On the real computer: build EPICS and the top with `EPICS/ioc/host/build-epics.sh` (or
+`make -C EPICS/ioc` with local paths in `EPICS/ioc/configure/RELEASE.local`) and start
+`EPICS/ioc/iocBoot/run-ioc.sh iocRack real`, or `iocHV real` on the platform computer. An IOC that is started without a valid mode stops with
 an error. It cannot come up on the wrong set of ports by accident.
 
 Before that works, `ports.real.cmd` needs the real device names (the names under `/dev/mist2/`
