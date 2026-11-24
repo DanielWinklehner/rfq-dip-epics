@@ -670,6 +670,7 @@ State of 2026-11-24, early morning. Nothing is running.
 | 30 | The late reply on the Matsusada lines, P49 (2026-11-23) | "Yes, fix P49" | Answers question 15. Task T22 (brief `T22-late-reply.md`). Two parts, the second added by me when I read the logs and the source for the brief: the line is kept quiet after a mismatch until the outstanding reply has arrived (what I had named to you), and every reading that carries a state or a setting first checks the unit number in a status reply, because at the first contact a stray reply would otherwise be copied into the next supply's request and set point. The monitors are left as they are; what that leaves open is measured and reported to you |
 | 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
 | 32 | The state of the lab, the rack computer, the logger's home (2026-11-24) | "Nothing is running in the lab right now. We moved to a new location and everything was in storage for over a year. I expect to bring devices back online one by one. My plan, thus, is to copy the data from the rack computer then wipe it and do a fresh install of Ubuntu. Then install epics and the Matsusada driver, proto and db files according to your instructions as the first step. Where should the logger live? Main control computer? It has the most modern hardware, the largest disk and easiest to add more disks." | `LAB-SETUP.md` section 1 rewritten for it: what to save from Windows before the wipe (the lab IOC's folder, the list of adapters Windows remembers), a check of the CO-U32 from the installer stick before Windows is gone, Ubuntu 24.04. There is no lab IOC to protect or to ask for `dbl`. The logger: my answer is under question 11; it waits for the operating system of the main control computer |
+| 33 | The main lab computer (2026-11-24) | "The main lab computer already runs ubuntu, so I can test the CO-U32 there, right?" | Yes. `LAB-SETUP.md` section 1: the adapter check is done there with the rule file itself, before the rack computer's Windows is wiped. It also settles the logger's home (question 11): the main lab computer, if it stays on whenever the IOCs are on. Not yet in the plan: its host entry `lab_pc` says Windows with the LabVIEW dipole scan, and whether that is the same computer is asked |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -729,8 +730,10 @@ State of 2026-11-24, early morning. Nothing is running.
     and does not simply use an added disk. If the main control computer is the Windows PC of
     the plan and stays Windows: the rack computer first (fresh Ubuntu, always on with its
     IOC), Grafana opened from the control computer over the network (`MIST2LOG_BIND`), and a
-    move later as `LOGGER.md` section 10 describes. Open: which operating system the main
-    control computer runs.
+    move later as `LOGGER.md` section 10 describes. Answered on 2026-11-24 (answer 33): it
+    runs Ubuntu. So the logger goes to the main lab computer, with its automatic suspend
+    off. Open: the plan lists the lab computer as Windows with the LabVIEW dipole scan. Is
+    that another computer, or is the plan's entry out of date?
 12. With values set in place, a filament current typed into the supply's tag while the loop
     is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
@@ -756,8 +759,9 @@ State of 2026-11-24, early morning. Nothing is running.
 - The GUI in a browser on Windows by a person. It was checked with a headless browser inside
   WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
   was in the middle of a merge.
-- The check of the CO-U32 from the Ubuntu installer stick (`LAB-SETUP.md` section 1): its two
-  commands do by hand what rule 1 of the rule file does, and were not run with an adapter.
+- The check of the CO-U32 on the main lab computer (`LAB-SETUP.md` section 1): its Ubuntu
+  version is not known to me, and the rule file's syntax was checked with the udev of 24.04
+  only (older versions have no `udevadm verify`).
 - An IOC inside `tmux` over SSH on the rack computer: not tried. That Ubuntu 24.04's USB serial
   drivers (`ftdi_sio`, `cdc-acm`, `ch341`, `cp210x`) are in `linux-modules-extra`, which
   `linux-image-generic` depends on, and that `ubuntu-server` depends on `tmux` and `usbutils`,

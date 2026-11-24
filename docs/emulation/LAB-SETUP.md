@@ -28,21 +28,28 @@ the computer is wiped and gets a fresh Ubuntu, and the devices come back one by 
    command works and lists devices that are not plugged in; I have not seen a COM port line.
 3. **Check the CO-U32 under Linux before Windows is gone.** That Linux drives the adapter is
    read from the driver files and never tried, and this Windows is the one place where the
-   adapter is known to work. From the Ubuntu installer stick ("Try Ubuntu"), adapter plugged in:
+   adapter is known to work. The main lab computer runs Ubuntu (your word of 2026-11-24), so
+   do it there, with the rule file itself:
 
    ```bash
-   sudo modprobe ftdi_sio && echo 1192 1000 | sudo tee /sys/bus/usb-serial/drivers/ftdi_sio/new_id
+   git clone -b emulated-iocs https://github.com/DanielWinklehner/rfq-dip-epics.git
    ```
 
    ```bash
-   lsusb -d 1192: ; ls -l /dev/ttyUSB* ; sudo dmesg | tail -5
+   sudo cp rfq-dip-epics/EPICS/ioc/host/99-mist2-matsusada.rules /etc/udev/rules.d/ && sudo udevadm control --reload
    ```
 
-   Expected: `1192:1000`, a `/dev/ttyUSB0`, and "FTDI USB Serial Device converter now attached
-   to ttyUSB0". If so, wipe. If not, keep Windows (or its disk) and send me the three outputs.
-   The server installer has no "Try Ubuntu": its shell is under Help, "Enter shell". Whether
-   that shell's kernel carries `ftdi_sio` I have not checked. If `modprobe` does not find the
-   module there, that says nothing about the adapter: use a desktop stick for this check.
+   Plug the adapter in, then:
+
+   ```bash
+   lsusb -d 1192: ; ls -l /dev/mist2/ /dev/serial/by-id/ ; sudo dmesg | tail -5
+   ```
+
+   Expected: `1192:1000`, "FTDI USB Serial Device converter now attached to ttyUSB0", and
+   `/dev/mist2/co-u32`. If so, wipe. If not, keep Windows (or its disk) and send me the
+   output. This shows that the adapter gets its serial port. That the supplies answer through
+   it needs a powered supply on the fiber, outputs off, and the probe of section 3, which
+   runs there as well (Python 3, no IOC).
 4. **Install Ubuntu Server 24.04 LTS** for a computer without screen: the ordinary
    installation, not "minimized", with "Install OpenSSH server" ticked. 24.04 is the system
    of the IOC image on which every test ran, and the rule file's syntax was checked with its
@@ -237,8 +244,10 @@ and stay off after the door closes. All four AU off at once: `caput AU:alloff:se
   In `RAS/mist2/.env` set `EPICS_CA_ADDR_LIST="<rack IP> <platform IP>"`, then
   `make -C RAS/mist2 dev-up` (15 minutes the first time) and open <http://localhost:3000/>.
   Not tried with IOCs on another computer.
-- **Logger:** not needed on the first day. `LOGGER.md` section 10; the same address list and
-  new passwords in `logger/.env`.
+- **Logger:** not needed on the first day. Its home is the main lab computer (Ubuntu, the
+  largest disk), as long as that computer stays on whenever the IOCs are on: switch its
+  automatic suspend off. `make -C logger up` there, with the same address list and new
+  passwords in `logger/.env` (`LOGGER.md` sections 9 and 10).
 
 ## 7. What I need back
 
