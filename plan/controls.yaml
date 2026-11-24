@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.20"
+  revision: "0.21"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -39,6 +39,7 @@ meta:
     - "Revision 0.18: the output permit of the Matsusada and REK supplies acts as a state (T20, owner's word of 2026-11-23): while it is lost and a supply reports its output on, the off sequence is sent again every 2 s (internal record _permit:enforce, which counts them). A direct write of ToggleOutput and a switch-on at the front panel are switched off again while the permit is lost."
     - "Revision 0.19: a switching command written into a supply's switching record while it is still busy with the previous one is sent when the record is free, within 1 s (T21, owner's word of 2026-11-23): internal record _out:resend of the Matsusada and REK supplies, which counts them."
     - "Revision 0.20: after one late reply the requests and replies of a Matsusada or REK line are in step again after the first mismatch, and every read of an output state or a setting first checks the unit number in a status reply (T22, owner's word of 2026-11-23). No record added; the protocol files only. The monitors are not checked: a monitor can show a neighbour's value for one cycle after a late reply."
+    - "Revision 0.21: the lab computer runs Ubuntu, not Windows (owner, 2026-11-24); it gets the data logger; the rack computer is wiped and gets a fresh Ubuntu, operated over SSH; the owner wants the dipole scan off LabVIEW (WP11). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -67,19 +68,25 @@ hosts:
   - id: lab_pc
     name: "Lab computer"
     location: control
-    role: "Serves the GUI (React Automation Studio). Runs the LabVIEW dipole scan."
-    os: "Windows"
+    role: "Serves the GUI (React Automation Studio). Runs the data logger. Runs the LabVIEW dipole scan until work package WP11 replaces it."
+    os: "Ubuntu (owner, 2026-11-24); version not known"
     uplink: "Ethernet"
     status: keep
+    notes:
+      - "The data logger lives here (owner's proposal of 2026-11-24: the most modern hardware, the largest disk, the easiest to add disks). Nothing is recorded while this computer is off, asleep or restarting, so it stays on whenever the IOCs are on, with automatic suspend off. What the logger needs: docs/emulation/LOGGER.md, sizing."
+      - "The Matsusada CO-U32 is checked here under Linux with the udev rule of EPICS/ioc/host before the rack computer's Windows is wiped (docs/emulation/LAB-SETUP.md)."
+    questions:
+      - "Which Ubuntu version (lsb_release -a)?"
+      - "Does the LabVIEW dipole scan run on this computer under Ubuntu today, with NI's driver for the USB-6001 installed?"
   - id: ioc_rack
     name: "Rack IOC"
     model: "1U server"
     location: rack
     role: "EPICS IOC for everything in the rack"
-    os: "Windows today, Linux planned"
+    os: "Windows until 2026-11; then a fresh Ubuntu Server 24.04 (owner's plan of 2026-11-24)"
     uplink: "Fiber to the new switch"
     status: modify
-    change: "Move from Windows to Linux"
+    change: "Move from Windows to Linux: data copied, disk wiped, fresh installation. Runs without screen, operated over SSH."
     st_cmd: EPICS/ioc/iocBoot/iocRack/st.cmd
     epics: {db: ioc_info.db, macros: {P: IOC-RACK}}
     notes:
@@ -743,7 +750,7 @@ devices:
     notes:
       - "Records every PV of this plan in its tier (section logging) through Channel Access monitors: raw values 30 days, means, minima and maxima per second 2 years and per minute for ever, set commands, alarms and state changes as events for ever. Design and operation: docs/emulation/LOGGER.md, logger/README.md."
       - "Its state is in the rack IOC (LOGGER:*), written once a second: counter, PVs connected and not connected, rows per second, database state, buffer in use, rows lost. LOGGER:alive:get turns MAJOR when the counter stands still for 5 s. The logger does not log these records."
-      - "The records are in the rack IOC; where the service runs is open (question under software)."
+      - "The records are in the rack IOC; the service runs on the lab computer (owner, 2026-11-24)."
 
   # ------------------------------------------------------------------ phase 2
   - id: magnets
@@ -761,6 +768,7 @@ devices:
       - {name: "dipole:current:get", type: ai, egu: A, desc: "Current read-back"}
     notes:
       - "Keep the NI USB-6001. Serve it from a small Python soft IOC (nidaqmx) instead of LabVIEW."
+      - "The lab computer runs Ubuntu (owner, 2026-11-24). Whether NI's Linux driver serves the USB-6001 on its Ubuntu version is not checked."
 
   - id: keithley_desk
     name: "Picoammeter (dipole scan)"
@@ -950,6 +958,7 @@ work_packages:
     items:
       - "Python soft IOC for the NI USB-6001 (magnet current), picoammeter via StreamDevice."
       - "Replace the LabVIEW scan by a Python scan tool that only talks to PVs."
+      - "Owner, 2026-11-24: the dipole scan is to move off LabVIEW, into the control system or a standalone Python script. Proposal: both of the items above, the devices as PVs and the scan as a Python program that is a Channel Access client. A script that talks to the hardware itself would be a second master beside an IOC, and its values would not reach the logger or the GUI."
   - id: WP12
     name: "Emittance scanners in EPICS"
     phase: 2
@@ -1007,7 +1016,7 @@ software:
   questions:
     - "Which values belong on the printout, and is one page per subsystem the right grouping?"
     - "Which values should be stabilized besides the discharge current, and what is the actuator for each?"
-    - "Where should the data logger and the report service run: lab computer, rack IOC, or a new small server? What the logger needs (CPU, memory, disk per tier and year): docs/emulation/LOGGER.md, sizing."
+    - "Where should the report service run? The data logger runs on the lab computer (owner, 2026-11-24)."
     - "The tier of each PV group (section logging, table in docs/emulation/LOGGER.md) is our proposal: right?"
 
 naming:
