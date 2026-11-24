@@ -40,8 +40,21 @@ the computer is wiped and gets a fresh Ubuntu, and the devices come back one by 
 
    Expected: `1192:1000`, a `/dev/ttyUSB0`, and "FTDI USB Serial Device converter now attached
    to ttyUSB0". If so, wipe. If not, keep Windows (or its disk) and send me the three outputs.
-4. **Install Ubuntu 24.04 LTS** (desktop or server). It is the system of the IOC image on
-   which every test ran, and the rule file's syntax was checked with its udev version.
+   The server installer has no "Try Ubuntu": its shell is under Help, "Enter shell". Whether
+   that shell's kernel carries `ftdi_sio` I have not checked. If `modprobe` does not find the
+   module there, that says nothing about the adapter: use a desktop stick for this check.
+4. **Install Ubuntu Server 24.04 LTS** for a computer without screen: the ordinary
+   installation, not "minimized", with "Install OpenSSH server" ticked. 24.04 is the system
+   of the IOC image on which every test ran, and the rule file's syntax was checked with its
+   udev version. The server installation brings `tmux` and `lsusb`. After the first start:
+
+   ```bash
+   modinfo ftdi_sio | head -1
+   ```
+
+   It must print a file name. The USB serial drivers are in the package
+   `linux-modules-extra`, which an ordinary installation has; if it is missing:
+   `sudo apt install linux-modules-extra-$(uname -r)`.
 
 **On the day**
 
@@ -145,6 +158,14 @@ Platform computer, after `ports.real.cmd` of `iocHV` has its three names:
 ```bash
 rfq-dip-epics/EPICS/ioc/iocBoot/run-ioc.sh iocHV real
 ```
+
+Over SSH, start each IOC inside `tmux`, or it ends with the connection:
+
+```bash
+tmux new -s ioc
+```
+
+Ctrl-b d leaves it running, `tmux attach -t ioc` comes back to it.
 
 The terminal is the IOC shell and the log; `exit` stops the IOC. A device that is missing
 costs log lines only, its PVs are INVALID and the IOC runs. After a device was connected for

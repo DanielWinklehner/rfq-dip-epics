@@ -758,6 +758,11 @@ State of 2026-11-24, early morning. Nothing is running.
   was in the middle of a merge.
 - The check of the CO-U32 from the Ubuntu installer stick (`LAB-SETUP.md` section 1): its two
   commands do by hand what rule 1 of the rule file does, and were not run with an adapter.
+- An IOC inside `tmux` over SSH on the rack computer: not tried. That Ubuntu 24.04's USB serial
+  drivers (`ftdi_sio`, `cdc-acm`, `ch341`, `cp210x`) are in `linux-modules-extra`, which
+  `linux-image-generic` depends on, and that `ubuntu-server` depends on `tmux` and `usbutils`,
+  is read from the packages (2026-11-24), not from an installed computer. Whether the server
+  installer's shell has the driver was not checked.
 - `LAB-SETUP.md` on hardware: none of its steps. What was run is its step 2 (clone and build)
   in containers of Ubuntu 20.04, 22.04 and 24.04 on the development PC, and a start of both
   IOCs there in `real` mode without any device. Not run: the udev rule and the probe with the
@@ -942,7 +947,7 @@ A19 (the output gate is wanted, and it latches).
 | A39 | Grafana lets everybody on the network read without a login, as the GUI does. Its port and the database's are open to the logger's own computer only unless a setting opens them | Free choice; you said "no login" for the GUI | You |
 | A40 | The ion gauge's on/off state is bit 1 of the status word in its pressure replies, and a record that only listens (I/O Intr) receives the replies another record asked for | `aim.proto` (INFICON manual, A15), and the StreamDevice behaviour as seen in the emulation. Not tried on the real serial port | The real gauge: `AIM:enable` shows ON after an IOC start while the gauge is on |
 | A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: the same input line in eight places of each of the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
-| A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build. The rack computer is wiped and gets a fresh Ubuntu (your plan, answer 32; I recommend 24.04) | The build script ran in containers of these three versions. Your answer 22 for the mini PC, answer 32 for the rack computer | `lsb_release -a` on both, and the first build there |
+| A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build. The rack computer is wiped and gets a fresh Ubuntu (your plan, answer 32; I recommend Server 24.04, operated over SSH with the IOC in `tmux`, since it runs without screen) | The build script ran in containers of these three versions. Your answer 22 for the mini PC, answer 32 for the rack computer | `lsb_release -a` on both, and the first build there |
 | A43 | Windows on the rack computer still lists the Matsusada adapters and the other serial adapters with COM number, USB ID and serial number although they are not plugged in | `Get-PnpDevice` lists devices that are not present (seen on the development PC, which has no serial adapter, so no COM port line was seen) | The command of `LAB-SETUP.md` section 1 on the rack computer, before the wipe |
 
 ## Open points
