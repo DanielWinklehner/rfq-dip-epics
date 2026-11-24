@@ -1,0 +1,73 @@
+# R4 c: one conversation, sent to the PC build of InterlockOpta (replay_device.cpp) and to the
+# simulator's entry `interlockbox` of emulation/sim/config/rack.yaml
+# (emulation/sim/tools/interlock_replay.py). Both print the same transcript; `make` diffs them.
+#
+# One step per line, fields separated by one space:
+#   <ms> <input I1> <input I2> <doors> <line>
+#   ms      time of the step (millis() of the board, seconds * 1000 of the simulator's clock)
+#   I1, I2  input levels the firmware reads at that time (1 = HIGH = door closed)
+#   doors   the doors as the firmware must report them at that time (i1 i2, 1 = closed),
+#           after the hold time of 1000 ms. replay_device.cpp checks it; the simulator gets it
+#           as the value of its signals i1 and i2 (the simulator has no hold time).
+#   line    the received line, the rest of the text line; "-" = nothing received
+#
+# power-on: doors reported open until the inputs have read closed for 1000 ms
+0 1 1 00 I
+10 1 1 00 A
+20 1 1 00 gi1
+999 1 1 00 A
+1000 1 1 11 A
+1010 1 1 11 gi1
+1020 1 1 11 gi2
+# spare relays s1, s2
+1030 1 1 11 Ss11
+1040 1 1 11 A
+1050 1 1 11 gs1
+1060 1 1 11 ss21
+1070 1 1 11 gs2
+1080 1 1 11 Ss12
+1090 1 1 11 A
+# door 1 opens for one reading, then waits for its hold time
+1100 0 1 01 A
+1110 1 1 01 A
+1120 1 1 01 Si11
+1130 1 1 01 gi1
+2109 1 1 01 gi1
+2110 1 1 11 A
+# door 2 open, both open, both closed again
+2120 1 0 10 A
+2130 0 0 00 A
+2140 1 1 00 -
+2500 1 1 00 A
+3140 1 1 11 A
+# sets of every kind
+3150 1 1 11 Ss20
+3160 1 1 11 Ss21.5
+3170 1 1 11 gs2
+3180 1 1 11 Ss2-1
+3190 1 1 11 Ss21e0
+3200 1 1 11 A
+3210 1 1 11 Ss11
+3220 1 1 11 Si20
+3230 1 1 11 si19
+3240 1 1 11 A
+# the legacy single query of protocol 1
+3250 1 1 11 q01i10
+3260 1 1 11 q01s13
+3270 1 1 11 q01i26
+# errors
+3280 1 1 11 Sr11
+3290 1 1 11 gr1
+3300 1 1 11 Si1abc
+3310 1 1 11 Ss1nan
+3320 1 1 11 x
+3330 1 1 11 Si1
+3340 1 1 11 S11
+3350 1 1 11 q05i13
+3360 1 1 11 q01i17
+3370 1 1 11 Pabc
+# the identity again, then everything read once more with door 2 open
+3380 1 1 11 I
+3390 1 0 10 A
+3400 1 0 10 gi2
+3410 1 0 10 gs1
