@@ -9,8 +9,10 @@ of this case, coupling.yaml).
 Only the command line's overrides (--start, --stop, --step, --dwell, --output) change the run;
 where a test needs anything else of the definition it says so (a finding, not a second
 definition). The service's status port (6000) gives what the IOC cannot: what the service holds
-and wrote, and which commands reached it. The tests run in the order of this file and build on
-each other: the first needs the parts as they start (service just started, picoammeter at power-on).
+and wrote, and which commands reached it.
+
+Every test sets its own preconditions (the fixture `ready`, or test 1 its own power-on state), so
+that each one passes alone (run.sh ... -k <name>) as well as in the order of this file.
 """
 import csv
 import glob
@@ -214,10 +216,11 @@ def changed_definition(name, change):
 
 
 def park(value=PARK):
-    """The operator's set of the magnet before a scan; waits for the read-back."""
+    """The operator's set of the magnet before a scan; waits for the read-back and for the
+    held value."""
     put(SET, value)
-    wait_until(lambda: valid(RB) and abs(read(RB)["value"] - value) <= TOL / 5, 20,
-               "read-back at %g" % value)
+    wait_until(lambda: valid(RB) and abs(read(RB)["value"] - value) <= TOL / 5 and valid(HELD)
+               and read(HELD)["value"] == value, 20, "read-back and held at %g" % value)
 
 
 def assert_back_in_part_steps(values, start, end):
@@ -230,18 +233,72 @@ def assert_back_in_part_steps(values, start, end):
         prev = v
 
 
-def log_since(name, mark):
-    with open(os.path.join(BUILD, name)) as handle:
-        return handle.read()[mark:]
-
-
-def log_mark(name):
-    return os.path.getsize(os.path.join(BUILD, name))
-
-
 def table(run):
     return numpy.genfromtxt(os.path.join(run.directory(), "points.csv"), delimiter=",",
                             names=True, dtype=None, encoding="utf-8")
+
+
+# --- preconditions ---------------------------------------------------------------------------------
+
+def service_running():
+    """The DAQ service runs and the IOC reads it."""
+    with open(os.path.join(BUILD, "daq-run")) as f:
+        if f.read().strip() != "run":
+            service("run")
+    wait_until(lambda: valid(RB), 40, "the service read")        # asyn retries every 20 s
+
+
+def restart_service():
+    """Stop and start the service: afterwards it holds nothing."""
+    service("stop")
+    wait_until(lambda: not valid(RB), 20, "the read-back INVALID")
+    service("run")
+    wait_until(lambda: valid(RB), 40, "the service read again")
+
+
+def picoammeter(ctl, zero_check):
+    """No fault left, power on, autorange, zero check as asked (through the PVs)."""
+    ctl.clear()
+    if ctl.get("power")["external"]:
+        ctl.set("power", 1)
+        ctl.release("power")
+    put("pico1:range:set", 0)
+    wait_until(lambda: valid("pico1:zcheck:get") and read("pico1:_auto")["value"] == 1, 15,
+               "autorange")
+    put("pico1:zcheck:set", 1 if zero_check else 0)
+    wait_until(lambda: read("pico1:zcheck:get")["value"] == (1 if zero_check else 0)
+               and valid("pico1:zcheck:get"), 15, "zero check %s" % zero_check)
+    if not zero_check:
+        wait_until(lambda: valid(PICO), 15, "a valid picoammeter reading")
+
+
+def power_cycle(ctl):
+    """The picoammeter switched off and on: its power-on state (zero check ON)."""
+    ctl.clear()
+    ctl.set("power", 0)
+    wait_until(lambda: read(PICO)["severity"] == INVALID, 10, "the picoammeter silent")
+    ctl.set("power", 1)
+    ctl.release("power")
+    wait_until(lambda: valid("pico1:zcheck:get") and read("pico1:zcheck:get")["value"] == 1, 15,
+               "zero check ON after power-on")
+
+
+@pytest.fixture
+def ready():
+    """What every scan test starts from, whatever ran before: the service running, the
+    picoammeter on, without a fault, on autorange, zero check off, the set record not in
+    simulation mode, the magnet parked at PARK (the service holds it)."""
+    service_running()
+    put(SET + ".SIMM", 0)
+    with ControlClient(SIM, 6001) as ctl:
+        picoammeter(ctl, zero_check=False)
+    park()
+    assert status()["channels"]["o1"]["held"] == pytest.approx(PARK)
+
+
+def time_of(iso):
+    import datetime
+    return datetime.datetime.fromisoformat(iso).timestamp()
 
 
 # --- 0: the parts are there ------------------------------------------------------------------------
@@ -250,30 +307,39 @@ def test_every_part_connects():
     for name in (SET, HELD, RB, PICO, "pico1:zcheck:set", "pico1:range:set", "dipole:id"):
         assert epics.PV(name).wait_for_connection(5), name
     wait_until(lambda: valid(RB) and valid("pico1:zcheck:get"), 40, "service and picoammeter read")
+    magnet = status()["channels"]["i1"]["volts"] * 10.0
     with ControlClient(SIM, 6001) as c:
         x = c.get("current")
     assert x["external"] is True, x                    # the coupling holds the input
-    assert x["value"] == pytest.approx(spectrum(0.0), rel=1e-6)   # magnet at 0 A after the start
+    assert x["value"] == pytest.approx(spectrum(magnet), rel=1e-3)
 
 
 # --- 1: after power-on the scan refuses ------------------------------------------------------------
 
 def test_1_after_power_on_the_scan_refuses_and_writes_nothing():
+    # Preconditions: the picoammeter in its power-on state, the service just started.
+    service_running()
+    with ControlClient(SIM, 6001) as ctl:
+        ctl.clear()
+        if read("pico1:zcheck:get")["value"] != 1:
+            power_cycle(ctl)
+    if status()["channels"]["o1"]["held"] is not None:
+        restart_service()
     st = status()
     assert st["channels"]["o1"]["held"] is None and sets_received(st) == 0, st
-    assert read(SET)["severity"] == INVALID              # the service holds nothing yet
-    assert read("pico1:zcheck:get")["value"] == 1        # power-on: zero check ON
-    assert read(PICO)["severity"] == INVALID
+    assert read(HELD)["severity"] == INVALID
+    assert read(PICO)["severity"] == INVALID and read(PICO + ".STAT")["value"] == 7   # STATE
 
+    held_reason = ("actuator held PV dipole:current:held: INVALID (UDF): the value the device "
+                   "holds is not known")
+    pico_reason = "detector pico1 (pico1:current:get): INVALID (STATE)"
     c = Run("refused-check", command="check")
     assert c.wait(60) == 3, c.text()
-    assert "actuator set PV dipole:current:set: INVALID" in c.text()
-    assert "detector pico1 (pico1:current:get): INVALID" in c.text()
+    assert held_reason in c.text() and pico_reason in c.text(), c.text()
     r = Run("refused-run")
     assert r.wait(60) == 3, r.text()
     assert "refused, nothing written" in r.text()
-    assert "actuator set PV dipole:current:set: INVALID" in r.text()
-    assert "detector pico1 (pico1:current:get): INVALID" in r.text()
+    assert held_reason in r.text() and pico_reason in r.text(), r.text()
     assert not os.path.exists(r.out)
     st = status()
     assert (sets_received(st), st["sim"]["writes"]) == (0, 0), st
@@ -284,7 +350,7 @@ def test_1_after_power_on_the_scan_refuses_and_writes_nothing():
     n = sets_received()
     r = Run("refused-zcheck")
     assert r.wait(60) == 3, r.text()
-    assert "detector pico1 (pico1:current:get): INVALID" in r.text()
+    assert pico_reason in r.text()
     assert "actuator" not in r.text().split("refused, nothing written")[1]
     assert sets_received() == n
 
@@ -294,6 +360,8 @@ def test_1_after_power_on_the_scan_refuses_and_writes_nothing():
     c = Run("start-check", command="check")
     assert c.wait(60) == 0, c.text()
     assert "it would start" in c.text()
+    assert "held 6.0 (dipole:current:held)" in c.text()
+    assert "at least" in c.text() and "a lower bound" in c.text()
     assert sets_received() == n
 
 
@@ -312,13 +380,15 @@ def find_peaks(x, y):
     return out
 
 
-RESULTS = {}
+def per_point(r):
+    t = table(r)
+    el = list(t["elapsed_s"])
+    return t, [b - a for a, b in zip(el, el[1:])]
 
 
-def test_2_the_spectrum():
-    park()
+def test_2_the_spectrum(ready):
     step = 0.5
-    r = Run("spectrum", "--start", 7.0, "--stop", 19.5, "--step", step)
+    r = Run("spectrum", "--start", 7.0, "--stop", 19.5, "--step", step)   # the shipped dwell
     assert r.wait() == 0, r.text()
     rows = r.rows()
     assert len(rows) == 26
@@ -326,13 +396,13 @@ def test_2_the_spectrum():
     for x in rows:
         assert abs(float(x["readback_mean"]) - float(x["set"])) <= TOL
         assert x["pico1_status"] == "ok"
-    t = table(r)
+    t, pp = per_point(r)
     x, y = t["readback_mean"], t["pico1_mean"]
     found = find_peaks(x, y)
     print("peaks found at %s A, coupling %s A" % (["%.3f" % f for f, _ in found],
                                                  ["%.3f" % p for p in PEAKS]))
     assert len(found) == 3, list(zip(x, y))
-    for (f, k), p, spec in zip(found, PEAKS, COUPLING["peaks"]):
+    for (f, k), p in zip(found, PEAKS):
         assert abs(f - p) <= step
         model = spectrum(x[k])
         print("peak %g: point %g A measured %.4g A, model %.4g A, difference %.2g A"
@@ -346,33 +416,26 @@ def test_2_the_spectrum():
     assert m["actuator_left"]["readback_reached_target"] is True
     assert m["actuator_left"]["last_written"] == PARK
     assert status()["channels"]["o1"]["held"] == pytest.approx(PARK)
-    # R4: values per point and time per point, as measured here
     n = [int(v) for v in t["pico1_n"]]
-    el = list(t["elapsed_s"])
-    per_point = [b - a for a, b in zip(el, el[1:])]
-    RESULTS["spectrum"] = {"n": n, "per_point_s": per_point, "duration_s": m["duration_s"],
-                           "estimate_s": m["estimate_s"]}
-    print("R4 dwell %g s: pico1_n per point %s; readback_n %s; time per point %.2f to %.2f s, "
-          "mean %.2f s; scan %.1f s, estimate of check %s"
-          % (SHIPPED["dwell"], n, [int(v) for v in t["readback_n"]], min(per_point),
-             max(per_point), sum(per_point) / len(per_point), m["duration_s"], m["estimate_s"]))
+    print("R4 dwell %g s: pico1_n per point %s; time per point %.2f to %.2f s, mean %.2f s; "
+          "scan %.1f s, check's lower bound %s"
+          % (SHIPPED["dwell"], n, min(pp), max(pp), sum(pp) / len(pp), m["duration_s"],
+             m["estimate_s"]))
+    assert all(int(SHIPPED["dwell"]) <= k <= int(SHIPPED["dwell"]) + 2 for k in n), n
 
 
 # --- R4: values per point against the dwell --------------------------------------------------------
 
-@pytest.mark.parametrize("dwell", [3.0, 5.0])
-def test_r4_values_per_point(dwell):
-    """Three points on the background with a longer dwell: how many picoammeter values a point
-    gets, and the time per point (printed for SCAN.md)."""
-    park()
+@pytest.mark.parametrize("dwell", [1.0, 5.0])
+def test_r4_values_per_point(ready, dwell):
+    """Three points on the background with another dwell than the shipped one: how many
+    picoammeter values a point gets, and the time per point (printed for SCAN.md)."""
     r = Run("dwell%g" % dwell, "--start", 7.0, "--stop", 8.0, "--step", 0.5, "--dwell", dwell)
     assert r.wait() == 0, r.text()
-    t = table(r)
+    t, pp = per_point(r)
     n = [int(v) for v in t["pico1_n"]]
-    el = list(t["elapsed_s"])
-    per_point = [b - a for a, b in zip(el, el[1:])]
-    print("R4 dwell %g s: pico1_n %s, readback_n %s, time per point %s s"
-          % (dwell, n, [int(v) for v in t["readback_n"]], ["%.2f" % x for x in per_point]))
+    print("R4 dwell %g s: pico1_n %s, time per point %s s"
+          % (dwell, n, ["%.2f" % v for v in pp]))
     # one new reading per second (picoammeter.db SCAN 1 s) plus the fresh read at the start
     assert all(int(dwell) <= k <= int(dwell) + 2 for k in n), n
 
@@ -390,8 +453,7 @@ def fixed_range(state):
     wait_until(lambda: read("pico1:_auto")["value"] == (0 if state else 1), 10, "autorange")
 
 
-def test_3_overflow_at_a_peak():
-    park()
+def test_3_overflow_at_a_peak(ready):
     fixed_range(RANGE_20NA)
     points = numpy.arange(8.0, 16.01, 0.5)
     over = [x for x in points if spectrum(x) > OVERFLOW_A]
@@ -401,7 +463,7 @@ def test_3_overflow_at_a_peak():
         # As shipped (the picoammeter required): the first point on the peak ends the scan.
         w = Watch(SET)
         try:
-            r = Run("overflow-shipped", "--start", 8, "--stop", 16, "--step", 0.5)
+            r = Run("overflow-shipped", "--start", 8, "--stop", 16, "--step", 0.5, "--dwell", 1)
             code = r.wait()
             after = w.since(w.events[0][0])
         finally:
@@ -410,7 +472,7 @@ def test_3_overflow_at_a_peak():
         rows = r.rows()
         assert [float(x["set"]) for x in rows] == [8.0, 8.5, 9.0, 9.5]
         assert [x["pico1_status"] for x in rows] == ["ok", "ok", "ok", "missing"]
-        assert (rows[-1]["pico1_reason"], rows[-1]["pico1_n"]) == ("INVALID", "0")
+        assert (rows[-1]["pico1_reason"], rows[-1]["pico1_n"]) == ("INVALID (STATE)", "0")
         assert r.meta()["outcome"]["reason"] == "required detector lost"
         k = after.index(9.5)
         assert_back_in_part_steps(after[k + 1:], 9.5, PARK)
@@ -420,7 +482,7 @@ def test_3_overflow_at_a_peak():
         # completes, the points on the peak missing with their reason, the others measured.
         def optional(d):
             d["detectors"][0]["required"] = False
-        r = Run("overflow", "--start", 8, "--stop", 16, "--step", 0.5,
+        r = Run("overflow", "--start", 8, "--stop", 16, "--step", 0.5, "--dwell", 1,
                 definition=changed_definition("pico-optional", optional))
         assert r.wait() == 0, r.text()
         rows = r.rows()
@@ -429,118 +491,107 @@ def test_3_overflow_at_a_peak():
             s = float(x["set"])
             if s in over:
                 assert (x["pico1_status"], x["pico1_reason"], x["pico1_mean"]) == (
-                    "missing", "INVALID", "nan"), x
+                    "missing", "INVALID (STATE)", "nan"), x
             else:
                 assert x["pico1_status"] == "ok", x
                 assert abs(float(x["pico1_mean"]) - spectrum(float(x["readback_mean"]))) \
                     <= 5 * NOISE, x
-        assert read(PICO + ".STAT")["value"] is not None
     finally:
         fixed_range(0)
 
 
-# --- 4: the service stops in the middle -----------------------------------------------------------
+# --- 4: what the service holds; the service stops in the middle ----------------------------------
 
-SETTLE_TIMEOUT = SHIPPED["actuator"]["settle_timeout"]
-
-
-def service_back():
-    service("run")
-    wait_until(lambda: valid(RB), 40, "the service read again")     # asyn retries every 20 s
+HELD_UNKNOWN = ("actuator held PV dipole:current:held: INVALID (UDF): the value the device holds "
+                "is not known")
 
 
-def test_4_service_stops_in_the_middle():
-    park()
+def test_4a_set_pv_differs_from_what_the_service_holds(ready):
+    """The set record shows 7 A while the service holds 6 A (made here by writing the record in
+    simulation mode, so that nothing is sent): refused, both values named, nothing written."""
+    n = sets_received()
+    put(SET + ".SIMM", 1)
+    try:
+        put(SET, 7.0)
+    finally:
+        put(SET + ".SIMM", 0)
+    assert read(SET)["value"] == 7.0 and read(HELD)["value"] == PARK
+    c = Run("differs-check", command="check")
+    assert c.wait(60) == 3, c.text()
+    reason = ("the set PV dipole:current:set shows 7, the device holds 6 (dipole:current:held): "
+              "more than the tolerance 0.05 apart")
+    assert reason in c.text(), c.text()
+    r = Run("differs-run")
+    assert r.wait(60) == 3, r.text()
+    assert reason in r.text()
+    assert sets_received() == n
+
+
+def test_4b_service_restarted_with_no_scan_running(ready):
+    """Stopped and started while no scan runs: the set record keeps 6 A and NO_ALARM, the service
+    holds nothing. check and run refuse: what the device holds is not known."""
+    restart_service()
+    assert status()["channels"]["o1"]["held"] is None
+    assert read(SET)["severity"] < INVALID and read(SET)["value"] == PARK
+    assert read(HELD)["severity"] == INVALID
+    c = Run("restarted-check", command="check")
+    assert c.wait(60) == 3, c.text()
+    assert HELD_UNKNOWN in c.text(), c.text()
+    r = Run("restarted-run")
+    assert r.wait(60) == 3, r.text()
+    assert HELD_UNKNOWN in r.text()
+    st = status()
+    assert (sets_received(st), st["sim"]["writes"]) == (0, 0), st
+
+
+def test_4c_service_stops_in_the_middle(ready):
     w = Watch(SET)
     try:
-        r = Run("service-stop", "--start", 8, "--stop", 14, "--step", 0.5)
+        r = Run("service-stop", "--start", 8, "--stop", 14, "--step", 0.5, "--dwell", 1)
         wait_until(lambda: w.last() == 10.0 or r.proc.poll() is not None, 120, "set at 10")
         time.sleep(0.3)                                  # in the settling of that point
         st = status()
         t_stop, wall_stop = time.monotonic(), time.time()
         service("stop")
         code = r.wait()
+        t_end = time.monotonic()
+        time.sleep(2.0)                                  # a late write would show now
         after = w.since(t_stop)
     finally:
         w.close()
-    print("test 4: exit %d after %.1f s; set PV after the stop %s" % (code, r.seconds, after))
-    assert st["channels"]["o1"]["held"] == pytest.approx(10.0)    # the magnet's last set
-    # The read-back goes INVALID; the program waits for it for the settle timeout and ends
-    # "not settled" (the read-back INVALID is not "the actuator lost", SCAN.md section 5).
-    assert code == 7, r.text()
     m = r.meta()
+    seconds = time_of(m["end_time"]) - wall_stop
+    print("test 4c: exit %d, %.2f s after the stop (process ended after %.2f s); %s"
+          % (code, seconds, t_end - t_stop, m["outcome"]["detail"]))
+    assert st["channels"]["o1"]["held"] == pytest.approx(10.0)    # the magnet's last set
+    assert code == 5, r.text()
     assert (m["state"], m["outcome"]["reason"], m["outcome"]["point"]) == (
-        "ended", "not settled", 4)
-    assert "last read-back INVALID" in m["outcome"]["detail"]
+        "ended", "actuator lost", 4)
+    assert "INVALID" in m["outcome"]["detail"]
+    assert seconds < 5.0                    # the IOC's report, not the settle timeout (30 s)
+    # nothing written after it: by the program, at the IOC, at the service
+    assert all(time_of(x[0]) < wall_stop for x in m["writes"]), m["writes"]
+    assert m["actuator_left"]["writes_in_end_move"] == 0
+    assert after == [], after
     rows = r.rows()
-    assert [float(x["set"]) for x in rows] == [8.0, 8.5, 9.0, 9.5, 10.0]
-    assert rows[-1]["outcome"] == "not_settled"
-    # The end move: its first part step goes to the IOC, which cannot send it (set PV INVALID);
-    # then nothing more (correction of T27). The file says where it stopped and why.
-    after_stop = [x for x in m["writes"] if time_of(x[0]) > wall_stop]
-    assert [(v, p) for _, v, p in after_stop] == [(9.0, "end")], m["writes"]
-    assert after == [9.0], after
-    left = m["actuator_left"]
-    notes = " ".join(left["notes"])
-    assert "end move stopped" in notes and "INVALID after the write of 9" in notes, left
-    assert "the last write before it 10" in notes, left
-    assert (left["writes_in_end_move"], left["readback_reached_target"]) == (1, None), left
-    assert read(SET)["severity"] == INVALID
-
-    # The service again: it holds nothing, it received nothing; the set PV is INVALID (the
-    # unconfirmed write), so check and run refuse and write nothing.
-    service_back()
+    assert [float(x["set"]) for x in rows] == [8.0, 8.5, 9.0, 9.5]
+    service("run")
+    wait_until(lambda: valid(RB), 40, "the service read again")
     st = status()
     assert (st["channels"]["o1"]["held"], sets_received(st), st["sim"]["writes"]) == (
         None, 0, 0), st
-    assert read(HELD)["severity"] == INVALID
     c = Run("after-stop-check", command="check")
     assert c.wait(60) == 3, c.text()
-    assert "actuator set PV dipole:current:set: INVALID" in c.text()
-    r = Run("after-stop-run")
-    assert r.wait(60) == 3, r.text()
-    assert sets_received() == 0
-
-    # The operator sets the magnet: the scan can start.
-    park()
-    c = Run("after-park-check", command="check")
-    assert c.wait(60) == 0, c.text()
-
-    # The service stopped and started while no scan runs (nothing written in between): the set
-    # PV keeps its value and NO_ALARM (dipole.db: it is processed only when written), the
-    # service holds nothing, its output is at the sim backend's 0 V. `check` would start from
-    # 6 A: the first part step would set 7 A on an output the scan believes at 6 A. A finding
-    # (SCAN.md, "The dipole scan in the emulation"): a condition on the held value refuses it.
-    service("stop")
-    wait_until(lambda: not valid(RB), 20, "the read-back INVALID")
-    service_back()
-    assert status()["channels"]["o1"]["held"] is None
-    assert read(SET)["severity"] < INVALID and read(SET)["value"] == PARK
-    assert read(HELD)["severity"] == INVALID
-    assert read(RB)["value"] == pytest.approx(0.0, abs=TOL)
-    c = Run("restarted-check", command="check")
-    assert c.wait(60) == 0, c.text()
-    assert "now          set 6.0, read-back 0.0" in c.text()
-
-    def held_known(d):
-        d["conditions"] = [{"pv": HELD, "op": ">=", "value": 0}]
-    c = Run("restarted-held-check", command="check",
-            definition=changed_definition("held-known", held_known))
-    assert c.wait(60) == 3, c.text()
-    assert "condition dipole:current:held >= 0: INVALID" in c.text()
-    assert sets_received() == 0
-    park()
+    assert HELD_UNKNOWN in c.text()
 
 
 # --- 5: the picoammeter goes silent in the middle -------------------------------------------------
 
-def test_5_picoammeter_silent_in_the_middle():
-    park()
-    wait_until(lambda: valid(PICO), 10, "a valid picoammeter reading")
+def test_5_picoammeter_silent_in_the_middle(ready):
     w = Watch(SET)
     try:
         with ControlClient(SIM, 6001) as ctl:
-            r = Run("pico-silent", "--start", 8, "--stop", 14, "--step", 0.5)
+            r = Run("pico-silent", "--start", 8, "--stop", 14, "--step", 0.5, "--dwell", 1)
             wait_until(lambda: w.last() == 10.0 or r.proc.poll() is not None, 120, "set at 10")
             time.sleep(0.3)                              # in the settling of that point
             t = time.monotonic()
@@ -556,25 +607,25 @@ def test_5_picoammeter_silent_in_the_middle():
     rows = r.rows()
     assert [float(x["set"]) for x in rows] == [8.0, 8.5, 9.0, 9.5, 10.0]
     assert [x["pico1_status"] for x in rows] == ["ok"] * 4 + ["missing"]
-    assert rows[-1]["pico1_reason"] == "INVALID"
+    print("test 5: reason %r" % rows[-1]["pico1_reason"])
+    assert rows[-1]["pico1_reason"].startswith("INVALID (")
+    assert rows[-1]["pico1_reason"] != "INVALID (STATE)"          # not a reading, the line
     m = r.meta()
     assert (m["state"], m["outcome"]["reason"], m["outcome"]["point"]) == (
         "ended", "required detector lost", 4)
     assert_back_in_part_steps(after, 10.0, PARK)
     assert after == [9.0, 8.0, 7.0, 6.0]
     assert m["actuator_left"]["readback_reached_target"] is True
-    st = status()
-    assert st["channels"]["o1"]["held"] == pytest.approx(PARK)
+    assert status()["channels"]["o1"]["held"] == pytest.approx(PARK)
     wait_until(lambda: valid(PICO), 10, "the picoammeter back")
 
 
 # --- 6: an IOC restart in the middle ---------------------------------------------------------------
 
-def test_6_ioc_restart_in_the_middle():
-    park()
+def test_6_ioc_restart_in_the_middle(ready):
     w = Watch(SET)
     try:
-        r = Run("ioc-restart", "--start", 8, "--stop", 14, "--step", 0.5)
+        r = Run("ioc-restart", "--start", 8, "--stop", 14, "--step", 0.5, "--dwell", 1)
         wait_until(lambda: w.last() == 10.0, 120, "set at 10")
         time.sleep(0.3)
         st0 = status()
@@ -602,9 +653,3 @@ def test_6_ioc_restart_in_the_middle():
     assert st["channels"]["i1"]["volts"] * 10.0 == pytest.approx(10.0, abs=TOL)
     assert st["sim"]["writes"] == st0["sim"]["writes"]
     assert read(SET)["value"] == pytest.approx(10.0)    # the IOC took it over, sent nothing
-    park()                                               # the operator takes it back
-
-
-def time_of(iso):
-    import datetime
-    return datetime.datetime.fromisoformat(iso).timestamp()
