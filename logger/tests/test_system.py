@@ -190,7 +190,7 @@ def test_a_constant_pv_reads_as_its_value_in_every_second_and_minute():
     def held(age):
         return q("SELECT p.name, r.value, r.t FROM pv p CROSS JOIN LATERAL (SELECT * FROM raw x WHERE x.pv = p.id "
                  "ORDER BY x.t DESC LIMIT 1) r WHERE p.tier = 'raw' AND p.kind = 'number' AND r.severity < 3 "
-                 "AND r.t < %s ORDER BY p.name", (ts(time.time() - age),))
+                 "AND r.t < %s AND p.name = ANY(%s) ORDER BY p.name", (ts(time.time() - age), list(LOGGED)))
     S.wait_for(lambda: held(125), 180, "a raw PV that holds its value for 125 s")
     name, value, since = held(125)[0]
     since = since.timestamp()
