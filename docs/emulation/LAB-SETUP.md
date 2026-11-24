@@ -48,7 +48,7 @@ sudo usermod -aG dialout "$USER"
 ```
 
 Log in again after the last one. The script builds EPICS base R7.0.10, asyn, StreamDevice,
-autosave and the IOC: 2.5 minutes on the 28-core development PC, so expect a quarter of an
+autosave and the IOC: about 2 minutes on the 28-core development PC, so expect a quarter of an
 hour or more on a small PC. A second run goes on where the first stopped. Then, in every
 terminal you use:
 
@@ -128,7 +128,7 @@ caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:volta
 | Faraday cup Opta (`FC`), turbo Opta (`TURBO`) | TCP port 5025 | `FC:id`, `TURBO:id` | firmware not known to me, turbo's does not exist (P12, P13): expect INVALID |
 | NT 20 (`NT20_1`) | 9600 8N1, listen only | `TURBO1:raw:get` | record format invented (P14): send me what it shows |
 | TDK (`TDK`), platform | 19200 8N1, address 6 | `TDK:voltage:read`, `TDK:status:get` | A8 |
-| REK (`REK`), platform | 9600 8N1, unit 1 | probe with `1` first, then `REK-1:status:read` | A7, A41 |
+| REK (`REK`), platform | 9600 8N1, unit 1 | `matsusada_probe.py <its device> 1` first, then `REK-1:status:read` | A7, A41 |
 | Thermocouples (`thermo`), platform | 19200 8N1; the lab's `st.cmd` said 9600 (A9) | `THM:id`, `THM:t1:get` | firmware |
 
 **Firmware of the Arduino boxes.** `<DEVICE>:id` and every valve or relay command need libcom1
@@ -138,8 +138,8 @@ a set is refused and not executed (`AVR/libcom1/README.md`). The sketches are in
 `AVR/Thermocouple`. I have not compiled or flashed them.
 
 **If a reply does not match,** the IOC log prints the bytes it got and what it expected. That
-line is what I need. A Matsusada reply in another form is one line in
-`EPICS/Db/matsusada_co_ctrl.proto` and `rek.proto`.
+line is what I need. A Matsusada status reply in another form means changing the same input
+line in eight places of `EPICS/Db/matsusada_co_ctrl.proto` and of `rek.proto`.
 
 **The platform IOC reads `interlock_open` from the rack IOC.** On the platform computer
 `caget interlock_open` must answer. If not: `export EPICS_CA_ADDR_LIST=<rack IP>` before

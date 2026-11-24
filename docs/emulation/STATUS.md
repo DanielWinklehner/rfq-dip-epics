@@ -1,7 +1,7 @@
 # Status
 
-Last update: 2026-11-23. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is local,
-nothing is pushed.
+Last update: 2026-11-24. The gates G0, G1 and G2 are closed. Branch `emulated-iocs` is pushed
+to `origin` under its own name (2026-11-24, on your word). No pull request is open.
 
 Everything is built and merged. The system suite and the GUI check pass on the final state.
 Nothing is running.
@@ -31,8 +31,15 @@ After that (2026-11-24, on your word, answer 30): a finding from those acceptanc
 After one late reply the requests and replies of a Matsusada or REK line are in step again
 after the first mismatch, and a read of an output state or a setting no longer takes another
 supply's reply as its own (P49, task T22). Verified by me on its branch and merged, plan 0.20.
-One decision waits for you: whether the voltage and current monitors get the same check, at
-half their update rate (question 16).
+The voltage and current monitors do not get the same check: your decision of 2026-11-24
+(answer 31).
+
+After that (2026-11-24, on your word, answer 31): the branch is pushed, and the steps of a first
+installation on the real computers are written down in [LAB-SETUP.md](LAB-SETUP.md), with a
+script that builds EPICS and the IOC application on a Linux computer
+(`EPICS/ioc/host/build-epics.sh`). The script was run in fresh containers of Ubuntu 20.04,
+22.04 and 24.04, where both IOCs then started in `real` mode with no device connected. Nothing
+of it was run on hardware.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -608,7 +615,13 @@ State of 2026-11-24, early morning. Nothing is running.
   run again on the merged head; the device case, the GUI check and the hand check ran on the
   branch. The merge added a corrected comment in the protocol files, a line in the
   simulator's README, the plan's revision and this document.
-- Next: your word on the monitors (question 16), and your comments on the drawings (answer 25).
+- 2026-11-24, after your answer 31: the branch is pushed. The clone and build commands of
+  `LAB-SETUP.md` step 2 were run from the pushed branch in a fresh Ubuntu 24.04 container, and
+  the rack IOC started there in `real` mode. After these changes (a comment in the two protocol
+  files, documents, the build script) only the plan check ran; no database, record or test
+  changed.
+- Next: what the first day with hardware shows (`LAB-SETUP.md` section 7), and your comments on
+  the drawings (answer 25).
 
 ## Open
 
@@ -617,7 +630,8 @@ State of 2026-11-24, early morning. Nothing is running.
   not load it at all.
 - Two gauges you want to add are in the plan as planned devices only: foreline, gas injection.
 - The dipole second cross, the emittance scanners and the new interlock system are out of scope.
-- Worktrees and branches of the subagents (`emu/t*`) are still there. They go when you have
+- Worktrees and branches of the subagents (`emu/t*`) are still there, on this computer only:
+  they were not pushed, because each is merged into `emulated-iocs`. They go when you have
   looked at the result.
 
 ## Answers of the owner, 2026-11-21
@@ -654,6 +668,7 @@ State of 2026-11-24, early morning. Nothing is running.
 | 28 | The operator's direction of the same race, P47 (2026-11-23) | "Leave P47" | Answers question 14. Nothing is changed. P47 stays in the open points as a known behaviour with its way out (on, then off) |
 | 29 | P47 once more (2026-11-23, a few minutes after answer 28) | "Sorry, no fix P47" | Read by me as a correction of answer 28: fix P47. Task T21 (brief `T21-switch-resend.md`). Not the remedy I had named (the gate evaluated through Channel Access): that one still loses a command when several follow each other within a millisecond. Instead a rule at the switching record itself: a value written into it while it was busy is sent when it is free |
 | 30 | The late reply on the Matsusada lines, P49 (2026-11-23) | "Yes, fix P49" | Answers question 15. Task T22 (brief `T22-late-reply.md`). Two parts, the second added by me when I read the logs and the source for the brief: the line is kept quiet after a mismatch until the outstanding reply has arrived (what I had named to you), and every reading that carries a state or a setting first checks the unit number in a status reply, because at the first contact a stray reply would otherwise be copied into the next supply's request and set point. The monitors are left as they are; what that leaves open is measured and reported to you |
+| 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -717,7 +732,8 @@ State of 2026-11-24, early morning. Nothing is running.
     instead of 9 with two supplies). Shall the monitors be checked too? My recommendation:
     leave them as they are. It takes a reply more than 200 ms late, the value is replaced at
     the next cycle, and nothing acts on the AU monitors; the discharge loop reads the REK,
-    which is alone on its line and cannot take a neighbour's value.
+    which is alone on its line and cannot take a neighbour's value. Answered on 2026-11-24
+    (answer 31): leave them.
 
 ## Not verified
 
@@ -728,7 +744,15 @@ State of 2026-11-24, early morning. Nothing is running.
 - The GUI in a browser on Windows by a person. It was checked with a headless browser inside
   WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
   was in the middle of a merge.
-- The `git clone` step of the README works only after a push.
+- `LAB-SETUP.md` on hardware: none of its steps. What was run is its step 2 (clone and build)
+  in containers of Ubuntu 20.04, 22.04 and 24.04 on the development PC, and a start of both
+  IOCs there in `real` mode without any device. Not run: the udev rule and the probe with the
+  adapters, any device name, the GUI against IOCs on another computer (in WSL2 it reaches them
+  through Windows' address translation, by their addresses and not by broadcast), the loop
+  service's installation, a build on the mini PC.
+- The firmware sketches in `AVR/devices` and `AVR/Thermocouple`: not compiled or flashed by me.
+  That a box with protocol 1 firmware still answers the array query `A` is read from
+  `AVR/libcom1/README.md` and from the lab's protocol file of 2023, which uses the same query.
 - The udev rule and the probe of `EPICS/ioc/host/` with the real adapter. The rule was checked
   for its syntax only: whether `ftdi_sio` takes the adapter and `/dev/mist2/co-u32` appears
   can only be seen with the adapter plugged in.
@@ -849,7 +873,10 @@ State of 2026-11-24, early morning. Nothing is running.
 | T21 has no test in the system suite | The suite's time is used up (P32), and the lost write can only be made by a helper record, which belongs in the device case and not in an IOC |
 | P49 was found in an acceptance run of T21 and is reported, not changed there | It is in the protocol files, older than both tasks, and its remedy needs a test of its own (one reply made late, two supplies at different voltages) |
 | P49 is fixed in two parts, the second added by me: the line kept quiet after a mismatch, and a status check in front of every state or setting read | The first is what I had named to the owner. It puts the line in step but cannot stop the one reply that is read before the first mismatch, and at an IOC start that reply is the neighbour's output state, which the first contact copies into the request. Only the reply to STS carries the unit number, so that is the only check there is |
-| The monitors are not checked | A status request in front of each monitor read halves the rate on a full line (measured 4.6 Hz instead of 9.2 with two supplies). What it would prevent is one value for one cycle after a reply more than 200 ms late. Left to the owner as question 16, with my recommendation to leave it |
+| The monitors are not checked | A status request in front of each monitor read halves the rate on a full line (measured 4.6 Hz instead of 9.2 with two supplies). What it would prevent is one value for one cycle after a reply more than 200 ms late. Left to the owner as question 16, with my recommendation to leave it. He left them (answer 31) |
+| Only `emulated-iocs` was pushed, under its own name | The branch tracked `origin/libcom1-robustness-fixes`, so a plain push could have gone there. The task branches `emu/t*` are all merged and would be 21 more branches on the remote |
+| On the real computers the IOCs are built on the computer (`build-epics.sh`), not run from the Docker image | `run-ioc.sh`, autosave's directory and the loop service's installation are written for it, serial devices and udev names need no pass-through, and the mini PC's system is not known well enough to count on Docker there. The script takes the release tags and the build steps of the image |
+| The first installation uses the names under `/dev/serial/by-id/` in `ports.real.cmd` | They exist without any rule and stay the same across re-plugging. Only the Matsusada adapters need a rule, to get a serial port at all. Names under `/dev/mist2/` for the others can follow when the adapters are known |
 | The wait after a mismatch is 50 ms | The reply still on its way arrives within 37 ms (9 request characters, 16 ms turnaround, 11 reply characters at 9600 baud). 50 ms is also the wait after a reply timeout. A mismatch for another reason (a set the supply did not execute) costs 50 ms of line time and nothing else |
 | In a protocol with a command, the command goes out before the status check | A stray reply must never stop a switching or a set. The check stands between the command and its read-back, so a read-back cannot be confirmed by a neighbour's reply |
 | T22's tests have two simulated lines of their own in the device case | Late replies on the lines of the other tests would disturb them. The price is five more supplies in the case's IOC and a run of 18 minutes instead of 10 |
@@ -900,7 +927,8 @@ A19 (the output gate is wanted, and it latches).
 | A38 | Logger settings: a time stamp more than 10 s from the logger's clock is replaced, an interval closes 2 s after its end, "not alive" after 5 s without a count, buffer alarms at 50 % and 90 %, 2 000 000 rows of buffer | Free choices of the logger task | You |
 | A39 | Grafana lets everybody on the network read without a login, as the GUI does. Its port and the database's are open to the logger's own computer only unless a setting opens them | Free choice; you said "no login" for the GUI | You |
 | A40 | The ion gauge's on/off state is bit 1 of the status word in its pressure replies, and a record that only listens (I/O Intr) receives the replies another record asked for | `aim.proto` (INFICON manual, A15), and the StreamDevice behaviour as seen in the emulation. Not tried on the real serial port | The real gauge: `AIM:enable` shows ON after an IOC start while the gauge is on |
-| A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: one line in the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
+| A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: the same input line in eight places of each of the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
+| A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build; the rack computer is started into Linux beside its Windows, which stays as it is | The build script ran in containers of these three versions. Your answer 22 for the mini PC; for the rack computer the plan's "Linux planned" and the driver brief's "do not modify the Windows installation" | `lsb_release -a` on both, and the first build there |
 
 ## Open points
 
@@ -945,7 +973,7 @@ loop, see "Done").
 | P46 | After a start of the platform IOC the loop service writes its records again 4 to 13 s after the IOC answers (six measurements with the IOC stopped for 20 and 30 s, the same with and without T19): Channel Access finds a restarted IOC at its next search. Until then `LOOP-DIS:service:get` shows "not alive" and the loop stays in MANUAL. The GUI check reads all records 8 s after the start, so its note names the three records the service writes (`LOOP-DIS:_active`, `_count`, `_out`) in some runs and not in others | Know it |
 | P48 | The device test `test_limit_survives_an_ioc_restart` (Matsusada case, older than T20) failed once in the engineer's runs of T20: not all PVs of AU-20P7-1 were valid within 20 s of an IOC restart. Which PV is not known, the log was overwritten. It passed in every other full run of the case, three of the engineer's and two of mine for T20, and the three full runs of T21. Its failure message names the PVs now | Watch it. If it fails again the message says where to look |
 | P50 | Two things the rules of T20 and T21 leave as they are, both harmless. A value written into `ToggleOutput` in the first milliseconds of a switching, before its SW line is formatted, is sent by that switching itself and then once more by `_out:resend`: the supply gets the same setting twice. And when the gate's result changes in the microseconds in which the switching sequence is starting, and the gate's own scan sees it before the change event, the output still follows the latest result, but an on that overtakes an off sequence goes out without the current limit having been sent again just before; that matters only for a supply that has forgotten its limit. Read from the source (`seqRecord.c`, `StreamCore.cc`), the window not measured | Know it |
-| P51 | After one reply that comes more than 200 ms late, a voltage or current monitor of a neighbour on the same line can accept one value of the same kind and show it without alarm until its next update: 0.15 to 0.20 s with two polled supplies, up to 0.54 s with three in my run (0.66 s in the engineer's). At most one value per late reply; `power:read` is computed from it. The raw number is scaled with the wrong supply's full scale. The state and setting reads cannot do this since T22. The rack's two lines carry two supplies each; the REK is alone on its line, so its monitors and the discharge loop are not affected | Your word (question 16). Checking the monitors too would close it and halve their rate. I recommend leaving it |
+| P51 | After one reply that comes more than 200 ms late, a voltage or current monitor of a neighbour on the same line can accept one value of the same kind and show it without alarm until its next update: 0.15 to 0.20 s with two polled supplies, up to 0.54 s with three in my run (0.66 s in the engineer's). At most one value per late reply; `power:read` is computed from it. The raw number is scaled with the wrong supply's full scale. The state and setting reads cannot do this since T22. The rack's two lines carry two supplies each; the REK is alone on its line, so its monitors and the discharge loop are not affected | Know it. Your decision of 2026-11-24 (answer 31): the monitors stay as they are. Checking them too would close it and halve their rate |
 | P52 | A supply whose every reply is late (300 ms, left on for 10 s in the device case) leaves its neighbour on the line almost without readings: nearly all of the neighbour's records INVALID, one monitor value of the late supply accepted, no state or setting of the other supply shown. In step within a quarter of a second when the fault is cleared (the engineer measured 2 s with the old files). Part of it is the simulator, which holds the line for the late reply. A supply or an adapter that is always slower than 150 ms would need a longer reply timeout in the protocol files | Know it. Measure the reply times on hardware (WP4) before the timeout is trusted |
 | P53 | One full run of the Matsusada device case by the engineer of T22 had three failures that did not repeat in three later full runs, one of them mine: `AU-20P7-1:output:init` in alarm in the test that every PV is valid, and two supplies not valid again within 12 s and 20 s after a fault. Cause not shown. For the first there is a reading from the source: `output:init` writes `voltage:get.PROC` through a Channel Access link, a put through a link that is not connected yet returns an error (`dbCa.c`, `dbCaPutLinkCallback`), the seq goes on (`seqRecord.c`), and the record keeps a LINK alarm because it runs once per IOC start. The voltage echo is then read at its next 5-second scan, and the gate is enabled as usual. The case's IOC has five more supplies since T22, so its links connect later. The helper `not_valid` prints the alarm status now, so a second time will say more | Watch for it. If it shows again: start `output:init` only when its link is connected, or read the echo through a database link |
 | P54 | A pause of a simulator process (or of the whole machine) longer than 150 ms makes every Matsusada line of that simulator miss one reply at the same moment. Seen twice: in a device-case run for T21 (all four lines; it showed P49), and in the first suite run on the merged head of T22 (both rack lines, 5 ms apart, one monitor of each INVALID for one cycle; `test_05_faults` then fails, because another device's PV was INVALID while a fault lasted). Cause not known; the host is a WSL2 machine. Since T22 such a pause costs one TIMEOUT per line and, if the reply comes later than 200 ms, one mismatch, and the line is in step again | Know it: a failed `test_05` that names monitors of AU supplies on both lines at once is this, and the suite passes when run again. If it gets frequent: let the simulator log a late wake-up, to see how long the pauses are |
