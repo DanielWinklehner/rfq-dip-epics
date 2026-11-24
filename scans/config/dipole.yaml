@@ -1,0 +1,36 @@
+# The dipole scan: the magnet current stepped, the picoammeter read at each step.
+# Replaces the LabVIEW scan (plan/controls.yaml, WP11). The PV names are the plan's proposals
+# (devices magnets and keithley_desk); the IOCs that serve them are tasks T24 and T25 and do not
+# exist yet. Nothing about the LabVIEW program is known (range, step, settling, dwell, what it
+# saves, whether the supplies need slow changes): every number below is ASSUMED, a placeholder
+# to be replaced by the owner's values. Check before the first use:
+#     python -m mist2scan check config/dipole.yaml
+name: dipole
+description: "Dipole magnet current against the picoammeter current"
+
+actuator:
+  set: "dipole:current:set"          # plan: ao, A
+  readback: "dipole:current:get"     # plan: ai, A
+  tolerance: 0.05                    # A. ASSUMED
+  settle_timeout: 30.0               # s. ASSUMED
+  settle_time: 2.0                   # s after the read-back is within the tolerance. ASSUMED (magnet and field settle)
+  max_step: 1.0                      # A per write. ASSUMED: whether the old supplies need slow changes is not known
+  step_pause: 0.5                    # s between part steps. ASSUMED
+  limits: [0.0, 100.0]               # A. ASSUMED: the supplies' range is not known; the IOC's DRVL/DRVH also apply
+  on_not_settled: end                # stop rather than collect at a current that was not reached
+
+points:
+  start: 0.0                         # A. ASSUMED
+  stop: 50.0                         # A. ASSUMED
+  step: 0.5                          # A. ASSUMED
+
+detectors:
+  - {pv: "pico1:current:get", name: pico1, required: true}     # plan: ai, A
+
+dwell: 1.0                           # s per point. ASSUMED
+
+conditions: []                       # none known yet. Form: {pv: <name>, op: "==", value: 1}
+
+end: previous                        # back to the current before the scan
+
+output: scan-data                    # relative to the directory the program runs in

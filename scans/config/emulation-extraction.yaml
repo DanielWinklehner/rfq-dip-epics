@@ -1,0 +1,42 @@
+# A scan that runs in today's full emulation with the plant model (make -C emulation up-plant):
+# the ion source supply's voltage (part of the extraction voltage, with the puller) stepped, the
+# Faraday cup current read. PV names from RAS/mist2/ReactApp/src/registry/registry.json (devices
+# au_src, au_puller, fc_opta, valves). In the model the cup current is
+# beam_fraction * discharge * (1 - exp(-(V_source + V_puller) / 8000 V)) when source and puller
+# are on and the cup is in (emulation/sim/mist2sim/plant/model.py): a property of the MODEL, not
+# of MIST-2. The source must be running first (discharge current, both supplies on, cup in):
+# docs/emulation/SCAN.md, section 7. Numbers marked ASSUMED are chosen for the emulation only.
+name: emulation-extraction
+description: "Emulation: ion source voltage against the Faraday cup current (plant model)"
+
+actuator:
+  set: "AU-20P7-1:voltage:setpoint"     # V, DRVL 0, DRVH 20000 (matsusada_au20p7.db)
+  readback: "AU-20P7-1:voltage:read"    # V, the measured output (12 bit of 20 kV, about 5 V per count)
+  tolerance: 50.0                       # V. ASSUMED: ten counts of the monitor
+  settle_timeout: 20.0                  # s. ASSUMED
+  settle_time: 1.0                      # s. ASSUMED
+  max_step: 2000.0                      # V per write. ASSUMED
+  step_pause: 1.0                       # s. ASSUMED
+  limits: [0.0, 16000.0]                # V. ASSUMED, inside the supply's 20 kV
+  on_not_settled: skip
+
+points:
+  start: 1000.0
+  stop: 15000.0
+  step: 1000.0
+
+detectors:
+  - {pv: "FC:current:get", name: cup, required: true}           # A
+  - {pv: "AU-20P7-1:current:read", name: source_ma, required: false}   # mA
+  - {pv: "REK-1:current:read", name: discharge_a, required: false}     # A
+
+dwell: 2.0                              # s. ASSUMED
+
+conditions:
+  - {pv: "AU-20P7-1:read_output_status", op: "==", value: 1}   # source supply on
+  - {pv: "AU-20P7-2:read_output_status", op: "==", value: 1}   # puller on
+  - {pv: "VALVE:s4:get", op: "==", value: 1}                   # Faraday cup in
+
+end: previous
+
+output: scan-data

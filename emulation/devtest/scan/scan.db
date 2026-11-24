@@ -1,0 +1,80 @@
+# scan.db - soft records for the scan case (emulation/devtest/scan): an actuator with a lagging
+# read-back, detectors computed from it, a record a test can make INVALID, a condition. No device.
+
+# The actuator: set point with control limits (DRVL/DRVH: what the scan reads as the PV's limits)
+record(ao, "SCAN:x:set") {
+    field(DESC, "Scan actuator set point")
+    field(EGU,  "mm")
+    field(PREC, "4")
+    field(DRVL, "-10")
+    field(DRVH, "10")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+# The read-back follows the set point with a lag: half the remaining distance every 0.1 s
+# (time constant 0.1 s / ln 2 = 0.14 s), exactly the set point once closer than 1e-4.
+record(calc, "SCAN:x:get") {
+    field(DESC, "Scan actuator read-back")
+    field(SCAN, ".1 second")
+    field(EGU,  "mm")
+    field(PREC, "4")
+    field(INPA, "SCAN:x:get NPP")
+    field(INPB, "SCAN:x:set NPP")
+    field(CALC, "ABS(B-A)<1e-4?B:A+(B-A)*0.5")
+}
+
+# Three Gaussian peaks of the read-back plus noise: heights B, C, D at E, F, G, H = 2 sigma^2,
+# noise I * (RNDM - 0.5). The test reads the positions from these fields.
+record(calc, "SCAN:peaks:get") {
+    field(DESC, "Three peaks of the read-back")
+    field(SCAN, ".1 second")
+    field(PREC, "4")
+    field(INPA, "SCAN:x:get NPP")
+    field(INPB, "1.0")
+    field(INPC, "2.0")
+    field(INPD, "1.5")
+    field(INPE, "-6.0")
+    field(INPF, "0.5")
+    field(INPG, "5.5")
+    field(INPH, "0.72")
+    field(INPI, "0.02")
+    field(CALC, "B*EXP(-(A-E)*(A-E)/H)+C*EXP(-(A-F)*(A-F)/H)+D*EXP(-(A-G)*(A-G)/H)+I*(RNDM-0.5)")
+}
+
+# A detector that holds one value: processed once at the start, never again
+record(ai, "SCAN:hold:get") {
+    field(DESC, "Constant detector")
+    field(INP,  "42")
+    field(PINI, "YES")
+    field(PREC, "1")
+}
+
+# A detector a test can make INVALID: the read-back, plus 1000 while SCAN:flaky:bad is 1, and
+# then INVALID (MS from the bo's state severity). A scan that used INVALID values would show it.
+record(bo, "SCAN:flaky:bad") {
+    field(DESC, "1: SCAN:flaky:get INVALID")
+    field(ZNAM, "good")
+    field(ONAM, "bad")
+    field(OSV,  "INVALID")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+record(calc, "SCAN:flaky:get") {
+    field(DESC, "Read-back, INVALID on request")
+    field(SCAN, ".1 second")
+    field(PREC, "4")
+    field(INPA, "SCAN:x:get NPP")
+    field(INPB, "SCAN:flaky:bad NPP MS")
+    field(CALC, "A+B*1000")
+}
+
+# The condition of the scan: 1 = the scan may run
+record(bo, "SCAN:permit:get") {
+    field(DESC, "Scan permit")
+    field(ZNAM, "off")
+    field(ONAM, "on")
+    field(VAL,  "1")
+    field(PINI, "YES")
+}
