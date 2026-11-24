@@ -237,7 +237,11 @@ emulation/devtest/run.sh emulation/devtest/dipole                     # 12 tests
    `emulation/sim/run_tests.sh` does it, format `g`): identical. Differences to the library that
    the comparison does not cover, by design: the two refusals of section 3, the stream switched
    off per client, the second-client rule.
-3. The device case `emulation/devtest/dipole`: the service with the `sim` backend as the case's
+3. The `nidaqmx` backend without NI's driver (NI's package 1.7.0 installed in the tools image,
+   no NI-DAQmx): `python -m mist2daq --config config/dipole.yaml --check` ends with exit code 2
+   and NI's message "Could not find an installation of NI-DAQmx". Nothing more of that backend
+   has run: there is no box and no driver here.
+4. The device case `emulation/devtest/dipole`: the service with the `sim` backend as the case's
    simulator (`sim.cmd` → `run_service.sh`, which also stops and starts it on request), one IOC
    with `dipole.db` twice (`dipole` with drive limits 0-80 A inside the service's 0-100 A,
    `wide` with -50-150 A for the refusal), `libcom1_device.db`, `first_contact.db`. The status

@@ -139,7 +139,8 @@ class SimBackend(Backend):
 #   task.close(): alias of clear(): aborts the task and releases its resources
 #                                                          nidaqmx/task/_task.py, Task.close/clear
 #   nidaqmx.system.System.local().devices[name].product_type          nidaqmx/system/system.py, device.py
-#   nidaqmx.errors.DaqError                                nidaqmx/errors.py
+#   nidaqmx.errors.Error, base of DaqError and DaqNotFoundError (no NI-DAQmx installed)
+#                                                          nidaqmx/errors.py
 # What NI's documentation does not say (as far as read): whether an analog output keeps its last
 # value after its task is cleared, and whether two analog output tasks may run at the same time
 # on a USB-6001. Both matter here and are open points (docs/emulation/DAQ.md).
@@ -168,7 +169,7 @@ class NidaqmxBackend(Backend):
     def _call(self, what, fn, *args, **kw):
         try:
             return fn(*args, **kw)
-        except self.nidaqmx.errors.DaqError as exc:
+        except self.nidaqmx.errors.Error as exc:   # DaqError, and DaqNotFoundError (no driver)
             raise BackendError("%s: %s" % (what, exc)) from None
 
     def open(self):
