@@ -49,10 +49,14 @@ logger's home, a note in work package WP11; no record changed).
 After that (2026-11-24, on your word, answer 35): the first stage of the dipole scan is built
 and merged, three tasks, each verified by me on its branch and again on the merged tree: the
 scan program (T23), the magnet supplies through the NI box (T24), the picoammeter for an
-assumed model (T25). Each is proven in a device case of its own. No IOC loads the new devices
-yet, nothing of it ran on hardware, and the three have not run together yet. See "Done".
-The lab's files from the rack computer are read (answer 39); a fourth task (T26) brings the
-system in line with them and is still running.
+assumed model (T25), and the three together in one device case (T27, two rounds). No IOC
+loads the new devices yet, and nothing of it ran on hardware. See "Done".
+
+The lab's files from the rack computer are read (answer 39), and the system is in line with
+them (T26, verified by me and merged): the source supply is `AU-20P15-1`, the Faraday cup
+`FC1` with two values, five flow meters `FLOW` replace the sensor box. The plan is at
+revision 0.22. On the merged head the system suite, six device cases and the plan check pass
+in my runs, and I ran a scan by hand in the full emulation. Everything is pushed.
 
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
@@ -648,16 +652,86 @@ each, merged 2026-11-24 on your word, answer 35; work package WP11)
   INVALID value taken as valid (the scan's test of the INVALID detector fails), `PINI` on the
   magnet's set record (the tests of "nothing written at the start" fail), zero check left out
   of the bits that make a reading no measurement (the power-on test fails).
-- **Not done yet:** the three together (the scan program against the DAQ service and the
-  picoammeter simulator in one case); the scan in the full emulation by my own hand (the
-  engineer ran it once: extraction voltage against the Faraday cup current, 15 points in 67 s;
-  I repeat it after T26, which renames both PVs); the plan's entries (with T26's merge, one
-  revision); an IOC that serves the dipole (which computer: your word).
+- **Since then:** the three together (next block); the scan in the full emulation by my own
+  hand, on the merged head with the names of T26 (source supply voltage against the Faraday
+  cup current: `check` exit 0, 15 points in 70 s, exit 0, the cup current 1.07 mA at 1 kV and
+  3.07 mA at 15 kV as the plant model has it, the supply taken back to 1 kV, the saved
+  settings unchanged); the plan's entries (revision 0.22).
+- **Not done:** an IOC that serves the dipole (which computer: your word).
+
+**The dipole scan, the three parts together** (subagent, task T27, two rounds, merged
+2026-11-24)
+
+- A device case `emulation/devtest/dipolescan`: the shipped scan program runs the shipped
+  definition `scans/config/dipole.yaml` through one IOC against the DAQ service and the
+  picoammeter simulator. A small model of the case couples them: three peaks over the magnet
+  current, at 10, 14.14 and 17.32 A (the ratio of the square roots of 1, 2, 3). No number of
+  it is measured on MIST-2.
+- What it shows, in my run of the second round (11 passed in 463 s): after power-on the scan
+  refuses and writes nothing (zero check is on, and the service holds no value); the three
+  peaks are found within 0.001 A; with a fixed range below the highest peak the scan ends at
+  the overflow, as shipped; a stopped service, a silent picoammeter and an IOC restart in the
+  middle each end the scan cleanly.
+- **Found and corrected in the scan program** (each with a test that failed before):
+  - With the DAQ service stopped, the end move wrote every part step into a set PV the IOC
+    could not send, and the file named the end target as the last write. The end move now
+    stops at the first write the IOC does not confirm.
+  - A stopped service ended a scan only after the settle timeout (30 s), and after a service
+    restart the set PV still showed a value the service no longer held, so a scan would have
+    started from it. New key `actuator.held` (the PV of what the device holds): the scan
+    refuses to start when it is INVALID or differs from the set PV, and ends at once, writing
+    nothing more, when it goes INVALID. Measured: 0.10 s after the stop.
+  - New key `actuator.readback_lost_after` (default 5 s): a read-back that stays INVALID that
+    long is "actuator lost", also for an actuator without a `held` PV.
+  - Every INVALID reason names the alarm status: an overflow is "INVALID (STATE)", a silent
+    instrument "INVALID (TIMEOUT)".
+- **The numbers together:** the picoammeter delivers one value per second. With the shipped
+  dwell, now 3 s (ASSUMED), a point gets four readings and takes 6.5 s; 26 points took 178 s.
+  The settle time must not go below 1.3 s (the picoammeter's poll period plus one reading).
+- **Verified by me**, each round on its own: all acceptance commands (the new case, the three
+  part cases, the simulators' tests, both sets of unit tests, the plan check), two of the
+  case's tests alone, and two variants seen to fail and put back: the scan program without
+  the end-move correction (it writes 9, 8, 7, 6 A after the stop), and the shipped definition
+  without `held` (the three tests of the stopped service fail). In the first round I found
+  that the case's tests depended on their order; the second round removed that.
+
+**The system in line with the lab's files of 2026-11-24** (subagent, task T26, one round,
+merged 2026-11-24; answer 39, `reference/lab-2026`)
+
+- **The source supply is `AU-20P15-1`** everywhere (rack IOC, first contact, all-off,
+  `limits.defaults`, plan, registry, documents), with no alias: the old name was this
+  system's assumption. A limit saved under the old name is dropped once at the next IOC
+  start (the default applies); in the emulation that was the same value.
+- **The Faraday cup is `FC1`** with the lab's record names (`FC1:data`, `FC1:i1:getcurrent`,
+  `FC1:i2:getcurrent`), on a USB serial line (115200 8N1). No unit, because none is known.
+  **The flow meters are `FLOW:f1:getflow` to `f5`** in l/min, from the lab's database and
+  the sketch's arithmetic (1260 pulses per litre, counted for 0.5 s). Both run on a
+  simulated board of libcom1 protocol 1 (a new option of the simulator, checked against the
+  real library of that version), since that is what the lab's boards are: only the query
+  `A`, no identity records.
+- **The sensor box is out of the rack IOC**, the GUI and the logger; its database and device
+  case stay. In the plan it is marked as replaced.
+- **The MFC was compared and left unchanged.** Ours serves both PVs of the lab's file. The
+  lab's protocol file ends every message with a carriage return, ours with `;FF` alone as the
+  MKS supplement says. In a test against a fake unit ours read every reply form with and
+  without the carriage return; the lab's file alarmed without it.
+- **Names of the serial devices:** `EPICS/ioc/host/99-mist2-serial.rules` gives the gauge
+  controller, the interlock box, the valve box and the MFC their names by serial number.
+  The Matsusada adapters, the Prolific adapters and the Optas are named by their USB socket
+  (`LAB-SETUP.md`). Both rule files pass a syntax check; not tested on hardware.
+- **Verified by me** on the branch: the system suite (282 passed in 768 s, saved settings
+  unchanged), the GUI check (PASS, 289 checks), the logger's tests (35 passed in 407 s), the
+  device cases `faradaycup` (9), `flowmeters` (9) and `libcom1_devices` (82), the simulators'
+  tests, the plan check. My own variant: without the alarm links in the two new databases,
+  the tests of a silent board fail in both cases. On the merged head `ad22e54`, with plan
+  0.22: the suite again (282 passed in 767 s), six device cases, the plan check.
+- One line of the logger's tests was changed by me, with the engineer's diff: the logger's
+  database keeps the PVs of earlier registries, and a test took the first of them by name.
 
 ## Running
 
-State of 2026-11-24, afternoon. T23, T24 and T25 are merged (see "Done"). One engineer is at
-work in `.claude/worktrees/t26` and one in `t27`. The table of the tasks ordered today:
+State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
+table of the tasks ordered today:
 
 | Task | What | Brief |
 |---|---|---|
@@ -859,7 +933,13 @@ nothing of the simulator but a new module with its tests and a line of its READM
     circuit is each of the five flow meters? (d) Your notes of 2022 say thermocouple "t2 =
     back plate, t4 = magnet plate"; on 2026-11-21 you said 1 back plate, 2 filament
     feedthrough, 3 and 4 isolation transformers. I kept the later answer. (e) The platform
-    computer's `st.cmd` and databases (TDK, REK, thermocouples) are still wanted.
+    computer's `st.cmd` and databases (TDK, REK, thermocouples) are still wanted. (f) Does
+    the MFC send a carriage return after `;FF`? The lab's protocol file expects one, ours
+    works with and without. (g) Are the flow meters 1260 pulses per litre, as the sketch
+    says, and which make are they?
+19. The dipole scan as shipped ends when the picoammeter overflows on a fixed range (the
+    detector is "required"). The other way is to record those points as missing and go on.
+    Which do you want? With automatic ranging, the state after power-on, it does not arise.
 
 ## Not verified
 
@@ -884,6 +964,12 @@ nothing of the simulator but a new module with its tests and a line of its READM
   formats, line settings and times of the picoammeter; the 6487; Python 3.8 for the scan
   program and the service (run on 3.10 and 3.12); their installation on the lab computer;
   the three parts together.
+- T26: both rule files and every device name on hardware; that a Teensy, a Mega and an FTDI
+  adapter report under Linux the serial string Windows showed; what the Faraday cup's two
+  values are (`i1` is taken as the cup current in A in the plant model only); how a real
+  protocol 1 board answers a malformed command (not modelled; the IOC sends `A` only).
+- T27: the times for 100 points are computed, not measured; `readback_lost_after` is tested
+  in the unit tests only; a DAQ service that hangs instead of closing its connection.
 - `LAB-SETUP.md` on hardware: none of its steps. What was run is its step 2 (clone and build)
   in containers of Ubuntu 20.04, 22.04 and 24.04 on the development PC, and a start of both
   IOCs there in `real` mode without any device. Not run: the udev rule and the probe with the
@@ -946,6 +1032,7 @@ nothing of the simulator but a new module with its tests and a line of its READM
 ## Subagents
 
 - All subagents report the model ID `claude-opus-5-5`.
+- 2026-11-24: T26 one round (2.4 h), T27 two rounds (1 h and 50 min).
 - 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
   600 s") near its end; resumed with a message, it finished in four minutes. Its work was
   committed up to that point.
@@ -1023,6 +1110,11 @@ nothing of the simulator but a new module with its tests and a line of its READM
 | The dipole's devices are proven in device cases and loaded by no IOC yet | Where the NI box and the picoammeter sit in the new lab, and so which computer's IOC serves them, is not known. A third IOC in the emulation touches the suite, the GUI and the logger; that step waits for the facts |
 | The NI box is served by a Python service that speaks libcom1 over TCP, not by a Python soft IOC as the plan first said | The IOC side is then the protocol file and the alarm rules that every libcom1 device already uses and that are tested; the service's replies are compared with the real library. The plan's note is brought up to date with T26's merge |
 | The picoammeter is polled with `ABOR`, the queries, `INIT` | In its power-on state it measures continuously and executes no query until it is idle (manual 7-4). The brief forbade setting anything at an IOC start; these two commands stop and restart the measuring and set nothing. Price: the display updates once per poll, and a reading that takes longer than the poll period never completes (INVALID then, not an old value) |
+| The scan program takes "what the device holds" from a PV of its own (`actuator.held`) | A set record is processed only when it is written, so it keeps its value when the device behind it has lost its state (as P10 says of the TDK). The service's held value is the truth; the scan compares the two at the start and ends when the held value is not known any more |
+| A read-back INVALID for 5 s is "actuator lost", and so is every loss during the end move: exit 5, nothing written after | Waiting out a settle timeout and then writing an end move into a device that does not answer is the wrong order. 5 s is a free choice (ASSUMED in the definition) |
+| The source supply has no alias under its old name | `AU-20P7-1` was this system's assumption and never a PV of the lab. The lab's name is `AU-20P15-1`, and your rule is that existing PVs keep their names |
+| No identity records for the Faraday cup and the flow meters | Their boards speak libcom1 protocol 1, which has no identity; the records would be INVALID for ever. They are in the plan as proposed until the boards are flashed |
+| The MFC's protocol file is not changed to the lab's | Ours reads everything the lab's reads, and more (a reply without a carriage return). Shown with a test, not committed |
 | The plan's entries for T23 to T25 wait for T26's merge | T26 changes the plan in its branch; two regenerations of the plan's documents on two branches would only collide |
 | The first installation uses the names under `/dev/serial/by-id/` in `ports.real.cmd` | They exist without any rule and stay the same across re-plugging. Only the Matsusada adapters need a rule, to get a serial port at all. Names under `/dev/mist2/` for the others can follow when the adapters are known |
 | The wait after a mismatch is 50 ms | The reply still on its way arrives within 37 ms (9 request characters, 16 ms turnaround, 11 reply characters at 9600 baud). 50 ms is also the wait after a reply timeout. A mismatch for another reason (a set the supply did not execute) costs 50 ms of line time and nothing else |
@@ -1050,7 +1142,8 @@ A19 (the output gate is wanted, and it latches).
 | A10 | Gauge controller (Teensy) at 115200 baud. The real port file sets even parity as the lab's `st.cmd` did | Confirmed by the lab's `st.cmd` and notes of 2026-11-24 (Teensy even, Mega none) | Settled |
 | A11 | MFC at address 254, 9600 baud. The snapshot's files are a draft: set point only, no flow read-back, commented out in `st.cmd` | `latest.zip` | Lab files |
 | A12 | `MFC:getFlow` as the name of the flow read-back | My proposal in the lab's style | Lab files |
-| A13 | Faraday cup Opta speaks libcom1 over TCP and serves one current channel | Wrong in two points by the lab's files (answer 39): libcom1, but on a USB serial line, with two values (`FC1:i1`, `FC1:i2`). Their meaning and unit are not known; the sketch was not found. T26 | You (question 18), the sketch |
+| A13 | The Faraday cup Opta's first value, `FC1:i1`, is the cup current in A; `FC1:i2` is not known | The names and the line are the lab's now (T26). The meaning is my assumption for the plant model only; the database claims no unit. The sketch was not found | You (question 18), the sketch |
+| A47 | The flow meters give 1260 pulses per litre, so `FLOW:f<n>:getflow` is in l/min | The sketch's comment and factor (`reference/lab-2026`, `FlowMeters.ino`) | You (question 18), the flow meters' data sheet |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
@@ -1092,14 +1185,14 @@ loop, see "Done").
 
 | # | Point | Needs |
 |---|---|---|
-| P3 | Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is empty. The seven temperatures have no names in any source | Nothing, if the Opta replaces the box |
+| P3 | (Closed by T26: the flows come from the Opta in l/min, the sensor box is replaced. Kept for the record.) Unit of the sensor box water flows. The sketch's factor 0.06 fits litres per hour by one comment and not litres per minute by the other. The unit field is empty. The seven temperatures have no names in any source | Nothing, if the Opta replaces the box |
 | P5 | The door PVs `INTLK:i1:get_interlock` and `i2` are binary records with the states Open and Closed. The lab's were analog records with the same numbers (1 = closed) | You, if a script depends on the type |
 | P6 | The gauge controller keeps sending the last pressure after a gauge is switched off | Firmware, later |
 | P7 | The nAIM instruction manual was not found. Its protocol is taken from INFICON's description of the "Edwards nAIM protocol" and from the Edwards TIC manual | You, with the gauge |
 | P9 | `AIM:getpressure` is INVALID while the gauge is off or striking. It keeps the number the gauge sent | Tell me if you prefer another display |
 | P10 | After a TDK power cycle the supply comes back with its output off, while `TDK:status:setpoint` still shows ON until it is written again. `TDK:status:get` shows the truth | GUI and loop design |
 | P11 | MFC: the supplement does not show the reply to a set or a literal example of a negative reply. The protocol file accepts both forms of the positive reply | Lab files |
-| P12 | Faraday cup: everything but the hardware is assumed (libcom1 over TCP, one channel in A) | Firmware source |
+| P12 | Faraday cup: names, line and protocol are the lab's now (T26). Still not known: what its two values are, their unit, and its sketch | You (question 18), the firmware source |
 | P13 | Turbopump Opta: its firmware does not exist. The channel map in `turbo.db` is its specification | Firmware, later |
 | P14 | NT 20 monitor port: the record format is invented. `TURBO<n>:raw:get` and `:age:get` work with any one-line format | A capture from a unit |
 | P15 | The simulator's `close` fault accepts and closes every reconnect, which makes an IOC with `@init` handlers log about 100 lines per second while the fault lasts. Better: stop listening | Later |
@@ -1129,6 +1222,7 @@ loop, see "Done").
 | P52 | A supply whose every reply is late (300 ms, left on for 10 s in the device case) leaves its neighbour on the line almost without readings: nearly all of the neighbour's records INVALID, one monitor value of the late supply accepted, no state or setting of the other supply shown. In step within a quarter of a second when the fault is cleared (the engineer measured 2 s with the old files). Part of it is the simulator, which holds the line for the late reply. A supply or an adapter that is always slower than 150 ms would need a longer reply timeout in the protocol files | Know it. Measure the reply times on hardware (WP4) before the timeout is trusted |
 | P53 | One full run of the Matsusada device case by the engineer of T22 had three failures that did not repeat in three later full runs, one of them mine: `AU-20P7-1:output:init` in alarm in the test that every PV is valid, and two supplies not valid again within 12 s and 20 s after a fault. Cause not shown. For the first there is a reading from the source: `output:init` writes `voltage:get.PROC` through a Channel Access link, a put through a link that is not connected yet returns an error (`dbCa.c`, `dbCaPutLinkCallback`), the seq goes on (`seqRecord.c`), and the record keeps a LINK alarm because it runs once per IOC start. The voltage echo is then read at its next 5-second scan, and the gate is enabled as usual. The case's IOC has five more supplies since T22, so its links connect later. The helper `not_valid` prints the alarm status now, so a second time will say more | Watch for it. If it shows again: start `output:init` only when its link is connected, or read the echo through a database link |
 | P54 | A pause of a simulator process (or of the whole machine) longer than 150 ms makes every Matsusada line of that simulator miss one reply at the same moment. Seen twice: in a device-case run for T21 (all four lines; it showed P49), and in the first suite run on the merged head of T22 (both rack lines, 5 ms apart, one monitor of each INVALID for one cycle; `test_05_faults` then fails, because another device's PV was INVALID while a fault lasted). Cause not known; the host is a WSL2 machine. Since T22 such a pause costs one TIMEOUT per line and, if the reply comes later than 200 ms, one mismatch, and the line is in step again | Know it: a failed `test_05` that names monitors of AU supplies on both lines at once is this, and the suite passes when run again. If it gets frequent: let the simulator log a late wake-up, to see how long the pauses are |
+| P58 | The logger's database and the IOCs' saved settings are one Docker volume each for every checkout. A branch with other PV names logs a failed restore once and fails its saved-settings check once; the logger keeps the PVs of earlier registries with their last rows. Seen in T26 | Know it. On the real system a renamed PV starts a new history; the old one stays readable under its old name |
 | P55 | In the libcom1 databases whose element records are processed by a forward link of the array record (`faradaycup.db`, `solenoidbox.db` and the others of that pattern), an element record may show the value of the previous poll: the engineer of T24 measured it on his own database (one poll, 0.5 s, late) and used CP links there. Not checked on the other databases, not changed. For the interlock box that would be 0.1 s on `interlock_open` | Check it on one of them (T26's Faraday cup case can show it). The hardware interlock is the first line |
 | P56 | Whether NI's driver for Linux serves the USB-6001 is not shown: the NI-DAQmx for Linux readme 21.3 lists no USB-600x device, later readmes point to a compatibility page the engineer could not read, a knowledge-base article that says "not supported" could not be fetched. If it does not, the choices are in `DAQ.md` (a Windows computer for the service, NI hardware that is supported, a microcontroller with libcom1) | You: does LabVIEW drive the box on the Ubuntu lab computer today, and with which NI driver? |
 | P57 | The scan program and the DAQ service use `max_step`, limits and a communication timeout whose values are all ASSUMED (`scans/config/dipole.yaml`, `daq/config/dipole.yaml`). A first scan on the machine needs your values in both files | Question 17 |
