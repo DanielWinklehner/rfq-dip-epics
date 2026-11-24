@@ -657,7 +657,7 @@ each, merged 2026-11-24 on your word, answer 35; work package WP11)
 ## Running
 
 State of 2026-11-24, afternoon. T23, T24 and T25 are merged (see "Done"). One engineer is at
-work in `.claude/worktrees/t26`. The table of the tasks ordered today:
+work in `.claude/worktrees/t26` and one in `t27`. The table of the tasks ordered today:
 
 | Task | What | Brief |
 |---|---|---|
@@ -665,6 +665,7 @@ work in `.claude/worktrees/t26`. The table of the tasks ordered today:
 | T24 | The dipole magnet supplies as PVs: a Python service for the NI USB-6001, `dipole.db` | `briefs/T24-daq-dipole.md` |
 | T25 | The picoammeter as PVs, for an assumed model (A44) | `briefs/T25-picoammeter.md` |
 | T26 | The system brought in line with the lab's files of 2026-11-24: the source supply's name, the Faraday cup, the flow meters, the sensor box out, names of the serial devices | `briefs/T26-lab-files-2026.md` |
+| T27 | The three parts of the dipole scan together in one device case (ordered after their merge) | `briefs/T27-dipole-scan-together.md` |
 
 After the merges of T23, T24 and T25 I ran, on the merged head: the simulators' tests, the
 three new device cases, both sets of unit tests and the plan check. The system suite was not
