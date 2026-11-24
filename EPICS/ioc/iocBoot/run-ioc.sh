@@ -23,7 +23,15 @@ esac
 
 BOOT=$(cd "$(dirname "$0")" && pwd)
 TOP=$(cd "$BOOT/.." && pwd)
-EPICS_HOST_ARCH=${EPICS_HOST_ARCH:-linux-x86_64}
+# The architecture: EPICS_HOST_ARCH if it is set, else linux-x86_64 if the top is built for it,
+# else the one architecture the top is built for (a 32-bit computer: linux-x86).
+if [ -z "${EPICS_HOST_ARCH:-}" ]; then
+    EPICS_HOST_ARCH=linux-x86_64
+    if [ ! -x "$TOP/bin/linux-x86_64/mist2" ]; then
+        set -- "$TOP"/bin/*/mist2
+        if [ $# -eq 1 ] && [ -x "$1" ]; then EPICS_HOST_ARCH=$(basename "$(dirname "$1")"); fi
+    fi
+fi
 BIN="$TOP/bin/$EPICS_HOST_ARCH/mist2"
 
 [ -f "$BOOT/$IOC/st.cmd" ] || { echo "run-ioc.sh: no IOC '$IOC' ($BOOT/$IOC/st.cmd missing)" >&2; exit 2; }

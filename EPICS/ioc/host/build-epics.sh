@@ -12,8 +12,8 @@
 #   sudo apt install build-essential perl git ca-certificates libreadline-dev libtirpc-dev
 #   sudo mkdir -p /opt/epics && sudo chown "$USER": /opt/epics
 #
-# Tested in containers of Ubuntu 20.04, 22.04 and 24.04 (x86_64). NOT tested on the lab's
-# computers.
+# Tested in containers of Ubuntu 20.04, 22.04, 24.04 and 26.04 (x86_64) and of 32-bit Ubuntu
+# 16.04 and 18.04 (linux-x86). NOT tested on the lab's computers.
 set -eu
 
 EPICS_BASE_TAG=R7.0.10
@@ -51,8 +51,22 @@ fetch() {
     fi
 }
 
-fetch https://github.com/epics-base/epics-base.git "$EPICS_BASE_TAG" "$EPICS_BASE" \
-    --recurse-submodules --shallow-submodules
+# git before 2.9 (Ubuntu 16.04) has no --shallow-submodules: the submodules are then cloned whole
+if git clone -h 2>&1 | grep -q -- --shallow-submodules; then
+    SUBMODULES="--recurse-submodules --shallow-submodules"
+else
+    SUBMODULES="--recursive"
+fi
+# GCC 15 and later (Ubuntu 26.04) compile C as C23 unless told otherwise; StreamDevice 2.8.26 does
+# not compile as C23 (its device support tables declare functions without parameters). The flag
+# goes on the make command line (CMD_CFLAGS of the EPICS build system), the sources stay as
+# released.
+CSTD=""
+GCC_MAJOR=$(gcc -dumpversion | cut -d. -f1)
+if [ "$GCC_MAJOR" -ge 15 ] 2>/dev/null; then CSTD="CMD_CFLAGS=-std=gnu17"; fi
+
+# shellcheck disable=SC2086
+fetch https://github.com/epics-base/epics-base.git "$EPICS_BASE_TAG" "$EPICS_BASE" $SUBMODULES
 make -C "$EPICS_BASE" -j"$JOBS"
 
 fetch https://github.com/epics-modules/asyn.git "$ASYN_TAG" "$SUPPORT/asyn"
@@ -63,7 +77,8 @@ make -C "$SUPPORT/asyn" -j"$JOBS"
 # is built without.
 fetch https://github.com/paulscherrerinstitute/StreamDevice.git "$STREAM_TAG" "$SUPPORT/StreamDevice"
 printf 'EPICS_BASE=%s\nASYN=%s\n' "$EPICS_BASE" "$SUPPORT/asyn" > "$SUPPORT/StreamDevice/configure/RELEASE"
-make -C "$SUPPORT/StreamDevice" -f Makefile DIRS="configure src" -j"$JOBS"
+# shellcheck disable=SC2086
+make -C "$SUPPORT/StreamDevice" -f Makefile DIRS="configure src" -j"$JOBS" $CSTD
 
 fetch https://github.com/epics-modules/autosave.git "$AUTOSAVE_TAG" "$SUPPORT/autosave"
 printf 'EPICS_BASE=%s\n' "$EPICS_BASE" > "$SUPPORT/autosave/configure/RELEASE"
@@ -90,4 +105,4 @@ Start an IOC:        $TOP/iocBoot/run-ioc.sh <iocRack|iocHV> real
 caget, caput, camonitor are in $EPICS_BASE/bin/$ARCH :
     export PATH=$EPICS_BASE/bin/$ARCH:\$PATH
 EOF
-[ "$ARCH" = linux-x86_64 ] || echo "This computer is $ARCH: export EPICS_HOST_ARCH=$ARCH before run-ioc.sh"
+[ "$ARCH" = linux-x86_64 ] || echo "This computer is $ARCH, not linux-x86_64: run-ioc.sh finds the binary by itself."
