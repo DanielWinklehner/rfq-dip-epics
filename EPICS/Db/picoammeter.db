@@ -1,0 +1,221 @@
+# picoammeter.db - picoammeter of the dipole scan (protocol: keithley6485.proto)
+#
+# Macros:
+#   DEVICE   PV prefix, default pico1 (plan: pico1:current:get, pico1:range:set)
+#   PORT     asyn port
+#   PROTO    protocol file, default keithley6485.proto (the model, assumption A44)
+#   SCAN     scan of the poll, default "1 second" (arithmetic below)
+#   BADBITS  bits of the status word that make a reading no measurement, default 641 = bit 0
+#            overflow + bit 7 overvoltage + bit 9 zero check (Keithley 6485 manual 13-6, 13-7)
+#
+# Records for operators and clients:
+#   current:get   the current in A. INVALID while the reading is no measurement: zero check on,
+#                 overflow or overvoltage (STAT STATE); the last measured number is kept then.
+#                 INVALID as well when the instrument is silent (TIMEOUT), answers something else
+#                 (CALC) or the connection is closed.
+#   range:set     request: 0 AUTO, 1..8 the fixed ranges 2 nA ... 20 mA
+#   range:get     the range in use, as the instrument reports it (also while autoranging)
+#   zcheck:set    request: zero check OFF/ON. Zero check shunts the input (manual 2-13): a
+#                 reading means something only with zero check OFF. It is ON after power-on.
+#   zcheck:get    zero check as the instrument reports it
+#   nplc:get      integration time in power line cycles (the rate, manual 4-5)
+#   idn:get       the answer to *IDN? after the manufacturer: model, serial number, firmware
+#
+# First contact: the requests take over the instrument's state after an IOC start without sending
+# anything, through first_contact.db (loaded in the st.cmd):
+#   dbLoadRecords("db/first_contact.db", "P=$(DEVICE),N=range,REQ=$(DEVICE):range:set,RB=$(DEVICE):_range:rb")
+#   dbLoadRecords("db/first_contact.db", "P=$(DEVICE),N=zcheck,REQ=$(DEVICE):zcheck:set,RB=$(DEVICE):zcheck:get")
+# _range:rb is 0 while autoranging, else the range state 1..8. Both read-backs are valid only
+# after an answer of the instrument since the IOC start. Nothing that sets anything is sent at
+# the start; every message starts with ABOR and is followed by INIT (keithley6485.proto, why).
+#
+# Rate. One reading takes NPLC / f_line (manual 4-5), up to 3 times that with autozero on
+# (2-2), autozero ON and NPLC 6 at 60 Hz (5 at 50 Hz) after power-on (Table 1-3, 2-2):
+#   reading time  T_r <= 3 x 6 / 60 Hz = 3 x 5 / 50 Hz = 0.3 s
+#   one poll on the line at 9600 baud, 10 bits per character: 70 characters out, up to about
+#   80 back, 6 out for INIT: about 156 characters = 0.16 s, plus the instrument's response time
+#   (not in the manual)
+#   scan period P must exceed T_r + line time, so that every poll finds a reading taken after
+#   the previous poll: 0.3 + 0.16 = 0.46 s. P = 1 s leaves room for the instrument's response
+#   time, a request in between and the identity every 10 s. With P = 1 s each poll returns a new
+#   reading, at most T_r old. A higher NPLC needs a longer P: P > 3 x NPLC / f_line + 0.2 s.
+# Alarm time: silent or wrong answers are INVALID at most P + ReplyTimeout (0.5 s) = 1.5 s after
+# the last good poll, 2 s if an identity request waits for its own timeout first; valid again at
+# the first good poll.
+#
+# Chain after every poll (_raw, FLNK): _ok -> _valid -> _hold -> current:get -> zcheck:get ->
+# _range:idx -> range:get -> _range:rb -> nplc:get. The read-backs take the communication alarm
+# of _raw (MSS); only current:get also takes the validity of the reading.
+
+# --- the poll ------------------------------------------------------------------------------------
+
+# The reading as sent (overflow: 9.9E37), alarm = communication only
+record(ai, "$(DEVICE):_raw") {
+    field(DESC, "Last reading as sent (internal)")
+    field(DTYP, "stream")
+    field(INP,  "@$(PROTO=keithley6485.proto) poll($(DEVICE)) $(PORT)")
+    field(SCAN, "$(SCAN=1 second)")
+    field(PREC, "6")
+    field(FLNK, "$(DEVICE):_ok")
+}
+
+# Targets of the redirections in the poll (written and processed by StreamDevice)
+record(ai, "$(DEVICE):_zch") {
+    field(DESC, "SYST:ZCH? answer (internal)")
+}
+record(ai, "$(DEVICE):_rng") {
+    field(DESC, "CURR:RANG? answer, A (internal)")
+    field(PREC, "9")
+}
+record(ai, "$(DEVICE):_auto") {
+    field(DESC, "CURR:RANG:AUTO? answer (internal)")
+}
+record(ai, "$(DEVICE):_nplc") {
+    field(DESC, "CURR:NPLC? answer (internal)")
+    field(PREC, "2")
+}
+record(ai, "$(DEVICE):_stamp") {
+    field(DESC, "Timestamp of the reading, s (internal)")
+    field(EGU,  "s")
+    field(PREC, "3")
+}
+record(ai, "$(DEVICE):_status") {
+    field(DESC, "Status word of the reading (internal)")
+}
+
+# --- the reading ---------------------------------------------------------------------------------
+
+# 1 = the reading is a measurement: no overflow, no overvoltage, zero check off when it was taken
+record(calc, "$(DEVICE):_ok") {
+    field(DESC, "Reading is a measurement (internal)")
+    field(INPA, "$(DEVICE):_raw NPP MSS")
+    field(INPB, "$(DEVICE):_status NPP")
+    field(CALC, "(B&$(BADBITS=641))=0&&ABS(A)<9E36")
+    field(FLNK, "$(DEVICE):_valid")
+}
+
+# The same, as an alarm: INVALID/STATE when not a measurement, the communication alarm otherwise
+record(bi, "$(DEVICE):_valid") {
+    field(DESC, "Reading valid (internal)")
+    field(INP,  "$(DEVICE):_ok NPP MSS")
+    field(ZNAM, "NO")
+    field(ONAM, "YES")
+    field(ZSV,  "INVALID")
+    field(FLNK, "$(DEVICE):_hold")
+}
+
+# The new reading when it is a measurement, else the last one kept
+record(calc, "$(DEVICE):_hold") {
+    field(DESC, "Reading or the last one (internal)")
+    field(INPA, "$(DEVICE):_raw NPP")
+    field(INPB, "$(DEVICE):_valid NPP MSS")
+    field(CALC, "B?A:VAL")
+    field(PREC, "6")
+    field(FLNK, "$(DEVICE):current:get")
+}
+
+record(ai, "$(DEVICE):current:get") {
+    field(DESC, "Measured current")
+    field(INP,  "$(DEVICE):_hold NPP MSS")
+    field(EGU,  "A")
+    field(PREC, "6")
+    field(LOPR, "-0.021")
+    field(HOPR, "0.021")
+    field(FLNK, "$(DEVICE):_zcheck")
+}
+
+# --- zero check ----------------------------------------------------------------------------------
+
+record(calc, "$(DEVICE):_zcheck") {
+    field(DESC, "Zero check read-back (internal)")
+    field(INPA, "$(DEVICE):_zch NPP")
+    field(INPB, "$(DEVICE):_raw NPP MSS")
+    field(CALC, "A")
+    field(FLNK, "$(DEVICE):zcheck:get")
+}
+
+record(bi, "$(DEVICE):zcheck:get") {
+    field(DESC, "Zero check, as reported")
+    field(INP,  "$(DEVICE):_zcheck NPP MSS")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+    field(FLNK, "$(DEVICE):_range:idx")
+}
+
+record(bo, "$(DEVICE):zcheck:set") {
+    field(DESC, "Zero check off/on")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=keithley6485.proto) zero_check $(PORT)")
+    field(ZNAM, "OFF")
+    field(ONAM, "ON")
+}
+
+# --- range ---------------------------------------------------------------------------------------
+
+# Range in use: 0 = 2 nA ... 7 = 20 mA (round(log10(range / 2 nA)); also right for 2.1E-4)
+record(calc, "$(DEVICE):_range:idx") {
+    field(DESC, "Range in use, index (internal)")
+    field(INPA, "$(DEVICE):_rng NPP")
+    field(INPB, "$(DEVICE):_raw NPP MSS")
+    field(CALC, "A>0?NINT(LOG(A/2E-9)):-1")
+    field(FLNK, "$(DEVICE):range:get")
+}
+
+record(mbbi, "$(DEVICE):range:get") {
+    field(DESC, "Range in use, as reported")
+    field(INP,  "$(DEVICE):_range:idx NPP MSS")
+    field(ZRST, "2 nA")
+    field(ONST, "20 nA")
+    field(TWST, "200 nA")
+    field(THST, "2 uA")
+    field(FRST, "20 uA")
+    field(FVST, "200 uA")
+    field(SXST, "2 mA")
+    field(SVST, "20 mA")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE):_range:rb")
+}
+
+# What range:set would be set to: 0 while autoranging, else 1 + the range index
+record(calc, "$(DEVICE):_range:rb") {
+    field(DESC, "Range request read-back (internal)")
+    field(INPA, "$(DEVICE):_auto NPP")
+    field(INPB, "$(DEVICE):_range:idx NPP MSS")
+    field(CALC, "A?0:B+1")
+    field(FLNK, "$(DEVICE):nplc:get")
+}
+
+record(mbbo, "$(DEVICE):range:set") {
+    field(DESC, "Range: AUTO or fixed")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=keithley6485.proto) range $(PORT)")
+    field(ZRST, "AUTO")
+    field(ONST, "2 nA")
+    field(TWST, "20 nA")
+    field(THST, "200 nA")
+    field(FRST, "2 uA")
+    field(FVST, "20 uA")
+    field(SXST, "200 uA")
+    field(SVST, "2 mA")
+    field(EIST, "20 mA")
+}
+
+# --- rate and identity ---------------------------------------------------------------------------
+
+record(calc, "$(DEVICE):nplc:get") {
+    field(DESC, "Integration time, as reported")
+    field(INPA, "$(DEVICE):_nplc NPP")
+    field(INPB, "$(DEVICE):_raw NPP MSS")
+    field(CALC, "A")
+    field(EGU,  "PLC")
+    field(PREC, "2")
+}
+
+record(lsi, "$(DEVICE):idn:get") {
+    field(DESC, "Model, serial, firmware (*IDN?)")
+    field(DTYP, "stream")
+    field(INP,  "@$(PROTO=keithley6485.proto) identify $(PORT)")
+    field(SIZV, "100")
+    field(SCAN, "10 second")
+    field(PINI, "YES")
+}
