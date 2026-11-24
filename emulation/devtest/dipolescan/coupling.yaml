@@ -1,0 +1,31 @@
+# coupling.yaml - the coupling of the case "dipolescan": magnet current -> picoammeter current.
+#
+# NOTHING IN THIS FILE IS MEASURED ON MIST-2. It is a model of this case, chosen so that a scan
+# has something to find: three peaks over the magnet current on a small background. The
+# positions are in the ratio of the square roots of 1, 2 and 3, as three ion species of mass 1, 2
+# and 3 (charge 1) at the same energy would arrive through the same dipole if the field were
+# proportional to the current (B r = sqrt(2 m E) / q). Where the peaks of MIST-2 lie, how high and
+# how wide they are, and whether the field is proportional to the current: not known here.
+#
+# Read by coupling.py (the simulator side) and by test_dipolescan.py (what the scan must find).
+
+service:                        # the DAQ service of the case (daq.yaml), read-only status port
+  host: 127.0.0.1
+  status_port: 6000
+  config: /case/daq.yaml        # for the monitor channel's scaling (per_volt, offset)
+  channel: i1                   # the supply's current monitor: the magnet current
+picoammeter:                    # the Keithley 6485 simulator of the case (sim.yaml)
+  host: 127.0.0.1
+  control_port: 6001
+  signal: current
+period_s: 0.1                   # how often the coupling reads the service and sets the current
+
+background_a: 2.0e-9            # A, everywhere
+first_peak_a: 10.0              # A of magnet current: the peak of mass 1. The others at
+                                # first_peak_a * sqrt(mass)
+peaks:                          # height above the background (A) and Gaussian sigma (A of magnet current)
+  - {mass: 1, height_a: 1.5e-7, sigma_a: 0.4}
+  - {mass: 2, height_a: 1.5e-8, sigma_a: 0.4}
+  - {mass: 3, height_a: 8.0e-9, sigma_a: 0.4}
+# Chosen so that, on the picoammeter's fixed 20 nA range (overflow above 21 nA, 6485 manual 4-2),
+# only the mass-1 peak overflows: 2 + 15 = 17 nA and 2 + 8 = 10 nA stay inside (test 3).

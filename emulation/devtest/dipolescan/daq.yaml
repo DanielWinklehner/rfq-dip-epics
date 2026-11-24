@@ -1,0 +1,26 @@
+# daq.yaml - mist2daq in the device case "dipolescan": the sim backend, TEST VALUES ONLY.
+# Nothing here describes the machine: daq/config/dipole.yaml has the placeholders for the lab.
+# Scaling and limits as in that file (10 A/V, 0-100 A), so that the shipped scan definition
+# (scans/config/dipole.yaml, limits 0-100 A) runs unchanged. The lag of the monitor is a choice
+# of this case (0.5 s): how fast the real supply and magnet follow is not known.
+service:
+  identity: DipoleDAQ
+  listen_host: 0.0.0.0        # the IOC is in another container
+  listen_port: 5000
+  status_host: 0.0.0.0        # the coupling and the tests read it
+  status_port: 6000
+  takeover_s: 10
+  comm_timeout_s: 5
+  on_comm_lost: hold
+
+backend:
+  type: sim
+  sim:
+    inputs:
+      Dev1/ai0: {follow: Dev1/ao0, gain: 1.0, tau_s: 0.5}   # monitor = set, lag 0.5 s (case)
+
+channels:
+  - {id: o1, name: dipole1_current_set, direction: out, physical: Dev1/ao0, unit: A,
+     per_volt: 10.0, offset: 0.0, limits: [0.0, 100.0], volts: [0.0, 10.0]}
+  - {id: i1, name: dipole1_current_monitor, direction: in, physical: Dev1/ai0, unit: A,
+     per_volt: 10.0, offset: 0.0, volts: [-10.0, 10.0]}

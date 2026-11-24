@@ -14,8 +14,10 @@ DT = 0.01
 
 
 class PV:
-    def __init__(self, value, severity=0, connected=True, lo=None, hi=None, units=""):
+    def __init__(self, value, severity=0, connected=True, lo=None, hi=None, units="",
+                 status=None):
         self.value, self.severity, self.connected = value, severity, connected
+        self.status = status         # alarm status (menuAlarmStat index); None: not delivered
         self.lo, self.hi, self.units = lo, hi, units
         self.stamp = 0.0
 
@@ -57,9 +59,11 @@ class World:
 
     # --- changing PVs as the IOC would ---------------------------------------------------
 
-    def post(self, name, value=None, severity=None):
+    def post(self, name, value=None, severity=None, status=None):
         pv = self.pvs[name]
         changed = False
+        if status is not None and status != pv.status:
+            pv.status, changed = status, True
         if value is not None and value != pv.value:
             pv.value, changed = value, True
         if severity is not None and severity != pv.severity:
@@ -67,7 +71,7 @@ class World:
         if changed:
             pv.stamp = self.t
             if pv.connected and self.on_value:
-                self.on_value(name, Reading(pv.value, pv.severity, pv.stamp))
+                self.on_value(name, Reading(pv.value, pv.severity, pv.stamp, pv.status))
 
     def disconnect(self, name):
         pv = self.pvs[name]
@@ -80,7 +84,7 @@ class World:
         pv.connected = True
         if self.on_connection:
             self.on_connection(name, True)
-            self.on_value(name, Reading(pv.value, pv.severity, pv.stamp))
+            self.on_value(name, Reading(pv.value, pv.severity, pv.stamp, pv.status))
 
     # --- time ----------------------------------------------------------------------------
 
@@ -125,7 +129,7 @@ class World:
             pv = self.pvs.get(n)
             if pv is not None and pv.connected:
                 on_connection(n, True)
-                on_value(n, Reading(pv.value, pv.severity, pv.stamp))
+                on_value(n, Reading(pv.value, pv.severity, pv.stamp, pv.status))
 
     def wait_connected(self, names, timeout):
         return [n for n in names if n not in self.pvs or not self.pvs[n].connected]
@@ -137,7 +141,7 @@ class World:
         pv = self.pvs.get(name)
         if pv is None or not pv.connected:
             return None
-        return Reading(pv.value, pv.severity, pv.stamp)
+        return Reading(pv.value, pv.severity, pv.stamp, pv.status)
 
     def info(self, name):
         pv = self.pvs[name]

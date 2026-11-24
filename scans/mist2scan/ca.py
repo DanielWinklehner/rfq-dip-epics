@@ -7,6 +7,11 @@ callback's arguments). The monitor mask is pyepics' default DBE_VALUE | DBE_ALAR
 circuit calls the connection callback with conn=False (ca.py, _onConnectionEvent ->
 PV.__on_connect). Callbacks run in Channel Access' own thread (ca.py, PREEMPTIVE_CALLBACK =
 True): they only hand the data to the scan, they call nothing of Channel Access.
+
+The alarm status comes with every DBR_TIME value: ca.py, _unpack_metadata, md["status"] (the
+status field of the TIME structure, dbr.py _STAT_SEV_TS); the monitor callback gets it as the
+keyword "status", get_with_metadata(form="time") as md["status"]. When it is missing, the
+Reading carries None and a reason says "INVALID (status not delivered)".
 """
 import epics
 
@@ -21,9 +26,9 @@ class Channels:
         self.pvs = {}
 
     def open(self, names, on_value, on_connection):
-        def value_cb(pvname=None, value=None, severity=None, timestamp=None, **kw):
+        def value_cb(pvname=None, value=None, severity=None, timestamp=None, status=None, **kw):
             if value is not None:
-                on_value(pvname, Reading(value, severity, timestamp))
+                on_value(pvname, Reading(value, severity, timestamp, status))
 
         def connection_cb(pvname=None, conn=None, **kw):
             on_connection(pvname, bool(conn))
@@ -46,7 +51,7 @@ class Channels:
         md = pv.get_with_metadata(use_monitor=False, timeout=READ_TIMEOUT, form="time")
         if md is None or md.get("value") is None:
             return None
-        return Reading(md["value"], md.get("severity"), md.get("timestamp"))
+        return Reading(md["value"], md.get("severity"), md.get("timestamp"), md.get("status"))
 
     def info(self, name):
         pv = self.pvs[name]
