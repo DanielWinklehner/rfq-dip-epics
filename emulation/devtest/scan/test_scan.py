@@ -10,6 +10,7 @@ import csv
 import glob
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -79,6 +80,7 @@ class Run:
 
     def __init__(self, name, path, *args, command="run"):
         self.out = os.path.join(BUILD, "out", name)
+        shutil.rmtree(self.out, ignore_errors=True)        # from an earlier run of the case
         self.log = os.path.join(BUILD, name + ".log")
         env = dict(os.environ, PYTHONPATH=SCANS)
         self.handle = open(self.log, "w")
