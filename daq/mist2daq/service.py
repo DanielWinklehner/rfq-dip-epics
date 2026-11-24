@@ -19,7 +19,7 @@ import time
 from . import __version__
 from .backends import BackendError
 from .protocol import (ERR_NOT_SUPPORTED, ERR_SYNTAX, ERR_UNKNOWN, Channel, Device, LineReader,
-                       Refused, f32)
+                       Refused, f32, min_stream_buffer_size)
 
 log = logging.getLogger("mist2daq")
 NAN = math.nan
@@ -46,7 +46,14 @@ class Daq:
                 channels.append(Channel(iden, num, self._getter_out(c), self._setter_out(c)))
             else:
                 channels.append(Channel(iden, num, self._getter_in(c), None))
-        self.device = Device(channels, svc["identity"], "mist2daq-%s" % __version__,
+        firmware = "mist2daq-%s" % __version__
+        # The output buffer: no microcontroller's RAM to save here. Large enough for the stream
+        # frames and for the identity reply (a tight buffer answered "I" with ERR2 when the
+        # identity grew by one character: found by a mutation of the device case).
+        ident = len("oID=%s;FW=%s;PROTO=2;CH=%s" % (svc["identity"], firmware,
+                                                   ",".join(c.id for c in config.channels)))
+        size = max(160, min_stream_buffer_size(len(channels)), ident + 1)
+        self.device = Device(channels, svc["identity"], firmware, out_buffer=size,
                              refresh=self.refresh)
         if svc["comm_timeout_s"] > 0:
             self.device.set_comm_timeout(int(round(svc["comm_timeout_s"] * 1000)), self._comm_lost)

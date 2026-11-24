@@ -68,6 +68,15 @@ class NotKnown(unittest.TestCase):
         self.assertEqual(daq.counts["sets_failed_backend"], 1)
 
 
+class Identity(unittest.TestCase):
+    def test_long_identity_fits(self):
+        data = base()
+        data["service"]["identity"] = "DipoleMagnetSupplyDAQ-LabComputer-NI-USB-6001"
+        daq, _, _ = make(data)
+        self.assertEqual(daq.service(0, "I")[0],
+                         "oID=DipoleMagnetSupplyDAQ-LabComputer-NI-USB-6001;FW=mist2daq-0.1;PROTO=2;CH=o1,i1")
+
+
 class Scaling(unittest.TestCase):
     def test_offset_and_both_directions(self):
         data = base()
