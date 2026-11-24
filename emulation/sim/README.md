@@ -30,7 +30,9 @@ gets no reply still occupies the line for its own length. A new connection repla
 
 Unknown keys and options are errors. **libcom1** options: `identity`, `firmware`,
 `number_format` (`avr` = dtostre, `g` = `%g` as on the Opta), `out_buffer` (160), `in_buffer`
-(128), `comm_timeout_ms` (0 = off), `on_timeout` (`{channel: value}`), `channels` in query-all
+(128), `comm_timeout_ms` (0 = off), `on_timeout` (`{channel: value}`), `protocol` (2; 1 = a board
+flashed before protocol 2: `A`, `s`, `q` only, every other command answered `ERR0` and logged as
+"protocol 1: ... answered ERR0", no communication timeout), `channels` in query-all
 order: `{id: s1, access: r|w|rw, behaviour: ...}`. Each channel is a signal of the same name.
 Behaviours: `constant` (`value`), `analog` (`value, noise, tau, lo, hi, step`), `readback`
 (reads what was written; `value, tau, lo, hi, step`), `relay` (reads 1 if exactly 1 was written,
@@ -201,8 +203,9 @@ side by side on a side flange, so both measure the cross. Not in phase 1, and no
 plant: turbopump 2 (`nt20_2` keeps running as a simulator), the second gauge channel `gauges.p2`
 (an AIM for phase 2), a diagnostic box. The foreline has no gauge in the control system yet: its
 pressure is a model state, `foreline_pressure` on the plant's control port. Thermocouples t1..t4:
-back plate, filament feedthrough, isolation transformer 1, isolation transformer 2. The sensor
-box stands in for the future cooling water readout.
+back plate, filament feedthrough, isolation transformer 1, isolation transformer 2. The water
+temperatures are computed but read by no simulator since the sensor box left the rack IOC
+(T26); the flow meter Opta that replaces it measures flows only, not modelled.
 
 ### Signals
 
@@ -212,9 +215,9 @@ box stands in for the future cooling water readout.
 | `rek.1.vset`, `rek.1.iset`, `rek.1.output` | `rek.1.load_ohm` = V / I of the discharge operating point |
 | `mfc.254.flow` (% of 5 sccm H2) | `aim.pressure` nAIM reading of the cross (torr) |
 | `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent (turbopump), `s4` Faraday cup | `gauges.p1` APG reading of the cross (torr) |
-| `nt20_1.speed` / 600 Hz | `faradaycup.c1` cup current (A) |
+| `nt20_1.speed` / 600 Hz | `faradaycup.i1` cup current (A; ASSUMED: i1 of FC1 is the cup current) |
 | `mat_opt.1.vset`, `.iset`, `.output` (ion source supply) | `mat_opt.1.load_ohm` = V / I of the source supply |
-| `mat_opt.2.vout`, `.output` (puller supply) | `thermocouple.t1`..`t4`, `sensorbox.t1`..`t7` (degC) |
+| `mat_opt.2.vout`, `.output` (puller supply) | `thermocouple.t1`..`t4` (degC) |
 
 Model inputs, in this order in `config/plant.yaml`: `filament_current`, `rek_vset`, `rek_iset`,
 `rek_on`, `gas_flow`, `shutoff_open`, `foreline_open`, `vent_open`, `cup_in`, `turbo_speed`,
@@ -301,7 +304,7 @@ Heat         t1 back plate        = base + back_plate_k   (P_f + P_dis)         
              t2 filament feedthr. = base + feedthrough_k  P_f                     lag plate_tau
              t3 transformer 1     = base + rise (P_TDK / 2400 W)^2                lag transformer_tau
              t4 transformer 2     = base + rise (P_REK / 3600 W)^2                lag transformer_tau
-             sensor box t1..t7    = base + water_fraction (P_f + P_dis) / (rho c_p flow)   lag water_tau
+             water t1..t7         = base + water_fraction (P_f + P_dis) / (rho c_p flow)   lag water_tau (no reader)
 ```
 
 The thermocouple relations, chosen: the back plate faces the plasma and the filament, so it

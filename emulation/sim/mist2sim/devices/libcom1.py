@@ -3,6 +3,13 @@
 Engine: a pure, deterministic model of SerialDevice::service(now_ms) without I/O or clock.
 It is proven line by line against the real library by tools/replay_libcom1.py.
 Libcom1Sim: the simulator type `libcom1`, a device fully described by its configuration.
+
+protocol=1 models a board flashed with libcom1 before protocol 2 (the library of commit
+9cb8f18^, which the rack computer held, reference/lab-2026/README.md): it knows `A`, `s` and
+`q` only and answers every other command with ERR0 (AVR/libcom1/README.md: "g, S, I and P are
+new in protocol version 2. Version 1 firmware answers them with ERR0"). Not modelled: protocol
+1's handling of malformed `s` and `q` commands (atof, no syntax check, the one-digit exponent
+bug). An IOC that polls with `A` never sends them.
 """
 
 import math
@@ -126,9 +133,12 @@ class Engine:
     SerialDevice::service(now_ms) does when the read function returns `line` (None = no line)."""
 
     def __init__(self, channels, identity="libcom1", firmware="0", number_format="g",
-                 out_buffer=160):
+                 out_buffer=160, protocol=PROTOCOL_VERSION):
         if number_format not in ("g", "avr"):
             raise ValueError("number_format must be 'g' or 'avr'")
+        if protocol not in (1, 2):
+            raise ValueError("protocol must be 1 or 2")
+        self.protocol = protocol
         if out_buffer < max(16, min_out_buffer_size(len(channels))):
             raise ValueError("out_buffer %d is too small for %d channels (needs %d)" % (
                 out_buffer, len(channels), max(16, min_out_buffer_size(len(channels)))))
@@ -221,6 +231,8 @@ class Engine:
         if not s:
             return ERR_NO_DATA, None
         op = s[0]
+        if self.protocol == 1 and op not in "qsA":
+            return ERR_UNKNOWN, None      # protocol 1: process_input() knows q, s and A only
         if op == "q":
             return self._single_query(s)
         if op == "g":
@@ -304,7 +316,9 @@ class Engine:
         if ch is None:
             return ERR_CHANNEL_LOOKUP, None
         if ch.setter is None:
-            return ERR_NOT_SUPPORTED, None
+            # protocol 1 has no ERR7: every channel of its sketches has a setter, a dummy one for
+            # the readings (FlowMeters.ino: dummySetFunc), so the set is taken and ignored
+            return (PRC_SET, None) if self.protocol == 1 else (ERR_NOT_SUPPORTED, None)
         ch.setter(value)
         return PRC_SET, None
 
@@ -360,6 +374,7 @@ class Libcom1Sim(Simulator):
         "comm_timeout_ms": 0,         # set_comm_timeout(), 0 = off
         "on_timeout": {},             # {channel: value} written when the timeout fires
         "channels": REQUIRED,         # list in query-all order, see README.md
+        "protocol": 2,                # 1: a board flashed before protocol 2 (A, s, q only)
     }
 
     def setup(self):
@@ -368,10 +383,14 @@ class Libcom1Sim(Simulator):
             raise ConfigError("%s: number_format must be 'avr' or 'g'" % self.name)
         if not o["channels"]:
             raise ConfigError("%s: channels must be a non-empty list" % self.name)
+        if o["protocol"] not in (1, 2) or isinstance(o["protocol"], bool):
+            raise ConfigError("%s: protocol must be 1 or 2" % self.name)
+        if o["protocol"] == 1 and o["comm_timeout_ms"]:
+            raise ConfigError("%s: protocol 1 has no communication timeout" % self.name)
         channels = [self._channel(i, spec) for i, spec in enumerate(o["channels"], 1)]
         try:
             self.engine = Engine(channels, str(o["identity"]), str(o["firmware"]),
-                                 o["number_format"], int(o["out_buffer"]))
+                                 o["number_format"], int(o["out_buffer"]), int(o["protocol"]))
         except ValueError as exc:
             raise ConfigError("%s: %s" % (self.name, exc)) from None
         if int(o["in_buffer"]) < 8:
@@ -434,6 +453,9 @@ class Libcom1Sim(Simulator):
     def handle(self, request, unit):
         line = from_line_buffer(request.decode("latin-1"), int(self.options["in_buffer"]))
         out = self.engine.service(self._ms(), line)
+        if self.engine.protocol == 1 and out.code == ERR_UNKNOWN:
+            # what the board as flashed cannot answer, for the device cases to look for
+            self.log.info("protocol 1: %r answered ERR0", line)
         for frame in out.frames:
             self.send(frame)
         return out.reply

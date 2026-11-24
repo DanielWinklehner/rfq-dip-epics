@@ -17,6 +17,11 @@ ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="11
 # 2. Only the IOC talks on this line: ModemManager, where installed, must not probe it.
 ATTRS{idVendor}=="1192", ATTRS{idProduct}=="1000", ENV{ID_MM_DEVICE_IGNORE}="1"
 
-# 3. Fixed name, by the serial number of the adapter. CO001144 is the CO-U32. The USB-OPT gets
-#    its line (mist2/usb-opt) when its serial number is known.
+# 3. Fixed name, by the serial number of the adapter. CO001144 is the CO-U32 (its sticker). This
+#    works only if the adapter reports that serial number over USB under Linux, and the Windows
+#    list does not suggest it: Windows on the rack computer named all three Matsusada adapters
+#    after their USB socket, with no serial number (reference/lab-2026/rack-serial-devices.txt,
+#    lines 14 to 16 and 28 to 30). If /dev/mist2/co-u32 does not appear, name both adapters in
+#    ports.real.cmd by their /dev/serial/by-path/ name (docs/emulation/LAB-SETUP.md, section 3).
+#    The USB-OPT (sticker 024152MP) has no line here for the same reason.
 SUBSYSTEM=="tty", ATTRS{idVendor}=="1192", ATTRS{idProduct}=="1000", ATTRS{serial}=="CO001144", SYMLINK+="mist2/co-u32"

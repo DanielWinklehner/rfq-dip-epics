@@ -9,7 +9,7 @@ import unittest
 from helpers import LineClient
 
 from mist2sim.control import ControlClient
-from mist2sim.core import FakeClock, SimThread, build, load_config
+from mist2sim.core import ConfigError, FakeClock, SimThread, build, load_config
 from mist2sim.devices.libcom1 import Channel, Engine, format_value, from_line_buffer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -92,6 +92,21 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(eng.service(75).frames, ["t65535:75:0"])
         self.assertEqual(eng.service(85).frames, ["t0:85:0"])
 
+    def test_protocol_1(self):
+        """A board flashed before protocol 2. Expected replies: the library of commit 9cb8f18^
+        (protocol 1, %g branch), built on the host with five channels f1..f5 holding these
+        values and given these lines through communicate(), on 2026-11-24 (task T26)."""
+        values = [1.0, 0.095238, 0.0, 1.904762, 2.5e-7]
+        chans = [Channel("f", i + 1, (lambda i=i: values[i]), (lambda v: None)) for i in range(5)]
+        eng = Engine(chans, number_format="g", out_buffer=128, protocol=1)
+        expected = [("A", "o1:0.095238:0:1.90476:2.5e-07"), ("I", "ERR0"), ("gf1", "ERR0"),
+                    ("Sf11", "ERR0"), ("P100", "ERR0"), ("sf12.5", None), ("q01f13", "of1+10000+"),
+                    ("q01f93", "ERR4"), ("x", "ERR0"), ("A", "o1:0.095238:0:1.90476:2.5e-07")]
+        self.assertEqual([(line, self.ask(eng, line)) for line, _ in expected], expected)
+        self.assertEqual(self.ask(engine(protocol=2)[0], "I")[:3], "oID")
+        with self.assertRaises(ValueError):
+            engine(protocol=3)
+
     def test_replay_parser_reads_the_whole_table(self):
         with open(libcom1_replay.DEFAULT_SCRIPT) as f:
             text = f.read()
@@ -140,6 +155,23 @@ class SimulatorTest(unittest.TestCase):
         clock.advance(1.0)
         sim.tick(sim.now())
         self.assertEqual(sim.process(b"gr1"), [b"o0"])
+
+    def test_protocol_1_option(self):
+        def p1(**options):
+            return build({"name": "flow", "type": "libcom1", "port": 0, "options": dict(
+                {"number_format": "g", "protocol": 1,
+                 "channels": [{"id": "f1", "value": 1.5}, {"id": "f2"}]}, **options)})
+        sim = p1()
+        self.assertEqual(sim.process(b"A"), [b"o1.5:0"])
+        with self.assertLogs(sim.log, "INFO") as logged:
+            self.assertEqual(sim.process(b"I"), [b"ERR0"])
+            self.assertEqual(sim.process(b"Sf11"), [b"ERR0"])
+        self.assertEqual(logged.output, ["INFO:%s:protocol 1: 'I' answered ERR0" % sim.log.name,
+                                         "INFO:%s:protocol 1: 'Sf11' answered ERR0" % sim.log.name])
+        self.assertEqual(sim.process(b"sf12"), [])
+        for bad in ({"protocol": 3}, {"protocol": True}, {"comm_timeout_ms": 1000}):
+            with self.assertRaises(ConfigError):
+                p1(**bad)
 
     def test_trip_is_not_supported(self):
         with self.assertRaises(Exception):

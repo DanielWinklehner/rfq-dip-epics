@@ -1,16 +1,20 @@
-# Faraday cup Opta. PLACEHOLDER: firmware unknown, ASSUMED libcom1 over TCP (like
-# AVR/libcom1/examples/EthernetExample) with one channel, the cup current in A.
-# The channel c1 is a signal: a plant model drives it with {"cmd": "set", "signal": "c1", ...}.
+# Faraday cup Opta as in emulation/sim/config/rack.yaml: libcom1 protocol 1 (the boards as last
+# flashed, reference/lab-2026/README.md), two channels. NOT KNOWN: the sketch, what i1 and i2 are.
+# ASSUMED: i1 is the cup current in A (a plant model drives it with {"cmd": "set", "signal": "i1"}),
+# i2 a constant 0.
 - name: faradaycup
   type: libcom1
   port: 5000                  # control port 6000
-  baud: 115200                # TCP: only sets the reply delay of the simulator
+  baud: 115200
+  bits_per_char: 10
   turnaround_ms: 1
   in_terminator: "\n"
-  out_terminator: "\n"        # Opta over TCP: LF
+  out_terminator: "\r\n"      # Serial.println
   options:
-    identity: FaradayCupOpta
-    firmware: "placeholder"
+    protocol: 1
     number_format: g          # %g, Arduino Opta
+    out_buffer: 128
+    in_buffer: 128
     channels:
-      - {id: c1, access: r, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}
+      - {id: i1, access: rw, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}
+      - {id: i2, access: rw, behaviour: constant, value: 0.0}

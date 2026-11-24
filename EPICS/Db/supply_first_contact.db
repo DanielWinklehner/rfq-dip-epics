@@ -2,15 +2,15 @@
 # output state and voltage setting at the first contact after an IOC start, sending nothing
 #
 # Loaded once per supply, beside its database and with its PV prefix:
-#   dbLoadRecords("db/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1")
-#   dbLoadRecords("db/supply_first_contact.db", "S=AU-20P7-1")
+#   dbLoadRecords("db/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,DEV=AU-20P15,IFS=15")
+#   dbLoadRecords("db/supply_first_contact.db", "S=AU-20P15-1")
 # Both loads belong together: the supply's records start these (FLNK of _init:probe and of
 # voltage:get), these write the supply's records. The structure is that of first_contact.db (one
 # check, then soft records chained by PP output links and forward links); the supply needs more
 # steps and starts in simulation mode, so it has a file of its own.
 #
 # Macro:
-#   S     PV prefix of the supply: DEV-UNITNUM of its database (AU-20P7-1, REK-1)
+#   S     PV prefix of the supply: DEV-UNITNUM of its database (AU-20P15-1, AU-20P7-2, REK-1)
 #
 # Records of the supply that are used: _init:probe (REN, STS with the unit number checked, and
 # SW? every SCAN_STS until the first answer; a reply of another supply on the line fails the

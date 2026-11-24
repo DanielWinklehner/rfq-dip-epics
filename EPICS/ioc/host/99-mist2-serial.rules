@@ -1,0 +1,42 @@
+# 99-mist2-serial.rules - fixed names of the rack computer's serial devices that have a serial number
+#
+# Each line gives a device the name that EPICS/ioc/iocBoot/iocRack/ports.real.cmd opens
+# (/dev/mist2/<name>), by its USB ID and serial number. Source of every number: the device list
+# Windows on the rack computer remembered on 2026-11-24 (reference/lab-2026/rack-serial-devices.txt,
+# line given), joined by COM number with the lab's st.cmd (reference/lab-2026/EPICS/st.cmd) and its
+# notes (reference/lab-2026/some_notes.txt).
+#
+# Windows takes a USB device's serial number string as the last part of its instance ID; Linux
+# shows the same string as ATTRS{serial}. ModemManager, where installed, must not probe these
+# lines (ID_MM_DEVICE_IGNORE).
+#
+# Not here, because Windows saw no serial number for them (the instance ID is made from the USB
+# socket): the Matsusada adapters (99-mist2-matsusada.rules), the Prolific adapters of the nAIM
+# (COM3) and the REK (COM19, platform computer), the Arduino Micro of the thermocouples (COM22,
+# platform computer). The two Optas (Faraday cup COM16, flow meters COM23, USB ID 2341:0164) are
+# listed with instance IDs of an interface (MI_00), not with a serial number. Those devices get
+# their name from /dev/serial/by-path/ (docs/emulation/LAB-SETUP.md, section 3).
+# The TDK's FTDI adapter (serial A5051Z0G, COM8 in the notes of 2022) belongs to the platform
+# computer: not in this file.
+#
+# NOT TESTED on hardware: written from the Windows list. The syntax passes `udevadm verify`
+# (Ubuntu 24.04, systemd 255). Install and check: README.md in this directory.
+
+# Gauge controller (Teensy), COM6 in the lab's st.cmd (line 20). rack-serial-devices.txt line 24:
+#   USB Serial Device (COM6) USB\VID_16C0&PID_0483\3596460
+SUBSYSTEM=="tty", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0483", ATTRS{serial}=="3596460", SYMLINK+="mist2/gauges", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Interlock box (Arduino Mega), COM11 in the lab's st.cmd (line 30). rack-serial-devices.txt line 5:
+#   Arduino Mega 2560 (COM11) USB\VID_2341&PID_0042\954323138373519002A2
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", ATTRS{serial}=="954323138373519002A2", SYMLINK+="mist2/interlock", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Solenoid valve box (Arduino Mega), COM12 in the lab's st.cmd (line 60). rack-serial-devices.txt line 6:
+#   Arduino Mega 2560 (COM12) USB\VID_2341&PID_0042\95433343733351502071
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", ATTRS{serial}=="95433343733351502071", SYMLINK+="mist2/valves", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Mass flow controller (FTDI USB to RS-485), COM13 in the lab's st.cmd (line 110) and notes (line 16).
+# rack-serial-devices.txt lines 25 and 32:
+#   USB Serial Port (COM13) FTDIBUS\VID_0403+PID_6001+FTJRNRWQA\0000
+#   USB Serial Converter USB\VID_0403&PID_6001\FTJRNRWQ
+# (Windows' FTDI driver adds the port letter A to the serial number in the port's instance ID.)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="FTJRNRWQ", SYMLINK+="mist2/mfc", ENV{ID_MM_DEVICE_IGNORE}="1"

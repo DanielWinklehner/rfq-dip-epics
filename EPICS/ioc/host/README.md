@@ -1,8 +1,8 @@
-# Rack computer on Linux: the Matsusada USB adapters
+# Rack computer on Linux: the Matsusada USB adapters and the serial device names
 
-**Not tested on hardware.** Everything here was written without the adapter. The rule file
-passes `udevadm verify` (systemd 255), and the probe was run against the Matsusada simulator
-through a pseudo serial port.
+**Not tested on hardware.** Everything here was written without the adapters and devices. Both
+rule files pass `udevadm verify` (Ubuntu 24.04, systemd 255), and the probe was run against the
+Matsusada simulator through a pseudo serial port.
 
 ## What is known
 
@@ -27,7 +27,8 @@ Python wrapper, root rights for every run) is not needed.
 
 | File | Purpose |
 |---|---|
-| `99-mist2-matsusada.rules` | udev rules: name the ID to `ftdi_sio`, keep ModemManager off the line, and create `/dev/mist2/co-u32` for the adapter with the serial number `CO001144` |
+| `99-mist2-matsusada.rules` | udev rules: name the ID to `ftdi_sio`, keep ModemManager off the line, and create `/dev/mist2/co-u32` for the adapter with the serial number `CO001144`. That name works only if the adapter reports the serial number under Linux; Windows saw none (below) |
+| `99-mist2-serial.rules` | udev rules: `/dev/mist2/gauges`, `interlock`, `valves` and `mfc` by USB ID and serial number, each line with its source (the Windows device list of 2026-11-24 and the lab's `st.cmd`) |
 | `matsusada_probe.py` | Read-only first contact: asks each unit for status, settings and monitors, prints the replies and the reply times. It sends no set command and no `REN` |
 | `build-epics.sh` | Builds EPICS base, asyn, StreamDevice, autosave (the release tags of the `mist2-ioc` image) and the IOC application on the computer, into `/opt/epics` or a directory given as argument. Run in fresh containers of Ubuntu 20.04, 22.04 and 24.04, where both IOCs then started in `real` mode with no device; not on the lab's computers |
 
@@ -36,7 +37,7 @@ The steps of a first installation, in order: `docs/emulation/LAB-SETUP.md`.
 ## Install (once, with root rights)
 
 ```bash
-sudo cp EPICS/ioc/host/99-mist2-matsusada.rules /etc/udev/rules.d/
+sudo cp EPICS/ioc/host/99-mist2-matsusada.rules EPICS/ioc/host/99-mist2-serial.rules /etc/udev/rules.d/
 ```
 
 ```bash
@@ -81,6 +82,30 @@ It reads the device list and changes nothing. An instance ID has the form
 plugged in are listed too. The command was run on the development PC, which has no such
 device: it lists nothing there.
 
+## The names of the other serial devices
+
+From the list of serial devices Windows on the rack computer remembered on 2026-11-24
+(`reference/lab-2026/rack-serial-devices.txt`), joined by COM number with the lab's `st.cmd`
+of 2026 and its notes (`reference/lab-2026`):
+
+| Device | COM | USB ID | Serial number | Name |
+|---|---|---|---|---|
+| Gauge controller (Teensy) | 6 | `16c0:0483` | `3596460` | `/dev/mist2/gauges`, `99-mist2-serial.rules` |
+| Interlock box (Mega) | 11 | `2341:0042` | `954323138373519002A2` | `/dev/mist2/interlock`, `99-mist2-serial.rules` |
+| Valve box (Mega) | 12 | `2341:0042` | `95433343733351502071` | `/dev/mist2/valves`, `99-mist2-serial.rules` |
+| MFC (FTDI to RS-485) | 13 | `0403:6001` | `FTJRNRWQ` | `/dev/mist2/mfc`, `99-mist2-serial.rules` |
+| TDK (FTDI), platform computer, notes of 2022 | 8 | `0403:6001` | `A5051Z0G` | not in these files (platform IOC) |
+| Matsusada adapters (three entries) | 7, 9, 15 | `1192:1000` | none: named after the USB socket | `by-path` |
+| nAIM (Prolific) | 3 | `067b:2303` | none: named after the USB socket | `by-path` |
+| REK (Prolific), platform | 19 | `067b:2303` | none | `by-path` (platform computer) |
+| Thermocouples (Arduino Micro), platform | 22 | `2341:8037` | none | `by-path` (platform computer) |
+| Faraday cup Opta | 16 | `2341:0164` | listed with an interface's instance ID, no serial number per COM number | `by-path` |
+| Flow meter Opta | 23 | `2341:0164` | as above | `by-path` |
+
+A device without a serial number gets the name of its USB socket: plug in one device at a
+time, `ls -l /dev/serial/by-path/`, put that path into its line of `ports.real.cmd`, and keep
+the device in that socket. The NT 20 lines are not in the Windows list (no IOC read them).
+
 ## Reply time and the latency timer
 
 An FTDI chip hands a short reply to the computer when its latency timer runs out. The timer is
@@ -92,7 +117,11 @@ can do. It is not set here: measure first.
 ## Not known
 
 - Whether the adapter in the rack is the one with the serial number `CO001144`, and whether it
-  reports `1192:1000` (assumption A29 in `docs/emulation/STATUS.md`). Steps 1 and 3 show both.
+  reports it over USB (assumption A29 in `docs/emulation/STATUS.md`). Windows listed all three
+  Matsusada adapters with `1192:1000` and without a serial number, so `/dev/mist2/co-u32` will
+  probably not appear. Steps 1 and 3 show it.
+- Whether the serial numbers of `99-mist2-serial.rules` are what Linux reports: they are taken
+  from Windows' instance IDs, which is the USB serial number string for these devices.
 - The USB-OPT: its serial number, and for certain its USB ID. Neither driver package names
   the USB-OPT. Matsusada's current package binds to `1192:1000` and to nothing else, so if it
   is the driver of the USB-OPT (the owner's belief; Matsusada's web site refused an automated

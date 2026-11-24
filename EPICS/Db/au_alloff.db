@@ -8,7 +8,7 @@
 # Macros:
 #   PORT1 (mat_opt), PORT2 (mat_co)   the two chains
 #   PROTO (matsusada_co_ctrl.proto)
-#   R1 ... R8           request PVs of the supplies, e.g. R1=AU-20P7-1:SetToggleOutput.
+#   R1 ... R8           request PVs of the supplies, e.g. R1=AU-20P15-1:SetToggleOutput.
 #                       Unused ones point at AU:alloff:spare.
 #
 # AU:alloff:set returns to 0 by itself after one second; writing 0 does nothing. It and the
