@@ -30,7 +30,9 @@ gets no reply still occupies the line for its own length. A new connection repla
 
 Unknown keys and options are errors. **libcom1** options: `identity`, `firmware`,
 `number_format` (`avr` = dtostre, `g` = `%g` as on the Opta), `out_buffer` (160), `in_buffer`
-(128), `comm_timeout_ms` (0 = off), `on_timeout` (`{channel: value}`), `channels` in query-all
+(128), `comm_timeout_ms` (0 = off), `on_timeout` (`{channel: value}`), `protocol` (2; 1 = a board
+flashed before protocol 2: `A`, `s`, `q` only, every other command answered `ERR0` and logged as
+"protocol 1: ... answered ERR0", no communication timeout), `channels` in query-all
 order: `{id: s1, access: r|w|rw, behaviour: ...}`. Each channel is a signal of the same name.
 Behaviours: `constant` (`value`), `analog` (`value, noise, tau, lo, hi, step`), `readback`
 (reads what was written; `value, tau, lo, hi, step`), `relay` (reads 1 if exactly 1 was written,
