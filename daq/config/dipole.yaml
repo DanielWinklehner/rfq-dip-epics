@@ -1,0 +1,55 @@
+# dipole.yaml - mist2daq on the lab computer: the dipole magnet supply on the NI USB-6001
+#
+# Every key: docs/emulation/DAQ.md, "Configuration". Read daq/README.md before the first start.
+#
+# NOTHING IN THIS FILE IS KNOWN FOR THE MACHINE beyond "an NI USB-6001, analog 0-10 V". Every
+# value marked ASSUMED is a placeholder to be replaced from the supply's manual or the LabVIEW
+# program before a supply is connected (docs/emulation/DAQ.md, "Unknowns"). Until then, check
+# the box with a voltmeter only (daq/README.md).
+#
+# Not known and therefore not here: how many supplies there are (this file has ONE: copy the two
+# channels as o2/i2 for a second one), polarity reversal, an enable or other inputs, whether the
+# supply needs slow changes (no rate limit in the service; a scan sets its own steps).
+
+service:
+  identity: DipoleDAQ
+  listen_host: 127.0.0.1      # ASSUMED: the IOC runs on this computer. Which IOC serves the
+                              # dipole is decided with the owner; for an IOC on another computer
+                              # use the address of this computer's control network interface.
+                              # The protocol has no authentication: never 0.0.0.0 on a shared network.
+  listen_port: 5100           # free choice
+  status_host: 127.0.0.1      # read-only status: echo '{"cmd": "status"}' | nc -q1 127.0.0.1 5101
+  status_port: 5101           # free choice
+  takeover_s: 10              # a second client replaces the first only after 10 s of its silence
+  comm_timeout_s: 5           # no valid command for 5 s = communication lost (the IOC polls every 0.5 s)
+  on_comm_lost: hold          # DEFAULT, the owner decides: hold | ramp_to_zero (needs ramp_rate)
+
+backend:
+  type: nidaqmx               # NOT VERIFIED: whether NI-DAQmx for Linux serves the USB-6001 at
+                              # all, see docs/emulation/DAQ.md, "NI on Linux"
+  device: Dev1                # ASSUMED: the name NI-DAQmx gives the box (nidaqmx: System.local().devices)
+  product_type: USB-6001      # the service refuses to start on another product
+
+channels:
+  # The set point of the supply: the NI box's analog output into the supply's analog program input
+  - id: o1
+    name: dipole1_current_set
+    direction: out
+    physical: Dev1/ao0        # ASSUMED: which output is wired to the supply
+    unit: A
+    per_volt: 10.0            # ASSUMED: amperes per volt of the program input (supply manual)
+    offset: 0.0               # ASSUMED: amperes at 0 V
+    limits: [0.0, 100.0]      # ASSUMED: the current range in A (refused outside, ERR5)
+    volts: [0.0, 10.0]        # "analog 0-10 V" (plan); the USB-6001 itself drives -10 to +10 V
+    # ramp_rate: 1.0          # A per second, only for on_comm_lost: ramp_to_zero
+
+  # The supply's current monitor output into an analog input of the NI box
+  - id: i1
+    name: dipole1_current_monitor
+    direction: in
+    physical: Dev1/ai0        # ASSUMED: which input is wired to the monitor output
+    terminal: RSE             # ASSUMED: single-ended (the box has 8 single-ended or 4 differential inputs)
+    unit: A
+    per_volt: 10.0            # ASSUMED: amperes per volt of the monitor output
+    offset: 0.0               # ASSUMED
+    volts: [-10.0, 10.0]      # the USB-6001's one input range (NI specifications)
