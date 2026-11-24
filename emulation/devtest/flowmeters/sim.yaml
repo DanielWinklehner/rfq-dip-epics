@@ -1,0 +1,22 @@
+# Flow meter Opta as in emulation/sim/config/rack.yaml: FlowMeters.ino (reference/lab-2026/AVR/
+# devices/FlowMeters), libcom1 protocol 1, five flows in l/min (pulses of 0.5 s x 0.095238), each
+# with a dummy setter. The values are a free choice, in steps of one pulse per 0.5 s.
+- name: flowmeters
+  type: libcom1
+  port: 5000                  # control port 6000
+  baud: 115200
+  bits_per_char: 10
+  turnaround_ms: 1
+  in_terminator: "\n"
+  out_terminator: "\r\n"      # Serial.println
+  options:
+    protocol: 1
+    number_format: g          # %g, Arduino Opta
+    out_buffer: 128
+    in_buffer: 128
+    channels:
+      - {id: f1, access: rw, behaviour: analog, value: 0.5, noise: 0.0, lo: 0, step: 0.095238}
+      - {id: f2, access: rw, behaviour: analog, value: 1.0, noise: 0.0, lo: 0, step: 0.095238}
+      - {id: f3, access: rw, behaviour: analog, value: 1.5, noise: 0.0, lo: 0, step: 0.095238}
+      - {id: f4, access: rw, behaviour: analog, value: 2.0, noise: 0.0, lo: 0, step: 0.095238}
+      - {id: f5, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.095238}
