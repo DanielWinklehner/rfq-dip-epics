@@ -92,7 +92,10 @@ def check(scan):
                                          if lim["control"] else "none",)
              + tuple(lim["effective"])))
     b = plan["before"]
-    print("now          set %s, read-back %s" % (b["set"], b["readback"]))
+    print("now          set %s, read-back %s%s" % (b["set"], b["readback"], "" if not d.held_pv
+                                                   else ", held %s (%s)" % (b["held"], d.held_pv)))
+    print("actuator lost when the read-back has no valid value for more than %g s"
+          % d.readback_lost_after)
     print("points       %d: %s" % (len(pts), _points(pts)))
     print("detectors    %s" % ", ".join("%s (%s, %s)" % (x.name, x.pv, "required" if x.required
                                                           else "optional") for x in d.detectors))
@@ -105,8 +108,8 @@ def check(scan):
         print("pv           %-32s %s" % (n, "NOT CONNECTED" if not i["connected"] else
                                          "units %r" % i.get("units")))
     e = plan["estimate_s"]
-    print("time         %.0f s plus settling, at most %.0f s (every point to its settle timeout)"
-          % (e[0], e[1]))
+    print("time         at least %.0f s (a lower bound: moves, settle times and dwells, without "
+          "the settling), at most %.0f s (every point to its settle timeout)" % (e[0], e[1]))
     print("output       %s" % d.output)
     for w in plan["warnings"]:
         print("warning      %s" % w)

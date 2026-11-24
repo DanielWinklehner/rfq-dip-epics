@@ -13,12 +13,13 @@ NOT_SETTLED = ("skip", "end")
 MAX_POINTS = 100000
 DEFAULT_OUTPUT = "scan-data"
 DEFAULT_CONNECT_TIMEOUT = 5.0
+DEFAULT_READBACK_LOST_AFTER = 5.0
 
 KEYS = {
     "": {"name", "description", "actuator", "points", "detectors", "dwell", "conditions", "end",
          "output", "connect_timeout"},
-    "actuator": {"set", "readback", "tolerance", "settle_timeout", "settle_time", "max_step",
-                 "step_pause", "limits", "on_not_settled"},
+    "actuator": {"set", "readback", "held", "tolerance", "settle_timeout", "settle_time",
+                 "max_step", "step_pause", "limits", "on_not_settled", "readback_lost_after"},
     "points": {"start", "stop", "step", "values"},
     "detector": {"pv", "name", "required"},
     "condition": {"pv", "op", "value"},
@@ -102,6 +103,12 @@ class Definition:
         _keys(a, "actuator", "actuator.")
         self.set_pv = _text(a, "set", "actuator.")
         self.readback_pv = _text(a, "readback", "actuator.")
+        self.held_pv = _text(a, "held", "actuator.") if "held" in a else None
+        if self.held_pv == self.set_pv:
+            raise DefinitionError("actuator.held: must be another PV than the set PV")
+        self.readback_lost_after = (
+            _number(a, "readback_lost_after", "actuator.", positive=True)
+            if "readback_lost_after" in a else DEFAULT_READBACK_LOST_AFTER)
         self.tolerance = _number(a, "tolerance", "actuator.", positive=True)
         self.settle_timeout = _number(a, "settle_timeout", "actuator.", positive=True)
         self.settle_time = _number(a, "settle_time", "actuator.", minimum=0.0)
@@ -193,7 +200,8 @@ class Definition:
 
     def pvs(self):
         """Every PV the scan uses, the set PV first."""
-        names = [self.set_pv, self.readback_pv] + [d.pv for d in self.detectors]
+        names = [self.set_pv, self.readback_pv] + ([self.held_pv] if self.held_pv else [])
+        names += [d.pv for d in self.detectors]
         names += [c.pv for c in self.conditions]
         return list(dict.fromkeys(names))
 

@@ -13,8 +13,10 @@ One point (docs/emulation/SCAN.md, section 2):
      nothing that arrived before this step is used;
   5. one row: per channel the time-weighted mean, spread, number of values, minimum, maximum,
      the valid fraction, ok/partial/missing and why.
-Between any two steps, every TICK while waiting: a stop signal, the actuator or a required
-detector not connected, the set PV INVALID or a condition that does not hold ends the scan.
+Between any two steps, every TICK while waiting: a stop signal, the actuator lost (set PV,
+read-back or held PV not connected, set PV or held PV INVALID, the read-back INVALID for longer
+than readback_lost_after), a required detector not connected or a condition that does not hold
+ends the scan. The end move watches the actuator in the same way.
 """
 import logging
 import math
@@ -33,6 +35,13 @@ from .stats import MISSING, missing, summarize
 
 INVALID = 3
 TICK = 0.05
+
+# menuAlarmStat of EPICS base 7 (dbd/menuAlarmStat.dbd), in its order: the alarm status that
+# Channel Access delivers with a value of type DBR_TIME (pyepics: ca.py, _unpack_metadata,
+# md["status"]; the monitor's callback gets it as the keyword "status").
+ALARM_STATUS = ("NO_ALARM", "READ", "WRITE", "HIHI", "HIGH", "LOLO", "LOW", "STATE", "COS",
+                "COMM", "TIMEOUT", "HWLIMIT", "CALC", "SCAN", "LINK", "SOFT", "BAD_SUB", "UDF",
+                "DISABLE", "SIMM", "READ_ACCESS", "WRITE_ACCESS")
 
 # Exit codes (docs/emulation/SCAN.md, section 5)
 COMPLETED = 0
@@ -55,15 +64,27 @@ log = logging.getLogger("mist2scan")
 
 
 class Reading:
-    """One value of a PV as Channel Access delivered it: value, severity, IOC time stamp."""
+    """One value of a PV as Channel Access delivered it: value, severity, IOC time stamp and
+    alarm status (None when it was not delivered)."""
 
-    __slots__ = ("value", "severity", "stamp")
+    __slots__ = ("value", "severity", "stamp", "status")
 
-    def __init__(self, value, severity, stamp=None):
-        self.value, self.severity, self.stamp = value, severity, stamp
+    def __init__(self, value, severity, stamp=None, status=None):
+        self.value, self.severity, self.stamp, self.status = value, severity, stamp, status
 
     def __repr__(self):
-        return "Reading(%r, %r, %r)" % (self.value, self.severity, self.stamp)
+        return "Reading(%r, %r, %r, %r)" % (self.value, self.severity, self.stamp, self.status)
+
+
+def status_name(status):
+    """The alarm status as the IOC names it; "status not delivered" without one."""
+    if status is None:
+        return "status not delivered"
+    try:
+        k = int(status)
+    except (TypeError, ValueError):
+        return "status %r" % (status,)
+    return ALARM_STATUS[k] if 0 <= k < len(ALARM_STATUS) else "status %d" % k
 
 
 def problem(reading, absent="not connected"):
@@ -73,7 +94,7 @@ def problem(reading, absent="not connected"):
     if reading.severity is None:
         return "no alarm state"
     if reading.severity >= INVALID:
-        return "INVALID"
+        return "INVALID (%s)" % status_name(reading.status)
     try:
         value = float(reading.value)
     except (TypeError, ValueError):
@@ -87,6 +108,14 @@ class End(Exception):
     def __init__(self, code, detail):
         Exception.__init__(self, detail)
         self.code, self.detail = code, detail
+
+
+class _Lost(Exception):
+    """The actuator lost during the end move; `last` is the last write before it, if any."""
+
+    def __init__(self, detail, last):
+        Exception.__init__(self, detail)
+        self.detail, self.last = detail, last
 
 
 class Refused(Exception):
@@ -114,6 +143,7 @@ class Scan:
         self.plan = None
         self.files = None
         self.meta = None
+        self.readback_bad_since = None   # clock time since the read-back has had no usable value
 
     # --- called by the Channel Access side, from its threads -------------------------------
 
@@ -122,6 +152,8 @@ class Scan:
             t = self.clock()
             self.connected[name] = True
             self.latest[name] = reading
+            if name == self.d.readback_pv:
+                self._track_readback(t, reading)
             if self.windows is not None and name in self.windows:
                 self.windows[name].append((t, reading))
 
@@ -131,8 +163,17 @@ class Scan:
             self.connected[name] = up
             if not up:
                 self.latest[name] = None
+                if name == self.d.readback_pv:
+                    self._track_readback(t, None)
                 if self.windows is not None and name in self.windows:
                     self.windows[name].append((t, None))
+
+    def _track_readback(self, t, reading):
+        """Under the lock: since when the read-back has had no usable value (None: it has)."""
+        if problem(reading) is None:
+            self.readback_bad_since = None
+        elif self.readback_bad_since is None:
+            self.readback_bad_since = t
 
     def request_stop(self, signum):
         """From the signal handler. During the end move a signal changes nothing: the move
@@ -169,6 +210,20 @@ class Scan:
         for role, n in (("set PV", d.set_pv), ("read-back", d.readback_pv)):
             if why(n):
                 reasons.append("actuator %s %s: %s" % (role, n, why(n)))
+        if d.held_pv:
+            h = reads[d.held_pv]
+            if why(d.held_pv):
+                reasons.append("actuator held PV %s: %s: the value the device holds is not "
+                               "known" % (d.held_pv, why(d.held_pv)))
+            elif not why(d.set_pv) and abs(float(h.value) - float(reads[d.set_pv].value)) \
+                    > d.tolerance:
+                reasons.append("the set PV %s shows %g, the device holds %g (%s): more than "
+                               "the tolerance %g apart" % (d.set_pv, float(reads[d.set_pv].value),
+                                                          float(h.value), d.held_pv,
+                                                          d.tolerance))
+        with self.lock:
+            if why(d.readback_pv) and self.readback_bad_since is None:
+                self.readback_bad_since = self.clock()
         for det in d.detectors:
             if why(det.pv):
                 text = "detector %s (%s): %s" % (det.name, det.pv, why(det.pv))
@@ -201,6 +256,8 @@ class Scan:
         before_set = None if problem(before) else float(before.value)
         rb = reads.get(d.readback_pv)
         before_rb = None if problem(rb) else float(rb.value)
+        held = reads.get(d.held_pv) if d.held_pv else None
+        before_held = None if problem(held) else float(held.value)
         lo, hi = limits
 
         def outside(x):
@@ -226,7 +283,7 @@ class Scan:
             "points": list(d.points),
             "limits": {"definition": list(d.limits), "control": list(ctrl) if ctrl else None,
                        "effective": [lo, hi]},
-            "before": {"set": before_set, "readback": before_rb},
+            "before": {"set": before_set, "readback": before_rb, "held": before_held},
             "end_target": end_target,
             "pvs": {n: _info(info[n], n in absent) for n in names},
             "warnings": warnings,
@@ -280,7 +337,7 @@ class Scan:
         except Exception:
             end = End(ERROR, traceback.format_exc())
         self._finish(end)
-        return end.code
+        return self.exit_code
 
     def _points(self):
         d = self.d
@@ -371,13 +428,9 @@ class Scan:
         with self.lock:
             connected = dict(self.connected)
             latest = dict(self.latest)
-        for role, n in (("set PV", d.set_pv), ("read-back", d.readback_pv)):
-            if not connected.get(n):
-                raise End(ACTUATOR, "actuator %s %s not connected" % (role, n))
-        r = latest.get(d.set_pv)
-        if r is not None and r.severity is not None and r.severity >= INVALID:
-            raise End(ACTUATOR, "actuator set PV %s INVALID: the IOC did not confirm the write"
-                      % d.set_pv)
+        lost = self._actuator_lost()
+        if lost:
+            raise End(ACTUATOR, lost)
         for det in d.detectors:
             if det.required and not connected.get(det.pv):
                 raise End(DETECTOR, "required detector %s (%s) not connected"
@@ -390,6 +443,37 @@ class Scan:
             if not c.holds(r.value):
                 raise End(CONDITION, "condition %s no longer holds: %s is %g"
                           % (c.text(), c.pv, float(r.value)))
+
+    def _actuator_lost(self):
+        """Why the actuator is lost, or None: the set PV, read-back or held PV not connected,
+        the set PV INVALID (the IOC did not confirm the write), the held PV INVALID (what the
+        device holds is not known), the read-back without a usable value for longer than
+        readback_lost_after."""
+        d = self.d
+        with self.lock:
+            connected = dict(self.connected)
+            latest = dict(self.latest)
+            bad_since = self.readback_bad_since
+        roles = [("set PV", d.set_pv), ("read-back", d.readback_pv)]
+        if d.held_pv:
+            roles.append(("held PV", d.held_pv))
+        for role, n in roles:
+            if not connected.get(n):
+                return "actuator %s %s not connected" % (role, n)
+        r = latest.get(d.set_pv)
+        if r is not None and r.severity is not None and r.severity >= INVALID:
+            return ("actuator set PV %s %s: the IOC did not confirm the write"
+                    % (d.set_pv, problem(r)))
+        if d.held_pv:
+            r = latest.get(d.held_pv)
+            if r is not None and r.severity is not None and r.severity >= INVALID:
+                return ("actuator held PV %s %s: what the device holds is not known"
+                        % (d.held_pv, problem(r)))
+        if bad_since is not None and self.clock() - bad_since > d.readback_lost_after:
+            return ("actuator read-back %s without a valid value for more than %g s (%s)"
+                    % (d.readback_pv, d.readback_lost_after,
+                       problem(latest.get(d.readback_pv))))
+        return None
 
     def _collect(self):
         """The dwell: a fresh read of every channel when it starts, then the monitor updates
@@ -438,6 +522,7 @@ class Scan:
         notes = []
         writes_before = len(self.writes)
         reached = None
+        first = None                    # the end that came first, when the end move lost the actuator
         if end.code == ACTUATOR:
             notes.append("the actuator was lost: nothing written after it")
         elif target is None:
@@ -448,18 +533,24 @@ class Scan:
                                                                       d.max_step)
                 for k, v in enumerate(steps):
                     before = self.position
+                    lost = self._actuator_lost()
+                    if lost:
+                        raise _Lost(lost, None if k == 0 else before)
                     self._write(v)
                     if k + 1 < len(steps):
-                        self._pause(d.step_pause)
-                        if self._set_invalid():     # the IOC did not confirm it: the actuator
-                            raise End(ACTUATOR,     # is lost, nothing more is written
-                                      "the set PV %s INVALID after the write of %g (the IOC "
-                                      "did not confirm it); the last write before it %g"
-                                      % (d.set_pv, v, before))
+                        self._pause(d.step_pause, v)
                 reached = self._reach(target)
                 if not reached:
                     notes.append("the read-back did not come within %g of %g in %g s"
                                  % (d.tolerance, target, d.settle_timeout))
+            except _Lost as exc:
+                notes.append("end move stopped, the actuator was lost: %s; nothing written "
+                             "after it%s" % (exc.detail, "" if exc.last is None else
+                                             "; the last write %g" % exc.last))
+                first = {"code": end.code, "reason": REASONS.get(end.code, "?"),
+                         "detail": end.detail}
+                end = End(ACTUATOR, "during the end move (after: %s): %s"
+                          % (REASONS.get(end.code, "?"), exc.detail))
             except End as exc:
                 notes.append("end move stopped: %s" % exc.detail)
             except Exception:
@@ -467,19 +558,23 @@ class Scan:
         with self.lock:
             rb = self.latest.get(d.readback_pv)
             set_r = self.latest.get(d.set_pv)
+            held_r = self.latest.get(d.held_pv) if d.held_pv else None
+        held_now = None if not d.held_pv or problem(held_r) else float(held_r.value)
         end_wall = self.wall()
         self.meta.update({
             "state": "completed" if end.code == COMPLETED else "ended",
             "end_time": iso(end_wall),
             "duration_s": round(self.clock() - self.t_start, 3),
             "outcome": {"code": end.code, "reason": REASONS.get(end.code, "?"),
-                        "detail": end.detail, "point": point, "phase": phase},
+                        "detail": end.detail, "point": point, "phase": phase,
+                        "first": first},
             "actuator_left": {
                 "end": d.end, "target": target,
                 "last_written": self.position,
                 "set_pv_reads": None if problem(set_r) else float(set_r.value),
                 "readback": None if problem(rb) else float(rb.value),
                 "readback_problem": problem(rb),
+                "held": held_now,
                 "readback_reached_target": reached,
                 "writes_in_end_move": len(self.writes) - writes_before,
                 "notes": notes,
@@ -489,21 +584,21 @@ class Scan:
         })
         self.files.meta(self.meta)
         self.files.close()
+        self.exit_code = end.code
         (log.info if end.code == COMPLETED else log.warning)(
             "scan ended: %s (%s), exit code %d; actuator left at %s, read-back %s; %s",
             REASONS.get(end.code), end.detail.strip().splitlines()[-1] if end.detail else "",
             end.code, self.position, self.meta["actuator_left"]["readback"],
             "; ".join(n.splitlines()[-1] for n in notes) or "-")
 
-    def _set_invalid(self):
-        with self.lock:
-            r = self.latest.get(self.d.set_pv)
-        return r is not None and r.severity is not None and r.severity >= INVALID
-
-    def _pause(self, seconds):
-        """A wait of the end move: nothing ends it."""
+    def _pause(self, seconds, written):
+        """A wait of the end move: no signal and no condition ends it, only the actuator lost
+        (then nothing more is written; `written` is the write it follows)."""
         end = self.clock() + seconds
         while self.clock() < end:
+            lost = self._actuator_lost()
+            if lost:
+                raise _Lost(lost, written)
             self.sleep(min(self.tick, max(0.0, end - self.clock())))
 
     def _reach(self, target):
@@ -514,6 +609,9 @@ class Scan:
                 up = self.connected.get(self.d.readback_pv)
             if up and not problem(r) and abs(float(r.value) - target) <= self.d.tolerance:
                 return True
+            lost = self._actuator_lost()
+            if lost:
+                raise _Lost(lost, self.position)
             if self.clock() - t0 >= self.d.settle_timeout:
                 return False
             self.sleep(self.tick)

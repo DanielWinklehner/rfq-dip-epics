@@ -88,7 +88,7 @@ class Complete(ScanTest):
         self.assertEqual((m["state"], m["outcome"]["code"], m["rows"]), ("completed", 0, 5))
         self.assertEqual(m["actuator_left"]["last_written"], -1.5)
         self.assertTrue(m["actuator_left"]["readback_reached_target"])
-        self.assertEqual(m["before"], {"set": -1.5, "readback": -1.5})
+        self.assertEqual(m["before"], {"set": -1.5, "readback": -1.5, "held": None})
         self.assertEqual(len(m["writes"]), len(written))
 
     def test_end_stay_and_end_value(self):
@@ -163,7 +163,7 @@ class Settling(ScanTest):
                     lambda w: w.post("X:get", severity=3))
         self.w.when(lambda w: w.pvs["X:set"].value == 1.5,
                     lambda w: w.post("X:get", severity=0))
-        self.run_scan()
+        self.run_scan(actuator__readback_lost_after=10.0)   # longer than the settle timeout
         self.assertEqual(self.rows()[2]["outcome"], "not_settled")
         self.assertIn("INVALID", self.rows()[2]["readback_reason"])
 
@@ -171,15 +171,15 @@ class Settling(ScanTest):
 class Values(ScanTest):
     def test_invalid_detector_is_missing_at_exactly_those_points(self):
         self.w.add("D:b", 5.0)
-        self.w.when(lambda w: w.pvs["X:set"].value == 1.0, lambda w: w.post("D:b", 1e9, 3))
-        self.w.when(lambda w: w.pvs["X:set"].value == 1.5, lambda w: w.post("D:b", 5.0, 0))
+        self.w.when(lambda w: w.pvs["X:set"].value == 1.0, lambda w: w.post("D:b", 1e9, 3, 7))
+        self.w.when(lambda w: w.pvs["X:set"].value == 1.5, lambda w: w.post("D:b", 5.0, 0, 0))
         d = self.definition(detectors=[{"pv": "D:a", "name": "a", "required": True},
                                        {"pv": "D:b", "name": "b", "required": False}])
         self.assertEqual(self.run_scan(d), E.COMPLETED)
         rows = self.rows()
         self.assertEqual([r["b_status"] for r in rows], ["ok", "ok", "missing", "ok", "ok"])
         self.assertEqual(rows[2]["b_mean"], "nan")
-        self.assertEqual(rows[2]["b_reason"], "INVALID")
+        self.assertEqual(rows[2]["b_reason"], "INVALID (STATE)")     # the IOC's alarm status
         self.assertEqual([r["b_n"] for r in rows], ["1", "1", "0", "1", "1"])   # holds: one value
         self.assertEqual(float(rows[3]["b_mean"]), 5.0)
 
@@ -338,10 +338,11 @@ class Ends(ScanTest):
         self.at_point(4.0, lambda w: w.post("C:ok", 0))
         self.w.when(lambda w: len(w.written(after=self.cause or 1e99)) == 3,
                     lambda w: w.disconnect("X:set"))
-        self.assertEqual(self.run_scan(d), E.CONDITION)
+        self.assertEqual(self.run_scan(d), E.ACTUATOR)       # lost in the end move: exit 5
         self.assertEqual(len(self.w.written(after=self.cause)), 3)
         notes = " ".join(self.meta()["actuator_left"]["notes"])
         self.assertIn("end move stopped", notes)
+        self.assertEqual(self.meta()["outcome"]["first"]["reason"], "condition lost")
         self.assertAlmostEqual(self.meta()["actuator_left"]["last_written"], 2.8)
 
 
@@ -355,13 +356,14 @@ class Ends(ScanTest):
         self.at_point(4.0, lambda w: w.post("C:ok", 0))
         self.w.when(lambda w: len(w.written(after=self.cause or 1e99)) == 1,
                     lambda w: w.post("X:set", severity=3))
-        self.assertEqual(self.run_scan(d), E.CONDITION)
+        self.assertEqual(self.run_scan(d), E.ACTUATOR)       # lost in the end move: exit 5
         self.assertEqual(self.w.written(after=self.cause), [3.6])
         left = self.meta()["actuator_left"]
         notes = " ".join(left["notes"])
-        self.assertIn("end move stopped", notes)
-        self.assertIn("X:set INVALID after the write of 3.6", notes)
-        self.assertIn("the last write before it 4", notes)
+        self.assertIn("end move stopped, the actuator was lost", notes)
+        self.assertIn("set PV X:set INVALID (status not delivered)", notes)
+        self.assertIn("the last write 3.6", notes)
+        self.assertEqual(self.meta()["outcome"]["first"]["reason"], "condition lost")
         self.assertEqual(left["writes_in_end_move"], 1)
         self.assertIsNone(left["readback_reached_target"])
 
@@ -420,6 +422,147 @@ class Refusals(ScanTest):
         self.w.pvs["D:a"].connected = False
         text = self.refused(actuator__limits=[-10, 1], end=11.0)
         self.assertEqual(text.count(" | "), 2)
+
+
+class Held(ScanTest):
+    """actuator.held: the PV that shows what the device holds (T27, second round)."""
+    at_point = Ends.at_point
+
+    def setUp(self):
+        Ends.setUp(self)
+        # the device holds what was last set: follows the set PV within 10 ms
+        self.w.detector("X:held", lambda w: w.pvs["X:set"].value, period=0.01)
+        self.d = self.definition(points={"start": 0, "stop": 6, "step": 1},
+                                 actuator__max_step=0.4, actuator__held="X:held")
+
+    def refused_with_held(self):
+        self.scan(self.d)
+        with self.assertRaises(E.Refused) as ctx:
+            self.s.run(self.make_files)
+        self.assertEqual(self.w.writes, [])
+        self.assertEqual(self.made, [])
+        return " | ".join(ctx.exception.reasons)
+
+    def test_held_valid_and_equal_starts(self):
+        self.assertEqual(self.run_scan(self.d), E.COMPLETED)
+        self.assertEqual(self.meta()["before"]["held"], 0.0)
+
+    def test_held_not_known_refused(self):
+        self.w.detectors.pop("X:held")
+        self.w.pvs["X:held"].value, self.w.pvs["X:held"].severity = float("nan"), 3
+        self.w.pvs["X:held"].status = 17
+        self.assertIn("actuator held PV X:held: INVALID (UDF): the value the device holds is "
+                      "not known", self.refused_with_held())
+
+    def test_held_not_connected_refused(self):
+        self.w.pvs["X:held"].connected = False
+        self.assertIn("actuator held PV X:held: not connected", self.refused_with_held())
+
+    def test_held_differs_from_the_set_pv_refused(self):
+        self.w.detectors.pop("X:held")
+        self.w.pvs["X:held"].value = 2.5
+        self.assertIn("the set PV X:set shows 0, the device holds 2.5 (X:held): more than the "
+                      "tolerance 0.01 apart", self.refused_with_held())
+
+    def test_held_within_the_tolerance_starts(self):
+        self.w.detectors.pop("X:held")
+        self.w.pvs["X:held"].value = 0.005
+        self.scan(self.d).prepare()
+
+    def test_held_invalid_in_the_middle_is_the_actuator_lost(self):
+        self.at_point(2.0, lambda w: w.post("X:held", severity=3, status=9))
+        self.assertEqual(self.run_scan(self.d), E.ACTUATOR)
+        self.assertEqual(self.w.written(after=self.cause), [])
+        m = self.meta()
+        self.assertIn("held PV X:held INVALID (COMM)", m["outcome"]["detail"])
+        self.assertEqual(m["actuator_left"]["writes_in_end_move"], 0)
+        self.assertEqual(len(self.rows()), 2)
+
+    def test_held_disconnected_in_the_middle_is_the_actuator_lost(self):
+        self.at_point(2.0, lambda w: w.disconnect("X:held"))
+        self.assertEqual(self.run_scan(self.d), E.ACTUATOR)
+        self.assertEqual(self.w.written(after=self.cause), [])
+        self.assertIn("held PV X:held not connected", self.meta()["outcome"]["detail"])
+
+    def test_held_invalid_in_the_end_move_stops_it(self):
+        self.w.add("C:ok", 1)
+        d = self.definition(points={"start": 0, "stop": 6, "step": 1}, actuator__max_step=0.4,
+                            actuator__held="X:held",
+                            conditions=[{"pv": "C:ok", "op": "==", "value": 1}])
+        self.at_point(4.0, lambda w: w.post("C:ok", 0))
+        self.w.when(lambda w: len(w.written(after=self.cause or 1e99)) == 2,
+                    lambda w: w.post("X:held", severity=3))
+        self.assertEqual(self.run_scan(d), E.ACTUATOR)
+        self.assertEqual(self.w.written(after=self.cause), [3.6, 3.2])
+        m = self.meta()
+        self.assertEqual(m["outcome"]["first"]["reason"], "condition lost")
+        self.assertIn("the last write 3.2", " ".join(m["actuator_left"]["notes"]))
+
+
+class ReadbackLost(ScanTest):
+    """actuator.readback_lost_after (default 5 s), with an actuator without a held PV."""
+    setUp = Ends.setUp
+    at_point = Ends.at_point
+
+    def test_default_is_5_s(self):
+        self.assertEqual(self.d.readback_lost_after, 5.0)
+
+    def test_a_shorter_invalid_read_back_is_waited_out(self):
+        self.w.when(lambda w: w.pvs["X:set"].value == 2.0,
+                    lambda w: w.post("X:get", severity=3))
+        self.w.when(lambda w: w.pvs["X:set"].value == 2.0,
+                    lambda w: w.at(4.0, lambda w: w.post("X:get", severity=0)))
+        self.assertEqual(self.run_scan(self.d), E.COMPLETED)
+        self.assertEqual([r["outcome"] for r in self.rows()], ["ok"] * 7)
+
+    def test_invalid_longer_is_the_actuator_lost(self):
+        self.at_point(2.0, lambda w: w.post("X:get", severity=3, status=10))
+        self.assertEqual(self.run_scan(self.d), E.ACTUATOR)
+        # the moves of the next point go on while the read-back is INVALID for less than 5 s
+        self.assertEqual(self.w.written(after=self.cause + 5.0), [])
+        self.assertEqual(self.meta()["actuator_left"]["writes_in_end_move"], 0)
+        m = self.meta()
+        self.assertIn("read-back X:get without a valid value for more than 5 s "
+                      "(INVALID (TIMEOUT))", m["outcome"]["detail"])
+        self.assertAlmostEqual(m["duration_s"] - (self.cause - self.s.t_start), 5.0, delta=0.15)
+
+    def test_a_shorter_time_in_the_definition(self):
+        d = self.definition(points={"start": 0, "stop": 6, "step": 1}, actuator__max_step=0.4,
+                            actuator__readback_lost_after=1.0)
+        self.at_point(2.0, lambda w: w.post("X:get", severity=3))
+        self.assertEqual(self.run_scan(d), E.ACTUATOR)
+        self.assertAlmostEqual(self.meta()["duration_s"] - (self.cause - self.s.t_start), 1.0,
+                               delta=0.15)
+
+    def test_invalid_in_the_end_move_stops_it(self):
+        self.w.add("C:ok", 1)
+        d = self.definition(points={"start": 0, "stop": 6, "step": 1}, actuator__max_step=0.4,
+                            actuator__step_pause=1.0,
+                            conditions=[{"pv": "C:ok", "op": "==", "value": 1}])
+        self.at_point(4.0, lambda w: w.post("C:ok", 0))
+        self.w.when(lambda w: len(w.written(after=self.cause or 1e99)) == 1,
+                    lambda w: w.post("X:get", severity=3))
+        self.assertEqual(self.run_scan(d), E.ACTUATOR)
+        after = self.w.written(after=self.cause)
+        self.assertEqual(len(after), 6)            # one per second, lost after 5 s
+        self.assertEqual(self.meta()["outcome"]["first"]["reason"], "condition lost")
+
+    def test_the_definition_key_is_checked(self):
+        from mist2scan.definition import DefinitionError
+        with self.assertRaises(DefinitionError):
+            self.definition(actuator__readback_lost_after=0)
+        with self.assertRaises(DefinitionError):
+            self.definition(actuator__held="X:set")
+
+
+class AlarmStatus(unittest.TestCase):
+    def test_names(self):
+        self.assertEqual(E.problem(E.Reading(1.0, 3, 0.0, 7)), "INVALID (STATE)")
+        self.assertEqual(E.problem(E.Reading(1.0, 3, 0.0, 10)), "INVALID (TIMEOUT)")
+        self.assertEqual(E.problem(E.Reading(1.0, 3, 0.0, None)),
+                         "INVALID (status not delivered)")
+        self.assertEqual(E.problem(E.Reading(1.0, 3, 0.0, 99)), "INVALID (status 99)")
+        self.assertIsNone(E.problem(E.Reading(1.0, 2, 0.0, 3)))       # MAJOR is used
 
 
 class CheckPlan(ScanTest):
