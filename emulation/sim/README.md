@@ -38,6 +38,8 @@ else 0; `value`). Writes to `constant` and `analog` are accepted and ignored. li
 115200 baud, in `"\n"`, out `"\r\n"` (`Serial.println`; use `"\n"` for an Opta over TCP).
 Examples: `examples/valvebox.yaml`, `examples/thermocouple.yaml`.
 
+**keithley_6485** (Keithley 6485 picoammeter, SCPI, manual 6485-901-01 Rev. A; task T25): power-on setup, trigger model with ABOR/INIT, measuring time NPLC / f_line x `autozero_factor`, overflow; signal `current` (A) for a plant model, `power` for a power cycle, counters `n_set` ... (module docstring).
+
 ## Control protocol: one JSON object per line, one reply per line
 
 Every reply has `"ok": true`, or `"ok": false` and `"error"`. `unit` is optional everywhere
