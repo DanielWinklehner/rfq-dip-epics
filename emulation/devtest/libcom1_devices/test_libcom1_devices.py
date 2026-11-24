@@ -32,7 +32,7 @@ BOARDS = {
                         "t1,t2,t3,t4,t5,t6,t7,f1,f2,f3,f4,f5",
                         ["t%d:gettemp" % n for n in range(1, 8)] +
                         ["f%d:getflow" % n for n in range(1, 6)]),
-    "interlockbox": _board("INTLK", 5011, "InterlockBox", "i1,i2,s1,s2",
+    "interlockbox": _board("INTLK", 5011, "InterlockOpta", "i1,i2,s1,s2",
                            ["i1:get_interlock", "i2:get_interlock"]),
     "valvebox": _board("VALVE", 5012, "SolenoidValveBox", "s1,s2,s3,s4,s5,s6,s7,s8",
                        ["s%d:get" % n for n in range(1, 9)]),
@@ -228,7 +228,7 @@ def test_sensorbox_thermocouple_fault():
 
 @pytest.mark.parametrize("i1,i2", [(1, 1), (0, 1), (1, 0), (0, 0)])
 def test_door_switches(i1, i2):
-    """Firmware: an input reads 1 (HIGH) when its door is closed; both closed = interlock closed."""
+    """Firmware (InterlockOpta): i1, i2 report 1 for a closed door; both closed = interlock closed."""
     with control("interlockbox") as c:
         c.set("i1", i1)
         c.set("i2", i2)

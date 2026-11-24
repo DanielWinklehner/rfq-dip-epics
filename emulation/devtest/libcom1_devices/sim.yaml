@@ -9,7 +9,8 @@
 #   baud           Serial.begin(); all sketches use the default framing 8N1 (bits_per_char 10)
 #   out_terminator Serial.println() ends lines with CR LF; input lines end with LF
 #                  (LineBuffer, a CR before it is ignored)
-#   number_format  avr: all five are AVR boards (Arduino Mega), values are written by dtostre()
+#   number_format  avr: the AVR boards (Arduino Mega), values are written by dtostre();
+#                  g: the interlock box, an Arduino Opta (snprintf %g)
 #   out_buffer     the template parameter of IOHandler / SerialDevice in the sketch
 #   in_buffer      LineBuffer<128> in every sketch
 #   turnaround_ms  assumption: loop() returns quickly, the real reply latency is not measured
@@ -70,10 +71,12 @@
       - {id: f4, access: rw, behaviour: analog, value: 1.8, noise: 0.06, lo: 0, step: 0.06}
       - {id: f5, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.06}
 
-# AVR/devices/InterlockBox/InterlockBox.ino, asyn port AVR11, DEVICE=INTLK.
-# i1, i2: digitalRead() of the door switch inputs, 1 = door closed (both HIGH = interlock
-# CLOSED in loop()). They have dummySetFunc. s1, s2: solenoid relays, set_solenoid<n>()
-# energises for exactly 1, get_solenoid<n>() reads 1 when energised: behaviour relay.
+# AVR/devices/InterlockOpta/InterlockOpta.ino (an Arduino Opta in place of the lost Mega box
+# AVR/devices/InterlockBox, same channels), asyn port AVR11, DEVICE=INTLK. Copy of the entry
+# in emulation/sim/config/rack.yaml, which is compared line by line with the firmware.
+# i1, i2: the doors as the Opta reports them, 1 = closed (after a hold time of 1 s, which is
+# not modelled: the value set here is the reported one). A set is accepted and ignored.
+# s1, s2: relays 3 and 4 of the Opta, on for exactly 1, read back 1 when on: behaviour relay.
 - name: interlockbox
   type: libcom1
   port: 5011
@@ -83,9 +86,9 @@
   in_terminator: "\n"
   out_terminator: "\r\n"
   options:
-    identity: InterlockBox
+    identity: InterlockOpta
     firmware: "Nov 21 2026"
-    number_format: avr
+    number_format: g
     out_buffer: 128
     in_buffer: 128
     channels:
