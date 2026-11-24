@@ -41,6 +41,12 @@ script that builds EPICS and the IOC application on a Linux computer
 22.04 and 24.04, where both IOCs then started in `real` mode with no device connected. Nothing
 of it was run on hardware.
 
+After that (2026-11-24, answers 32 to 34): nothing runs in the lab, the rack computer is wiped
+and gets a fresh Ubuntu, the lab computer runs Ubuntu and gets the logger, and you want the
+dipole scan off LabVIEW. `LAB-SETUP.md` follows it, the plan is at revision 0.21 (hosts, the
+logger's home, a note in work package WP11; no record changed). The dipole scan itself is not
+started (question 17).
+
 Added after that (2026-11-22), outside the task's scope, when you pointed to Matsusada's driver
 CD and your notes: the Linux side of the CO-U32, a udev rule and a read-only probe. Not tested
 on hardware. The PDF printout is not built: the task named it as a later addition.
@@ -620,8 +626,10 @@ State of 2026-11-24, early morning. Nothing is running.
   the rack IOC started there in `real` mode. After these changes (a comment in the two protocol
   files, documents, the build script) only the plan check ran; no database, record or test
   changed.
-- Next: what the first day with hardware shows (`LAB-SETUP.md` section 7), and your comments on
-  the drawings (answer 25).
+- 2026-11-24, later: plan 0.21 (hosts and notes only), registry and documents regenerated,
+  plan check passed. No suite run: no record, database or test changed.
+- Next: what the first day with hardware shows (`LAB-SETUP.md` section 7), your word on the
+  dipole scan (question 17), and your comments on the drawings (answer 25).
 
 ## Open
 
@@ -630,6 +638,8 @@ State of 2026-11-24, early morning. Nothing is running.
   not load it at all.
 - Two gauges you want to add are in the plan as planned devices only: foreline, gas injection.
 - The dipole second cross, the emittance scanners and the new interlock system are out of scope.
+- The dipole scan off LabVIEW (your wish of 2026-11-24, work package WP11) is not started:
+  question 17.
 - Worktrees and branches of the subagents (`emu/t*`) are still there, on this computer only:
   they were not pushed, because each is merged into `emulated-iocs`. They go when you have
   looked at the result.
@@ -670,7 +680,8 @@ State of 2026-11-24, early morning. Nothing is running.
 | 30 | The late reply on the Matsusada lines, P49 (2026-11-23) | "Yes, fix P49" | Answers question 15. Task T22 (brief `T22-late-reply.md`). Two parts, the second added by me when I read the logs and the source for the brief: the line is kept quiet after a mismatch until the outstanding reply has arrived (what I had named to you), and every reading that carries a state or a setting first checks the unit number in a status reply, because at the first contact a stray reply would otherwise be copied into the next supply's request and set point. The monitors are left as they are; what that leaves open is measured and reported to you |
 | 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
 | 32 | The state of the lab, the rack computer, the logger's home (2026-11-24) | "Nothing is running in the lab right now. We moved to a new location and everything was in storage for over a year. I expect to bring devices back online one by one. My plan, thus, is to copy the data from the rack computer then wipe it and do a fresh install of Ubuntu. Then install epics and the Matsusada driver, proto and db files according to your instructions as the first step. Where should the logger live? Main control computer? It has the most modern hardware, the largest disk and easiest to add more disks." | `LAB-SETUP.md` section 1 rewritten for it: what to save from Windows before the wipe (the lab IOC's folder, the list of adapters Windows remembers), a check of the CO-U32 from the installer stick before Windows is gone, Ubuntu 24.04. There is no lab IOC to protect or to ask for `dbl`. The logger: my answer is under question 11; it waits for the operating system of the main control computer |
-| 33 | The main lab computer (2026-11-24) | "The main lab computer already runs ubuntu, so I can test the CO-U32 there, right?" | Yes. `LAB-SETUP.md` section 1: the adapter check is done there with the rule file itself, before the rack computer's Windows is wiped. It also settles the logger's home (question 11): the main lab computer, if it stays on whenever the IOCs are on. Not yet in the plan: its host entry `lab_pc` says Windows with the LabVIEW dipole scan, and whether that is the same computer is asked |
+| 33 | The main lab computer (2026-11-24) | "The main lab computer already runs ubuntu, so I can test the CO-U32 there, right?" | Yes. `LAB-SETUP.md` section 1: the adapter check is done there with the rule file itself, before the rack computer's Windows is wiped. It also settles the logger's home (question 11): the main lab computer, if it stays on whenever the IOCs are on. In the plan since revision 0.21 |
+| 34 | The lab computer and the dipole scan (2026-11-24) | "Same computer and I want to move the dipole scan off LabView and into the control system or a standalone python script" | The plan's lab computer is the Ubuntu computer: host entry corrected (revision 0.21). The dipole scan is work package WP11 of phase 2, which already says: devices as PVs, the scan as a Python tool that only talks to PVs. Noted there with my proposal (both, in that split). Not started: question 17 |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -732,8 +743,7 @@ State of 2026-11-24, early morning. Nothing is running.
     IOC), Grafana opened from the control computer over the network (`MIST2LOG_BIND`), and a
     move later as `LOGGER.md` section 10 describes. Answered on 2026-11-24 (answer 33): it
     runs Ubuntu. So the logger goes to the main lab computer, with its automatic suspend
-    off. Open: the plan lists the lab computer as Windows with the LabVIEW dipole scan. Is
-    that another computer, or is the plan's entry out of date?
+    off. It is the plan's lab computer (answer 34); the plan's entry is corrected.
 12. With values set in place, a filament current typed into the supply's tag while the loop
     is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
@@ -749,6 +759,14 @@ State of 2026-11-24, early morning. Nothing is running.
     the next cycle, and nothing acts on the AU monitors; the discharge loop reads the REK,
     which is alone on its line and cannot take a neighbour's value. Answered on 2026-11-24
     (answer 31): leave them.
+17. The dipole scan (answer 34). Shall I start on it now, in the emulation, or after the first
+    days with hardware? It needs no hardware to start: a simulated magnet supply and
+    picoammeter, their records, and the scan as a Python program that talks to PVs only, as
+    the loop service does. What I need from you for it: the LabVIEW program (the VI, or
+    pictures of its front panel and diagram: ranges, step, settling time, what it saves); the
+    model of the Keithley picoammeter; how the NI USB-6001 is wired to the magnet supplies
+    (channels, volts per ampere); and whether LabVIEW runs on the Ubuntu lab computer today,
+    which would mean NI's Linux driver already serves the USB-6001 there.
 
 ## Not verified
 
@@ -899,6 +917,7 @@ State of 2026-11-24, early morning. Nothing is running.
 | The monitors are not checked | A status request in front of each monitor read halves the rate on a full line (measured 4.6 Hz instead of 9.2 with two supplies). What it would prevent is one value for one cycle after a reply more than 200 ms late. Left to the owner as question 16, with my recommendation to leave it. He left them (answer 31) |
 | Only `emulated-iocs` was pushed, under its own name | The branch tracked `origin/libcom1-robustness-fixes`, so a plain push could have gone there. The task branches `emu/t*` are all merged and would be 21 more branches on the remote |
 | On the real computers the IOCs are built on the computer (`build-epics.sh`), not run from the Docker image | `run-ioc.sh`, autosave's directory and the loop service's installation are written for it, serial devices and udev names need no pass-through, and the mini PC's system is not known well enough to count on Docker there. The script takes the release tags and the build steps of the image |
+| The dipole scan is proposed as devices in the control system plus a Python program that is a Channel Access client, not as a script that talks to the hardware | You named both ways (answer 34). A script on the hardware would be a second master beside an IOC on the same device, and its magnet current and cup current would reach neither the logger nor the GUI. A scan is a sequence (set, wait, read, average, save), which is easier to read and change in Python than in records, and the loop service already works this way. It is what work package WP11 said |
 | The first installation uses the names under `/dev/serial/by-id/` in `ports.real.cmd` | They exist without any rule and stay the same across re-plugging. Only the Matsusada adapters need a rule, to get a serial port at all. Names under `/dev/mist2/` for the others can follow when the adapters are known |
 | The wait after a mismatch is 50 ms | The reply still on its way arrives within 37 ms (9 request characters, 16 ms turnaround, 11 reply characters at 9600 baud). 50 ms is also the wait after a reply timeout. A mismatch for another reason (a set the supply did not execute) costs 50 ms of line time and nothing else |
 | In a protocol with a command, the command goes out before the status check | A stray reply must never stop a switching or a set. The check stands between the command and its read-back, so a read-back cannot be confirmed by a neighbour's reply |
