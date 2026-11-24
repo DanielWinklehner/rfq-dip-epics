@@ -1,8 +1,9 @@
 # MIST-2: first installation on the real computers
 
 Written on 2026-11-24 for the first day with hardware. **Nothing here was run on hardware.**
-What was run: the build script (step 2) in fresh containers of Ubuntu 20.04, 22.04 and 24.04,
-and both IOCs started there in `real` mode with no device connected. Everything else rests on
+What was run: the build script (step 2) in fresh containers of Ubuntu 20.04, 22.04, 24.04 and
+26.04, and of 32-bit Ubuntu 16.04 and 18.04, and both IOCs started there in `real` mode with
+no device connected. Everything else rests on
 the emulation. Open assumptions (A..) and points (P..) are in [STATUS.md](STATUS.md).
 
 ## 1. Before you start
@@ -54,18 +55,36 @@ the computer is wiped and gets a fresh Ubuntu, and the devices come back one by 
    line and `udevadm info -q property -n /dev/ttyUSB0`. This shows that the adapter gets its serial port. That the supplies answer through
    it needs a powered supply on the fiber, outputs off, and the probe of section 3, which
    runs there as well (Python 3, no IOC).
-4. **Install Ubuntu Server 24.04 LTS** for a computer without screen: the ordinary
-   installation, not "minimized", with "Install OpenSSH server" ticked. 24.04 is the system
-   of the IOC image on which every test ran, and the rule file's syntax was checked with its
-   udev version. The server installation brings `tmux` and `lsusb`. After the first start:
+4. **The computers as installed** (your word of 2026-11-24): Ubuntu 26.04.1, the desktop
+   installation, on the rack server and on the lab computer; the platform computer stays on
+   its older 32-bit Linux. On a desktop installation three things are not as a computer
+   without screen needs them:
+
+   ```bash
+   sudo apt install openssh-server tmux
+   ```
+
+   ```bash
+   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+   ```
+
+   ```bash
+   sudo systemctl disable --now ModemManager
+   ```
+
+   The first gives SSH and `tmux` (step 4). The second stops the computer from going to
+   sleep when nobody uses it: do it on the rack server (the IOC) and on the lab computer (the
+   logger). The third: ModemManager, installed with the desktop, is known to send modem
+   commands to Arduino serial ports when they appear; I have not checked that on 26.04, and
+   neither computer has a modem. Then:
 
    ```bash
    modinfo ftdi_sio | head -1
    ```
 
-   It must print a file name. The USB serial drivers are in the package
-   `linux-modules-extra`, which an ordinary installation has; if it is missing:
-   `sudo apt install linux-modules-extra-$(uname -r)`.
+   It must print a file name. On 26.04 the USB serial drivers are in the kernel's standard
+   package (`linux-modules`), read from the package, not from an installed computer.
+   Both rule files pass the syntax check of its udev (systemd 259).
 
 **On the day**
 
@@ -87,7 +106,11 @@ the computer is wiped and gets a fresh Ubuntu, and the devices come back one by 
 
 ## 2. Build, on each of the two IOC computers
 
-Ubuntu, x86_64, as the user that will run the IOC:
+As the user that will run the IOC. On Ubuntu 26.04 take the script of 2026-11-24 evening or
+later (`git pull`): before that it stopped in StreamDevice, which the compiler of 26.04 does
+not accept without a flag. On the 32-bit platform computer the same commands build for
+`linux-x86`; `run-ioc.sh` finds that build by itself. If its `apt` no longer finds the
+packages (an old release), send me what it says.
 
 ```bash
 sudo apt install build-essential perl git ca-certificates libreadline-dev libtirpc-dev
@@ -118,7 +141,10 @@ terminal you use:
 export PATH=/opt/epics/base/bin/linux-x86_64:$PATH
 ```
 
-Send me `lsb_release -a` of the mini PC (A22).
+(`linux-x86` in place of `linux-x86_64` on the 32-bit computer: the script prints the line.)
+
+Send me `lsb_release -a`, `uname -m`, `gcc --version` and `python3 --version` of the platform
+computer (A22).
 
 ## 3. Rack computer: the device names
 
@@ -256,12 +282,18 @@ and stay off after the door closes. All four AU off at once: `caput AU:alloff:se
 
 ## 6. Loop service, GUI, logger
 
-- **Loop service** (platform computer): the commands of `loops/README.md`, "On the platform
-  computer" (they make a clone of their own under `/opt/mist2`; not tried on a real
-  computer). Check `caget LOOP-DIS:service:get` (1). A start is always MANUAL. Leave
+- **Loop service:** it needs Python 3.8 or later, which an old 32-bit Linux will not have
+  (`python3 --version`). Then run it on the rack server instead: the commands of
+  `loops/README.md`, "On the platform computer", there, with the platform computer's address
+  in place of `127.0.0.1` in `loops/systemd/mist2loop.service` (`EPICS_CA_ADDR_LIST`). It
+  only talks to the platform IOC over the network, and the IOC holds the loop in MANUAL by
+  itself while it does not hear the service. Its unit tests pass on the Python 3.14 of 26.04;
+  the installation is not tried on a real computer. Check `caget LOOP-DIS:service:get` (1). A start is always MANUAL. Leave
   `LOOP-DIS:mode:setpoint` there until TDK and REK are checked by hand: the gains come from
   the model (A32), tuning is `LOOP.md` section 7.
-- **GUI**, on any Linux or WSL2 with Docker Engine:
+- **GUI**, on any Linux or WSL2 with Docker Engine. On Ubuntu 26.04 Docker comes from Ubuntu's
+  own packages: `sudo apt install docker.io docker-compose-v2 make`, then
+  `sudo usermod -aG docker "$USER"` and log in again (not tried on 26.04):
 
   ```bash
   cd rfq-dip-epics && git submodule update --init && cp RAS/mist2/env.template RAS/mist2/.env
