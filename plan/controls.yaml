@@ -23,8 +23,8 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.19"
-  date: "2026-11-23"
+  revision: "0.20"
+  date: "2026-11-24"
   author: "D. Winklehner"
   basis:
     - "Device list 'MIST-2 Devices Comm Protocols' (docx)"
@@ -38,6 +38,7 @@ meta:
     - "Revision 0.17: the first contact of the Matsusada and REK supplies is a database of its own, loaded with every supply (supply_first_contact.db, T19): output state and voltage setting are taken over without a gap in which a write is accepted and not sent. Its records are internal; _init:vcopy is removed."
     - "Revision 0.18: the output permit of the Matsusada and REK supplies acts as a state (T20, owner's word of 2026-11-23): while it is lost and a supply reports its output on, the off sequence is sent again every 2 s (internal record _permit:enforce, which counts them). A direct write of ToggleOutput and a switch-on at the front panel are switched off again while the permit is lost."
     - "Revision 0.19: a switching command written into a supply's switching record while it is still busy with the previous one is sent when the record is free, within 1 s (T21, owner's word of 2026-11-23): internal record _out:resend of the Matsusada and REK supplies, which counts them."
+    - "Revision 0.20: after one late reply the requests and replies of a Matsusada or REK line are in step again after the first mismatch, and every read of an output state or a setting first checks the unit number in a status reply (T22, owner's word of 2026-11-23). No record added; the protocol files only. The monitors are not checked: a monitor can show a neighbour's value for one cycle after a late reply."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -279,7 +280,8 @@ devices:
     notes:
       - "Why the update rate drops with every supply: the CO protocol returns one value per request, each request addresses one supply, and all supplies of a chain share one 9600 baud port. One request plus reply is about 20 characters, so about 20 ms on the wire before any turnaround time."
       - "The lab's matsusada_au20p7.db of 2023 polls five values per supply every 0.1 s (set-point echo and monitor for voltage and current, plus status). That is 50 requests per second for a single supply, more than the chain can carry. With N supplies every value updates N times slower."
-      - "Fix 1, built in the reworked matsusada_au20p7.db: only the two monitors (MN1, MN2) are polled fast. The set-point echoes (CH0?, CH1?) are read after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5. Each supply reads its two monitors as one cycle and waits its turn on the line, so all supplies of a chain update at the same rate (measured 9.1 Hz with two supplies at 5 ms turnaround, 6.1 Hz at 16 ms)."
+      - "Fix 1, built in the reworked matsusada_au20p7.db: only the two monitors (MN1, MN2) are polled fast. The set-point echoes (CH0?, CH1?) are read after each set and every few seconds, the status once a second. That is 2 fast requests per supply instead of 5. Each supply reads its two monitors as one cycle and waits its turn on the line, so all supplies of a chain update at the same rate (measured 9.0 Hz with two supplies at 5 ms turnaround, 5.9 Hz at 16 ms; 9.2 and 6.1 Hz before revision 0.20, whose status checks take about 1.3 % of the line per supply)."
+      - "Replies in step (revision 0.20, T22): of the replies only the one to STS carries the unit number. A reply that comes later than the reply timeout (150 ms) and the wait after it (50 ms) is read by the next request on the line, possibly of another supply. The protocol files keep the line for 50 ms after a mismatch, so that the reply still on its way is discarded and the line is in step after one mismatch. Every protocol that reads an output state or a setting (SW?, CH0?, CH1?, also as the read-back of a command) first sends STS to the same unit and checks the unit number in the reply, so such a record turns INVALID instead of taking another supply's reply. The two monitors are read without that check, because it would halve their rate (4.6 Hz with two supplies): after one late reply one monitor value of a neighbour can be shown for one cycle (0.15 to 0.2 s with two supplies, up to 0.7 s with three)."
       - "Fix 2, built: two chains on two asyn ports (mat_opt behind the USB-OPT, mat_co behind the CO-U32), polled in parallel. Put the supplies that need the fastest read-back on the short chain."
       - "Fix 3, built: the set records have PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
       - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible). The turnaround time of the real adapters is not known: the simulator assumes 5 ms (A6)."
