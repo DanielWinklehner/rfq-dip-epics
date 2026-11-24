@@ -7,7 +7,9 @@
 # gets no serial device by itself. Rule 1 names the ID to the driver. Rule 3 gives the adapter
 # the name that iocBoot/iocRack/ports.real.cmd opens.
 #
-# NOT TESTED: written without the adapter. Install and check: README.md in this directory.
+# Rule 1 seen to work on the rack server (Ubuntu 26.04.1, 2026-11-24): both adapters, ID 1192:1000,
+# got their serial device. Rule 3 does not match there: the adapters report no serial number over
+# USB (one shared name under /dev/serial/by-id/). Install and check: README.md in this directory.
 
 # 1. A Matsusada USB module appears: load the FTDI driver and name the ID to it, once.
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1192", ATTR{idProduct}=="1000", \
