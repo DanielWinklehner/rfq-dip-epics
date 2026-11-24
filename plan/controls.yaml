@@ -280,8 +280,8 @@ devices:
     link: "optical fiber (USB-OPT chain)"
     protocol: "StreamDevice, matsusada_co_ctrl.proto"
     epics:
-      - {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", IFS: "15"}}
-      - {db: supply_first_contact.db, macros: {S: "AU-20P7-1"}}
+      - {db: matsusada_au20p7.db, macros: {PORT: mat_opt, UNITNUM: "1", DEV: AU-20P15, IFS: "15"}}
+      - {db: supply_first_contact.db, macros: {S: "AU-20P15-1"}}
     status: modify
     change: "Second optical chain, slimmer polling, scaling fix into the repository"
     notes:
@@ -293,13 +293,14 @@ devices:
       - "Fix 3, built: the set records have PRIO = HIGH, so that a command overtakes the queued polls instead of waiting behind them."
       - "Check the USB latency timer of both adapters' COM ports (16 ms by default on FTDI-type ports, 1 ms is possible). The turnaround time of the real adapters is not known: the simulator assumes 5 ms (A6)."
       - "The split: source voltage and puller on the short USB-OPT chain, because their currents show beam loading and sparks first, lenses 1 and 2 on the CO-U32. Confirmed by the owner (2026-11-21)."
-      - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. matsusada_au20p7.db now takes the full scale as macros (VFS, IFS), and st.cmd sets IFS=15 for this unit. Assumed (A4): the same 16-bit set and 12-bit monitor scaling as the P7.5; the lab's local fix has not been seen."
+      - "The AU20P15 reads correctly today (front panel and control system agree), so its 15 mA scaling was fixed locally. matsusada_au20p7.db takes the full scale as macros (VFS, IFS), and st.cmd sets IFS=15 for this unit. The lab's local fix is its matsusada_au20p15.db (reference/lab-2026, copied 2026-11-24): the records of matsusada_au20p7.db of 2023 with 15 mA full scale and the same 16-bit set and 12-bit monitor scaling (A4), under the prefix AU-20P15."
+      - "PV names AU-20P15-1:* as in the lab (its st.cmd of 2026 loads matsusada_au20p15.db with UNITNUM 1, 'Source'): matsusada_au20p7.db with DEV=AU-20P15 (T26). Until revision 0.21 this system served the unit as AU-20P7-1, which was its own assumption and no PV of the lab, so no alias is kept under that name."
       - "Unit 1 (owner, 2026-11-21; also the lab's st.cmd of 2023)."
       - "For all four AU supplies and the REK (owner, 2026-11-21): the current is a LIMIT, not a set point. current:limit (alias current:setpoint, the lab's name) is restored at the IOC start by autosave, first from EPICS/ioc/iocBoot/<ioc>/limits.defaults, then from the file saved at run time (limits.sav), which wins. A change from the GUI is saved within 5 s. The limit is sent at the first contact, on every write and with every switch-on, and again every 5 s while it is not applied. The defaults are the full scales, not limits for operation: the owner sets the real ones."
       - "For all AU supplies and the REK: switching on sends REN, the saved current limit, RST and SW1; switching off REN, RST and SW0. REN is sent only at the first contact and on switching (owner, 2026-11-21: as in the lab), so the front panel can take local control; status:read then shows OFF, LOCAL or ON, LOCAL (MINOR)."
       - "For all AU supplies and the REK: the output follows the permit interlock_open (macro PERMIT) and latches (owner, 2026-11-21). Losing the permit switches the output off and clears the request (SetToggleOutput goes to 0); nothing switches on by itself when the permit returns, and a request made while the permit is lost is cleared at once."
       - "For all AU supplies and the REK: until the first contact with a supply after the IOC start, the voltage set point is in simulation mode (a write is not sent) and takes over the supply's setting at the first contact; the output state is taken over too, and the permit acts 5 s (GRACE) after the first contact. A supply that cannot be reached at the start is taken over when it answers."
-      - "The PV prefix AU-20P7-<n> is wrong for this unit (it is a P15) and for the negative ones. Another reason to name PVs by function: source, puller, lens 1 and 2."
+      - "The PV prefix AU-20P7-<n> is wrong for the negative supplies (puller, lens 2). Another reason to name PVs by function: source, puller, lens 1 and 2."
 
   - id: au_puller
     name: "Puller"
@@ -375,7 +376,7 @@ devices:
     host: ioc_rack
     link: "both optical chains"
     protocol: "StreamDevice, matsusada_co_ctrl.proto (multiple command #AL)"
-    epics: {db: au_alloff.db, macros: {PORT1: mat_opt, PORT2: mat_co, R1: "AU-20P7-1:SetToggleOutput", R2: "AU-20P7-2:SetToggleOutput", R3: "AU-20P7-3:SetToggleOutput", R4: "AU-20P7-4:SetToggleOutput"}}
+    epics: {db: au_alloff.db, macros: {PORT1: mat_opt, PORT2: mat_co, R1: "AU-20P15-1:SetToggleOutput", R2: "AU-20P7-2:SetToggleOutput", R3: "AU-20P7-3:SetToggleOutput", R4: "AU-20P7-4:SetToggleOutput"}}
     status: new
     notes:
       - "Proposed in revision 0.6 under the ion source supply, built as AU:alloff:set: sends #AL SW0 on both chains and clears the output request of the four supplies listed in R1 to R4, so that one write of 1 switches a supply on again."
@@ -397,9 +398,10 @@ devices:
       - "Works as it is, no change planned."
       - "The Ethernet port of the unit is for setup only, not for control."
       - "mfc.db and mfc.proto are now in the repository: the lab's draft of 2023 (set point only, commented out in its st.cmd), completed from the MKS RS-485 supplement 1046411-001 Rev. A. Sets are acknowledged. The set point is in percent of full scale, MFC:getFlow in flow units (sccm)."
-      - "Assumed (A11): address 254 and 9600 baud, as in the lab's draft. MFC:getFlow is a new name in the lab's style (A12)."
+      - "Address 254 and 9600 8N1 as in the lab's files of 2026 (reference/lab-2026: st.cmd loads IOC.mfc.db on COM13; mfc.proto unchanged since 2023). MFC:getFlow is a new name in the lab's style (A12): the lab has no flow read-back."
+      - "Compared with the lab's files (T26): the lab serves MFC:getSP (ai, every 0.5 s) and MFC:setSP (ao, DRVH 100, DRVL -20), both served here under the same name and type (getSP every 2 s); the wink records are commented out there. The lab's protocol ends every request with ';FF' and a CR and expects a CR after a reply; this one sends and expects ';FF' alone, as the supplement says. Side by side against one fake unit (replies -20.00, 20.00, '  0.00', ' 5.50', 100.00, 140.00, with and without a CR after ';FF') this protocol read every value without alarm; the lab's read every value, INVALID (timeout) when no CR follows. So nothing was changed. The lab's set sends %f ('12.500000') and reads no reply; this one sends %.2f and reads the ACK."
     questions:
-      - "Please send the MFC files that run in the lab, so that mfc.db can be compared with them (A11)."
+      - "Does the unit put a CR after ';FF'? The supplement says no; the lab's protocol expects one. Both forms are read here."
       - "The MKS supplement does not show the reply to a set (with or without the value) or an example of a negative reply. The protocol file accepts both forms of the positive reply. What does the unit answer (P11)?"
 
   - id: gauge_ctrl
@@ -639,18 +641,26 @@ devices:
   # ------------------------------------------------------------------ cooling and interlocks
   - id: flow_opta
     name: "Flow meter readout"
-    model: "Arduino Opta"
+    model: "Arduino Opta, five pulse flow meters (1260 pulses per litre by the sketch)"
     subsystem: cooling
     location: rack
     host: ioc_rack
-    link: "USB today, Ethernet proposed"
-    protocol: "tbd"
+    link: "USB serial (the lab's COM23), 115200 8N1; Ethernet proposed"
+    protocol: "libcom1 protocol 1 (query A only), sketch FlowMeters.ino"
+    epics:
+      - {db: flowmeters.db, macros: {PORT: AVR23, DEVICE: FLOW}}
     status: modify
-    pvs_unknown: true
+    libcom1: true
+    labels: {f1: "Flow 1", f2: "Flow 2", f3: "Flow 3", f4: "Flow 4", f5: "Flow 5"}
     notes:
       - "Cooling loop runs DI water, 0.25 to 2 l/min per branch. Each branch should report flow and temperature."
+      - "The lab's IOC.flowmeters.db and st.cmd of 2026 (reference/lab-2026): DEVICE FLOW on COM23, five values FLOW:f1:getflow to FLOW:f5:getflow. flowmeters.db is that file with the same record names, MS on its links (a silent Opta turns every flow INVALID), unit and precision."
+      - "Unit l/min, from the sketch's arithmetic (reference/lab-2026/AVR/devices/FlowMeters/FlowMeters.ino): pulses counted for 0.5 s times 0.095238 = pulses / 1260 per litre / 0.5 s x 60 s. One pulse in 0.5 s is 0.095 l/min. The sketch's comment 'litres/hour' does not fit its arithmetic."
+      - "Replaces the sensor box (owner, answer 5; the lab's st.cmd of 2026 no longer loads it). The flows are labelled Flow 1 to Flow 5 until the owner names the circuits. No temperatures: the sketch reads none (it includes MAX31856.h and does not use it)."
+      - "Firmware as flashed: libcom1 protocol 1, so no identity records and no acknowledged sets. The identity records (libcom1_device.db) are listed as proposed: load them once the Opta runs protocol 2. The emulation runs its simulator with protocol 1."
     questions:
-      - "Which flow sensors, how many branches, and which firmware runs on the Opta?"
+      - "Which cooling circuit is each of the flow meters f1 to f5 (question 18 c)?"
+      - "Is the flow meters' K factor 1260 pulses per litre (the sketch's comment), and which meters are they?"
 
   - id: sensorbox
     name: "Sensor box (temperatures and flows)"
@@ -658,22 +668,12 @@ devices:
     subsystem: cooling
     location: rack
     host: ioc_rack
-    link: "USB"
+    link: "none"
     protocol: "libcom1"
-    epics:
-      - {db: sensorbox.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
-      - {db: libcom1_device.db, macros: {PORT: AVR10, DEVICE: SENSOR}}
-    flags: {assumed: "Stand-in: the cooling water is read by an Arduino Opta whose firmware and channels are not known yet"}
-    status: tbd
-    libcom1: true
-    labels: {f2: "Turbo pump", f3: "Front Plate", f4: "Faraday Cup 1"}
-    spare: [f1, f5]
+    status: replace
     notes:
-      - "Replaced by the flow meter readout on an Arduino Opta (owner, 2026-11-21). The emulation keeps the sensor box as a stand-in for the cooling water until the Opta's firmware and channels are known."
-      - "Seven temperatures t1 to t7 (degC) and five water flows f1 to f5. Flow labels from the lab GUI of 2023, where f1 and f5 are not connected ('N/A')."
-    questions:
-      - "Names of the temperatures t1 to t7? No source in the repository names them."
-      - "Unit of the water flows? The firmware multiplies the pulses of 0.5 s by 0.06, which fits litres per hour by one of its comments and not litres per minute by the other. The unit field is left empty (P3)."
+      - "Replaced by the flow meter readout on an Arduino Opta (owner, 2026-11-21, answer 5). The lab's st.cmd of 2026 (reference/lab-2026) no longer loads it, and since T26 neither does the rack IOC, the emulation, the GUI or the logger."
+      - "Its database (EPICS/Db/sensorbox.db, prefix SENSOR in the lab: seven temperatures t1 to t7 in degC, five flows f1 to f5 without unit) and its device case (emulation/devtest/libcom1_devices) stay in the repository, in case the box comes back."
 
   - id: ilk_old
     name: "Interlock controller (old)"
@@ -722,18 +722,21 @@ devices:
     subsystem: diag
     location: rack
     host: ioc_rack
-    link: "USB today, Ethernet proposed"
-    protocol: "tbd (assumed: libcom1 over TCP, A13)"
+    link: "USB serial (the lab's COM16), 115200 8N1; Ethernet proposed"
+    protocol: "libcom1 protocol 1 (query A only); sketch not found"
     epics:
-      - {db: faradaycup.db, macros: {PORT: FC, DEVICE: FC}}
-      - {db: libcom1_device.db, macros: {PORT: FC, DEVICE: FC}}
+      - {db: faradaycup.db, macros: {PORT: AVR16, DEVICE: FC1}}
     status: modify
-    flags: {assumed: "Placeholder until the firmware is known: libcom1 over TCP, one current channel in A (A13, P12)"}
+    libcom1: true
+    flags: {assumed: "What the two values i1 and i2 are and their unit is not known: no unit is shown. The emulation takes i1 as the cup current in A"}
     notes:
       - "The Faraday cup comes in from the top flange of the six-way cross (owner, 2026-11-21)."
-      - "faradaycup.db is a placeholder. Assumed (A13, P12): the Opta speaks libcom1 over TCP and serves one channel with the cup current in A (FC:current:get), identity FaradayCupOpta. The cup actuator is assumed to be valve channel s4 (VALVE:s4), as labelled in the lab GUI."
+      - "The lab's IOC.faraday.db and st.cmd of 2026 (reference/lab-2026): DEVICE FC1 on COM16, 115200 8N1, libcom1, two values FC1:i1:getcurrent and FC1:i2:getcurrent from FC1:data. faradaycup.db is that file with the same record names and MS on its links. Until revision 0.21 this system assumed FC:current:get, one value, libcom1 over TCP (A13); that is gone."
+      - "The sketch of this Opta was not found on the rack computer. The boards as last flashed speak libcom1 protocol 1, so no identity records are loaded; they are listed as proposed (libcom1_device.db) until the firmware is known."
+      - "In the emulation the plant model drives i1 as the cup current in A (emulation/sim/config/plant.yaml); i2 is a constant 0. Both are assumptions."
+      - "The cup actuator is assumed to be valve channel s4 (VALVE:s4), as labelled in the lab GUI."
     questions:
-      - "Which firmware and which PVs does the Faraday cup Opta serve today? Not in the repository."
+      - "What are the two values FC1:i1 and FC1:i2, and in which unit? Is the Opta's sketch somewhere (question 18 b)?"
 
   # ------------------------------------------------------------------ control system services
   - id: logger
@@ -1021,7 +1024,7 @@ software:
 
 naming:
   text:
-    - "Today's PV names (the lab's, decision D1) follow three different patterns: by device type (VALVE:s1:set, PRESSURE:apg:getpressure), by model (AU-20P7-1:voltage:setpoint, REK-1:..., TDK:...) and without any prefix (interlock_open). None says what the device does."
+    - "Today's PV names (the lab's, decision D1) follow three different patterns: by device type (VALVE:s1:set, PRESSURE:apg:getpressure), by model (AU-20P15-1:voltage:setpoint, AU-20P7-2:..., REK-1:..., TDK:...) and without any prefix (interlock_open). None says what the device does."
     - "A rebuild is the cheapest moment to fix this. Proposal: MIST2:<area>:<function>:<signal>, for example MIST2:SRC:FilDis:Current-SP, and keep the old names as EPICS aliases until the GUI and all scripts have moved."
     - "Renaming also touches every client that reads PVs by name, including automated tuning. Decide once, before the new devices get their PVs."
 
@@ -1206,8 +1209,15 @@ databases:
 
   faradaycup.db:
     class: reading
-    roles: {value: "current:get"}
-    internal: [data]
+    channels:
+      "i<n>": {value: "i<n>:getcurrent"}
+    internal: [data, "int:fanout"]
+
+  flowmeters.db:
+    class: reading
+    channels:
+      "f<n>": {value: "f<n>:getflow"}
+    internal: [data, "int:fanout"]
 
   pressure.db:
     class: gauge
