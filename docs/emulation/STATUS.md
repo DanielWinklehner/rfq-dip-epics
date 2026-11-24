@@ -600,7 +600,18 @@ on hardware. The PDF printout is not built: the task named it as a later additio
 
 ## Running
 
-State of 2026-11-24, early morning. Nothing is running.
+State of 2026-11-24. Three engineers are at work, each in its own worktree
+(`.claude/worktrees/t23`, `t24`, `t25`), on the dipole scan you ordered (answer 35):
+
+| Task | What | Brief |
+|---|---|---|
+| T23 | The scan program: a Python program that runs a scan through Channel Access only | `briefs/T23-scan.md` |
+| T24 | The dipole magnet supplies as PVs: a Python service for the NI USB-6001, `dipole.db` | `briefs/T24-daq-dipole.md` |
+| T25 | The picoammeter as PVs, for an assumed model (A44) | `briefs/T25-picoammeter.md` |
+
+Each is proven in a device case of its own. None of it is loaded by an IOC of the emulation
+yet, so the system suite, the GUI and the logger are not touched: which computer's IOC serves
+these devices is decided with you when the facts of question 17 are there.
 
 - T19 (P40) is merged, see "Done". After its merge only the system suite was run again, on
   the merged head. The GUI check, the device case and the hand check ran on the branch, whose
@@ -681,6 +692,7 @@ State of 2026-11-24, early morning. Nothing is running.
 | 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
 | 32 | The state of the lab, the rack computer, the logger's home (2026-11-24) | "Nothing is running in the lab right now. We moved to a new location and everything was in storage for over a year. I expect to bring devices back online one by one. My plan, thus, is to copy the data from the rack computer then wipe it and do a fresh install of Ubuntu. Then install epics and the Matsusada driver, proto and db files according to your instructions as the first step. Where should the logger live? Main control computer? It has the most modern hardware, the largest disk and easiest to add more disks." | `LAB-SETUP.md` section 1 rewritten for it: what to save from Windows before the wipe (the lab IOC's folder, the list of adapters Windows remembers), a check of the CO-U32 from the installer stick before Windows is gone, Ubuntu 24.04. There is no lab IOC to protect or to ask for `dbl`. The logger: my answer is under question 11; it waits for the operating system of the main control computer |
 | 33 | The main lab computer (2026-11-24) | "The main lab computer already runs ubuntu, so I can test the CO-U32 there, right?" | Yes. `LAB-SETUP.md` section 1: the adapter check is done there with the rule file itself, before the rack computer's Windows is wiped. It also settles the logger's home (question 11): the main lab computer, if it stays on whenever the IOCs are on. In the plan since revision 0.21 |
+| 35 | The dipole scan, question 17 (2026-11-24) | "Start now" | Tasks T23, T24 and T25, three engineers in parallel. What I told you before your answer: a simulated magnet supply and picoammeter, their records, and the scan program, tested in the emulation, with the unknowns as configuration values |
 | 34 | The lab computer and the dipole scan (2026-11-24) | "Same computer and I want to move the dipole scan off LabView and into the control system or a standalone python script" | The plan's lab computer is the Ubuntu computer: host entry corrected (revision 0.21). The dipole scan is work package WP11 of phase 2, which already says: devices as PVs, the scan as a Python tool that only talks to PVs. Noted there with my proposal (both, in that split). Not started: question 17 |
 
 ## What the working point implies (from the plant model, for you to check)
@@ -759,8 +771,9 @@ State of 2026-11-24, early morning. Nothing is running.
     the next cycle, and nothing acts on the AU monitors; the discharge loop reads the REK,
     which is alone on its line and cannot take a neighbour's value. Answered on 2026-11-24
     (answer 31): leave them.
-17. The dipole scan (answer 34). Shall I start on it now, in the emulation, or after the first
-    days with hardware? It needs no hardware to start: a simulated magnet supply and
+17. The dipole scan (answer 34). Answered on 2026-11-24 (answer 35): start now. The facts
+    below are still needed. The question was: shall I start on it now, in the emulation, or
+    after the first days with hardware? It needs no hardware to start: a simulated magnet supply and
     picoammeter, their records, and the scan as a Python program that talks to PVs only, as
     the loop service does. What I need from you for it: the LabVIEW program (the VI, or
     pictures of its front panel and diagram: ranges, step, settling time, what it saves); the
@@ -972,6 +985,8 @@ A19 (the output gate is wanted, and it latches).
 | A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: the same input line in eight places of each of the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
 | A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build. The rack computer is wiped and gets a fresh Ubuntu (your plan, answer 32; I recommend Server 24.04, operated over SSH with the IOC in `tmux`, since it runs without screen) | The build script ran in containers of these three versions. Your answer 22 for the mini PC, answer 32 for the rack computer | `lsb_release -a` on both, and the first build there |
 | A43 | Windows on the rack computer still lists the Matsusada adapters and the other serial adapters with COM number, USB ID and serial number although they are not plugged in | `Get-PnpDevice` lists devices that are not present (seen on the development PC, which has no serial adapter, so no COM port line was seen) | The command of `LAB-SETUP.md` section 1 on the rack computer, before the wipe |
+| A44 | The picoammeter of the dipole scan is a Keithley 6485 on its serial port | The plan says "Keithley, model tbc" on an "RS-485 to USB converter". The 6485 is my guess at the most likely model; T25 builds for it from its manual, with everything that depends on the model in the protocol file and the simulator | You: the type plate, or the instrument's answer to `*IDN?` |
+| A45 | The magnet supplies are set and read through analog channels of one NI USB-6001 (plan: "analog 0-10 V"), and nothing else of them is remote | The plan's device list. Channels, volts per ampere, range, polarity, the number of supplies and whether NI's Linux driver serves the box are not known: configuration values in T24 | You (question 17), and NI's documentation, which T24 reads |
 
 ## Open points
 
