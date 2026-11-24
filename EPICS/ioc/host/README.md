@@ -29,7 +29,7 @@ Python wrapper, root rights for every run) is not needed.
 |---|---|
 | `99-mist2-matsusada.rules` | udev rules: name the ID to `ftdi_sio`, keep ModemManager off the line, and create `/dev/mist2/co-u32` for the adapter with the serial number `CO001144`. That name works only if the adapter reports the serial number under Linux; Windows saw none (below) |
 | `99-mist2-serial.rules` | udev rules: `/dev/mist2/gauges`, `interlock`, `valves` and `mfc` by USB ID and serial number, each line with its source (the Windows device list of 2026-11-24 and the lab's `st.cmd`) |
-| `matsusada_probe.py` | Read-only first contact: asks each unit for status, settings and monitors, prints the replies and the reply times. It sends no set command and no `REN` |
+| `matsusada_probe.py` | First contact without an IOC: asks each unit for status, settings and monitors, prints the replies and the reply times. Read-only by default (no set command, no `REN`). With `--remote` it sends `REN` before a unit's queries and `GTL` after them, because the supplies answer the settings only under remote control (seen on 2026-11-24) |
 | `build-epics.sh` | Builds EPICS base, asyn, StreamDevice, autosave (the release tags of the `mist2-ioc` image) and the IOC application on the computer, into `/opt/epics` or a directory given as argument. Run in fresh containers of Ubuntu 20.04, 22.04 and 24.04, where both IOCs then started in `real` mode with no device; not on the lab's computers |
 
 The steps of a first installation, in order: `docs/emulation/LAB-SETUP.md`.

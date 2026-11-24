@@ -8,6 +8,15 @@ Sends queries only (STS, SW?, CH0?, CH1?, MN1, MN2), with the line settings and 
 of EPICS/Db/matsusada_co_ctrl.proto: 9600 baud, 8 data bits, no parity, 1 stop bit, no flow
 control, CR. It sends no set command and no REN, so it changes nothing on a supply.
 
+    matsusada_probe.py /dev/mist2/co-u32 3 4 --remote
+
+With --remote, and only then, it takes each unit under remote control first (REN), asks the same
+queries, and gives it back to the front panel (GTL), asking the status once more. REN and GTL
+are the two commands the IOC sends for that (manual 7-2); neither sets a voltage, a current or
+the output. Seen on the lab's supplies on 2026-11-24: under local control they answer STS, MN1
+and MN2 and not SW?, CH0? and CH1?. --remote shows whether they answer those under remote
+control, as the IOC needs it.
+
 Stop the IOC first: only one program may talk on a chain.
 
 Every reply is printed as it came, with the time from the request to the end of the reply, and
@@ -92,6 +101,9 @@ def main():
     parser.add_argument("units", nargs="+", type=int, help="unit numbers (UNIT switch of each supply)")
     parser.add_argument("--repeat", type=int, default=1, metavar="N",
                         help="ask every query N times and print the reply times (default 1)")
+    parser.add_argument("--remote", action="store_true",
+                        help="send REN to each unit before its queries and GTL after them "
+                             "(remote control on, then back to the front panel)")
     args = parser.parse_args()
 
     try:
@@ -104,6 +116,10 @@ def main():
     try:
         for unit in args.units:
             print("unit %d" % unit)
+            if args.remote:
+                os.write(fd, ("#%d REN\r" % unit).encode("ascii"))    # no reply (manual 7-2)
+                time.sleep(0.2)
+                print("  sent REN (remote control on)")
             for query in QUERIES:
                 for turn in range(args.repeat):
                     reply, complete, seconds = ask(fd, "#%d %s" % (unit, query))
@@ -114,6 +130,11 @@ def main():
                     if turn == 0 or not ok:
                         print("  %-5s %-22s %-14r %5.0f ms  %s"
                               % (query, MEANING[query], reply, 1000 * seconds, text))
+            if args.remote:
+                os.write(fd, ("#%d GTL\r" % unit).encode("ascii"))    # no reply (manual 7-2)
+                time.sleep(0.2)
+                reply, complete, seconds = ask(fd, "#%d STS" % unit)
+                print("  sent GTL (back to the front panel); STS now %r" % reply)
     finally:
         os.close(fd)
 

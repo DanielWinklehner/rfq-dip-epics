@@ -21,8 +21,8 @@
 # reach into this file, so without it a failing line here would not stop the startup.
 on error break
 
-# Matsusada AU supplies, optical chain behind the USB-OPT adapter (source, puller)
-# Device name: no udev rule; Windows saw no serial number over USB: by-path name
+# Matsusada AU supplies, the line on which units 1 and 2 answer (source, puller)
+# Device name: EPICS/ioc/host/99-mist2-matsusada.rules, by the USB socket (no serial number)
 drvAsynSerialPortConfigure("mat_opt","/dev/mist2/usb-opt")
 asynSetOption("mat_opt",-1,"baud","9600")
 asynSetOption("mat_opt",-1,"bits","8")
@@ -31,8 +31,8 @@ asynSetOption("mat_opt",-1,"stop","1")
 asynSetOption("mat_opt",-1,"clocal","Y")
 asynSetOption("mat_opt",-1,"crtscts","N")
 
-# Matsusada AU supplies, optical chain behind the CO-U32 adapter (lenses)
-# Device name: EPICS/ioc/host/99-mist2-matsusada.rules, if the adapter reports its serial number
+# Matsusada AU supplies, the line on which units 3 and 4 answer (lenses)
+# Device name: EPICS/ioc/host/99-mist2-matsusada.rules, by the USB socket (no serial number)
 drvAsynSerialPortConfigure("mat_co","/dev/mist2/co-u32")
 asynSetOption("mat_co",-1,"baud","9600")
 asynSetOption("mat_co",-1,"bits","8")

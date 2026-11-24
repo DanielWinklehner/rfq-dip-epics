@@ -152,35 +152,42 @@ computer (A22).
 those names come from a rule file by serial number (step 3); replace every other one with the
 real name before the device is used.
 
-1. **Matsusada adapters.** They get no serial port without the rule file:
+1. **Matsusada adapters.** They get no serial port without the rule file. Seen on the rack
+   server on 2026-11-24: both report `1192:1000`, the kernel's driver takes them, and neither
+   reports a serial number, so the rule file names them by their USB socket. Copy the rule
+   file again (it changed that day), then pull both adapters and plug them into the same
+   sockets:
 
    ```bash
    sudo cp rfq-dip-epics/EPICS/ioc/host/99-mist2-matsusada.rules /etc/udev/rules.d/ && sudo udevadm control --reload
    ```
 
-   Plug both adapters in again, then:
-
    ```bash
-   lsusb -d 1192: ; ls -l /dev/mist2/ /dev/serial/by-id/
+   ls -l /dev/mist2/
    ```
 
-   Expected: `1192:1000` for each adapter. Windows remembers three such devices, all without
-   a serial number over USB (2026-11-24), so expect no `/dev/mist2/co-u32` and no separate
-   names under `by-id`: take each adapter's name from `ls -l /dev/serial/by-path/` (it
-   belongs to the USB socket, so keep each adapter in its socket) and put it into the
-   `mat_co` and `mat_opt` lines of `ports.real.cmd`. Which adapter is which: plug one in
-   at a time.
-2. **Read-only first contact**, before any IOC, outputs off:
+   Expected: `co-u32` (the line on which units 3 and 4 answered, socket 1.2) and `usb-opt`
+   (units 1 and 2, socket 1.1). `ports.real.cmd` opens these two names, so it needs no edit
+   for them. The names by socket are not tested: if one is missing, send me
+   `udevadm info -q property -n /dev/ttyUSB0 | grep ID_PATH`.
+2. **First contact without an IOC**, outputs off. Read-only:
 
    ```bash
    rfq-dip-epics/EPICS/ioc/host/matsusada_probe.py /dev/mist2/co-u32 3 4
    ```
 
-   and the same with the USB-OPT's name and `1 2`. It sends queries only, no set command and
-   no `REN`, and says for each reply whether it has the form the protocol file expects.
-   Compare the values with the front panels. **The status reply must be `#<unit>` and `CO RM`,
-   `CF RM`, `CO LO` or `CF LO`:** since T22 every state read checks it (A41). Then once with
-   `--repeat 100`: the reply times decide whether the 150 ms reply timeout holds (A6, P52).
+   and the same with `/dev/mist2/usb-opt 1 2`. Seen on 2026-11-24, with the supplies under
+   local control: the status reply has the form the protocol files check (`#3 CF LO`), the
+   monitors answer, a reply is complete after 31 to 35 ms, and the settings (`SW?`, `CH0?`,
+   `CH1?`) are **not** answered. Under remote control, as the IOC uses the supplies:
+
+   ```bash
+   rfq-dip-epics/EPICS/ioc/host/matsusada_probe.py /dev/mist2/co-u32 3 4 --remote
+   ```
+
+   This sends `REN` to each unit, asks the same six queries, sends `GTL` (back to the front
+   panel) and asks the status once more. Neither command sets a voltage, a current or the
+   output. All six must answer now; the IOC needs the three settings.
 3. **The devices with a serial number** (Windows' list of 2026-11-24 with the lab's `st.cmd`,
    `reference/lab-2026`): gauge controller, interlock box, valve box and MFC get their names
    from `99-mist2-serial.rules`:
