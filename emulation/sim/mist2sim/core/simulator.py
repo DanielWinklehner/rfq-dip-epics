@@ -31,7 +31,11 @@ class _All:
 ALL = _All()          # route(): the request is for every unit (broadcast)
 REQUIRED = object()   # OPTIONS: this option has no default and must be given
 
-FAULT_MODES = ("silent", "close", "garbage", "trip", "slow")
+FAULT_MODES = ("silent", "close", "garbage", "trip", "slow", "slow_second")
+# slow         every reply (of the unit) comes `ms` later while the fault lasts
+# slow_second  the second reply (of the unit) after the fault was set comes `ms` later, once;
+#              then the fault ends by itself. For a protocol that asks twice in one exchange
+#              (the Matsusada status check before a query, task T22): its second reply late.
 
 LINE_DEFAULTS = {
     "baud": 9600,
@@ -253,15 +257,17 @@ class Simulator:
         if duration is not None and (isinstance(duration, bool) or
                                      not isinstance(duration, numbers.Real) or duration <= 0):
             raise ValueError("duration must be a positive number of seconds")
-        if mode == "slow":
+        if mode in ("slow", "slow_second"):
             if isinstance(ms, bool) or not isinstance(ms, numbers.Real) or ms < 0:
-                raise ValueError("slow needs ms, the extra delay in milliseconds")
+                raise ValueError("%s needs ms, the extra delay in milliseconds" % mode)
         elif ms is not None:
-            raise ValueError("ms is only for mode slow")
+            raise ValueError("ms is only for modes slow and slow_second")
         if mode == "trip":
             self.trip(unit)           # may raise Unsupported
         fault = {"mode": mode, "unit": unit, "ms": ms,
                  "until": None if duration is None else self.clock.now() + duration}
+        if mode == "slow_second":
+            fault["replies"] = 0      # replies of the unit seen since the fault was set
         self.faults.append(fault)
         self.log.info("fault %s%s%s", mode, "" if unit is None else " unit %s" % unit,
                       "" if duration is None else " for %g s" % duration)
@@ -332,7 +338,7 @@ class Simulator:
                     targets = [self.find_unit(target)]
                 except KeyError:
                     return [], 0.0     # no such address on the bus: nobody answers
-            out, extra = [], 0.0
+            out, extra, done = [], 0.0, []
             for unit in targets:
                 if self.faulted("silent", unit):
                     self.stats.count(unit, False)
@@ -348,8 +354,15 @@ class Simulator:
                 for f in self.faults:
                     if f["mode"] == "slow" and (f["unit"] is None or f["unit"] == unit):
                         extra = max(extra, f["ms"] / 1000.0)
+                    if f["mode"] == "slow_second" and lines and \
+                            (f["unit"] is None or f["unit"] == unit):
+                        f["replies"] += 1
+                        if f["replies"] == 2:
+                            extra = max(extra, f["ms"] / 1000.0)
+                            done.append(f)
                 self.stats.count(unit, bool(lines))
                 out += lines
+            self._remove([f for f in done if f in self.faults])
         except Exception:
             self.log.exception("device error on request %r", request)
             return [], 0.0

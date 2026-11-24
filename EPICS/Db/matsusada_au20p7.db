@@ -34,9 +34,14 @@
 # setting back in the same protocol and compares it: a supply that does not answer or does not
 # execute the set turns the set record INVALID (TIMEOUT or CALC). The echo record (:get) is read
 # after every set as well.
+# Every protocol whose reply is copied or compared as a state or a setting (the probe, the
+# echoes, SW?, the read-backs of sets and switching) first sends STS to the same unit and checks
+# the unit number in its reply; only then its own query. The replies to the other queries carry
+# no unit number, so a late reply of another supply would otherwise be taken as this one's (P49,
+# task T22, see the protocol file). The monitors (MN1, MN2) are not checked.
 #
-# First contact. Until a supply has answered once after the IOC start, _init:probe sends REN and
-# SW? every SCAN_STS. At the first valid answer the output state is taken over into
+# First contact. Until a supply has answered once after the IOC start, _init:probe sends REN,
+# STS (the unit number checked) and SW? every SCAN_STS. At the first valid answer the output state is taken over into
 # ToggleOutput, the request and OutputIntlk (nothing is sent) and the probe stops; then
 # output:init reads the voltage echo, sends the current limit (_limit:apply), and GRACE seconds
 # later OutputIntlk starts to act. At the first valid echo the voltage set point takes over the
@@ -215,7 +220,8 @@ record(dfanout, "$(DEV=AU-20P7)-$(UNITNUM):_poll:done") {
 
 # --- first contact (internal records, _init) --------------------------------------------------
 
-# Until the first answer after the IOC start: REN and SW? every SCAN_STS (and once at PINI).
+# Until the first answer after the IOC start: REN, STS (unit number checked) and SW? every
+# SCAN_STS (and once at PINI).
 # Each answer runs the take-over check _init:otake (supply_first_contact.db), which disables the
 # probe at the first valid one (STAT DISABLE, no alarm).
 record(bi, "$(DEV=AU-20P7)-$(UNITNUM):_init:probe") {
@@ -319,6 +325,7 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):OutputIntlk") {
 
 # Switching sequence. On (mask 5): _out:limit (REN, CH1 <limit>), then ToggleOutput (RST, SW1,
 # SW? compared). Off (mask 6): _out:remote (REN), then ToggleOutput (RST, SW0, SW? compared).
+# (ToggleOutput checks the unit number in an STS reply before its SW?, see below.)
 # So the limit at the supply is right whenever an output goes on, also after a power cycle,
 # and switching off sends no limit.
 record(seq, "$(DEV=AU-20P7)-$(UNITNUM):_out:switch") {
@@ -435,7 +442,8 @@ record(calcout, "$(DEV=AU-20P7)-$(UNITNUM):_permit:enforce") {
     field(OUT,  "$(DEV=AU-20P7)-$(UNITNUM):_out:switch.SELN PP")
 }
 
-# Sends RST (cancel a cut-off) and SW, reads SW? back and compares it, after _out:limit or
+# Sends RST (cancel a cut-off) and SW, checks the unit number in an STS reply (the status check
+# of the protocol file), reads SW? back and compares it, after _out:limit or
 # _out:remote (REN) of the switching sequence. In simulation mode only while the first contact
 # takes it over (supply_first_contact.db). A client that writes ToggleOutput directly bypasses
 # REN and the limit (P28). While the permit is lost such a switch-on lasts until _permit:enforce
@@ -465,7 +473,7 @@ record(bo, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput") {
 #   it was busy, after the one it started to send.
 #   Inputs, NPP database links (read, nothing processed): A ToggleOutput.PACT, B its VAL, C its
 #   RVAL. Every second, if A is 0 and B differs from C, ToggleOutput is processed once (OCAL 1 to
-#   its PROC field, dbDbLink.c 387-389): RST, SW<VAL>, SW? and the compare, as any switching. It
+#   its PROC field, dbDbLink.c 387-389): RST, SW<VAL>, STS, SW? and the compare, as any switching. It
 #   sends the value in the record, on or off, the latest command of whoever wrote it. It changes
 #   no value (neither the request nor the gate) and does not start _out:switch: the REN, and for
 #   an on the limit, went out with the sequence whose last step was stored. L counts the times,
@@ -479,7 +487,7 @@ record(bo, "$(DEV=AU-20P7)-$(UNITNUM):ToggleOutput") {
 #   processes the record (RVAL := VAL), and the queued run finds it busy and does nothing (dbScan.c
 #   715-717, dbAccess.c 536-556); if the queued run comes first, the rule finds PACT 1 or
 #   VAL = RVAL. A second sending would need the once task to be held up for longer than a whole
-#   switching (RST, SW, SW? and its reply on the line).
+#   switching (RST, SW, STS, SW? and their replies on the line).
 #   A value written while busy but before the SW line is formatted (from the start, through the
 #   wait for the line, to the end of the RST's write) is sent by that processing itself (each out
 #   is formatted when it is reached, StreamCore.cc 601-607, from VAL, devboStream.c 104-105); RVAL
@@ -531,7 +539,7 @@ record(mbbi, "$(DEV=AU-20P7)-$(UNITNUM):status:read") {
     field(THSV, "MINOR")
 }
 
-# The SW setting (SW?). It changes only by a switching command, so it is read after each one
+# The SW setting (SW?, after the status check). It changes only by a switching command, so it is read after each one
 # (FLNK of ToggleOutput) and otherwise slowly. Its FLNK reads the current limit back.
 record(bi, "$(DEV=AU-20P7)-$(UNITNUM):read_output_status") {
     field(DESC, "Read output status of $(PORT):$(UNITNUM)")

@@ -6,9 +6,10 @@ import time
 import epics
 import pytest
 
-from mat import AU, CONTROL, POLLED, control
+from mat import AU, CONTROL, LATE, POLLED, control
 
-UNITS = {"mat_opt": [1, 2], "mat_co": [3, 4, 6], "rek": [1], "rek55": [2, 9]}
+UNITS = {"mat_opt": [1, 2], "mat_co": [3, 4, 6], "rek": [1], "rek55": [2, 9],
+         "mat_late": [1, 2, 3], "mat_bang": [1, 2]}
 
 
 def restore():
@@ -27,7 +28,7 @@ def restore():
             problems.append("%s: %s" % (chain, exc))
     epics.caput("interlock_open.ZSV", "NO_ALARM", wait=True, timeout=5)
     epics.caput("interlock_open", 0, wait=True, timeout=5)
-    for d in list(POLLED) + ["AU-20P7-6", "REK-9"]:
+    for d in list(POLLED) + ["AU-20P7-6", "REK-9"] + list(LATE):
         epics.caput(d + ":SetToggleOutput", 0, wait=True, timeout=5)
     t0 = time.monotonic()
     while time.monotonic() - t0 < 5:                # outputs off (not during a GRACE period)

@@ -10,7 +10,8 @@ from mist2sim.control import ControlClient
 
 SIM_HOST = os.environ["SIM_HOST"]
 BUILD = os.environ["DEVTEST_BUILD"]
-CONTROL = {"mat_opt": 6001, "mat_co": 6002, "rek": 6003, "rek55": 6004}   # sim.yaml ports + 1000
+CONTROL = {"mat_opt": 6001, "mat_co": 6002, "rek": 6003, "rek55": 6004,   # sim.yaml ports + 1000
+           "mat_late": 6005, "mat_bang": 6006}
 
 # PV prefix: (simulator, unit, full-scale voltage V, full-scale current in the PV unit, load ohm,
 #             factor from the PV current unit to A)
@@ -26,6 +27,11 @@ UNPOLLED = "AU-20P7-6"                   # loaded with SCAN_MON/GET/STS=Passive,
 AU = ["AU-20P7-1", "AU-20P7-2", "AU-20P7-3", "AU-20P7-4"]
 SIM_OF = {"AU-20P7-6": ("mat_co", 6), "REK-9": ("rek55", 9)}
 SIM_OF.update({k: v[:2] for k, v in POLLED.items()})
+# The lines of test_stray_reply.py (task T22), not in POLLED: LATE-1 and -2 polled, LATE-3 loaded
+# with its scans Passive; BANG-1 and -2 polled, on a line whose units send "!" when they go off.
+LATE = {"LATE-1": ("mat_late", 1), "LATE-2": ("mat_late", 2), "LATE-3": ("mat_late", 3),
+        "BANG-1": ("mat_bang", 1), "BANG-2": ("mat_bang", 2)}
+SIM_OF.update(LATE)
 
 READS = ["voltage:get", "voltage:read", "current:get", "current:read", "power:read",
          "status:read", "read_output_status"]
@@ -97,8 +103,10 @@ def all_valid(prefix, suffixes=SUFFIXES):
 
 
 def not_valid(prefix, suffixes=SUFFIXES):
-    """The PVs of `prefix` with an alarm, for failure messages."""
-    return [s for s in suffixes
+    """The PVs of `prefix` with an alarm, for failure messages (with the alarm status)."""
+    return ["%s (%s)" % (s, epics.caget("%s:%s.STAT" % (prefix, s), as_string=True, timeout=2,
+                                        use_monitor=False))
+            for s in suffixes
             if epics.caget("%s:%s.SEVR" % (prefix, s), timeout=2, use_monitor=False) != 0]
 
 

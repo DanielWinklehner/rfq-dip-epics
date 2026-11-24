@@ -12,8 +12,9 @@
 # Macro:
 #   S     PV prefix of the supply: DEV-UNITNUM of its database (AU-20P7-1, REK-1)
 #
-# Records of the supply that are used: _init:probe (REN and SW? every SCAN_STS until the first
-# answer), ToggleOutput (the switching command, SDLY at its default -1), SetToggleOutput (the
+# Records of the supply that are used: _init:probe (REN, STS with the unit number checked, and
+# SW? every SCAN_STS until the first answer; a reply of another supply on the line fails the
+# check, P49), ToggleOutput (the switching command, SDLY at its default -1), SetToggleOutput (the
 # operator's request), OutputIntlk (the permit gate, disabled at the start), output:init (what
 # follows the take-over: a seq, see below), voltage:get (the echo of the voltage setting),
 # voltage:setpoint (SIMM YES in the database, SDLY at its default -1).

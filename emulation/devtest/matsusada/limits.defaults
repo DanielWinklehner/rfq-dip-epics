@@ -9,4 +9,9 @@ AU-20P7-6:current:limit 2.5
 REK-1:current:limit 24
 REK-2:current:limit 55
 REK-9:current:limit 55
+LATE-1:current:limit 7.5
+LATE-2:current:limit 7.5
+LATE-3:current:limit 7.5
+BANG-1:current:limit 7.5
+BANG-2:current:limit 7.5
 <END>
