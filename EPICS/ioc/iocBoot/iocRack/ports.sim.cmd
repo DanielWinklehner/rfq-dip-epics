@@ -20,9 +20,6 @@ drvAsynIPPortConfigure("AIM","sim-rack:5003")
 # Gauge controller for APG and AIM, Arduino, libcom1
 drvAsynIPPortConfigure("AVR6","sim-rack:5006")
 
-# Sensor box (temperatures and water flows), Arduino, libcom1
-drvAsynIPPortConfigure("AVR10","sim-rack:5010")
-
 # Old interlock box, Arduino, libcom1
 drvAsynIPPortConfigure("AVR11","sim-rack:5011")
 
@@ -32,8 +29,11 @@ drvAsynIPPortConfigure("AVR12","sim-rack:5012")
 # MKS GV50A mass flow controller, RS-485
 drvAsynIPPortConfigure("MFC","sim-rack:5013")
 
-# Faraday cup readout, Arduino Opta, libcom1 over TCP
-drvAsynIPPortConfigure("FC","sim-rack:5030")
+# Faraday cup readout, Arduino Opta, libcom1 protocol 1 (the lab's COM16)
+drvAsynIPPortConfigure("AVR16","sim-rack:5016")
+
+# Cooling water flow meters, Arduino Opta, libcom1 protocol 1 (the lab's COM23)
+drvAsynIPPortConfigure("AVR23","sim-rack:5023")
 
 # Turbopump Opta (both NT 20), libcom1 over TCP
 drvAsynIPPortConfigure("TURBO","sim-rack:5031")

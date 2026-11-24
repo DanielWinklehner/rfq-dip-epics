@@ -65,35 +65,6 @@
       - {id: p1, access: rw, behaviour: analog, value: 3.0e-2, noise: 1.0e-4, lo: 1.0e-3, hi: 944.06}
       - {id: p2, access: rw, behaviour: analog, value: 8.0e-7, noise: 4.0e-9, lo: 7.5e-9, hi: 7.5e-3}
 
-# --- Sensor box: 7 temperatures and 5 water flows, Arduino Mega, libcom1 (asyn port AVR10) ------
-- name: sensorbox
-  type: libcom1
-  port: 5010
-  baud: 115200
-  bits_per_char: 10
-  turnaround_ms: 1            # ASSUMED
-  in_terminator: "\n"
-  out_terminator: "\r\n"
-  options:
-    identity: SensorBox
-    firmware: "Nov 21 2026"
-    number_format: avr
-    out_buffer: 192
-    in_buffer: 128
-    channels:
-      - {id: t1, access: rw, behaviour: analog, value: 24.0, noise: 0.05, step: 0.0078125}
-      - {id: t2, access: rw, behaviour: analog, value: 25.0, noise: 0.05, step: 0.0078125}
-      - {id: t3, access: rw, behaviour: analog, value: 26.0, noise: 0.05, step: 0.0078125}
-      - {id: t4, access: rw, behaviour: analog, value: 27.0, noise: 0.05, step: 0.0078125}
-      - {id: t5, access: rw, behaviour: analog, value: 28.0, noise: 0.05, step: 0.0078125}
-      - {id: t6, access: rw, behaviour: analog, value: 29.0, noise: 0.05, step: 0.0078125}
-      - {id: t7, access: rw, behaviour: analog, value: 30.0, noise: 0.05, step: 0.0078125}
-      - {id: f1, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.06}    # not connected
-      - {id: f2, access: rw, behaviour: analog, value: 3.0, noise: 0.06, lo: 0, step: 0.06}   # turbo pump
-      - {id: f3, access: rw, behaviour: analog, value: 2.4, noise: 0.06, lo: 0, step: 0.06}   # front plate
-      - {id: f4, access: rw, behaviour: analog, value: 1.8, noise: 0.06, lo: 0, step: 0.06}   # Faraday cup
-      - {id: f5, access: rw, behaviour: analog, value: 0.0, noise: 0.0, lo: 0, step: 0.06}    # not connected
-
 # --- Old interlock box: two door switches, Arduino Mega, libcom1 (asyn port AVR11) --------------
 # i1, i2: 1 = door closed. s1, s2: relays of the box, not used by any database.
 - name: interlockbox
@@ -153,21 +124,53 @@
       # 5 sccm full scale, calibrated for hydrogen (owner, 2026-11-21)
       - {address: 254, full_scale: 5.0, flow_units: SCCM, gas: H2, tau_s: 1.0}
 
-# --- Faraday cup readout, Arduino Opta, libcom1 over TCP (asyn port FC) -------------------------
-# ASSUMED in full: the firmware is not known. One channel with the cup current in A.
+# --- Faraday cup readout, Arduino Opta on USB serial, libcom1 protocol 1 (asyn port AVR16) -------
+# The lab's IOC.faraday.db and st.cmd (reference/lab-2026): COM16, 115200 8N1, two values i1, i2.
+# Protocol 1: the library on the rack computer had no protocol 2 (reference/lab-2026/README.md).
+# NOT KNOWN: the sketch, the channel identifiers, what i1 and i2 are and their unit. ASSUMED here:
+# channels i1, i2 (the record names); i1 is the cup current in A, driven by the plant model
+# (plant.yaml); i2 is a constant 0.
 - name: faradaycup
   type: libcom1
-  port: 5030
-  baud: 115200                # TCP: only sets the reply delay of the simulator
-  turnaround_ms: 1
+  port: 5016
+  baud: 115200
+  bits_per_char: 10           # 8N1 as ports.real.cmd opens the port; an Opta's USB serial ignores it
+  turnaround_ms: 1            # ASSUMED
   in_terminator: "\n"
-  out_terminator: "\n"
+  out_terminator: "\r\n"      # Serial.println, as in the lab's sketches (ASSUMED for this one)
   options:
-    identity: FaradayCupOpta
-    firmware: "placeholder"
-    number_format: g
+    protocol: 1
+    number_format: g          # %g, Arduino Opta (ARM)
+    out_buffer: 128           # ASSUMED, as the flow meter sketch
+    in_buffer: 128
     channels:
-      - {id: c1, access: r, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}
+      - {id: i1, access: rw, behaviour: analog, value: 1.0e-6, noise: 2.0e-9}   # ASSUMED: cup current, A
+      - {id: i2, access: rw, behaviour: constant, value: 0.0}                   # ASSUMED: meaning unknown
+
+# --- Cooling water flow meters, Arduino Opta on USB serial, libcom1 protocol 1 (asyn port AVR23) -
+# reference/lab-2026/AVR/devices/FlowMeters/FlowMeters.ino and the lab's st.cmd: COM23, 115200 8N1,
+# five channels f1..f5 in l/min (pulses of 0.5 s times 0.095238), each with a dummy setter (rw).
+# Which circuit each meter is: not known. The values are a free choice within 0.25 to 2 l/min
+# per branch (plan/controls.yaml), in steps of one pulse per 0.5 s.
+- name: flowmeters
+  type: libcom1
+  port: 5023
+  baud: 115200
+  bits_per_char: 10           # 8N1 as ports.real.cmd opens the port; an Opta's USB serial ignores it
+  turnaround_ms: 1            # ASSUMED
+  in_terminator: "\n"          # Serial.readBytesUntil('\n')
+  out_terminator: "\r\n"      # Serial.println
+  options:
+    protocol: 1
+    number_format: g          # %g, Arduino Opta (ARM)
+    out_buffer: 128           # IOHandler<128>, SerialDevice<128, 5>
+    in_buffer: 128            # serial_in_buffer[128], readBytesUntil(..., 127)
+    channels:
+      - {id: f1, access: rw, behaviour: analog, value: 1.0, noise: 0.05, lo: 0, step: 0.095238}
+      - {id: f2, access: rw, behaviour: analog, value: 1.0, noise: 0.05, lo: 0, step: 0.095238}
+      - {id: f3, access: rw, behaviour: analog, value: 1.0, noise: 0.05, lo: 0, step: 0.095238}
+      - {id: f4, access: rw, behaviour: analog, value: 1.0, noise: 0.05, lo: 0, step: 0.095238}
+      - {id: f5, access: rw, behaviour: analog, value: 1.0, noise: 0.05, lo: 0, step: 0.095238}
 
 # --- Turbopump Opta: run relays and status contacts of both NT 20 (asyn port TURBO) -------------
 # Channel map as defined in EPICS/Db/turbo.db. The contacts are driven by nt20_1 and nt20_2.

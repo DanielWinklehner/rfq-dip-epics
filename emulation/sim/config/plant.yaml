@@ -31,10 +31,9 @@ links:
   aim:          {host: sim-rack, port: 6003}
   gauges:       {host: sim-rack, port: 6006}
   mat_opt:      {host: sim-rack, port: 6008}
-  sensorbox:    {host: sim-rack, port: 6010}
   valvebox:     {host: sim-rack, port: 6012}
   mfc:          {host: sim-rack, port: 6013}
-  faradaycup:   {host: sim-rack, port: 6030}
+  faradaycup:   {host: sim-rack, port: 6016}
   nt20_1:       {host: sim-rack, port: 6032}
 
 # What the plant reads: model input <- <simulator>.<signal>, times `scale`.
@@ -62,18 +61,11 @@ outputs:
   mat_opt.1.load_ohm:  source_load
   aim.pressure:        aim_reading               # nAIM on the cross, torr (N2 calibrated)
   gauges.p1:           apg_reading               # APG on the cross, torr (floor 1e-3)
-  faradaycup.c1:       cup_current               # A
+  faradaycup.i1:       cup_current               # A. ASSUMED: i1 of FC1 is the cup current in A (rack.yaml)
   thermocouple.t1:     back_plate_temperature    # deg C
   thermocouple.t2:     feedthrough_temperature
   thermocouple.t3:     transformer1_temperature
   thermocouple.t4:     transformer2_temperature
-  sensorbox.t1:        water_temperatures.t1     # stand-in for the cooling water readout
-  sensorbox.t2:        water_temperatures.t2
-  sensorbox.t3:        water_temperatures.t3
-  sensorbox.t4:        water_temperatures.t4
-  sensorbox.t5:        water_temperatures.t5
-  sensorbox.t6:        water_temperatures.t6
-  sensorbox.t7:        water_temperatures.t7
 
 # The model. Every entry: value, unit, source.
 model:
@@ -137,7 +129,8 @@ model:
   transformer2_rated_w:    {value: 3600.0, unit: W, source: "free choice: transformer 2 (t4) feeds the discharge supply, rating of the REK150-24 (150 V x 24 A)"}
   transformer1_base_c:     {value: 35.0, unit: degC, source: "free choice: the constant of thermocouple t3 today (hv.yaml)"}
   transformer2_base_c:     {value: 33.0, unit: degC, source: "free choice: the constant of thermocouple t4 today (hv.yaml)"}
-  # --- cooling water (sensor box as a stand-in for the future water readout) --------------------
+  # --- cooling water: computed, read by no simulator since the sensor box left the rack IOC ---
+  # (T26: the lab's flow meters on an Opta replace it and measure flows only)
   water_tau_s:             {value: 40.0, unit: s, source: "free choice: minutes in reality, short so that a desk session sees an effect within a minute"}
   water_flow_l_min:        {value: 1.0, unit: l/min, source: "estimate: within 0.25 to 2 l/min per branch (plan/controls.yaml)"}
   water_heat_fraction:     {value: 0.3, unit: "1", source: "estimate: share of the heat power each sensor box channel sees (which sensor sits where is not known)"}

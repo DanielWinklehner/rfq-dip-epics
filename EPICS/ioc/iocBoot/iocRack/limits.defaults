@@ -7,7 +7,7 @@
 #
 # OWNER: these are the full scales of the supplies, not limits for operation. Put the real limits
 # here (or set them from the GUI, which saves them).
-AU-20P7-1:current:limit 15
+AU-20P15-1:current:limit 15
 AU-20P7-2:current:limit 7.5
 AU-20P7-3:current:limit 7.5
 AU-20P7-4:current:limit 7.5

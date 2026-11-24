@@ -127,9 +127,9 @@ class PlantProcessTest(unittest.TestCase):
         self.device("mat_opt", "#1 REN", "#1 VCN 75", "#1 ICN 100", "#1 SW1",
                     "#2 REN", "#2 VCN 15", "#2 ICN 100", "#2 SW1")
         self.assertTrue(wait_until(lambda: self.plant_get("beam_current") > 1e-4, 3))
-        self.assertEqual(values(self.ctl("faradaycup"), "c1")[0], 0.0)
+        self.assertEqual(values(self.ctl("faradaycup"), "i1")[0], 0.0)
         self.device("valvebox", "Ss41")
-        self.assertTrue(wait_until(lambda: values(self.ctl("faradaycup"), "c1")[0] > 1e-4, 3))
+        self.assertTrue(wait_until(lambda: values(self.ctl("faradaycup"), "i1")[0] > 1e-4, 3))
         # the source supply delivers beam plus leakage
         self.assertTrue(wait_until(lambda: abs(values(self.ctl("mat_opt"), "1.iout")[0]
                                                / self.plant_get("source_current") - 1) < 0.02, 3))
@@ -184,7 +184,7 @@ class PlantProcessTest(unittest.TestCase):
             self.assertFalse(values(self.ctl(sim))[sig]["external"], target)
         self.assertEqual(values(self.ctl("tdk"), "load_ohm")[0], 0.089)
         self.assertEqual(values(self.ctl("rek"), "1.load_ohm")[0], 5.0)
-        self.assertEqual(values(self.ctl("faradaycup"), "c1")[0], 1.0e-6)
+        self.assertEqual(values(self.ctl("faradaycup"), "i1")[0], 1.0e-6)
         self.assertEqual(values(self.ctl("thermocouple"), "t1")[0], 41.0)
         self.assertEqual(values(self.ctl("gauges"), "p1")[0], 3.0e-2)
         self.assertLess(aim(), 1e-5)

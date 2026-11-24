@@ -26,14 +26,16 @@ dbLoadRecords("$(MIST2_DB)/ioc_info.db", "P=IOC-RACK")
 dbLoadRecords("$(MIST2_DB)/logger_status.db", "P=LOGGER")
 
 ## Devices
-## Prefixes are those of the lab's IOC of 2023 (reference/lab-2023/EPICS/st.cmd).
+## Prefixes are those of the lab's IOC of 2023 (reference/lab-2023/EPICS/st.cmd) and of its last
+## state, copied on 2026-11-24 (reference/lab-2026/EPICS/st.cmd).
 
 # High-voltage supplies Matsusada AU, four on two optical chains (owner, 2026-11-21). The PV
-# name is built from the unit number. PERMIT (default interlock_open) forces an output off while
+# name is built from DEV (default AU-20P7) and the unit number. The source supply is an AU20P15
+# and the lab names it AU-20P15-1 (its matsusada_au20p15.db, reference/lab-2026): DEV=AU-20P15. PERMIT (default interlock_open) forces an output off while
 # it is non-zero or INVALID, and clears its request (latch). With each supply its first contact
 # (supply_first_contact.db): output state and voltage setting taken over, nothing sent.
-dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,IFS=15")  # ion source, AU20P15
-dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-1")
+dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=1,DEV=AU-20P15,IFS=15")  # ion source, AU20P15
+dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P15-1")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_opt,UNITNUM=2")         # puller, AU20N7.5
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-2")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=3")          # lens 1, AU20P7.5
@@ -41,7 +43,7 @@ dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-3")
 dbLoadRecords("$(MIST2_DB)/matsusada_au20p7.db", "PORT=mat_co,UNITNUM=4")          # lens 2, AU20N7.5
 dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-4")
 # One command for all outputs off: #AL SW0 on both chains
-dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P7-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-4:SetToggleOutput")
+dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P15-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-4:SetToggleOutput")
 
 # Vacuum gauges: homemade controller for APG and AIM (libcom1), and the Edwards nAIM
 dbLoadRecords("$(MIST2_DB)/pressure.db",       "PORT=AVR6,DEVICE=PRESSURE")
@@ -51,9 +53,9 @@ dbLoadRecords("$(MIST2_DB)/aim.db",            "PORT=AIM,DEVICE=AIM")
 # (first_contact.db): the cold cathode, the valves, the pumps
 dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=AIM,N=enable,REQ=AIM:enable,RB=AIM:_enable:get")
 
-# Sensor box: temperatures and water flows (libcom1)
-dbLoadRecords("$(MIST2_DB)/sensorbox.db",      "PORT=AVR10,DEVICE=SENSOR")
-dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=AVR10,DEVICE=SENSOR")
+# Cooling water: five flow meters on an Arduino Opta (libcom1 protocol 1: no identity records).
+# It replaces the sensor box (sensorbox.db), which the lab's st.cmd of 2026 no longer loads.
+dbLoadRecords("$(MIST2_DB)/flowmeters.db",     "PORT=AVR23,DEVICE=FLOW")
 
 # Old interlock box: two door switches and interlock_open (libcom1)
 dbLoadRecords("$(MIST2_DB)/interlockbox.db",   "PORT=AVR11,DEVICE=INTLK")
@@ -74,9 +76,8 @@ dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=VALVE,N=s8,REQ=VALVE:s8:set,RB=
 # Mass flow controller MKS GV50A (RS-485, address 254)
 dbLoadRecords("$(MIST2_DB)/mfc.db",            "PORT=MFC,DEVICE=MFC,ADDR=254")
 
-# Faraday cup readout (Arduino Opta, libcom1 over TCP)
-dbLoadRecords("$(MIST2_DB)/faradaycup.db",     "PORT=FC,DEVICE=FC")
-dbLoadRecords("$(MIST2_DB)/libcom1_device.db", "PORT=FC,DEVICE=FC")
+# Faraday cup readout (Arduino Opta on a USB serial line, libcom1 protocol 1: no identity records)
+dbLoadRecords("$(MIST2_DB)/faradaycup.db",     "PORT=AVR16,DEVICE=FC1")
 
 # Turbopumps: one Opta for both Leybold NT 20 (libcom1 over TCP), one listen-only port per pump
 dbLoadRecords("$(MIST2_DB)/turbo.db",          "PORT=TURBO,DEVICE=TURBO")
