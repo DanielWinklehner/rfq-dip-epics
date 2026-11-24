@@ -1643,16 +1643,16 @@
    "status": "modify",
    "flags": {},
    "roles": {
-    "vset": "AU-20P7-1:voltage:setpoint",
-    "vget": "AU-20P7-1:voltage:get",
-    "vread": "AU-20P7-1:voltage:read",
-    "ilimit": "AU-20P7-1:current:limit",
-    "ilimit_get": "AU-20P7-1:current:get",
-    "iread": "AU-20P7-1:current:read",
-    "power": "AU-20P7-1:power:read",
-    "out_cmd": "AU-20P7-1:SetToggleOutput",
-    "status": "AU-20P7-1:status:read",
-    "out_state": "AU-20P7-1:read_output_status"
+    "vset": "AU-20P15-1:voltage:setpoint",
+    "vget": "AU-20P15-1:voltage:get",
+    "vread": "AU-20P15-1:voltage:read",
+    "ilimit": "AU-20P15-1:current:limit",
+    "ilimit_get": "AU-20P15-1:current:get",
+    "iread": "AU-20P15-1:current:read",
+    "power": "AU-20P15-1:power:read",
+    "out_cmd": "AU-20P15-1:SetToggleOutput",
+    "status": "AU-20P15-1:status:read",
+    "out_state": "AU-20P15-1:read_output_status"
    },
    "simulators": [
     "mat_opt:1"
@@ -1663,18 +1663,19 @@
      "macros": {
       "PORT": "mat_opt",
       "UNITNUM": "1",
+      "DEV": "AU-20P15",
       "IFS": "15"
      }
     },
     {
      "db": "supply_first_contact.db",
      "macros": {
-      "S": "AU-20P7-1"
+      "S": "AU-20P15-1"
      }
     }
    ],
    "pvs": {
-    "AU-20P7-1:voltage:setpoint": {
+    "AU-20P15-1:voltage:setpoint": {
      "type": "ao",
      "access": "w",
      "egu": "V",
@@ -1686,11 +1687,11 @@
      ],
      "ack": false,
      "note": "until the first contact with the supply after an IOC start a write is not sent (simulation mode); then the set point takes over the supply's setting",
-     "readback": "AU-20P7-1:voltage:get",
+     "readback": "AU-20P15-1:voltage:get",
      "log": "events",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:voltage:get": {
+    "AU-20P15-1:voltage:get": {
      "type": "ai",
      "access": "r",
      "egu": "V",
@@ -1705,7 +1706,7 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:voltage:read": {
+    "AU-20P15-1:voltage:read": {
      "type": "ai",
      "access": "r",
      "egu": "V",
@@ -1720,13 +1721,13 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:current:limit": {
+    "AU-20P15-1:current:limit": {
      "type": "ao",
      "access": "w",
      "egu": "mA",
      "desc": "Current limit of mat_opt:1",
      "aliases": [
-      "AU-20P7-1:current:setpoint"
+      "AU-20P15-1:current:setpoint"
      ],
      "role": "ilimit",
      "test": [
@@ -1735,11 +1736,11 @@
      ],
      "ack": false,
      "note": "the current LIMIT (alias current:setpoint, the lab's name). Restored at the start by autosave and sent at the first contact, on every write, with every switch-on, and every 5 s while not applied. A write is also saved (limits.sav, within 5 s): a test reads the value first and writes it back. Test range in mA, within the full scale of every AU (7.5 or 15 mA)",
-     "readback": "AU-20P7-1:current:get",
+     "readback": "AU-20P15-1:current:get",
      "log": "events",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:current:get": {
+    "AU-20P15-1:current:get": {
      "type": "ai",
      "access": "r",
      "egu": "mA",
@@ -1754,7 +1755,7 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:current:read": {
+    "AU-20P15-1:current:read": {
      "type": "ai",
      "access": "r",
      "egu": "mA",
@@ -1769,7 +1770,7 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:power:read": {
+    "AU-20P15-1:power:read": {
      "type": "calc",
      "access": "r",
      "egu": "W",
@@ -1783,35 +1784,35 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:_poll:tick": {
+    "AU-20P15-1:_poll:tick": {
      "type": "calcout",
      "access": "r",
      "desc": "Monitor tick (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_poll:gate": {
+    "AU-20P15-1:_poll:gate": {
      "type": "calcout",
      "access": "r",
      "desc": "Starts a monitor cycle (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_poll:start": {
+    "AU-20P15-1:_poll:start": {
      "type": "fanout",
      "access": "r",
      "desc": "Starts the monitor reads (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_poll:done": {
+    "AU-20P15-1:_poll:done": {
      "type": "dfanout",
      "access": "r",
      "desc": "End of a monitor cycle (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:probe": {
+    "AU-20P15-1:_init:probe": {
      "type": "bi",
      "access": "r",
      "desc": "First contact: REN, SW? (internal)",
@@ -1823,28 +1824,28 @@
      "log": "none",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:output:init": {
+    "AU-20P15-1:output:init": {
      "type": "seq",
      "access": "r",
      "desc": "First contact: echo, limit, gate",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_limit:apply": {
+    "AU-20P15-1:_limit:apply": {
      "type": "calcout",
      "access": "r",
      "desc": "Sends a limit not yet applied (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_limit:send": {
+    "AU-20P15-1:_limit:send": {
      "type": "fanout",
      "access": "r",
      "desc": "Sends the current limit (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:SetToggleOutput": {
+    "AU-20P15-1:SetToggleOutput": {
      "type": "bo",
      "access": "w",
      "desc": "Set value for enabling PS output",
@@ -1859,10 +1860,10 @@
      ],
      "ack": false,
      "note": "latches: losing the permit switches the output off and sets this to 0, a 1 written while the permit is lost is cleared at once, nothing switches on by itself. The permit acts 5 s after the first contact. On: REN, limit, RST, SW1; off: REN, RST, SW0. While the permit is lost and the supply reports its output on (a direct write of ToggleOutput, the front panel, a lost off command), the off sequence is sent again every 2 s (_permit:enforce, which counts them). A request that follows the previous one within the switching time (some tens of ms) is not lost: it is sent when the switching record is free, within 1 s (_out:resend)",
-     "readback": "AU-20P7-1:read_output_status",
+     "readback": "AU-20P15-1:read_output_status",
      "log": "events"
     },
-    "AU-20P7-1:_permit:read": {
+    "AU-20P15-1:_permit:read": {
      "type": "ai",
      "access": "r",
      "desc": "Output permit as seen here (internal)",
@@ -1875,7 +1876,7 @@
       "interlockbox"
      ]
     },
-    "AU-20P7-1:OutputIntlk": {
+    "AU-20P15-1:OutputIntlk": {
      "type": "calcout",
      "access": "r",
      "desc": "Forces the output off, permit open",
@@ -1888,14 +1889,14 @@
       "interlockbox"
      ]
     },
-    "AU-20P7-1:_out:switch": {
+    "AU-20P15-1:_out:switch": {
      "type": "seq",
      "access": "r",
      "desc": "Switching sequence (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_out:limit": {
+    "AU-20P15-1:_out:limit": {
      "type": "bo",
      "access": "w",
      "desc": "Switch on: REN, current limit (internal)",
@@ -1903,7 +1904,7 @@
      "log": "none",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:_out:remote": {
+    "AU-20P15-1:_out:remote": {
      "type": "bo",
      "access": "w",
      "desc": "Switch off: REN (internal)",
@@ -1911,21 +1912,21 @@
      "log": "none",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:_permit:latch": {
+    "AU-20P15-1:_permit:latch": {
      "type": "calcout",
      "access": "r",
      "desc": "Permit lost: request := 0 (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_permit:enforce": {
+    "AU-20P15-1:_permit:enforce": {
      "type": "calcout",
      "access": "r",
      "desc": "Off again while permit lost (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:ToggleOutput": {
+    "AU-20P15-1:ToggleOutput": {
      "type": "bo",
      "access": "w",
      "desc": "Toggle the status of the PS output",
@@ -1937,14 +1938,14 @@
      "log": "none",
      "sim": "mat_opt:1"
     },
-    "AU-20P7-1:_out:resend": {
+    "AU-20P15-1:_out:resend": {
      "type": "calcout",
      "access": "r",
      "desc": "Resends a stored switching (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:status:read": {
+    "AU-20P15-1:status:read": {
      "type": "mbbi",
      "access": "r",
      "desc": "Read status of mat_opt:1",
@@ -1965,7 +1966,7 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:read_output_status": {
+    "AU-20P15-1:read_output_status": {
      "type": "bi",
      "access": "r",
      "desc": "Read output status of mat_opt:1",
@@ -1983,49 +1984,49 @@
       "mat_opt:1"
      ]
     },
-    "AU-20P7-1:_init:otake": {
+    "AU-20P15-1:_init:otake": {
      "type": "calcout",
      "access": "r",
      "desc": "Output take-over check (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:otake:on": {
+    "AU-20P15-1:_init:otake:on": {
      "type": "dfanout",
      "access": "r",
      "desc": "Output take-over SIMM on (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:otake:copy": {
+    "AU-20P15-1:_init:otake:copy": {
      "type": "dfanout",
      "access": "r",
      "desc": "Output take-over copy (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:otake:off": {
+    "AU-20P15-1:_init:otake:off": {
      "type": "dfanout",
      "access": "r",
      "desc": "Output take-over SIMM off (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:vtake": {
+    "AU-20P15-1:_init:vtake": {
      "type": "calcout",
      "access": "r",
      "desc": "Voltage take-over check (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:vtake:copy": {
+    "AU-20P15-1:_init:vtake:copy": {
      "type": "dfanout",
      "access": "r",
      "desc": "Voltage take-over copy (internal)",
      "internal": true,
      "log": "none"
     },
-    "AU-20P7-1:_init:vtake:off": {
+    "AU-20P15-1:_init:vtake:off": {
      "type": "dfanout",
      "access": "r",
      "desc": "Voltage take-over SIMM off (internal)",
@@ -3256,7 +3257,7 @@
      "macros": {
       "PORT1": "mat_opt",
       "PORT2": "mat_co",
-      "R1": "AU-20P7-1:SetToggleOutput",
+      "R1": "AU-20P15-1:SetToggleOutput",
       "R2": "AU-20P7-2:SetToggleOutput",
       "R3": "AU-20P7-3:SetToggleOutput",
       "R4": "AU-20P7-4:SetToggleOutput"
@@ -5191,354 +5192,154 @@
     }
    }
   },
-  "sensorbox": {
-   "name": "Sensor box (temperatures and flows)",
-   "model": "Arduino based",
+  "flow_opta": {
+   "name": "Flow meter readout",
+   "model": "Arduino Opta, five pulse flow meters (1260 pulses per litre by the sketch)",
    "class": "reading",
    "subsystem": "cooling",
    "page": "Cooling and interlocks",
    "ioc": "ioc_rack",
-   "status": "tbd",
-   "flags": {
-    "assumed": "Stand-in: the cooling water is read by an Arduino Opta whose firmware and channels are not known yet"
-   },
-   "roles": {
-    "id": "SENSOR:id",
-    "firmware": "SENSOR:firmware",
-    "channel_list": "SENSOR:channels"
-   },
+   "status": "modify",
+   "flags": {},
+   "roles": {},
    "channels": {
-    "t1": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t1:gettemp"
-     }
-    },
-    "t2": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t2:gettemp"
-     }
-    },
-    "t3": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t3:gettemp"
-     }
-    },
-    "t4": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t4:gettemp"
-     }
-    },
-    "t5": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t5:gettemp"
-     }
-    },
-    "t6": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t6:gettemp"
-     }
-    },
-    "t7": {
-     "label": null,
-     "roles": {
-      "value": "SENSOR:t7:gettemp"
-     }
-    },
     "f1": {
-     "label": null,
-     "spare": true,
+     "label": "Flow 1",
      "roles": {
-      "value": "SENSOR:f1:getflow"
+      "value": "FLOW:f1:getflow"
      }
     },
     "f2": {
-     "label": "Turbo pump",
+     "label": "Flow 2",
      "roles": {
-      "value": "SENSOR:f2:getflow"
+      "value": "FLOW:f2:getflow"
      }
     },
     "f3": {
-     "label": "Front Plate",
+     "label": "Flow 3",
      "roles": {
-      "value": "SENSOR:f3:getflow"
+      "value": "FLOW:f3:getflow"
      }
     },
     "f4": {
-     "label": "Faraday Cup 1",
+     "label": "Flow 4",
      "roles": {
-      "value": "SENSOR:f4:getflow"
+      "value": "FLOW:f4:getflow"
      }
     },
     "f5": {
-     "label": null,
-     "spare": true,
+     "label": "Flow 5",
      "roles": {
-      "value": "SENSOR:f5:getflow"
+      "value": "FLOW:f5:getflow"
      }
     }
    },
    "simulators": [
-    "sensorbox"
+    "flowmeters"
    ],
    "loads": [
     {
-     "db": "sensorbox.db",
+     "db": "flowmeters.db",
      "macros": {
-      "PORT": "AVR10",
-      "DEVICE": "SENSOR"
-     }
-    },
-    {
-     "db": "libcom1_device.db",
-     "macros": {
-      "PORT": "AVR10",
-      "DEVICE": "SENSOR"
+      "PORT": "AVR23",
+      "DEVICE": "FLOW"
      }
     }
    ],
    "pvs": {
-    "SENSOR:data": {
+    "FLOW:data": {
      "type": "aai",
      "access": "r",
-     "desc": "All temps and flows from sensor box",
+     "desc": "Flow meters from OPTA",
      "internal": true,
      "log": "none",
-     "sim": "sensorbox",
+     "sim": "flowmeters",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     },
-    "SENSOR:int:fanout": {
+    "FLOW:int:fanout": {
      "type": "fanout",
      "access": "r",
      "internal": true,
      "log": "none"
     },
-    "SENSOR:t1:gettemp": {
+    "FLOW:f1:getflow": {
      "type": "ai",
      "access": "r",
-     "egu": "degC",
-     "desc": "Get t1 temperature",
-     "role": "value",
-     "channel": "t1",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t2:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t2 temperature",
-     "role": "value",
-     "channel": "t2",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t3:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t3 temperature",
-     "role": "value",
-     "channel": "t3",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t4:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t4 temperature",
-     "role": "value",
-     "channel": "t4",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t5:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t5 temperature",
-     "role": "value",
-     "channel": "t5",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t6:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t6 temperature",
-     "role": "value",
-     "channel": "t6",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:t7:gettemp": {
-     "type": "ai",
-     "access": "r",
-     "egu": "degC",
-     "desc": "Get t7 temperature",
-     "role": "value",
-     "channel": "t7",
-     "log": "raw",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:f1:getflow": {
-     "type": "ai",
-     "access": "r",
+     "egu": "l/min",
      "desc": "Get f1 flow",
      "role": "value",
      "channel": "f1",
      "log": "raw",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     },
-    "SENSOR:f2:getflow": {
+    "FLOW:f2:getflow": {
      "type": "ai",
      "access": "r",
+     "egu": "l/min",
      "desc": "Get f2 flow",
      "role": "value",
      "channel": "f2",
      "log": "raw",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     },
-    "SENSOR:f3:getflow": {
+    "FLOW:f3:getflow": {
      "type": "ai",
      "access": "r",
+     "egu": "l/min",
      "desc": "Get f3 flow",
      "role": "value",
      "channel": "f3",
      "log": "raw",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     },
-    "SENSOR:f4:getflow": {
+    "FLOW:f4:getflow": {
      "type": "ai",
      "access": "r",
+     "egu": "l/min",
      "desc": "Get f4 flow",
      "role": "value",
      "channel": "f4",
      "log": "raw",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     },
-    "SENSOR:f5:getflow": {
+    "FLOW:f5:getflow": {
      "type": "ai",
      "access": "r",
+     "egu": "l/min",
      "desc": "Get f5 flow",
      "role": "value",
      "channel": "f5",
      "log": "raw",
      "fails_with": [
-      "sensorbox"
+      "flowmeters"
      ],
      "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:id": {
-     "type": "stringin",
-     "access": "r",
-     "desc": "Device name",
-     "role": "id",
-     "log": "events",
-     "sim": "sensorbox",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:firmware": {
-     "type": "stringin",
-     "access": "r",
-     "desc": "Firmware version",
-     "role": "firmware",
-     "log": "events",
-     "sim": "sensorbox",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
-     ]
-    },
-    "SENSOR:channels": {
-     "type": "lsi",
-     "access": "r",
-     "desc": "Channels in query-all order",
-     "role": "channel_list",
-     "note": "full text in the field VAL$ (more than 40 characters)",
-     "log": "events",
-     "sim": "sensorbox",
-     "fails_with": [
-      "sensorbox"
-     ],
-     "fails_closed": [
-      "sensorbox"
+      "flowmeters"
      ]
     }
    }
@@ -5721,13 +5522,22 @@
    "ioc": "ioc_rack",
    "status": "modify",
    "flags": {
-    "assumed": "Placeholder until the firmware is known: libcom1 over TCP, one current channel in A (A13, P12)"
+    "assumed": "What the two values i1 and i2 are and their unit is not known: no unit is shown. The emulation takes i1 as the cup current in A"
    },
-   "roles": {
-    "value": "FC:current:get",
-    "id": "FC:id",
-    "firmware": "FC:firmware",
-    "channel_list": "FC:channels"
+   "roles": {},
+   "channels": {
+    "i1": {
+     "label": null,
+     "roles": {
+      "value": "FC1:i1:getcurrent"
+     }
+    },
+    "i2": {
+     "label": null,
+     "roles": {
+      "value": "FC1:i2:getcurrent"
+     }
+    }
    },
    "simulators": [
     "faradaycup"
@@ -5736,23 +5546,16 @@
     {
      "db": "faradaycup.db",
      "macros": {
-      "PORT": "FC",
-      "DEVICE": "FC"
-     }
-    },
-    {
-     "db": "libcom1_device.db",
-     "macros": {
-      "PORT": "FC",
-      "DEVICE": "FC"
+      "PORT": "AVR16",
+      "DEVICE": "FC1"
      }
     }
    ],
    "pvs": {
-    "FC:data": {
+    "FC1:data": {
      "type": "aai",
      "access": "r",
-     "desc": "All channels of the Faraday cup Opta",
+     "desc": "FC1 from OPTA",
      "internal": true,
      "log": "none",
      "sim": "faradaycup",
@@ -5763,12 +5566,18 @@
       "faradaycup"
      ]
     },
-    "FC:current:get": {
+    "FC1:int:fanout": {
+     "type": "fanout",
+     "access": "r",
+     "internal": true,
+     "log": "none"
+    },
+    "FC1:i1:getcurrent": {
      "type": "ai",
      "access": "r",
-     "egu": "A",
-     "desc": "Faraday cup current",
+     "desc": "Get i1 flow",
      "role": "value",
+     "channel": "i1",
      "log": "raw",
      "fails_with": [
       "faradaycup"
@@ -5777,42 +5586,13 @@
       "faradaycup"
      ]
     },
-    "FC:id": {
-     "type": "stringin",
+    "FC1:i2:getcurrent": {
+     "type": "ai",
      "access": "r",
-     "desc": "Device name",
-     "role": "id",
-     "log": "events",
-     "sim": "faradaycup",
-     "fails_with": [
-      "faradaycup"
-     ],
-     "fails_closed": [
-      "faradaycup"
-     ]
-    },
-    "FC:firmware": {
-     "type": "stringin",
-     "access": "r",
-     "desc": "Firmware version",
-     "role": "firmware",
-     "log": "events",
-     "sim": "faradaycup",
-     "fails_with": [
-      "faradaycup"
-     ],
-     "fails_closed": [
-      "faradaycup"
-     ]
-    },
-    "FC:channels": {
-     "type": "lsi",
-     "access": "r",
-     "desc": "Channels in query-all order",
-     "role": "channel_list",
-     "note": "full text in the field VAL$ (more than 40 characters)",
-     "log": "events",
-     "sim": "faradaycup",
+     "desc": "Get i2 current",
+     "role": "value",
+     "channel": "i2",
+     "log": "raw",
      "fails_with": [
       "faradaycup"
      ],
@@ -5942,11 +5722,20 @@
   "faradaycup": {
    "type": "libcom1",
    "host": "sim-rack",
-   "port": 5030,
-   "control_port": 6030,
+   "port": 5016,
+   "control_port": 6016,
    "config": "emulation/sim/config/rack.yaml",
    "ioc": "ioc_rack",
-   "asyn_port": "FC"
+   "asyn_port": "AVR16"
+  },
+  "flowmeters": {
+   "type": "libcom1",
+   "host": "sim-rack",
+   "port": 5023,
+   "control_port": 6023,
+   "config": "emulation/sim/config/rack.yaml",
+   "ioc": "ioc_rack",
+   "asyn_port": "AVR23"
   },
   "gauges": {
    "type": "libcom1",
@@ -6019,15 +5808,6 @@
    "config": "emulation/sim/config/hv.yaml",
    "ioc": "ioc_hv",
    "asyn_port": "REK"
-  },
-  "sensorbox": {
-   "type": "libcom1",
-   "host": "sim-rack",
-   "port": 5010,
-   "control_port": 6010,
-   "config": "emulation/sim/config/rack.yaml",
-   "ioc": "ioc_rack",
-   "asyn_port": "AVR10"
   },
   "tdk": {
    "type": "tdk_genesys",
