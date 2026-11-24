@@ -168,8 +168,8 @@ real name before the device is used.
 
    Expected: `co-u32` (the line on which units 3 and 4 answered, socket 1.2) and `usb-opt`
    (units 1 and 2, socket 1.1). `ports.real.cmd` opens these two names, so it needs no edit
-   for them. The names by socket are not tested: if one is missing, send me
-   `udevadm info -q property -n /dev/ttyUSB0 | grep ID_PATH`.
+   for them. Seen to work on the rack server on 2026-11-24. If one is missing (an adapter in
+   another socket), send me `udevadm info -q property -n /dev/ttyUSB0 | grep ID_PATH`.
 2. **First contact without an IOC**, outputs off. Read-only:
 
    ```bash
@@ -187,7 +187,10 @@ real name before the device is used.
 
    This sends `REN` to each unit, asks the same six queries, sends `GTL` (back to the front
    panel) and asks the status once more. Neither command sets a voltage, a current or the
-   output. All six must answer now; the IOC needs the three settings.
+   output. All six must answer now; the IOC needs the three settings. Seen on 2026-11-24:
+   all four supplies answer all six under remote control and are back under local control
+   after `GTL`. Their stored current limit was 0 (`CH1=0000H`): the IOC sends the limit of
+   `limits.defaults` at its first contact.
 3. **The devices with a serial number** (Windows' list of 2026-11-24 with the lab's `st.cmd`,
    `reference/lab-2026`): gauge controller, interlock box, valve box and MFC get their names
    from `99-mist2-serial.rules`:

@@ -8,8 +8,8 @@
 # the name that iocBoot/iocRack/ports.real.cmd opens.
 #
 # Rule 1 seen to work on the rack server (Ubuntu 26.04.1, 2026-11-24): both adapters, ID 1192:1000,
-# got their serial device. The names of rule 3 (by USB socket) are NOT TESTED: their syntax passes
-# udevadm verify. Install and check: README.md in this directory.
+# got their serial device, and rule 3 gave them their names by USB socket (/dev/mist2/co-u32,
+# /dev/mist2/usb-opt). Install and check: README.md in this directory.
 
 # 1. A Matsusada USB module appears: load the FTDI driver and name the ID to it, once.
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="1192", ATTR{idProduct}=="1000", \
