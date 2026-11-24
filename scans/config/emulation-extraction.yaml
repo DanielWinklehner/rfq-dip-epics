@@ -10,8 +10,8 @@ name: emulation-extraction
 description: "Emulation: ion source voltage against the Faraday cup current (plant model)"
 
 actuator:
-  set: "AU-20P7-1:voltage:setpoint"     # V, DRVL 0, DRVH 20000 (matsusada_au20p7.db)
-  readback: "AU-20P7-1:voltage:read"    # V, the measured output (12 bit of 20 kV, about 5 V per count)
+  set: "AU-20P15-1:voltage:setpoint"     # V, DRVL 0, DRVH 20000 (matsusada_au20p7.db)
+  readback: "AU-20P15-1:voltage:read"    # V, the measured output (12 bit of 20 kV, about 5 V per count)
   tolerance: 50.0                       # V. ASSUMED: ten counts of the monitor
   settle_timeout: 20.0                  # s. ASSUMED
   settle_time: 1.0                      # s. ASSUMED
@@ -26,14 +26,14 @@ points:
   step: 1000.0
 
 detectors:
-  - {pv: "FC:current:get", name: cup, required: true}           # A
-  - {pv: "AU-20P7-1:current:read", name: source_ma, required: false}   # mA
+  - {pv: "FC1:i1:getcurrent", name: cup, required: true}           # A
+  - {pv: "AU-20P15-1:current:read", name: source_ma, required: false}   # mA
   - {pv: "REK-1:current:read", name: discharge_a, required: false}     # A
 
 dwell: 2.0                              # s. ASSUMED
 
 conditions:
-  - {pv: "AU-20P7-1:read_output_status", op: "==", value: 1}   # source supply on
+  - {pv: "AU-20P15-1:read_output_status", op: "==", value: 1}   # source supply on
   - {pv: "AU-20P7-2:read_output_status", op: "==", value: 1}   # puller on
   - {pv: "VALVE:s4:get", op: "==", value: 1}                   # Faraday cup in
 

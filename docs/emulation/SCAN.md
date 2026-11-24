@@ -210,9 +210,9 @@ program (the report of T23 lists how).
 
 ## 7. In the full emulation
 
-`scans/config/emulation-extraction.yaml` steps the ion source supply (`AU-20P7-1:voltage:setpoint`,
-read-back `AU-20P7-1:voltage:read`) from 1 to 15 kV and records the Faraday cup current
-(`FC:current:get`, required), the supply's current and the discharge current (optional), with
+`scans/config/emulation-extraction.yaml` steps the ion source supply (`AU-20P15-1:voltage:setpoint`,
+read-back `AU-20P15-1:voltage:read`) from 1 to 15 kV and records the Faraday cup current
+(`FC1:i1:getcurrent`, required), the supply's current and the discharge current (optional), with
 the source supply on, the puller on and the cup in as conditions. In the plant model the cup
 current is `beam_fraction * discharge * (1 - exp(-(V_source + V_puller) / 8000 V))`: a property
 of the MODEL, not of MIST-2.
@@ -222,8 +222,8 @@ The source has to run first. Done by hand for T23 (with `flock /tmp/mist2emu.loc
 `LOOP-DIS:mode:setpoint 0`, `TURBO1:start:set 1`, `VALVE:s1:set 1`, `VALVE:s2:set 1`,
 `MFC:setSP 20`, wait for `TURBO1:atspeed:get` 1 (about 70 s), `TDK:voltage:setpoint 8`,
 `TDK:current:setpoint 88`, `TDK:status:setpoint 1`, `REK-1:voltage:setpoint 150`,
-`REK-1:SetToggleOutput 1`, `AU-20P7-1:voltage:setpoint 1000`, `AU-20P7-2:voltage:setpoint 2000`,
-`AU-20P7-1:SetToggleOutput 1`, `AU-20P7-2:SetToggleOutput 1`, `VALVE:s4:set 1`. Then
+`REK-1:SetToggleOutput 1`, `AU-20P15-1:voltage:setpoint 1000`, `AU-20P7-2:voltage:setpoint 2000`,
+`AU-20P15-1:SetToggleOutput 1`, `AU-20P7-2:SetToggleOutput 1`, `VALVE:s4:set 1`. Then
 `python -m mist2scan check` and `run` (scans/README.md, "In the emulation"); afterwards every
 output off and the set points back to 0, `make -C emulation down`.
 
