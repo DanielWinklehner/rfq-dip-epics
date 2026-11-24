@@ -229,7 +229,7 @@ def test_invalid_detector_missing_exactly_there(watch):
                       2.5: "missing", 3.0: "ok", 3.5: "ok", 4.0: "ok"}
     for x in rows:
         if x["flaky_status"] == "missing":
-            assert (x["flaky_mean"], x["flaky_n"], x["flaky_reason"]) == ("nan", "0", "INVALID")
+            assert (x["flaky_mean"], x["flaky_n"], x["flaky_reason"]) == ("nan", "0", "INVALID (LINK)")
         else:
             assert float(x["flaky_mean"]) == pytest.approx(float(x["set"]), abs=TOL)
             assert float(x["flaky_max"]) < 100                 # never a value of +1000
