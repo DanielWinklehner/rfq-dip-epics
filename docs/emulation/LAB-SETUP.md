@@ -7,12 +7,50 @@ the emulation. Open assumptions (A..) and points (P..) are in [STATUS.md](STATUS
 
 ## 1. Before you start
 
+The plan of 2026-11-24 (yours): nothing runs in the lab, the rack computer's data is copied,
+the computer is wiped and gets a fresh Ubuntu, and the devices come back one by one.
+
+**Before the rack computer is wiped**
+
+1. **Save the lab IOC's whole folder** (`st.cmd`, databases, protocol files), beside your own
+   data, and the same folder of the mini PC. Together they settle A1, A4 and A7 to A12, and
+   the COM numbers in `st.cmd` name the device behind each adapter.
+2. **Save the list of the adapters Windows remembers,** also those not plugged in. In
+   PowerShell on the rack computer (it reads only):
+
+   ```powershell
+   Get-PnpDevice | Where-Object { $_.Class -eq 'Ports' -or $_.InstanceId -match 'VID_' } | Sort-Object Class, FriendlyName | Format-Table -AutoSize Status, Class, FriendlyName, InstanceId | Out-File -Width 300 rack-usb-devices.txt
+   ```
+
+   A COM port's name holds its COM number, its instance ID the USB ID and the serial number
+   of its adapter: with the lab's `st.cmd` that is the device name of every serial line, and
+   the answer to A29 and P34. Run on the development PC, which has no serial adapter: the
+   command works and lists devices that are not plugged in; I have not seen a COM port line.
+3. **Check the CO-U32 under Linux before Windows is gone.** That Linux drives the adapter is
+   read from the driver files and never tried, and this Windows is the one place where the
+   adapter is known to work. From the Ubuntu installer stick ("Try Ubuntu"), adapter plugged in:
+
+   ```bash
+   sudo modprobe ftdi_sio && echo 1192 1000 | sudo tee /sys/bus/usb-serial/drivers/ftdi_sio/new_id
+   ```
+
+   ```bash
+   lsusb -d 1192: ; ls -l /dev/ttyUSB* ; sudo dmesg | tail -5
+   ```
+
+   Expected: `1192:1000`, a `/dev/ttyUSB0`, and "FTDI USB Serial Device converter now attached
+   to ttyUSB0". If so, wipe. If not, keep Windows (or its disk) and send me the three outputs.
+4. **Install Ubuntu 24.04 LTS** (desktop or server). It is the system of the IOC image on
+   which every test ran, and the rule file's syntax was checked with its udev version.
+
+**On the day**
+
 - **One IOC per computer.** The new IOCs serve the same PV names as the lab's, and a serial
-  line takes one master. Stop the lab's IOC on a computer before the new one starts there.
-- **Keep the way back.** Leave the Windows installation of the rack computer as it is: boot
-  Ubuntu from a second disk or a USB stick with persistent storage (a plain live system
-  forgets the build at shutdown). Going back is booting Windows.
+  line takes one master. If the mini PC still holds the lab's IOC, see that it does not
+  start at boot.
 - **Outputs off** at all supplies. Doors open is fine: it keeps the permit away.
+- **The interlock box comes before any high voltage.** Without it `interlock_open` is INVALID
+  and no AU or REK output can be switched on.
 - **Current limits first.** `EPICS/ioc/iocBoot/iocRack/limits.defaults` and
   `iocHV/limits.defaults` hold the full scales (15, 7.5, 7.5, 7.5 mA, 24 A). At its first
   contact the IOC sends each Matsusada supply `REN` and this limit. Put your limits in before

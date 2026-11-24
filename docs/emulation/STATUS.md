@@ -669,6 +669,7 @@ State of 2026-11-24, early morning. Nothing is running.
 | 29 | P47 once more (2026-11-23, a few minutes after answer 28) | "Sorry, no fix P47" | Read by me as a correction of answer 28: fix P47. Task T21 (brief `T21-switch-resend.md`). Not the remedy I had named (the gate evaluated through Channel Access): that one still loses a command when several follow each other within a millisecond. Instead a rule at the switching record itself: a value written into it while it was busy is sent when it is free |
 | 30 | The late reply on the Matsusada lines, P49 (2026-11-23) | "Yes, fix P49" | Answers question 15. Task T22 (brief `T22-late-reply.md`). Two parts, the second added by me when I read the logs and the source for the brief: the line is kept quiet after a mismatch until the outstanding reply has arrived (what I had named to you), and every reading that carries a state or a setting first checks the unit number in a status reply, because at the first contact a stray reply would otherwise be copied into the next supply's request and set point. The monitors are left as they are; what that leaves open is measured and reported to you |
 | 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
+| 32 | The state of the lab, the rack computer, the logger's home (2026-11-24) | "Nothing is running in the lab right now. We moved to a new location and everything was in storage for over a year. I expect to bring devices back online one by one. My plan, thus, is to copy the data from the rack computer then wipe it and do a fresh install of Ubuntu. Then install epics and the Matsusada driver, proto and db files according to your instructions as the first step. Where should the logger live? Main control computer? It has the most modern hardware, the largest disk and easiest to add more disks." | `LAB-SETUP.md` section 1 rewritten for it: what to save from Windows before the wipe (the lab IOC's folder, the list of adapters Windows remembers), a check of the CO-U32 from the installer stick before Windows is gone, Ubuntu 24.04. There is no lab IOC to protect or to ask for `dbl`. The logger: my answer is under question 11; it waits for the operating system of the main control computer |
 
 ## What the working point implies (from the plant model, for you to check)
 
@@ -718,7 +719,18 @@ State of 2026-11-24, early morning. Nothing is running.
 11. The logger: is the tier of each PV group right (table in `LOGGER.md` section 1, A36), and
     are about 370 GB of disk after two years acceptable (A37)? And on which computer should it
     run (lab computer, rack computer, a small server)? What it needs is in `LOGGER.md`
-    section 10.
+    section 10. You propose the main control computer (answer 32: the most modern hardware,
+    the largest disk, the easiest to extend). My answer of 2026-11-24: yes, if that computer
+    runs Linux itself and stays on whenever the IOCs are on. What decides is not its power
+    (the logger and its database took 2 % of one core and 0.6 GB in the emulation) but that
+    nothing is recorded while the logger's computer is off, asleep or restarting, and that
+    the database needs a Linux with Docker. On Windows it would run inside WSL2, which stops
+    with the session and with every Windows restart, keeps its data in one virtual disk file,
+    and does not simply use an added disk. If the main control computer is the Windows PC of
+    the plan and stays Windows: the rack computer first (fresh Ubuntu, always on with its
+    IOC), Grafana opened from the control computer over the network (`MIST2LOG_BIND`), and a
+    move later as `LOGGER.md` section 10 describes. Open: which operating system the main
+    control computer runs.
 12. With values set in place, a filament current typed into the supply's tag while the loop
     is in PID takes the source to MANUAL at once (the loop reports "written by someone else").
     Should the supply's tag mark that the loop holds this set point while in PID, or refuse
@@ -744,6 +756,8 @@ State of 2026-11-24, early morning. Nothing is running.
 - The GUI in a browser on Windows by a person. It was checked with a headless browser inside
   WSL and by looking at screenshots. You opened it yourself on 2026-11-21, on a checkout that
   was in the middle of a merge.
+- The check of the CO-U32 from the Ubuntu installer stick (`LAB-SETUP.md` section 1): its two
+  commands do by hand what rule 1 of the rule file does, and were not run with an adapter.
 - `LAB-SETUP.md` on hardware: none of its steps. What was run is its step 2 (clone and build)
   in containers of Ubuntu 20.04, 22.04 and 24.04 on the development PC, and a start of both
   IOCs there in `real` mode without any device. Not run: the udev rule and the probe with the
@@ -928,7 +942,8 @@ A19 (the output gate is wanted, and it latches).
 | A39 | Grafana lets everybody on the network read without a login, as the GUI does. Its port and the database's are open to the logger's own computer only unless a setting opens them | Free choice; you said "no login" for the GUI | You |
 | A40 | The ion gauge's on/off state is bit 1 of the status word in its pressure replies, and a record that only listens (I/O Intr) receives the replies another record asked for | `aim.proto` (INFICON manual, A15), and the StreamDevice behaviour as seen in the emulation. Not tried on the real serial port | The real gauge: `AIM:enable` shows ON after an IOC start while the gauge is on |
 | A41 | A Matsusada supply's reply to STS carries its unit number exactly as the CO manual prints it (`#<unit> CO RM`), and the supplies of a chain answer in the order of the requests | Since T22 every read of an output state or a setting checks that reply first; before, only the status read used it. If the real reply differs, no supply makes its first contact and the IOC log names the reply it got: the same input line in eight places of each of the two protocol files then | Hardware (`EPICS/ioc/host/matsusada_probe.py` prints the reply) |
-| A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build; the rack computer is started into Linux beside its Windows, which stays as it is | The build script ran in containers of these three versions. Your answer 22 for the mini PC; for the rack computer the plan's "Linux planned" and the driver brief's "do not modify the Windows installation" | `lsb_release -a` on both, and the first build there |
+| A42 | The two IOC computers run an Ubuntu between 20.04 and 24.04 on x86_64 and reach the internet during the build. The rack computer is wiped and gets a fresh Ubuntu (your plan, answer 32; I recommend 24.04) | The build script ran in containers of these three versions. Your answer 22 for the mini PC, answer 32 for the rack computer | `lsb_release -a` on both, and the first build there |
+| A43 | Windows on the rack computer still lists the Matsusada adapters and the other serial adapters with COM number, USB ID and serial number although they are not plugged in | `Get-PnpDevice` lists devices that are not present (seen on the development PC, which has no serial adapter, so no COM port line was seen) | The command of `LAB-SETUP.md` section 1 on the rack computer, before the wipe |
 
 ## Open points
 
