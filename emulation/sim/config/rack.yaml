@@ -65,20 +65,26 @@
       - {id: p1, access: rw, behaviour: analog, value: 3.0e-2, noise: 1.0e-4, lo: 1.0e-3, hi: 944.06}
       - {id: p2, access: rw, behaviour: analog, value: 8.0e-7, noise: 4.0e-9, lo: 7.5e-9, hi: 7.5e-3}
 
-# --- Old interlock box: two door switches, Arduino Mega, libcom1 (asyn port AVR11) --------------
-# i1, i2: 1 = door closed. s1, s2: relays of the box, not used by any database.
+# --- Interlock box: two door switches, Arduino Opta, libcom1 (asyn port AVR11) ------------------
+# AVR/devices/InterlockOpta, in place of the lost Arduino Mega box (owner, 2026-11-24, answer 54),
+# with the old box's channels: i1, i2: the doors as the Opta reports them, 1 = closed (a door
+# counts as closed only after its input has read closed for 1 s; that hold time is the
+# firmware's and is not modelled here: the value of i1, i2 is what the firmware reports). A set
+# is accepted and ignored. s1, s2: the Opta's relays 3 and 4, not used by any database.
+# The interlock contacts (relays 1 and 2) have no channel. Compared line by line with the
+# firmware: make -C AVR/devices/InterlockOpta/tests (tools/interlock_replay.py).
 - name: interlockbox
   type: libcom1
   port: 5011
   baud: 115200
-  bits_per_char: 10
+  bits_per_char: 10           # USB serial of the Opta: changes nothing on the wire, sets the delay
   turnaround_ms: 1            # ASSUMED
   in_terminator: "\n"
-  out_terminator: "\r\n"
+  out_terminator: "\r\n"      # Serial.println
   options:
-    identity: InterlockBox
-    firmware: "Nov 21 2026"
-    number_format: avr
+    identity: InterlockOpta
+    firmware: "Nov 21 2026"   # the sketch reports __DATE__: placeholder
+    number_format: g          # Opta (ARM): snprintf %g, not the AVR format
     out_buffer: 128
     in_buffer: 128
     channels:
