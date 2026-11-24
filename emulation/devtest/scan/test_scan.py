@@ -39,6 +39,10 @@ class Watch:
         self.pv = epics.PV(name, auto_monitor=True, callback=self._cb,
                            connection_callback=self._conn)
         assert self.pv.wait_for_connection(5.0)
+        end = time.monotonic() + 5.0            # the monitor's first value: before any test
+        while not self.events and time.monotonic() < end:     # time, or it looks like a write
+            time.sleep(0.01)
+        assert self.events, "no first value of %s" % name
 
     def _cb(self, value=None, **kw):
         with self.lock:
