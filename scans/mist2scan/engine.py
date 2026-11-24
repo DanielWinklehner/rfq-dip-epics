@@ -447,9 +447,15 @@ class Scan:
                 steps = [] if self.position == target else part_steps(self.position, target,
                                                                       d.max_step)
                 for k, v in enumerate(steps):
+                    before = self.position
                     self._write(v)
                     if k + 1 < len(steps):
                         self._pause(d.step_pause)
+                        if self._set_invalid():     # the IOC did not confirm it: the actuator
+                            raise End(ACTUATOR,     # is lost, nothing more is written
+                                      "the set PV %s INVALID after the write of %g (the IOC "
+                                      "did not confirm it); the last write before it %g"
+                                      % (d.set_pv, v, before))
                 reached = self._reach(target)
                 if not reached:
                     notes.append("the read-back did not come within %g of %g in %g s"
@@ -488,6 +494,11 @@ class Scan:
             REASONS.get(end.code), end.detail.strip().splitlines()[-1] if end.detail else "",
             end.code, self.position, self.meta["actuator_left"]["readback"],
             "; ".join(n.splitlines()[-1] for n in notes) or "-")
+
+    def _set_invalid(self):
+        with self.lock:
+            r = self.latest.get(self.d.set_pv)
+        return r is not None and r.severity is not None and r.severity >= INVALID
 
     def _pause(self, seconds):
         """A wait of the end move: nothing ends it."""

@@ -345,6 +345,27 @@ class Ends(ScanTest):
         self.assertAlmostEqual(self.meta()["actuator_left"]["last_written"], 2.8)
 
 
+    def test_the_end_move_stops_when_the_ioc_does_not_confirm_a_write(self):
+        # T27: the DAQ service stopped, the IOC cannot send: the set PV goes INVALID after the
+        # first write of the end move. Nothing more is written (section 5: set PV INVALID is
+        # the actuator lost), and the file says so.
+        self.w.add("C:ok", 1)
+        d = self.definition(points={"start": 0, "stop": 6, "step": 1}, actuator__max_step=0.4,
+                            conditions=[{"pv": "C:ok", "op": "==", "value": 1}])
+        self.at_point(4.0, lambda w: w.post("C:ok", 0))
+        self.w.when(lambda w: len(w.written(after=self.cause or 1e99)) == 1,
+                    lambda w: w.post("X:set", severity=3))
+        self.assertEqual(self.run_scan(d), E.CONDITION)
+        self.assertEqual(self.w.written(after=self.cause), [3.6])
+        left = self.meta()["actuator_left"]
+        notes = " ".join(left["notes"])
+        self.assertIn("end move stopped", notes)
+        self.assertIn("X:set INVALID after the write of 3.6", notes)
+        self.assertIn("the last write before it 4", notes)
+        self.assertEqual(left["writes_in_end_move"], 1)
+        self.assertIsNone(left["readback_reached_target"])
+
+
 class Refusals(ScanTest):
     def refused(self, d=None, **changes):
         self.scan(d, **changes)

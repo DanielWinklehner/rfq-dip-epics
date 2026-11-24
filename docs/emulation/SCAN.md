@@ -174,7 +174,10 @@ the estimate, the columns, the number of rows and every write (time, value, phas
 The end move: from the last value written to the end target (`previous`, the number, or none for
 `stay`) in part steps with `step_pause` between them; conditions are not checked during it (a lost
 condition is usually the reason to go back). A write that fails (set PV disconnected) stops it,
-and the note says where it stopped. Then the program waits up to `settle_timeout` for the
+and the note says where it stopped; so does a set PV that is INVALID after a part step's pause
+(the IOC did not confirm the write, e.g. the device behind it stopped answering): nothing more is
+written, and the note names the unconfirmed write and the last write before it (correction of
+T27: the end move used to write every part step into a set PV the IOC no longer confirmed). Then the program waits up to `settle_timeout` for the
 read-back to reach the target and records whether it did. A second ctrl-c or SIGTERM during the
 end move is logged and ignored; SIGKILL stops the program without the move.
 
@@ -182,7 +185,7 @@ end move is logged and ignored; SIGKILL stops the program without the move.
 
 | Test | What it shows |
 |---|---|
-| `python3 -m unittest discover -s scans/tests -t scans` (57 tests, under a second) | The point list (sign of the step, the end point, rounding near 0), part steps, unknown keys at every level, settling and its timeout (skip and end), nothing collected before the settle, settle time and dwell waited, the statistics with constructed sequences (held value, steps, bursts, invalid stretches, missing), invalid values left out, a missing point, a disconnect inside a dwell, each end with the actuator's writes checked (part steps, nothing after the actuator is lost, a failed write during the end move), every refusal with no write and no file, the rows on disk after an abort, `scan.json` "running" while the scan runs |
+| `python3 -m unittest discover -s scans/tests -t scans` (58 tests, under a second) | The point list (sign of the step, the end point, rounding near 0), part steps, unknown keys at every level, settling and its timeout (skip and end), nothing collected before the settle, settle time and dwell waited, the statistics with constructed sequences (held value, steps, bursts, invalid stretches, missing), invalid values left out, a missing point, a disconnect inside a dwell, each end with the actuator's writes checked (part steps, nothing after the actuator is lost, a failed write during the end move, a write the IOC did not confirm during the end move), every refusal with no write and no file, the rows on disk after an abort, `scan.json` "running" while the scan runs |
 | `emulation/devtest/run.sh emulation/devtest/scan` (10 tests, about 2 min) | The program, started as `python -m mist2scan run`, against soft records (`scan.db`): a lagging read-back, three peaks with noise, a constant detector, a detector the test makes INVALID, a condition. The peaks found where the database puts them (fields E, F, G); read-back means within the tolerance; the constant detector `n` 1 at every point; missing values exactly at the points where the detector was INVALID; a condition lost, ctrl-c and SIGTERM: the actuator back in part steps (seen by a monitor of the test), the rows so far in the file; the IOC restarted: exit 5 and no write after it; a required detector not connected and a definition beyond the control limits: refused, nothing written; `check` writes nothing |
 
 Each test of the device case was seen to fail once with the property it checks removed from the
