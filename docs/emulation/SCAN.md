@@ -229,7 +229,120 @@ of 2 kV, the saved settings (`mist2emu-save`) unchanged.
 cup current's record posted one to three values per 2 s dwell (`cup_n`): it holds its value
 between changes, which section 2 counts.
 
-## 8. Not built
+## 8. The dipole scan in the emulation (T27)
+
+The three parts of the dipole scan together: the shipped program runs the shipped definition
+`scans/config/dipole.yaml` through ONE IOC (`dipole.db` with `libcom1_device.db` and
+`first_contact.db`; `picoammeter.db` with its two `first_contact.db` loads) against the DAQ
+service `daq/mist2daq` (sim backend) and the Keithley 6485 simulator. No IOC of the full
+emulation loads these databases; the case is the only place where they run together.
+
+```
+emulation/devtest/run.sh emulation/devtest/dipolescan        # 9 tests, about 7.5 min
+```
+
+The case's simulator side (`run_sim.sh`) runs three processes in one container: the service
+(through the dipole case's `run_service.sh`, so a test stops and starts it with `build/daq-run`),
+the picoammeter simulator (`sim.yaml`) and `coupling.py`. The coupling reads the magnet current
+from the service's status port (the monitor channel `i1`, scaled as the service scales it) ten
+times per second and sets the picoammeter simulator's input through its control port. Its model
+(`coupling.yaml`): three Gaussian peaks on a background of 2 nA, at 10 A x sqrt(1, 2, 3) =
+10.000, 14.142, 17.321 A of magnet current (three species of mass 1, 2, 3 at one energy), 150,
+15 and 8 nA high, sigma 0.4 A; picoammeter noise 0.1 nA per reading (`sim.yaml`); monitor lag
+0.5 s (`daq.yaml`). **None of these numbers is measured on MIST-2**: they are properties of the
+case. The scan is started as the owner starts it, `python -m mist2scan run config/dipole.yaml`,
+with `--start`, `--stop`, `--step`, `--dwell`, `--output` only. Two tests use a copy of the
+definition with one key changed, each a finding (below), not a second definition.
+
+### Before a scan: what an operator must do
+
+1. **Switch zero check off**: `caput pico1:zcheck:set 0` (OFF). After its power-on the 6485 has
+   zero check on (PICOAMMETER.md), `pico1:current:get` is INVALID and both `check` and `run`
+   refuse with "detector pico1 (pico1:current:get): INVALID", writing nothing (test 1). Leave the
+   range on AUTO (`pico1:range:set 0`) unless there is a reason: on a fixed range a peak above
+   105 % of it is INVALID, and with the shipped definition that ends the scan (test 3).
+2. **Set the magnet once after every start of the DAQ service**: `caput dipole:current:set <A>`.
+   After its start the service holds no value; `dipole:current:set` is INVALID/UDF and the scan
+   refuses with "actuator set PV dipole:current:set: INVALID" (test 1). This set is a step from
+   an output the service does not know (the NI box may still be at its last value, or at 0 V):
+   choose it near where the supply is believed to be.
+3. **After the service was restarted while no scan ran, set the magnet anyway.** Nothing marks
+   that case: the set record keeps its last value and NO_ALARM (it is processed only when
+   written, DAQ.md section 3), `check` says "it would start" and the scan would move from that
+   value, which the service does not hold (test 4: set 6.0 A shown, read-back 0.0 A). See the
+   findings.
+4. `python -m mist2scan check config/dipole.yaml`, then `run`.
+
+### What the case shows (tests of `test_dipolescan.py`)
+
+| Test | Result |
+|---|---|
+| 1 after power-on | Refused by `check` and `run` (exit 3) with both reasons named, no file, no set at the service (status port: 0 commands `S`, 0 writes). With the magnet set once, only the picoammeter's reason remains; with zero check OFF through its PV, `check` exits 0 |
+| 2 the spectrum | 7 to 19.5 A, step 0.5, dwell 1 s (shipped), 26 points, exit 0, 126 s. Peaks (vertex of the parabola through the logarithms of three points) at 10.002, 14.148, 17.314 A against 10.000, 14.142, 17.321 A of the coupling; every read-back mean within 0.05 A; at the peak points measured minus model -0.16, -0.06, -0.18 nA, over all points at most 0.48 nA, rms 0.16 nA (noise 0.1 nA per reading). Magnet back to 6 A |
+| 3 overflow | Fixed 20 nA range, 8 to 16 A. Shipped (picoammeter `required: true`): exit 6 at 9.5 A, the first point on the mass-1 peak, row `missing`, reason `INVALID`; magnet back in part steps. With `required: false` (finding): exit 0, missing exactly at 9.5, 10, 10.5 A (model above 21 nA), all others within 0.5 nA of the model |
+| 4 the service stops | Stopped 0.3 s after the set of 10 A. The read-back goes INVALID, the program waits the settle timeout (30 s) and ends "not settled" (exit 7, about 50 s in all), row `not_settled` with "last read-back INVALID". The end move's first part step (9 A) goes to the IOC, which cannot send it: the set PV goes INVALID and nothing more is written (the correction of section 5); `scan.json` says "end move stopped: the set PV dipole:current:set INVALID after the write of 9 ...; the last write before it 10". The service held 10 A. Started again it holds nothing and received nothing; `check` and `run` refuse (set PV INVALID) until the operator sets the magnet |
+| 5 the picoammeter silent | Silenced in the settling of 10 A: `pico1:current:get` INVALID, the row of 10 A `missing`, exit 6, the magnet back 10 to 6 A in four part steps (9, 8, 7, 6 seen by a monitor), the read-back reached 6 A, the service holds 6 A |
+| 6 an IOC restart | Restarted in the settling of 10 A: exit 5, no write after it (`writes_in_end_move` 0, every write in `scan.json` before the restart); after the restart the set record took over 10 A from the service (first contact); the service, asked through its status port: no set received after the restart, held 10 A, monitor 10 A |
+| R4 | dwell 3 s and 5 s, three points each (numbers below) |
+
+Each of tests 1 to 6 was seen to fail once with the property it checks removed (the report of T27
+lists how).
+
+### The numbers of the three parts together (measured in the case)
+
+The picoammeter is polled once per second (`picoammeter.db`, SCAN 1 s) and gives one new reading
+per poll; a reading integrates NPLC 6 / 60 Hz = 0.1 s (0.3 s with autozero, PICOAMMETER.md
+"Rate"). The scan's `n` counts the fresh read at the start of the dwell plus every update
+during it (section 2).
+
+| dwell | picoammeter values per point (`pico1_n`) | time per point (0.5 A steps) | 100 points (computed) |
+|---|---|---|---|
+| 1 s (shipped) | 2 at every one of 26 points | 4.45 to 4.53 s | about 7.5 min |
+| 3 s | 4 | 6.50 s | about 11 min |
+| 5 s | 6 | 8.5 s | about 14 min |
+
+Time per point = move (one write: 0.5 A < `max_step`) + settling (here about 1.5 s: the case's
+lag of 0.5 s to within 0.05 A, and the 0.5 s poll of `dipole.db`) + `settle_time` 2 s + dwell.
+`check` estimates without settling: 84.5 s for the 26 points of test 2, which took 126 s.
+
+What it means:
+
+- With the shipped dwell of 1 s a point gets two values: the reading the fresh read finds, which
+  was taken up to 1.3 s before the dwell began (poll period plus reading time), and the next one.
+  Of the 4.5 s per point, about 0.2 s of current is integrated. That is enough to find the peaks
+  here (noise 0.1 nA against heights of 8 to 150 nA); whether it is enough on MIST-2 depends on
+  the noise there, which is not known.
+- `settle_time` must cover the picoammeter's poll period plus a reading time (1.3 s) on top of the
+  magnet's own settling, or the first value of a dwell is a reading from before the magnet got
+  there. The shipped 2 s does; it must not be shortened below 1.3 s for speed.
+- Proposed (recommendations, none of these files is the case's): **dwell 3 s** in
+  `scans/config/dipole.yaml` (3 new readings and the fresh read per point; 100 points in about
+  11 min here); a dwell of N s gives N or N+1 values, so a whole number of poll periods.
+  **Poll period of the picoammeter: keep 1 s** (`picoammeter.db` SCAN): the arithmetic gives a
+  minimum of 0.46 s at NPLC 6 and 9600 baud, which leaves no room for the identity request and
+  the instrument's response time, which is not known. **Integration time: keep NPLC 6** (the
+  instrument's power-on value and its maximum at 60 Hz, Table 4-4); the database reads it and
+  sets nothing. **`dipole.db` SCAN: keep 0.5 s**: it sets how fast settling is seen.
+
+### Findings (questions for the owner, nothing changed)
+
+- **A lost DAQ service is not "the actuator lost".** The read-back goes INVALID within about a
+  second, but section 5 counts only a disconnected set PV or read-back and an INVALID set PV: the
+  scan waits the settle timeout (30 s), ends "not settled" and tries its end move. Counting an
+  INVALID read-back as the actuator lost (exit 5, nothing written) would end it at once.
+- **After a service restart the set PV can show a value the service does not hold** (operator
+  step 3). A condition `{pv: dipole:current:held, op: ">=", value: 0}` in the definition refuses
+  the scan then (shown in test 4: "condition dipole:current:held >= 0: INVALID"); a running scan
+  would end "condition lost" when the service stops (not measured). Alternatively `dipole.db` could
+  make the set record follow the held record's alarm. Either is a change of a part, not made.
+- **An overflow ends the dipole scan** with the shipped `required: true`. On a fixed range a
+  peak above the range is an ordinary event of a spectrum; `required: false` records it as
+  missing and goes on (test 3), autorange avoids it.
+- **The reason of a missing value is only "INVALID"**: the scan records the severity, not the
+  alarm status, so an overflow (STATE), zero check (STATE) and a silent instrument (TIMEOUT,
+  COMM) look alike in `points.csv`.
+
+## 9. Not built
 
 - Two-dimensional scans (one actuator per scan; a second axis would be a loop of scans).
 - Scan state as PVs (running, point, progress) for the GUI and the logger: the scan is visible
