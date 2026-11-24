@@ -1,0 +1,40 @@
+# Author: Philip Weigel
+
+#record(bo, "$(DEVICE):setWink") {
+#	field(DESC, "Enable/Disable winking $(DEVICE)")
+#	field(DTYP, "stream")
+#	field(ZNAM, "OFF")
+#	field(ONAM, "ON")
+#	field(OUT, "@mfc.proto setWink $(PORT)")
+#}
+
+#record(bi, "$(DEVICE):getWink") {
+#	field(DESC, "Get the state of winking $(DEVICE)")
+#	field(DTYP, "stream")
+#	field(SCAN, "5 second")
+#	field(ZNAM, "OFF")
+#	field(ONAM, "ON")
+#	field(INP, "@mfc.proto getWink $(PORT)")
+#}
+
+#record (ai, "$(DEVICE):getFS") {
+#	field(DESC, "Get the full scale range of $(DEVICE)")
+#	field(DTYP, "stream")
+#	field(SCAN, ".1 second")
+#	field(INP, "@mfc.proto getFS $(PORT)")
+#}
+
+record (ai, "$(DEVICE):getSP") {
+	field(DESC, "Get the percent set point of $(DEVICE)")
+	field(DTYP, "stream")
+	field(SCAN, ".5 second")
+	field(INP, "@mfc.proto getSP $(PORT)")
+}
+
+record (ao, "$(DEVICE):setSP") {
+	field(DESC, "Set the percent set point of $(DEVICE)")
+	field(DTYP, "stream")
+	field(DRVH, 100)  # drive high limit of 100%
+	field(DRVL, -20)  # drive low limit of -20%
+	field(OUT, "@mfc.proto setSP $(PORT)")
+}

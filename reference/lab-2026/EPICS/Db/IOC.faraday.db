@@ -1,0 +1,30 @@
+# Author: Philip Weigel, DW, JM
+
+record(aai, "$(DEVICE):data") {
+    field(DESC, "FC1 from OPTA")
+    field(DTYP, "stream")
+    field(INP, "@libcom1.proto read_all_array $(PORT)")
+    field(SCAN, ".5 second")
+    field(NELM, "2")
+    field(FTVL, "DOUBLE")
+    field(FLNK, "$(DEVICE):int:fanout.PROC PP")
+}
+
+record(fanout, "$(DEVICE):int:fanout") {
+    field(SELM, "All")
+	field(LNK0, "$(DEVICE):i1:getcurrent")
+	field(LNK1, "$(DEVICE):i2:getcurrent")
+}
+
+
+record(ai, "$(DEVICE):i1:getcurrent") {
+    field(DESC, "Get i1 flow")
+    field(INP, "$(DEVICE):data.VAL[0] CA")
+    field(SCAN, "Passive")
+}
+
+record(ai, "$(DEVICE):i2:getcurrent") {
+    field(DESC, "Get i2 current")
+    field(INP, "$(DEVICE):data.VAL[1] CA")
+    field(SCAN, "Passive")
+}

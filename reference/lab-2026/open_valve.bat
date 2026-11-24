@@ -1,0 +1,1 @@
+start cmd.exe /c "cd C:\EPICS\IOCs\sampleIOC\iocBoot\iocsampleIOC & .\dllPath.bat & caput VALVE:s1:set 1"

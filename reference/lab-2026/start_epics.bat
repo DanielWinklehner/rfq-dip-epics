@@ -1,0 +1,1 @@
+start cmd.exe /k "cd C:\EPICS\IOCs\sampleIOC\iocBoot\iocsampleIOC & .\dllPath.bat & ..\..\bin\windows-x64-mingw\sampleIOC.exe .\st.cmd"

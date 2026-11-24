@@ -1,0 +1,22 @@
+Notes:
+
+Arduino Mega -- parity: none
+Teensy -- partity: even
+
+Using AVR/Thermocouple code instead of the one in the devices/ folder
+
+How to add a new device:
+1. upload arduino script
+2. create a record file (.db) in the iocApp/Db folder, add it to the makefile
+3. in st.cmd, create a new instance with the specific io parameters
+4. use the pv's you defined in the record file in the RAS Devices.js file
+5. make clean && make -j8 in the sampleIOC folder
+6. run the .exe in the mingw bin with the st.cmd as an argument
+
+COM13 - MFC
+COM8 - TDK
+COM3 - AIM 
+COM19 - REK
+COM22 - Thermocouples, micro
+--> t2 = back plate
+--> t4 = magnet plate
