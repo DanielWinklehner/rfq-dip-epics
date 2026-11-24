@@ -1,0 +1,12 @@
+# The picoammeter of the case "dipolescan": the Keithley 6485 simulator (assumed model, A44) as in
+# emulation/devtest/picoammeter, its input current set by coupling.py through the control port.
+# 9600 baud and CR are assumptions (A46). The noise is a choice of this case, not of the
+# instrument: 0.1 nA rms per reading.
+- name: pico1
+  type: keithley_6485
+  port: 5001                  # control port 6001
+  baud: 9600
+  turnaround_ms: 5            # response time: not in the manual, assumed
+  options:
+    current: 2.0e-9           # A, the background of coupling.yaml until the coupling runs
+    noise: 1.0e-10            # A rms per reading (case)
