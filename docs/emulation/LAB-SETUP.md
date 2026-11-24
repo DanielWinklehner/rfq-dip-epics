@@ -285,10 +285,26 @@ Faraday cup Opta's sketch is not known.
 5. Close the serial monitor, start the IOC, then `caget -a VALVE:id VALVE:firmware VALVE:s1:get`
    and, for the first set through the IOC, `caput VALVE:s5:set 1` and `caput VALVE:s5:set 0`.
 
-The sketch sets no communication timeout: the valves keep their state when the IOC stops. An
-Arduino Mega restarts when a program opens its serial port, and the sketch starts with all
-eight relays released: watch whether the relays drop when the IOC starts, and tell me. The
-firmware before this one is `AVR/devices/SolenoidValveBox` at commit `3790bda` of `master`.
+The sketch sets no communication timeout: the valves keep their state when the IOC stops, and
+the IOC sends nothing at its start (it takes over the state it reads). What can release all
+eight relays is a restart of the Arduino Mega itself, which happens when the DTR line of its
+port goes from off to on:
+
+- **The first IOC start after the box was plugged in or the rack server booted:** the box
+  restarts, all relays released.
+- **Every later IOC restart:** no restart of the box expected. The IOC's serial driver leaves
+  DTR on when it closes the port, so the next start makes no edge. Seen for the driver's
+  setting on a pseudo-terminal, not yet on the box: switch relay 5 on, restart the IOC, and the
+  relay should stay on with `VALVE:s5:set` and `VALVE:s5:get` both 1.
+- **The Arduino IDE or its serial monitor on this port:** restarts the box.
+
+To keep the relays through a warm reboot of the server as well, the Mega's automatic reset has
+to be disabled on the board (the solder bridge RESET-EN cut); flashing then needs the reset
+button. Not done, not needed for IOC restarts.
+
+The relays are SRD-05VDC-SL-C (5 V coil), and the relay board has its own supply cable: USB
+feeds only the Arduino. The firmware before this one is `AVR/devices/SolenoidValveBox` at
+commit `3790bda` of `master`.
 
 **If a reply does not match,** the IOC log prints the bytes it got and what it expected. That
 line is what I need. A Matsusada status reply in another form means changing the same input

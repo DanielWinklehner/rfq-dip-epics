@@ -3,12 +3,13 @@
 # Port configuration only, one block per serial line, bus or Ethernet device. The port names
 # must equal those in ports.sim.cmd, st.cmd uses them.
 #
-# Device names under /dev/mist2/ come from the udev rules in EPICS/ioc/host (NOT TESTED on
-# hardware): by serial number, as Windows on the rack computer listed them on 2026-11-24
+# Device names under /dev/mist2/ come from the udev rules in EPICS/ioc/host: by serial number,
+# as Windows on the rack computer listed them on 2026-11-24
 # (reference/lab-2026/rack-serial-devices.txt), for the gauge controller, the interlock box, the
-# valve box and the MFC (99-mist2-serial.rules) and the CO-U32 (99-mist2-matsusada.rules, which
-# works only if the adapter reports a serial number under Linux; Windows saw none). The other
-# names (usb-opt, naim, faradaycup, flowmeters, nt20-1, nt20-2) have no rule: replace each with
+# valve box and the MFC (99-mist2-serial.rules; seen to work on the rack server for the valve
+# box, the others NOT TESTED), and by USB socket for the two Matsusada adapters, which report no
+# serial number (99-mist2-matsusada.rules; co-u32 and usb-opt seen to work on the rack server).
+# The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2) have no rule: replace each with
 # its /dev/serial/by-path/ name, found with one device plugged in at a time
 # (docs/emulation/LAB-SETUP.md, section 3).
 # ASSUMED, to be replaced when the real computer is set up:
@@ -70,6 +71,14 @@ asynSetOption("AVR11",-1,"clocal","Y")
 asynSetOption("AVR11",-1,"crtscts","N")
 
 # Solenoid valve box, Arduino, libcom1. Device name: EPICS/ioc/host/99-mist2-serial.rules
+# An IOC restart must not release the relays (owner, 2026-11-24). An Arduino Mega restarts, with
+# all relays released, when the DTR line of its port goes from off to on. asyn opens a serial
+# port with "hang up on close" (HUPCL) off (drvAsynSerialPort.c: c_cflag = CS8|CLOCAL|CREAD), so
+# DTR stays on when the IOC ends and its next start makes no edge. The first open after the box
+# was plugged in or the computer booted does restart the box. Any other program that opens this
+# port and switches DTR (the Arduino IDE and its serial monitor) restarts it as well.
+# Seen: the flag is off after this IOC had a pseudo-terminal open. NOT SEEN on the box itself.
+# The same holds for the interlock box above (also an Arduino Mega).
 drvAsynSerialPortConfigure("AVR12","/dev/mist2/valves")
 asynSetOption("AVR12",-1,"baud","115200")
 asynSetOption("AVR12",-1,"bits","8")
