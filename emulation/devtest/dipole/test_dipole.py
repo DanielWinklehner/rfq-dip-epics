@@ -280,9 +280,9 @@ def test_service_stopped_every_record_invalid_then_valid_with_set_value_not_know
 
 RUNTIME = re.compile(r"^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d\.\d+ ")
 FAULT_MESSAGE = re.compile(
-    r"^\S+ \S+ (?:DIPOLE (?:\S+: )?(?:No reply within \d+ ms|Input \"|mismatch after \d+ bytes|got \""
+    r"^\S+ \S+ (?:DIPOLE (?:\S+:? )?(?:No reply within \d+ ms|Input \"|mismatch after \d+ bytes|got \""
     r"|device \S+ 0 disconnected|No match for \"|connectCallback\(\w+\) called unexpectedly"
-    r"|Device sent \"ERR5\"|.*ERR5)"
+    r"|-1 autoConnect could not connect: Can't connect to \S+|connectToAsynPort: Can't connect to \S+)"
     r"|(?:cbLow|scan-[0-9.]+|CAS-\S+) \S+ lockRequest: (?:port \S+ not connected|status returned to normal))")
 
 
