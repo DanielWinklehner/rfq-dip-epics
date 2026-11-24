@@ -33,6 +33,8 @@ points:
   step: 0.5                          # A. ASSUMED
 
 detectors:
+  # required: a point without a valid reading ends the scan. That includes an overflow on a fixed
+  # range (owner's decision, 2026-11-24): the scan ends, it does not go on with missing points.
   - {pv: "pico1:current:get", name: pico1, required: true}     # plan: ai, A
 
 dwell: 3.0                           # s per point. ASSUMED. The picoammeter gives one new reading per

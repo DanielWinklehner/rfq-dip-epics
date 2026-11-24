@@ -351,9 +351,11 @@ What it means:
 
 - Built: the held PV (`actuator.held`, test 4), the read-back lost after `readback_lost_after`
   (unit tests), the alarm status in every INVALID reason, the dwell of 3 s.
-- **Open, the owner's decision: an overflow ends the dipole scan** with the shipped `required:
-  true`. On a fixed range a peak above the range is an ordinary event of a spectrum; `required:
-  false` records it as missing and goes on (test 3), autorange avoids it. Left as shipped.
+- **Decided by the owner (2026-11-24): an overflow ends the dipole scan.** The picoammeter is
+  `required: true` in the shipped definition, so on a fixed range the first point in overflow
+  ends the scan (exit 6) and the magnet is taken back. With `required: false` the points in
+  overflow would be recorded as missing and the scan would go on; that is not what is shipped.
+  With automatic ranging, the state after power-on, an overflow does not arise below 21 mA.
 
 ## 9. Not built
 
