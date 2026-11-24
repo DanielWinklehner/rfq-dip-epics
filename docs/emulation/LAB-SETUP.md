@@ -260,10 +260,35 @@ give their readings (query `A`), but answer identity and acknowledged sets with 
 `<DEVICE>:id` is INVALID and every valve or relay command is refused and not executed
 (`AVR/libcom1/README.md`) until a box is flashed with protocol 2. The sketches of this branch
 are in `AVR/devices/` (InterlockBox, SolenoidValveBox, IonGaugeController_Teensy; SensorBox is
-no longer used) and `AVR/Thermocouple`, with the rack computer's local changes (same pins). I
-have not compiled or flashed them. The two Optas need only `A` and get no identity records:
+no longer used) and `AVR/Thermocouple`, with the rack computer's local changes (same pins). The
+valve box and the interlock box sketches compile for the Arduino Mega 2560 (avr-gcc 7.3.0,
+Arduino AVR core 1.8.6, built with Ubuntu's Arduino packages, not with the IDE); the others I
+have not compiled, and none is flashed by me. The two Optas need only `A` and get no identity records:
 the flow meter sketch, protocol 1, is in `reference/lab-2026/AVR/devices/FlowMeters`; the
 Faraday cup Opta's sketch is not known.
+
+**Flashing a box with the Arduino IDE** (the valve box as the example):
+
+1. No program may have the box's serial port open: stop the IOC on that computer first.
+2. The IDE needs two libraries of this repository in its sketchbook:
+
+   ```bash
+   mkdir -p ~/Arduino/libraries && cp -r rfq-dip-epics/AVR/libcom1 rfq-dip-epics/AVR/libutil ~/Arduino/libraries/
+   ```
+
+3. Open `rfq-dip-epics/AVR/devices/SolenoidValveBox/SolenoidValveBox/SolenoidValveBox.ino`,
+   board "Arduino Mega or Mega 2560", the box's port, then Verify and Upload.
+4. In the IDE's serial monitor (115200 baud, line ending "Newline"): `I` must answer with
+   `oID=SolenoidValveBox;FW=...;PROTO=2;CH=s1,...,s8`, `A` with eight values, and `Ss51` with
+   `ok` while relay 5 switches (`Ss50` switches it back). Channels 5 to 8 are unused; 1 to 4
+   are the foreline valve, the MFC shut-off, the vent valve and the Faraday cup.
+5. Close the serial monitor, start the IOC, then `caget -a VALVE:id VALVE:firmware VALVE:s1:get`
+   and, for the first set through the IOC, `caput VALVE:s5:set 1` and `caput VALVE:s5:set 0`.
+
+The sketch sets no communication timeout: the valves keep their state when the IOC stops. An
+Arduino Mega restarts when a program opens its serial port, and the sketch starts with all
+eight relays released: watch whether the relays drop when the IOC starts, and tell me. The
+firmware before this one is `AVR/devices/SolenoidValveBox` at commit `3790bda` of `master`.
 
 **If a reply does not match,** the IOC log prints the bytes it got and what it expected. That
 line is what I need. A Matsusada status reply in another form means changing the same input
