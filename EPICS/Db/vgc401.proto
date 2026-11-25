@@ -1,0 +1,91 @@
+# vgc401.proto - INFICON VGC401 single-channel gauge controller, RS-232 (database: vgc401.db)
+#
+# READ ONLY: every request below is a mnemonic without a parameter, which reads. No mnemonic
+# that sets something is sent with a parameter, and none of COM, BAU, UNI,x, SAV, RES, ... is
+# here. Task T30.
+#
+# Source: INFICON operating manual "Single-Channel Controller VGC401", tinb01e1-f (2011-07),
+# for firmware 302-519-E (p. 2). Pages are the manual's own:
+#   p. 12, 55  RS232C, 8 data bits, no parity, 1 stop bit, no hardware handshake, only TXD and
+#              RXD used; 9600, 19200 or 38400 baud (a setting of the controller, p. 44, 69;
+#              9600 is the default, p. 82). The baud rate is set in the port file, not here.
+#   p. 55      after power-on the controller sends the measured value every 1 s by itself;
+#              "As soon as the first character is transferred to the VGC401, the automatic
+#              transmission of measured values stops." The first request of the IOC ends it
+#              (it changes no stored setting). Only COM restarts it: never sent here.
+#   p. 56      <ENQ> = 05 hex, <ACK> = 06, <NAK> = 15. "After each ASCII string, the HOST must
+#              wait for a report signal (<ACK><CR><LF> or <NAK><CR><LF>)."
+#   p. 57      mnemonics are three ASCII characters; "The input is terminated by <CR> or <LF>
+#              or <CR><LF>". The data is requested with <ENQ>: "<ENQ> must be transmitted to
+#              request the transmission of an ASCII string." Replies end with <CR><LF> (p. 58).
+#   p. 58      an error is answered <NAK><CR><LF> and sets a flag in the ERROR word.
+#   p. 60      PR1 -> "x,sx.xxxxEsxx" status digit, then the value in the current pressure unit.
+#              Status 0 measurement data okay, 1 underrange, 2 overrange, 3 sensor error,
+#              4 sensor off (BAG, PEG), 5 no sensor, 6 identification error, 7 error BAG, BPG,
+#              HPG, BCG (the state words in vgc401.db).
+#   p. 62      TID -> PSG, PCG, PEG, MPG, CDG, BAG, BPG, BPG402, HPG, BCG, noSEn, noid
+#   p. 63      ERR -> "xxxx": 0000 no error, 1000 controller error, 0100 NO HWR no hardware,
+#              0010 PAR inadmissible parameter, 0001 SYN syntax error. "The ERROR word is
+#              cancelled when read out. If the error persists, it is immediately set again."
+#   p. 67      UNI -> 0 mbar/bar, 1 Torr, 2 Pascal, 3 Micron
+#   p. 71      PNR -> "xxx-xxx-x" firmware number and modification index
+#   p. 75      the example: "T: PR1 <CR> R: <ACK><CR><LF> T: <ENQ> R: 0,8.3400E-03 <CR><LF>"
+#
+# Terminators: the requests end with CR (written into each request, p. 57), <ENQ> is sent
+# alone: an OutTerminator would follow the <ENQ> with an empty message. Replies end CR LF.
+#
+# Timing (vgc401.db: PR1 every 1 s, UNI, TID, ERR, PNR every 2 s): in 2 s the line carries at
+# most 6 exchanges. A silent controller costs one ReplyTimeout each (the acknowledgement never
+# comes): 6 x 150 ms = 0.9 s. The worst case, an acknowledgement and then no data, costs two:
+# 6 x 300 ms = 1.8 s, plus about 110 characters at 9600 baud (0.11 s) = 1.9 s < 2 s. The
+# manual gives no response time; 150 ms is assumed, the probe measures it.
+#
+# Argument \$1 of get_pressure: the PV prefix (redirection target $(DEVICE):_pr1:status).
+
+OutTerminator = "";
+InTerminator = CR LF;
+ReplyTimeout = 150;
+ReadTimeout = 50;
+
+# PR1 (p. 60): the value goes into the record (the controller's unit), the status digit into
+# $(DEVICE):_pr1:status. A <NAK>, a line of the automatic transmission still on its way when
+# the request went out, or no reply: the record ends in INVALID and vgc401.db says why.
+get_pressure {
+    out "PR1" CR;
+    in ACK;
+    out ENQ;
+    in "%(\$1:_pr1:status)1d,%g";
+}
+
+# UNI (p. 67): the unit number into an mbbi
+get_unit {
+    out "UNI" CR;
+    in ACK;
+    out ENQ;
+    in "%d";
+}
+
+# TID (p. 62): the gauge identification, a word without blanks
+get_gauge {
+    out "TID" CR;
+    in ACK;
+    out ENQ;
+    in "%39s";
+}
+
+# ERR (p. 63): four binary digits; 1000 = 8, 0100 = 4, 0010 = 2, 0001 = 1 into an mbbi.
+# Reading it clears the word (p. 63): the IOC reads it every 2 s.
+get_error {
+    out "ERR" CR;
+    in ACK;
+    out ENQ;
+    in "%4b";
+}
+
+# PNR (p. 71): firmware number and modification index, e.g. 302-519-E (p. 2)
+get_version {
+    out "PNR" CR;
+    in ACK;
+    out ENQ;
+    in "%39s";
+}
