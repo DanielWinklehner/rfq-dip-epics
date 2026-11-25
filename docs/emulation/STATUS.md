@@ -1190,6 +1190,29 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the owner changes where the gauges go (for the plan: the development session's)
+
+Owner: "slight change of plans: inficon foes on the roughing line (because it has a smaller
+flange than the others) and the APG and a regular AIM go on the 6-way. We defer the nAIM to
+later. both APG and AIM should be controlled by the TIC station".
+
+What it says, set against the plan of today (revision 0.33). **Nothing of it is connected or
+seen yet; no file is changed by me.**
+
+- **INFICON VGC401 on the roughing line:** as the plan has it (`gauge_foreline`,
+  `PRESSURE:foreline:*`). New is only the reason, its smaller flange.
+- **APG and a regular AIM on the six-way cross, both on the TIC.** Until now the plan has the
+  APG and an AIM on the homemade gauge box (`gauge_ctrl`, `PRESSURE:apg:*`) and the nAIM beside
+  the APG on the cross. The APG is on the TIC's socket 1 since today (`TIC:gauge1:*`); the AIM
+  takes another socket (P70), and both read through `tic.db`, read only. An AIM is switched on
+  by the TIC, at its panel or by a rule of the TIC's own; nothing in the IOC can switch it.
+- **The nAIM is deferred:** `AIM:*` of the rack IOC stays without a device (INVALID).
+- **What I do not know and have asked:** whether the homemade gauge box is out of the system
+  with this, and which socket the AIM goes on.
+- **Touched by it in the plan and the GUI** (the development session's): the gauges' places and
+  names (P70, P71), the drawing, the interlock rows that name "nAIM / gauge controller" and
+  "APG gauge" as sources, and what the rack IOC loads for the gauge box and the nAIM.
+
 ### 2026-11-25: the rack IOC reads the TIC (A52, P65, P73)
 
 Owner, after his pull and restart on the rack server: "ioc is restarted, check the TIC".
