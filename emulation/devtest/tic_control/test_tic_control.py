@@ -356,6 +356,64 @@ def test_restart_with_the_pumps_running_sends_nothing(ctl):
     acknowledged(ctl, TURBO, 1, 1)                    # afterwards a request is sent as before
 
 
+# --- the lag of the TIC's state after an acknowledged command (the lead's review of T32) --------
+# On the lab's TIC the turbopump showed its old state 51 ms after "!C904 1" and the new one by
+# 5 s; the IOC polls every 2 s on top. Within that time the other pump's request must still be
+# refused: the IOC holds an acknowledged turbopump start and an acknowledged backing pump stop
+# for HOLD_S (tic_control.db). The second write follows the first one's acknowledgement at once.
+
+def stopped_turbo_and_backing_on(ctl):
+    if get(RB[BACKING]) != 1:
+        acknowledged(ctl, BACKING, 1, 1)
+    if get(RB[TURBO]) == 1:
+        acknowledged(ctl, TURBO, 0, 0)
+    stop_turbo_now(ctl)
+
+
+def straight_after(ctl, first, first_value, second, second_value, word_expected):
+    """The first request acknowledged, the second written at once (no wait for a read-back):
+    refused with the word, nothing sent, back at the read-back's value."""
+    sent = commands(ctl)
+    put(first, first_value)
+    put(second, second_value)
+    got = (sevr(second), stat(second), word(REASON[first]), word(REASON[second]))
+    shown = word("TIC:turbo:state:get"), word("TIC:backing:state:get")
+    after = commands(ctl)
+    print("%s := %d, then %s := %d at once: %r, commands +%d, states shown %r"
+          % (first, first_value, second, second_value, got, after - sent, shown))
+    assert got[2] == "Acknowledged", got
+    assert got[3] == word_expected, got
+    assert after == sent + 1, "the second request was sent"
+    wait_for(lambda: (get(second), sevr(second)), lambda v: v == (get(RB[second]), NO_ALARM), 2.0)
+
+
+def test_backing_pump_stop_straight_after_a_turbopump_start_is_refused(ctl):
+    stopped_turbo_and_backing_on(ctl)
+    try:
+        straight_after(ctl, TURBO, 1, BACKING, 0, "Refused: turbopump runs")
+        assert sig(ctl, "backing.state") == 4
+    finally:
+        if sig(ctl, "backing.state") != 4:
+            acknowledged(ctl, BACKING, 1)
+        ctl.set("turbo.speed", 100.0)
+        ctl.release("turbo.speed")
+        wait_for(lambda: word("TIC:turbo:state:get"), lambda w: w == "Running", 6.0)
+
+
+def test_turbopump_start_straight_after_a_backing_pump_stop_is_refused(ctl):
+    stopped_turbo_and_backing_on(ctl)
+    try:
+        straight_after(ctl, BACKING, 0, TURBO, 1, "Refused: backing not on")
+        assert sig(ctl, "turbo.state") == 0
+    finally:
+        acknowledged(ctl, BACKING, 1, 1)              # ends the hold of the backing pump's stop
+        if sig(ctl, "turbo.state") == 0:
+            acknowledged(ctl, TURBO, 1, 1)            # the order of a start: backing pump first
+        ctl.set("turbo.speed", 100.0)
+        ctl.release("turbo.speed")
+        wait_for(lambda: word("TIC:turbo:state:get"), lambda w: w == "Running", 6.0)
+
+
 ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invalid|failed|unknown"
                    r"|syntax|bad ", re.I)
 EXPECTED = re.compile(r"No reply|does not match|mismatch|Timeout|timed out|connect|Connection"
