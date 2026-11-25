@@ -1173,8 +1173,129 @@ nothing of the simulator but a new module with its tests and a line of its READM
     over the pump's state at an IOC start without sending anything (as the valves do)? Not
     built until you say so; T29 is read only by decision.
 
+## Seen on hardware, lab session
+
+Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
+in this section is the lab session. Newest first.
+
+### 2026-11-25: the VGC401, first contact (A51, P65)
+
+**Seen on hardware: the controller answers at 9600 baud, 8N1, no handshake, through a USB to
+RS-232 adapter cable on the lab computer.** Probe `EPICS/ioc/host/inficon_vgc401_probe.py` of
+commit `a9d84ee`, run twice, 19 s apart, no IOC, no other program on the port.
+
+- **Adapter:** FTDI FT232R, USB ID `0403:6001`, serial number `FTE7S80M`, driver `ftdi_sio`,
+  `/dev/ttyUSB0`, latency timer 16 ms (the driver's default, not changed).
+  `/dev/serial/by-id/usb-FTDI_USB_Serial_Converter_FTE7S80M-if00-port0`, and
+  `/dev/serial/by-path/pci-0000:00:14.0-usb-0:4:1.0-port0`, which is the lab computer's socket
+  and of no use on the rack server. The adapter reports a serial number, so a rule by serial
+  number could give `/dev/mist2/vgc401` on either computer. No rule is written.
+- **Unit:** `UNI` answers `1`, Torr. **Gauge head:** `TID` answers `PCG`, Pirani/Capacitive.
+  **Firmware:** `PNR` answers `302-519-D`; the manual tinb01e1-f is for `302-519-E`.
+  **Error word:** `0000` in both runs.
+- **Pressure:** `PR1` answers `0, 7.6400E+02`: status 0 (measurement data okay), 764 Torr. I
+  did not compare it with the controller's display.
+- **The pressure reply has a blank after the comma:** `'0, 7.6400E+02\r\n'`. The manual gives
+  the form `x,sx.xxxxEsxx` (p. 60) and the example `0,8.3400E-03` (p. 75); the controller sends
+  a blank where the sign of the value would be. Three places know the form without the blank:
+  - The probe's pattern for `PR1` does not take it. It prints "NOT THE FORM OF THE MANUAL" and
+    ends with "4 of 5" and exit code 1, although all five requests were answered in the second
+    run.
+  - `vgc401.proto` reads the reply with `in "%(\$1:_pr1:status)1d,%g";`. Whether `%g` takes the
+    blank I have not tried: there is no EPICS on this computer.
+  - The simulator sends `0,8.3400E-03`, without the blank (`test_inficon_vgc401.py`).
+- **Reply times** (from the write of the request to the reply's line feed, on this adapter):
+  18 replies, 17 of them between 91 and 112 ms, one after 20 ms (the acknowledgement of `PR1`
+  in the second run). The IOC's `ReplyTimeout` is 150 ms: the longest reply seen leaves 38 ms.
+  One exchange, acknowledgement and data, took 187 to 208 ms (132 ms for that `PR1`). The
+  budget in `vgc401.proto` counts 6 exchanges in 2 s: about 1.2 s at these times.
+- **The first request of the first run was refused:** `PR1` got `'\x15\x15\r\n'` (two NAK, then
+  CR LF) after 100 ms, and nothing more within 1 s. Every later request was acknowledged, and
+  `ERR` read `0000` right after it, although the manual (p. 58) says an error sets a flag in
+  the error word. Not explained. One possible cause is characters that were already in the
+  controller's input (next point).
+- **The controller did not send by itself:** 3 s of listening, nothing, in both runs. For the
+  first run this means that something had sent it a character before (manual p. 55), or that
+  it does not send after power-on as the manual says. Not known which. ModemManager is active
+  on the lab computer, and its log names the adapter at 11:02:06 ("couldn't check support for
+  device ... usb1/1-4: not supported by any plugin"); whether it wrote to the port I cannot
+  tell.
+- **What the probe changed on the controller:** no setting. It read the error word once per
+  run, which by the manual clears it.
+
+**Not seen:** the IOC on this controller (the adapter hangs on the lab computer; for the rack
+IOC it must move to the rack server, and the `VGC` line of `ports.real.cmd` still names
+`/dev/mist2/vgc401`), a value in Micron (the controller is set to Torr), a reading under
+vacuum, underrange and overrange, another baud rate, the controller's own sending.
+
+The whole output of both runs:
+
+```
+run at 2026-11-25 11:56:31 +0100
+INFICON VGC401 on /dev/ttyUSB0, 9600 baud, 8N1, no handshake
+1. listening 3 s, sending nothing
+   -> nothing arrived: the controller does not send by itself (it was asked before, or the line, the cable or the baud rate is wrong)
+2. one request each; columns: request, meaning, part, raw reply, time, remark
+   PR1  pressure and status         '\x15\x15\r\n'             100 ms  (not an acknowledgement, ignored)
+   PR1  pressure and status    ack  ''                        1001 ms  NO REPLY
+   UNI  pressure unit          ack  '\x06\r\n'                  91 ms
+   UNI  pressure unit          data '1\r\n'                     96 ms  Torr
+   TID  gauge identification   ack  '\x06\r\n'                 112 ms
+   TID  gauge identification   data 'PCG\r\n'                   96 ms  Pirani/Capacitive
+   ERR  error word             ack  '\x06\r\n'                  95 ms
+   ERR  error word             data '0000\r\n'                  96 ms  no error
+   PNR  firmware number        ack  '\x06\r\n'                  96 ms
+   PNR  firmware number        data '302-519-D\r\n'            112 ms  firmware number and modification index
+RESULT: 4 of 5 requests answered in the form of the manual
+exit code: 1
+```
+
+```
+run at 2026-11-25 11:56:50 +0100
+INFICON VGC401 on /dev/ttyUSB0, 9600 baud, 8N1, no handshake
+1. listening 3 s, sending nothing
+   -> nothing arrived: the controller does not send by itself (it was asked before, or the line, the cable or the baud rate is wrong)
+2. one request each; columns: request, meaning, part, raw reply, time, remark
+   PR1  pressure and status    ack  '\x06\r\n'                  20 ms
+   PR1  pressure and status    data '0, 7.6400E+02\r\n'        112 ms  NOT THE FORM OF THE MANUAL
+   UNI  pressure unit          ack  '\x06\r\n'                 112 ms
+   UNI  pressure unit          data '1\r\n'                     96 ms  Torr
+   TID  gauge identification   ack  '\x06\r\n'                  96 ms
+   TID  gauge identification   data 'PCG\r\n'                   96 ms  Pirani/Capacitive
+   ERR  error word             ack  '\x06\r\n'                  95 ms
+   ERR  error word             data '0000\r\n'                 112 ms  no error
+   PNR  firmware number        ack  '\x06\r\n'                  95 ms
+   PNR  firmware number        data '302-519-D\r\n'             96 ms  firmware number and modification index
+RESULT: 4 of 5 requests answered in the form of the manual
+exit code: 1
+```
+
+### 2026-11-25: the lab computer `mist-at-iba`
+
+- **Seen:** Ubuntu 26.04.1, x86_64, 8 processors, 15 GiB of memory, 853 GiB free on `/`,
+  Python 3.14.4. `eno1` has 10.77.0.1/24.
+- **The serial port was closed to the user.** `mist` was in neither `dialout` nor `docker`, and
+  the probe's first try ended with "Permission denied" and exit code 2, nothing sent. The owner
+  added `mist` to both groups, which holds from the next login, and opened the port and the
+  Docker socket for the running login (`setfacl -m u:mist:rw /dev/ttyUSB0 /run/docker.sock`),
+  which holds until the adapter is replugged, Docker restarts or the computer reboots.
+  `LAB-SETUP.md` names `dialout` for the two IOC computers (section 2) and not for the computer
+  a probe runs on. Neither `sg` nor `newgrp` is installed, so a new group needs a new login.
+- **Docker was not installed.** The owner installed `docker.io docker-buildx docker-compose-v2
+  make` from Ubuntu's packages: Docker 29.1.3, Compose 2.40.3, buildx 0.30.1, GNU Make 4.4.1.
+  `docker-buildx` is not in the list of `LAB-SETUP.md` section 6: on 26.04 `docker.io` only
+  suggests it, and I asked for it because `compose.dev.yaml` builds with
+  `additional_contexts: service:...`. Whether the build works without it is not tried.
+- **Of `LAB-SETUP.md` section 1, point 4, on this computer:** `openssh-server` is installed,
+  `tmux` is not, the sleep targets are not masked, ModemManager is active and enabled.
+- **Addresses** (owner, 2026-11-25): "rack server is 10.77.0.6 and the platform computer is not
+  online yet". Seen: 10.77.0.6 answers a ping from here in 0.26 ms, and its TCP port 5064 was
+  closed at 11:59, so no IOC ran there then. The address is in `CLAUDE.md`.
+
 ## Not verified
 
+- **The VGC401 has met its controller on 2026-11-25:** see "Seen on hardware, lab session". The
+  IOC has not, and the pressure reply has a form the probe and the simulator do not know.
 - The INFICON VGC401 and the Edwards TIC on their controllers: the probes, the protocol files
   and the line settings come from the manuals (A51, A52, P65). The VGC401's manual was read
   from a third-party copy; of the TIC's variants only the Turbo Controller's instruction manual
@@ -1418,7 +1539,7 @@ A19 (the output gate is wanted, and it latches).
 | A48 | The two door switches of the HV cage close when their door closes, so the Opta counts a high input as a closed door (T28) | The old sketch treats the interlock as closed when both inputs are high; how the switches were wired to the lost box is not recorded. Asked in question 21, not answered | One constant per input in the sketch. A switch that opens when the door closes would have to be read the other way round, and a broken wire would then read as a closed door |
 | A49 | An input of the Opta reads its voltage against the supply's minus terminal (T28) | The data sheet gives the input's thresholds and names no reference terminal in words | Seen at the first bench check: an input at the supply's plus must read as a closed door. The supply is the +24 V rail of a NIM crate (answer 55), so the reference is that crate's 24 V return |
 | A50 | The four solenoid valves are fed from the NIM crate's +24 V rail, the one that feeds the Optas | Answer 57 names the valves' power as a worry for that rail and does not say it in so many words | You |
-| A51 | The VGC401 as the lab has it: 9600 baud (the factory default), a reply within 150 ms, a value in Micron stays in Micron above 99000 on the serial line, and its "RS232" socket takes a straight cable (T30) | The manual tinb01e1-f gives the default and the pins, no response time, and the change-over to Torr only for the display; read from a third-party copy of the manual, of which I checked four pages against the engineer's quotes | The probe `inficon_vgc401_probe.py` on the controller: reply times, unit, gauge head |
+| A51 | The VGC401 as the lab has it: 9600 baud (the factory default), a reply within 150 ms, a value in Micron stays in Micron above 99000 on the serial line, and its "RS232" socket takes a straight cable (T30) | The manual tinb01e1-f gives the default and the pins, no response time, and the change-over to Torr only for the display; read from a third-party copy of the manual, of which I checked four pages against the engineer's quotes | The probe `inficon_vgc401_probe.py` on the controller: reply times, unit, gauge head. **Seen on hardware, 2026-11-25 (lab session, "Seen on hardware"):** 9600 baud answers; replies after 91 to 112 ms, within the 150 ms; the cable is "a USB-to-RS232 adapter cable" (owner, answer 60), and what is between it and the "RS232" socket I have not seen. Not seen: a value in Micron (the controller is set to Torr). New: the pressure reply has a blank after the comma (`0, 7.6400E+02`), which the manual's example does not show |
 | A52 | The TIC station: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual, taken to hold for the lab's variant), replies within 120 ms, a gauge that measures reports the state On and its value in pascal, and an object the controller does not have is answered with an error reply (T29) | The serial manual D397-30-880 covers all variants; the instruction manuals of the Instrument Controller and of the Turbo and Instrument Controller could not be fetched | The probe `edwards_tic_probe.py` on the controller: variant, states, reply times |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
@@ -1508,7 +1629,7 @@ loop, see "Done").
 | P62 | In the Opta sketch the door decision and the communication share one loop, as in the old box. The Opta's USB write waits until the computer has taken the data (`USBCDC::send` in the core). If a write ever hangs (the USB cable pulled in the middle of a reply, a computer that stops with the port open), the doors are not read and relays 1 and 2 keep their state until the watchdog restarts the board, up to 8 s later. The IOC's side is safe in that state: no reply, `interlock_open` INVALID, supplies off. Whether a write can hang at all is not known | A bench test (`LAB-SETUP.md`): with the IOC reading, pull the USB cable, then open one input; relay 1 must drop at once. If it does not, the door decision moves into a thread of its own before the contacts are wired to anything |
 | P63 | The Opta's relays have a minimum switching load of 300 mW (data sheet: 12.5 mA at 24 V, 60 mA at 5 V, 60 V at 5 mA). An interlock input of a power supply usually carries less; what the Matsusada and REK inputs carry is not known here | Question 22 b. A small signal relay between the Opta's contact and such an input |
 | P64 | The unit test `test_matsusada_co ... test_back_to_back_transactions_keep_the_line_timing` failed twice on 2026-11-25 while other containers ran on the PC (0.02427 s and 0.02438 s against a limit of 0.02425 s) and passed alone. Its margin of 0.5 ms is too small for a loaded PC | Widen the margin or measure against the simulator's own clock. It is not a fault of the simulator's timing as far as these runs show |
-| P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement |
+| P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement. **VGC401, seen on hardware, 2026-11-25 (lab session):** 17 of 18 replies after 91 to 112 ms, one after 20 ms, on an FTDI adapter with a latency timer of 16 ms; 38 ms are left of the 150 ms. The TIC is not probed yet |
 | P66 | The two new devices are in the registry (class gauge) and in no drawing of the GUI | With the next GUI round: the foreline gauge beside the turbopump's foreline, the TIC where its gauges turn out to sit |
 | P67 | ModemManager runs on the lab computer and looked at the VGC401's adapter before the probe ran (lab session, 2026-11-25). If it sent a character, the controller's own sending has ended, and the probe's listening shows nothing although cable and baud rate are right | The probe's requests still answer in that case. To see the automatic lines: the rule file installed (it keeps ModemManager off this adapter) or ModemManager disabled, then the controller switched off and on |
 | P68 | With no IOC connected the GUI's title reads "[SIM] MIST-2" and its banner "EMULATOR — Rack IOC: mode unknown, HV platform IOC: mode unknown" (lab session, on the lab computer, 2026-11-25). On the real system that is wrong | GUI: the emulator's title and banner only when an IOC reports the mode of the emulation; an unknown mode as its own, neutral message |
