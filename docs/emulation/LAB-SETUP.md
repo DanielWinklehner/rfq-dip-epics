@@ -404,6 +404,9 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    alone, `ls -l /dev/serial/by-path/`, and put that name into the `TIC` line of
    `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/tic_station`.
    A baud rate other than 9600 on the VGC401 goes into its block of the same file.
+   The TIC's adapter hangs behind a USB extension that is a hub (owner, 2026-11-25): its
+   socket name contains the hub's port, so take the name on the rack server with the extension
+   in place, and keep the adapter on that port of the hub.
 3. **Read**, after an IOC restart:
 
    ```bash
