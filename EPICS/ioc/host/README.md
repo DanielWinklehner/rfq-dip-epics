@@ -34,6 +34,17 @@ Python wrapper, root rights for every run) is not needed.
 
 The steps of a first installation, in order: `docs/emulation/LAB-SETUP.md`.
 
+**Edwards TIC (task T29).** `edwards_tic_probe.py <device>` (for example
+`EPICS/ioc/host/edwards_tic_probe.py /dev/ttyUSB0`, with the IOC stopped) sends each query of
+`EPICS/Db/tic.proto` once at 9600 8N1 with Xon/Xoff: identity, system status, gauges 1 to 3,
+turbo pump state, type and speed, backing pump state and type. It sends no command and no
+setup (`!C`, `!S`), so it changes nothing. Each reply is printed with its time and its meaning
+from the manual (D397-30-880 Issue H), a missing one as `NO REPLY`; the last line says how
+many of the ten were answered. Exit code 0: all answered, 1: not, 2: the device cannot be
+opened. `python3 EPICS/ioc/host/edwards_tic_probe_test.py` runs it against a fake controller on
+a pseudo-terminal, once answering (exit 0 expected) and once silent (exit 1 expected), and exits
+with 0 when both happen. What the output means: `docs/emulation/TIC.md`.
+
 ## Install (once, with root rights)
 
 ```bash
