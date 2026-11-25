@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.27"
+  revision: "0.28"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -46,6 +46,7 @@ meta:
     - "Revision 0.25: the old interlock box was not found after the move; the third Arduino Opta takes its place (owner, 2026-11-24), with the old box's channels and PVs (firmware AVR/devices/InterlockOpta, T28, not yet run on the board). The dipole and quadrupole supplies wait (owner). No record changed."
     - "Revision 0.26: the lab's Optas are fed from the +24 V rail of an old NIM crate and have USB to the computer (owner, 2026-11-25); the interlock Opta the same. No record changed."
     - "Revision 0.27: the NIM crate's +24 V rail gives 1.5 A at most (owner, 2026-11-25); the three Optas take 0.3 A at most. No record changed."
+    - "Revision 0.28: the four solenoid valves take 3 W at 24 V each, at most three at a time (owner, 2026-11-25); the sum on the NIM crate's +24 V rail. No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -628,6 +629,7 @@ devices:
       - "Channels (owner, 2026-11-21): 1 foreline valve, 2 MFC shutoff valve, 3 vent valve, 4 Faraday cup actuator, 5 to 8 unused. The vent valve vents the turbopump through the vent port on its side, and through it the six-way cross a little: the nitrogen inflow is small."
       - "Stays in service until the additional Optas have arrived (a few weeks). Flash the protocol 2 firmware anyway, so that sets are acknowledged in the meantime."
       - "Relays: SRD-05VDC-SL-C (owner, 2026-11-24), 5 V coil by the type name. The relay board has its own supply cable; USB feeds only the Arduino."
+      - "The four valves take 3 W at 24 V each (0.125 A), and at most three are on at a time (owner, 2026-11-25). They are fed from the NIM crate's +24 V rail that feeds the Optas (assumed, A50; 1.5 A at most). Sum of the rated values: three Optas 0.275 A and three valves 0.375 A make 0.65 A, with all four valves 0.775 A; with two more Optas (valves, turbopumps) 0.83 A and 0.96 A. Not in the sum: the analog expansion and anything else on the rail. Not measured."
       - "An IOC restart must not release the relays (owner, 2026-11-24). The IOC sends nothing at its start, and its serial driver leaves DTR on at close, so the Arduino is not restarted by the next start. The first open after plugging in or a boot of the rack server restarts the box, all relays released. Not seen on the box yet."
       - "Words: 0 = closed, 1 = open for the valves s1 to s3; 0 = out, 1 = in for the Faraday cup actuator s4. Opening the vent valve asks for confirmation (owner, 2026-11-21: the only confirmation dialog)."
 
