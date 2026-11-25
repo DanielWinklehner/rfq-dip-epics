@@ -1969,8 +1969,12 @@ exit code: 1
        2026-11-25: atmosphere within 30 s). With the foreline valve open that air goes up the
        roughing line into the big turbopump. Should the IOC refuse a stop of the cart's
        turbopump from the GUI while the foreline valve reads open? My recommendation: yes;
-       the TIC's panel can still stop it. T32 prepares for it and does not build it without
-       your word.
+       the TIC's panel can still stop it. **Answered the same day** (to the lab session),
+       against my recommendation: "No, but pop up a warning. Later we will implement spin-up
+       and shut-down procedures". So T32 builds no refusal for it: the GUI's confirmation of
+       that stop carries a warning while the foreline valve reads open or its state is not
+       known, and the stop is sent if the operator confirms. Procedures for spin-up and
+       shut-down are a later task.
 
 ## Not verified
 
