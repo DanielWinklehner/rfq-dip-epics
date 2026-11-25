@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.32"
+  revision: "0.33"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -51,6 +51,7 @@ meta:
     - "Revision 0.30: addresses on the experiment's network (owner, 2026-11-25): lab computer 10.77.0.1, rack server 10.77.0.6. The VGC401's USB adapter is named by its serial number. No record changed."
     - "Revision 0.31: the rack IOC reads the foreline pressure on the real VGC401 (lab session, 2026-11-25): gauge head PCG, unit Torr, a reply after about 0.1 s. The Edwards station is a TIC cart for 115 V with three gauge sockets (owner). No record changed."
     - "Revision 0.32: the Edwards station answered the probe (lab session, 2026-11-25): a TIC Turbo and Instrument Controller (TIC100) with an EXT75DX turbopump, a mains backing pump and the APG on gauge socket 1. No record changed."
+    - "Revision 0.33: the rack IOC reads the TIC station on the rack server (lab session, 2026-11-25, 15:06): identity, variant, the APG on socket 1 and both pumps' states valid. Its serial line is named tic_station (owner). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -491,12 +492,12 @@ devices:
     subsystem: vacuum
     location: rack
     host: ioc_rack
-    link: "RS-232 (9-way D), Prolific USB to RS-232 adapter without a serial number (named by its USB socket)"
+    link: "RS-232 (9-way D), Prolific USB to RS-232 adapter without a serial number behind a USB extension (a hub); the owner's name for the line is tic_station, by the rack server's USB socket"
     protocol: "StreamDevice, tic.proto (Edwards D397-30-880), 9600 baud, queries only"
     epics:
       - {db: tic.db, macros: {PORT: TIC, DEVICE: TIC}}
     status: new
-    flags: {assumed: "The controller answered the probe on 2026-11-25 (lab session); the IOC itself has not read it yet. Pumps running and a gauge other than the APG: not seen"}
+    flags: {assumed: "Read by the rack IOC since 2026-11-25 with the station idle (lab session). Not seen through the IOC: the pumps running, a gauge other than the APG, hours of running"}
     labels: {gauge1: "APG, TIC cart", gauge2: "TIC socket 2 (empty)", gauge3: "TIC socket 3 (empty)"}
     notes:
       - "The lab has an Edwards TIC station (owner, 2026-11-25): its front says TIC, it has three gauge sockets (RJ45), and its mains inlet says 115 V. Not on 230 V mains without a transformer: the TIC controller alone takes 90 to 264 V by its data sheet, so the 115 V belongs to another part of the cart; rating plate and manual decide. It was not in the plan before."
