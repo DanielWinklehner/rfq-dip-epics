@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.29"
+  revision: "0.30"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -48,6 +48,7 @@ meta:
     - "Revision 0.27: the NIM crate's +24 V rail gives 1.5 A at most (owner, 2026-11-25); the three Optas take 0.3 A at most. No record changed."
     - "Revision 0.28: the four solenoid valves take 3 W at 24 V each, at most three at a time (owner, 2026-11-25); the sum on the NIM crate's +24 V rail. No record changed."
     - "Revision 0.29: the foreline gauge is read by an INFICON VGC401 (owner, 2026-11-25), and the lab has an Edwards TIC station (owner, same day). Both are read by the rack IOC, read only (T29, T30): PRESSURE:foreline:* and TIC:*. Neither has met its controller yet."
+    - "Revision 0.30: addresses on the experiment's network (owner, 2026-11-25): lab computer 10.77.0.1, rack server 10.77.0.6. The VGC401's USB adapter is named by its serial number. No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -83,6 +84,7 @@ hosts:
     notes:
       - "The data logger lives here (owner's proposal of 2026-11-24: the most modern hardware, the largest disk, the easiest to add disks). Nothing is recorded while this computer is off, asleep or restarting, so it stays on whenever the IOCs are on, with automatic suspend off. What the logger needs: docs/emulation/LOGGER.md, sizing."
       - "The Matsusada CO-U32 is checked here under Linux with the udev rule of EPICS/ioc/host before the rack computer's Windows is wiped (docs/emulation/LAB-SETUP.md)."
+      - "Host name mist-at-iba, user mist. 10.77.0.1/24 on the experiment's network (its on-board port), and the site's network on a USB adapter by DHCP (owner, 2026-11-25). A Claude Code session runs here for work on the real devices since that day (CLAUDE.md)."
     questions:
       - "Which Ubuntu version (lsb_release -a)?"
       - "Does the LabVIEW dipole scan run on this computer under Ubuntu today, with NI's driver for the USB-6001 installed?"
@@ -97,6 +99,7 @@ hosts:
     change: "Move from Windows to Linux: data copied, disk wiped, fresh installation. Runs without screen, operated over SSH."
     st_cmd: EPICS/ioc/iocBoot/iocRack/st.cmd
     epics: {db: ioc_info.db, macros: {P: IOC-RACK}}
+    address: "10.77.0.6 on the experiment's network (owner, through the lab session, 2026-11-25)"
     notes:
       - "Windows is only needed for the Matsusada CO-U32 driver. See work package WP4. Found on 2026-11-22: Linux needs no driver for it, only a udev rule (EPICS/ioc/host), not yet tested with the adapter."
       - "EPICS/ioc/iocBoot/iocRack/st.cmd is the same file for the emulation and for this computer. The asyn ports come from ports.sim.cmd or ports.real.cmd. The Linux device names in ports.real.cmd are placeholders until the udev rules exist (assumption A21)."
@@ -466,7 +469,7 @@ devices:
     subsystem: vacuum
     location: rack
     host: ioc_rack
-    link: "RS-232 (the controller's 9-pin socket), straight cable, USB to RS-232 adapter"
+    link: "RS-232 (the controller's 9-pin socket), straight cable, FTDI USB to RS-232 adapter (serial number FTE7S80M, /dev/mist2/vgc401 by the rule file)"
     protocol: "StreamDevice, vgc401.proto, 9600 baud (the controller's default), requests for readings only"
     epics:
       - {db: vgc401.db, macros: {PORT: VGC, DEVICE: "PRESSURE:foreline"}}
