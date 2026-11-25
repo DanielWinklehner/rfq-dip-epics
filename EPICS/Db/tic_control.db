@@ -1,0 +1,582 @@
+# tic_control.db - Edwards TIC station: start and stop of its two pumps, on and off of one gauge
+# (task T32; protocol: tic.proto, the protocols "command", "slave", "slave_raw")
+#
+# Loaded beside tic.db with the same port and prefix: tic.db reads the station (queries only, task
+# T29), this file sends the three requests, each one command, and reads one setup. tic.db alone
+# sends nothing but queries.
+#
+# Macros (each with its default):
+#   DEVICE      PV prefix, default TIC (the same as tic.db's)
+#   PORT        asyn port, default TIC (the same as tic.db's)
+#   PROTO       protocol file, default tic.proto
+#   SOCKET      the gauge socket whose gauge is switched, default 2 (the lab's AIM); its records
+#               are $(DEVICE):gauge<SOCKET>:...
+#   OBJ         the object of that socket, default 914: 913, 914, 915 for sockets 1, 2, 3
+#               (D397-30-880 Table 1). SOCKET and OBJ must agree.
+#   APG         the socket whose pressure permits the gauge's switch-on, default gauge1
+#   PMAX        that pressure's limit in torr, default 1e-2 (the owner's rule, 2026-11-25: "The
+#               AIMs may not be turned on until the APG shows 1e-2 Torr or lower")
+#   ATSPEED     the turbopump's speed in % from which it counts as at speed, default 95
+#   SCAN_SLAVE  scan of the gauge's slave setup query, default "10 second"
+#   BACK_S      seconds after a refused request until it falls back, default 0.02
+#
+# The three requests (bo, written by an operator; 1 = start or on, 0 = stop or off):
+#   $(DEVICE):turbo:start:set     "!C904 1" / "!C904 0"   seen on the lab's TIC (2026-11-25)
+#   $(DEVICE):backing:start:set   "!C910 1" / "!C910 0"   seen on the lab's TIC (2026-11-25)
+#   $(DEVICE):gauge2:on:set       "!C914 1" / "!C914 0"   FROM THE MANUAL ONLY (D397-30-880
+#                                 Table 1 object 914, 1.7.5 "Gauge On = 1, Gauge Off = 0"): not
+#                                 tried on the controller
+# Each write is one command, nothing else: no sequence, no setup message ("!S"), no retry. The
+# TIC's "*C<obj> 0" ends it without alarm; any other code leaves the request INVALID (CALC) and
+# :reason shows the code's word (Table 3); no reply leaves it INVALID (TIMEOUT), :reason "No
+# reply". The pump's state in the IOC is the TIC's (below), so it is unchanged by a failed request.
+#
+# The read-back is the TIC's own state, read by tic.db every 2 s (the gauge's every 1 s):
+#   turbo:start:get   run in the states that follow a start, 1 Starting Delay, 5 Accelerating,
+#                     4 Running (1.7.8), stop in the others; INVALID while the state is not known
+#   backing:start:get run in 1 Off Going On and 4 On (1.7.6), stop in 0, 2, 3
+#   gauge2:on:get     on in 6 Striking and 11 On (1.7.7), off in the others
+#   turbo:atspeed:get at speed from ATSPEED % (TIC:turbo:speed:get); not the state "Running",
+#                     which the TIC shows from 50 % (seen)
+#
+# Refusals, each for the hardware's sake (task T32, D5). A refused request sends nothing, falls
+# back at once to the state the read-back shows (or, while that is not known, to its previous
+# value) and :reason says why:
+#   turbo:start:set := 1    while the backing pump is not On (state 4), also while its state is
+#                           not known: "Refused: backing not on" / "Refused: backing unknown"
+#   backing:start:set := 0  while the turbopump is in a state that follows a start (1, 5, 4), also
+#                           while its state is not known: "Refused: turbopump runs" / "Refused:
+#                           turbo unknown". In the run-down (7 Braking) the backing pump may be
+#                           stopped: that order (turbopump stop, backing pump off right after) was
+#                           used on the lab's TIC and held (the pump vents itself from its stop on)
+#   gauge2:on:set := 1      unless the APG's pressure ($(DEVICE):$(APG):getpressure) is valid and
+#                           at or below PMAX torr: "Refused: APG > 1e-2 torr" / "Refused: APG not
+#                           valid"
+# Stops and switch-offs are never refused. There is no pressure condition for the turbopump (the
+# owner has given none), no communication timeout and no automatic action: a pump keeps its state
+# when the IOC stops or loses the line, and the IOC does not switch the gauge off by itself when
+# the pressure rises (the TIC's own slave setup can, below).
+#
+# How a refusal works, in one processing of the request (EPICS 7.0.10, boRecord.c, dbAccess.c):
+#   dbProcess reads the request's disable link SDIS ("_refuse PP MS") before the record support:
+#   _refuse is processed (PP) and computes, from the request's new VAL, its SIMM and the other
+#   pump's (or the APG's) state, 0 (go) or 1, 2 (refused, a HIGH alarm of severity INVALID). DISV
+#   is -1, so the request is never disabled, but MS raises its new severity to INVALID (LINK).
+#   boRecord's process then does not call the device support (nsev INVALID, IVOA "Don't drive
+#   outputs"): nothing is sent, the record ends INVALID/LINK at once. Its forward link writes the
+#   reason; _back, 0.02 s later (ODLY: the request is still active during its forward link), puts
+#   the read-back's value into the request in simulation mode (SIMM YES, no command, as
+#   first_contact.db does) and then SIMM NO: the request shows the state again, without alarm.
+#   While SIMM is YES (the take-over at the first contact, first_contact.db, or the fall-back)
+#   _refuse refuses nothing (nothing is sent then anyway) and the reason stays.
+#
+# After an IOC start each request takes over its device's state at the TIC's first answer
+# without sending anything: first_contact.db, loaded once per request in the st.cmd (N turbo,
+# backing, gauge2). A restart of the IOC neither starts nor stops a pump nor switches the gauge.
+#
+# The gauge's slave setup, read only (D397-30-880 Table 1, config type 4), every SCAN_SLAVE:
+#   gauge2:slave:get     "linked" (enabled with a master: the TIC switches the gauge itself at
+#                        the set points), "not linked", or why it is not known (INVALID)
+#   gauge2:slave:on:get, :slave:off:get   the set points in torr (pascal on the line; NaN when
+#                        the units type is not 59), :slave:master:get the master's object ID
+#   gauge2:slave:raw     the text of the last "=S914 ..." reply, any form (for the first contact)
+# Its reply was not seen on the controller; the form is the one seen for the turbopump's object.
+#
+# Internal records start with "_". Words longer than an mbbi string (25 characters) are
+# shortened as in tic.db ("Invalid cmd for object ID").
+
+# ---------------------------------------------------------------- Turbopump
+
+# The request: 1 run, 0 stop. "!C904 1" / "!C904 0", acknowledged (tic.proto, command)
+record(bo, "$(DEVICE=TIC):turbo:start:set") {
+    field(DESC, "Turbopump: 1 run, 0 stop")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=tic.proto) command(904) $(PORT=TIC)")
+    field(SDIS, "$(DEVICE=TIC):turbo:_refuse PP MS")
+    field(DISV, "-1")
+    field(IVOA, "Don't drive outputs")
+    field(IVOV, "99")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+    field(FLNK, "$(DEVICE=TIC):turbo:_after")
+}
+
+# Refused? 0 go, 1 and 2 refused (the two words of :reason), INVALID then. Read through the
+# request's SDIS (PP MS) at each processing, before the record support: A the new value, B SIMM
+# (YES: a take-over or a fall-back, nothing is sent, nothing refused), D the previous value.
+record(calc, "$(DEVICE=TIC):turbo:_refuse") {
+    field(DESC, "Turbopump: refused? (internal)")
+    field(INPA, "$(DEVICE=TIC):turbo:start:set.VAL NPP")
+    field(INPB, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):backing:_code NPP NMS")
+    field(INPD, "$(DEVICE=TIC):turbo:start:set.MLST NPP")
+    field(CALC, "B||A#1?0:(C=4?0:(C>=0&&C<=4?1:2))")
+    field(HIGH, "0.5")
+    field(HSV,  "INVALID")
+}
+
+# After every processing of the request: the reason code (VAL) from the refusal, the request's
+# STAT and the response code the protocol put into its IVOV; unchanged in simulation mode (B).
+# Then IVOV := 99 (no code), so that a later reply of another form is not read as an old code.
+record(calcout, "$(DEVICE=TIC):turbo:_after") {
+    field(DESC, "Turbopump: result (internal)")
+    field(VAL,  "30")
+    field(INPA, "$(DEVICE=TIC):turbo:_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):turbo:start:set.STAT NPP")
+    field(INPD, "$(DEVICE=TIC):turbo:start:set.IVOV NPP")
+    field(CALC, "B?VAL:(A?19+A:(C=0?0:(C=9||C=10?11:(C=12&&D>=1&&D<=9?D:12))))")
+    field(OOPT, "Every Time")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "99")
+    field(OUT,  "$(DEVICE=TIC):turbo:start:set.IVOV NPP")
+    field(FLNK, "$(DEVICE=TIC):turbo:start:reason")
+}
+
+# What became of the last request: acknowledged, the TIC's code (Table 3), no reply, refused
+record(mbbi, "$(DEVICE=TIC):turbo:start:reason") {
+    field(DESC, "Turbopump: last request")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):turbo:_after NPP")
+    field(PINI, "YES")
+    field(ZRVL, "0")  field(ZRST, "Acknowledged")
+    field(ONVL, "1")  field(ONST, "Invalid cmd for object ID")
+    field(TWVL, "2")  field(TWST, "Invalid query/command")
+    field(THVL, "3")  field(THST, "Missing parameter")
+    field(FRVL, "4")  field(FRST, "Parameter out of range")
+    field(FVVL, "5")  field(FVST, "Invalid cmd in this state")
+    field(SXVL, "6")  field(SXST, "Data checksum error")
+    field(SVVL, "7")  field(SVST, "EEPROM read/write error")
+    field(EIVL, "8")  field(EIST, "Operation took too long")
+    field(NIVL, "9")  field(NIST, "Invalid config ID")
+    field(TEVL, "11")  field(TEST, "No reply")
+    field(ELVL, "12")  field(ELST, "No valid reply")
+    field(TVVL, "20")  field(TVST, "Refused: backing not on")
+    field(TTVL, "21")  field(TTST, "Refused: backing unknown")
+    field(FTVL, "30")  field(FTST, "No request since start")
+    field(FLNK, "$(DEVICE=TIC):turbo:_back")
+}
+
+# A refused request falls back: BACK_S later (the request is active during its forward link)
+# the value of the read-back if it is valid (C, D), else the previous value (E), is written into
+# the request in simulation mode (_back:on, :copy, :off, under one hold of the lock set as in
+# first_contact.db): nothing is sent.
+record(calcout, "$(DEVICE=TIC):turbo:_back") {
+    field(DESC, "Turbopump: fall-back (internal)")
+    field(INPA, "$(DEVICE=TIC):turbo:_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):turbo:start:get NPP")
+    field(INPD, "$(DEVICE=TIC):turbo:start:get.SEVR NPP")
+    field(INPE, "$(DEVICE=TIC):turbo:_refuse.D NPP")
+    field(CALC, "A&&!B")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "D<3?C:E")
+    field(ODLY, "$(BACK_S=0.02)")
+    field(OUT,  "$(DEVICE=TIC):turbo:_back:on.PROC PP")
+}
+
+record(dfanout, "$(DEVICE=TIC):turbo:_back:on") {
+    field(DESC, "Turbopump: fall-back SIMM on")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "1")
+    field(OUTA, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+    field(FLNK, "$(DEVICE=TIC):turbo:_back:copy")
+}
+
+record(dfanout, "$(DEVICE=TIC):turbo:_back:copy") {
+    field(DESC, "Turbopump: fall-back copy")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(DEVICE=TIC):turbo:_back.OVAL NPP")
+    field(OUTA, "$(DEVICE=TIC):turbo:start:set PP")
+    field(FLNK, "$(DEVICE=TIC):turbo:_back:off")
+}
+
+record(dfanout, "$(DEVICE=TIC):turbo:_back:off") {
+    field(DESC, "Turbopump: fall-back SIMM off")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+}
+
+# The read-back from the TIC's state code (tic.db: 0..99 a state, 100+ an error, 200 no valid
+# reply, 300 no pump): 1 running, 0 not, 2 (INVALID) not known
+record(calc, "$(DEVICE=TIC):turbo:_rb") {
+    field(DESC, "Turbopump: state to read-back")
+    field(INPA, "$(DEVICE=TIC):turbo:_code CP MS")
+    field(CALC, "A>=0&&A<100?(A=1||A=5||A=4):2")
+    field(HIHI, "1.5")
+    field(HHSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):turbo:start:get")
+}
+
+record(bi, "$(DEVICE=TIC):turbo:start:get") {
+    field(DESC, "Turbopump: state, from the TIC")
+    field(INP,  "$(DEVICE=TIC):turbo:_rb NPP MS")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+}
+
+# At speed: the speed (tic.db), not the state "Running" (from 50 %, seen)
+record(calc, "$(DEVICE=TIC):turbo:_atspeed") {
+    field(DESC, "Turbopump: speed to at speed")
+    field(INPA, "$(DEVICE=TIC):turbo:speed:get CP MS")
+    field(CALC, "A>=$(ATSPEED=95)")
+    field(FLNK, "$(DEVICE=TIC):turbo:atspeed:get")
+}
+
+record(bi, "$(DEVICE=TIC):turbo:atspeed:get") {
+    field(DESC, "Turbopump at speed (>= $(ATSPEED=95) %)")
+    field(INP,  "$(DEVICE=TIC):turbo:_atspeed NPP MS")
+    field(ZNAM, "no")
+    field(ONAM, "at speed")
+}
+
+# ---------------------------------------------------------------- Backing pump
+
+# The request: 1 run, 0 stop. "!C910 1" / "!C910 0", acknowledged (tic.proto, command)
+record(bo, "$(DEVICE=TIC):backing:start:set") {
+    field(DESC, "Backing pump: 1 run, 0 stop")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=tic.proto) command(910) $(PORT=TIC)")
+    field(SDIS, "$(DEVICE=TIC):backing:_refuse PP MS")
+    field(DISV, "-1")
+    field(IVOA, "Don't drive outputs")
+    field(IVOV, "99")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+    field(FLNK, "$(DEVICE=TIC):backing:_after")
+}
+
+# Refused? 0 go, 1 and 2 refused (the two words of :reason), INVALID then. Read through the
+# request's SDIS (PP MS) at each processing, before the record support: A the new value, B SIMM
+# (YES: a take-over or a fall-back, nothing is sent, nothing refused), D the previous value.
+record(calc, "$(DEVICE=TIC):backing:_refuse") {
+    field(DESC, "Backing pump: refused? (internal)")
+    field(INPA, "$(DEVICE=TIC):backing:start:set.VAL NPP")
+    field(INPB, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):turbo:_code NPP NMS")
+    field(INPD, "$(DEVICE=TIC):backing:start:set.MLST NPP")
+    field(CALC, "B||A#0?0:(C=0||C=2||C=3||C=6||C=7?0:(C=1||C=4||C=5?1:2))")
+    field(HIGH, "0.5")
+    field(HSV,  "INVALID")
+}
+
+# After every processing of the request: the reason code (VAL) from the refusal, the request's
+# STAT and the response code the protocol put into its IVOV; unchanged in simulation mode (B).
+# Then IVOV := 99 (no code), so that a later reply of another form is not read as an old code.
+record(calcout, "$(DEVICE=TIC):backing:_after") {
+    field(DESC, "Backing pump: result (internal)")
+    field(VAL,  "30")
+    field(INPA, "$(DEVICE=TIC):backing:_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):backing:start:set.STAT NPP")
+    field(INPD, "$(DEVICE=TIC):backing:start:set.IVOV NPP")
+    field(CALC, "B?VAL:(A?19+A:(C=0?0:(C=9||C=10?11:(C=12&&D>=1&&D<=9?D:12))))")
+    field(OOPT, "Every Time")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "99")
+    field(OUT,  "$(DEVICE=TIC):backing:start:set.IVOV NPP")
+    field(FLNK, "$(DEVICE=TIC):backing:start:reason")
+}
+
+# What became of the last request: acknowledged, the TIC's code (Table 3), no reply, refused
+record(mbbi, "$(DEVICE=TIC):backing:start:reason") {
+    field(DESC, "Backing pump: last request")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):backing:_after NPP")
+    field(PINI, "YES")
+    field(ZRVL, "0")  field(ZRST, "Acknowledged")
+    field(ONVL, "1")  field(ONST, "Invalid cmd for object ID")
+    field(TWVL, "2")  field(TWST, "Invalid query/command")
+    field(THVL, "3")  field(THST, "Missing parameter")
+    field(FRVL, "4")  field(FRST, "Parameter out of range")
+    field(FVVL, "5")  field(FVST, "Invalid cmd in this state")
+    field(SXVL, "6")  field(SXST, "Data checksum error")
+    field(SVVL, "7")  field(SVST, "EEPROM read/write error")
+    field(EIVL, "8")  field(EIST, "Operation took too long")
+    field(NIVL, "9")  field(NIST, "Invalid config ID")
+    field(TEVL, "11")  field(TEST, "No reply")
+    field(ELVL, "12")  field(ELST, "No valid reply")
+    field(TVVL, "20")  field(TVST, "Refused: turbopump runs")
+    field(TTVL, "21")  field(TTST, "Refused: turbo unknown")
+    field(FTVL, "30")  field(FTST, "No request since start")
+    field(FLNK, "$(DEVICE=TIC):backing:_back")
+}
+
+# A refused request falls back: BACK_S later (the request is active during its forward link)
+# the value of the read-back if it is valid (C, D), else the previous value (E), is written into
+# the request in simulation mode (_back:on, :copy, :off, under one hold of the lock set as in
+# first_contact.db): nothing is sent.
+record(calcout, "$(DEVICE=TIC):backing:_back") {
+    field(DESC, "Backing pump: fall-back (internal)")
+    field(INPA, "$(DEVICE=TIC):backing:_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):backing:start:get NPP")
+    field(INPD, "$(DEVICE=TIC):backing:start:get.SEVR NPP")
+    field(INPE, "$(DEVICE=TIC):backing:_refuse.D NPP")
+    field(CALC, "A&&!B")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "D<3?C:E")
+    field(ODLY, "$(BACK_S=0.02)")
+    field(OUT,  "$(DEVICE=TIC):backing:_back:on.PROC PP")
+}
+
+record(dfanout, "$(DEVICE=TIC):backing:_back:on") {
+    field(DESC, "Backing pump: fall-back SIMM on")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "1")
+    field(OUTA, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+    field(FLNK, "$(DEVICE=TIC):backing:_back:copy")
+}
+
+record(dfanout, "$(DEVICE=TIC):backing:_back:copy") {
+    field(DESC, "Backing pump: fall-back copy")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(DEVICE=TIC):backing:_back.OVAL NPP")
+    field(OUTA, "$(DEVICE=TIC):backing:start:set PP")
+    field(FLNK, "$(DEVICE=TIC):backing:_back:off")
+}
+
+record(dfanout, "$(DEVICE=TIC):backing:_back:off") {
+    field(DESC, "Backing pump: fall-back SIMM off")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+}
+
+# The read-back from the TIC's state code (tic.db: 0..99 a state, 100+ an error, 200 no valid
+# reply, 300 no pump): 1 running, 0 not, 2 (INVALID) not known
+record(calc, "$(DEVICE=TIC):backing:_rb") {
+    field(DESC, "Backing pump: state to read-back")
+    field(INPA, "$(DEVICE=TIC):backing:_code CP MS")
+    field(CALC, "A>=0&&A<100?(A=1||A=4):2")
+    field(HIHI, "1.5")
+    field(HHSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):backing:start:get")
+}
+
+record(bi, "$(DEVICE=TIC):backing:start:get") {
+    field(DESC, "Backing pump: state, from the TIC")
+    field(INP,  "$(DEVICE=TIC):backing:_rb NPP MS")
+    field(ZNAM, "stop")
+    field(ONAM, "run")
+}
+
+# ---------------------------------------------------------------- Gauge $(SOCKET=2)
+
+# The request: 1 on, 0 off. "!C$(OBJ=914) 1" / "!C$(OBJ=914) 0", acknowledged (tic.proto, command)
+record(bo, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set") {
+    field(DESC, "Gauge $(SOCKET=2): 1 on, 0 off")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=tic.proto) command($(OBJ=914)) $(PORT=TIC)")
+    field(SDIS, "$(DEVICE=TIC):gauge$(SOCKET=2):_refuse PP MS")
+    field(DISV, "-1")
+    field(IVOA, "Don't drive outputs")
+    field(IVOV, "99")
+    field(ZNAM, "off")
+    field(ONAM, "on")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):_after")
+}
+
+# Refused? 0 go, 1 and 2 refused (the two words of :reason), INVALID then. Read through the
+# request's SDIS (PP MS) at each processing, before the record support: A the new value, B SIMM
+# (YES: a take-over or a fall-back, nothing is sent, nothing refused), D the previous value.
+record(calc, "$(DEVICE=TIC):gauge$(SOCKET=2):_refuse") {
+    field(DESC, "Gauge $(SOCKET=2): refused? (internal)")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.VAL NPP")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):$(APG=gauge1):getpressure NPP NMS")
+    field(INPD, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.MLST NPP")
+    field(INPE, "$(DEVICE=TIC):$(APG=gauge1):getpressure.SEVR NPP")
+    field(CALC, "B||A#1?0:(E>=3||C#C?2:(C>$(PMAX=1e-2)?1:0))")
+    field(HIGH, "0.5")
+    field(HSV,  "INVALID")
+}
+
+# After every processing of the request: the reason code (VAL) from the refusal, the request's
+# STAT and the response code the protocol put into its IVOV; unchanged in simulation mode (B).
+# Then IVOV := 99 (no code), so that a later reply of another form is not read as an old code.
+record(calcout, "$(DEVICE=TIC):gauge$(SOCKET=2):_after") {
+    field(DESC, "Gauge $(SOCKET=2): result (internal)")
+    field(VAL,  "30")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.STAT NPP")
+    field(INPD, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.IVOV NPP")
+    field(CALC, "B?VAL:(A?19+A:(C=0?0:(C=9||C=10?11:(C=12&&D>=1&&D<=9?D:12))))")
+    field(OOPT, "Every Time")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "99")
+    field(OUT,  "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.IVOV NPP")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):on:reason")
+}
+
+# What became of the last request: acknowledged, the TIC's code (Table 3), no reply, refused
+record(mbbi, "$(DEVICE=TIC):gauge$(SOCKET=2):on:reason") {
+    field(DESC, "Gauge $(SOCKET=2): last request")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge$(SOCKET=2):_after NPP")
+    field(PINI, "YES")
+    field(ZRVL, "0")  field(ZRST, "Acknowledged")
+    field(ONVL, "1")  field(ONST, "Invalid cmd for object ID")
+    field(TWVL, "2")  field(TWST, "Invalid query/command")
+    field(THVL, "3")  field(THST, "Missing parameter")
+    field(FRVL, "4")  field(FRST, "Parameter out of range")
+    field(FVVL, "5")  field(FVST, "Invalid cmd in this state")
+    field(SXVL, "6")  field(SXST, "Data checksum error")
+    field(SVVL, "7")  field(SVST, "EEPROM read/write error")
+    field(EIVL, "8")  field(EIST, "Operation took too long")
+    field(NIVL, "9")  field(NIST, "Invalid config ID")
+    field(TEVL, "11")  field(TEST, "No reply")
+    field(ELVL, "12")  field(ELST, "No valid reply")
+    field(TVVL, "20")  field(TVST, "Refused: APG > $(PMAX=1e-2) torr")
+    field(TTVL, "21")  field(TTST, "Refused: APG not valid")
+    field(FTVL, "30")  field(FTST, "No request since start")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):_back")
+}
+
+# A refused request falls back: BACK_S later (the request is active during its forward link)
+# the value of the read-back if it is valid (C, D), else the previous value (E), is written into
+# the request in simulation mode (_back:on, :copy, :off, under one hold of the lock set as in
+# first_contact.db): nothing is sent.
+record(calcout, "$(DEVICE=TIC):gauge$(SOCKET=2):_back") {
+    field(DESC, "Gauge $(SOCKET=2): fall-back (internal)")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_refuse NPP")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):gauge$(SOCKET=2):on:get NPP")
+    field(INPD, "$(DEVICE=TIC):gauge$(SOCKET=2):on:get.SEVR NPP")
+    field(INPE, "$(DEVICE=TIC):gauge$(SOCKET=2):_refuse.D NPP")
+    field(CALC, "A&&!B")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "D<3?C:E")
+    field(ODLY, "$(BACK_S=0.02)")
+    field(OUT,  "$(DEVICE=TIC):gauge$(SOCKET=2):_back:on.PROC PP")
+}
+
+record(dfanout, "$(DEVICE=TIC):gauge$(SOCKET=2):_back:on") {
+    field(DESC, "Gauge $(SOCKET=2): fall-back SIMM on")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "1")
+    field(OUTA, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.SIMM NPP")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):_back:copy")
+}
+
+record(dfanout, "$(DEVICE=TIC):gauge$(SOCKET=2):_back:copy") {
+    field(DESC, "Gauge $(SOCKET=2): fall-back copy")
+    field(UDFS, "NO_ALARM")
+    field(OMSL, "closed_loop")
+    field(DOL,  "$(DEVICE=TIC):gauge$(SOCKET=2):_back.OVAL NPP")
+    field(OUTA, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set PP")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):_back:off")
+}
+
+record(dfanout, "$(DEVICE=TIC):gauge$(SOCKET=2):_back:off") {
+    field(DESC, "Gauge $(SOCKET=2): fall-back SIMM off")
+    field(UDFS, "NO_ALARM")
+    field(VAL,  "0")
+    field(OUTA, "$(DEVICE=TIC):gauge$(SOCKET=2):on:set.SIMM NPP")
+}
+
+# The read-back from the TIC's state code (tic.db: 0..99 a state, 100+ an error, 200 no valid
+# reply, 300 no pump): 1 on, 0 not, 2 (INVALID) not known
+record(calc, "$(DEVICE=TIC):gauge$(SOCKET=2):_rb") {
+    field(DESC, "Gauge $(SOCKET=2): state to read-back")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_code CP MS")
+    field(CALC, "A>=0&&A<100?(A=6||A=11):2")
+    field(HIHI, "1.5")
+    field(HHSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):on:get")
+}
+
+record(bi, "$(DEVICE=TIC):gauge$(SOCKET=2):on:get") {
+    field(DESC, "Gauge $(SOCKET=2): state, from the TIC")
+    field(INP,  "$(DEVICE=TIC):gauge$(SOCKET=2):_rb NPP MS")
+    field(ZNAM, "off")
+    field(ONAM, "on")
+}
+
+# ---------------------------------------------------------------- gauge $(SOCKET=2): slave setup, read only
+
+# "?S$(OBJ=914) 4": A master object, B units type, C on set point, D off set point, E enable,
+# F error code (-1: none). Not seen on the controller: the form seen for object 904.
+record(calcout, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave") {
+    field(DESC, "Gauge $(SOCKET=2): ?S$(OBJ=914) 4, slave setup")
+    field(DTYP, "stream")
+    field(OUT,  "@$(PROTO=tic.proto) slave($(OBJ=914)) $(PORT=TIC)")
+    field(SCAN, "$(SCAN_SLAVE=10 second)")
+    field(CALC, "A:=-1;B:=-1;C:=NAN;D:=NAN;E:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave:code")
+}
+
+# 1 linked (enabled, with a master), 0 not linked; 100 + an error code; 200 no valid reply
+record(calc, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave:code") {
+    field(DESC, "Gauge $(SOCKET=2): slave state")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.F NPP NMS")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.A NPP MS")
+    field(INPC, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.E NPP")
+    field(CALC, "A>=0?100+A:(B>=0?(C=1&&B#0?1:0):200)")
+    field(HIGH, "99.5")
+    field(HSV,  "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:get")
+}
+
+record(mbbi, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:get") {
+    field(DESC, "Gauge $(SOCKET=2): switched by the TIC?")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge$(SOCKET=2):_slave:code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "not linked")
+    field(ONVL, "1")  field(ONST, "linked")
+    field(TWVL, "101")  field(TWST, "Invalid cmd for object ID")  field(TWSV, "INVALID")
+    field(THVL, "102")  field(THST, "Invalid query/command")  field(THSV, "INVALID")
+    field(FRVL, "103")  field(FRST, "Missing parameter")  field(FRSV, "INVALID")
+    field(FVVL, "104")  field(FVST, "Parameter out of range")  field(FVSV, "INVALID")
+    field(SXVL, "105")  field(SXST, "Invalid cmd in this state")  field(SXSV, "INVALID")
+    field(SVVL, "106")  field(SVST, "Data checksum error")  field(SVSV, "INVALID")
+    field(EIVL, "107")  field(EIST, "EEPROM read/write error")  field(EISV, "INVALID")
+    field(NIVL, "108")  field(NIST, "Operation took too long")  field(NISV, "INVALID")
+    field(TEVL, "109")  field(TEST, "Invalid config ID")  field(TESV, "INVALID")
+    field(ELVL, "200")  field(ELST, "No valid reply")  field(ELSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:on:get")
+}
+
+# Pascal to torr: 1 torr = 101325/760 Pa = 133.322368 Pa; NaN when the units type is not 59
+record(calc, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:on:get") {
+    field(DESC, "Gauge $(SOCKET=2): slave on set point")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.C NPP")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.B NPP")
+    field(INPC, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave:code NPP MS")
+    field(CALC, "C<100&&B=59?A/133.322368:NAN")
+    field(EGU,  "torr")
+    field(PREC, "2")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:off:get")
+}
+
+record(calc, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:off:get") {
+    field(DESC, "Gauge $(SOCKET=2): slave off set point")
+    field(INPA, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.D NPP")
+    field(INPB, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.B NPP")
+    field(INPC, "$(DEVICE=TIC):gauge$(SOCKET=2):_slave:code NPP MS")
+    field(CALC, "C<100&&B=59?A/133.322368:NAN")
+    field(EGU,  "torr")
+    field(PREC, "2")
+    field(FLNK, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:master:get")
+}
+
+record(longin, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:master:get") {
+    field(DESC, "Gauge $(SOCKET=2): slave master object")
+    field(INP,  "$(DEVICE=TIC):gauge$(SOCKET=2):_slave.A NPP MS")
+}
+
+# The text of every "=S$(OBJ=914) ..." reply, whatever its form (SCAN I/O Intr, sends nothing)
+record(stringin, "$(DEVICE=TIC):gauge$(SOCKET=2):slave:raw") {
+    field(DESC, "Gauge $(SOCKET=2): slave setup reply")
+    field(DTYP, "stream")
+    field(INP,  "@$(PROTO=tic.proto) slave_raw($(OBJ=914)) $(PORT=TIC)")
+    field(SCAN, "I/O Intr")
+}

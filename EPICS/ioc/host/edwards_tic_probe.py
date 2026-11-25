@@ -3,6 +3,7 @@
 
     edwards_tic_probe.py /dev/ttyUSB0
     edwards_tic_probe.py /dev/ttyUSB0 --timeout 1.0
+    edwards_tic_probe.py /dev/ttyUSB0 --query "?S913 4" --query "?S914 4"
 
 Sends queries only, each once, and nothing else: no command ("!C") and no setup ("!S"), so it
 changes nothing on the controller, its pumps or its gauges. The queries are those that
@@ -21,6 +22,14 @@ EPICS/Db/tic.proto sends (task T29). Source of every object number and reply for
     ?V910     backing pump: "<state>;<alert ID>;<priority>" (Table 1, states 0-4)
     ?S910 3   backing pump type: "3;<pump type>" (Table 1)
 
+--query adds one query to the ten, sent after them, and may be given several times (task T32:
+the gauges' slave setups "?S913 4" and "?S914 4", whose replies are not known). It takes queries
+only: "?V<object>" or "?S<object>", optionally followed by one space and a number (the config
+type), nothing else; anything else ("!C...", "!S...", a second argument, other characters) is
+refused before the device is opened (exit code 3). Its reply is printed raw with its time and,
+for "?S9xx 4", the fields of a slave setup in the form seen for the turbopump's object 904
+(config type 4; master; units type; on set point; off set point; enable).
+
 An object that a controller does not have (a TIC Instrument Controller has no turbo pump, a
 TIC Turbo Controller no gauges) is answered with an error reply "*V<object> <code>" (Table 3),
 which this program prints with its meaning; the manual does not say which code.
@@ -33,7 +42,8 @@ Stop the IOC first: only one program may talk on the line.
 
 Every reply is printed as it came, with the time from the request to the end of the reply, and
 what it means. Exit code 0: every query was answered (a reply ending with CR, also an error
-reply), 1: at least one was not, 2: the device cannot be opened. Python 3 standard library only.
+reply), 1: at least one was not, 2: the device cannot be opened, 3: an extra query is not a
+query. Python 3 standard library only.
 """
 
 import argparse
@@ -88,6 +98,29 @@ VARIANT = {7: "TC (TIC Turbo Controller)", 8: "IC (TIC Instrument Controller, 3 
            10: "TIC (TIC Turbo & Instrument Controller)", 14: "IC6 (TIC Instrument Controller, 6 gauges)"}
 
 NUMBER = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+
+# An extra query (--query): "?V" or "?S", an object number, optionally one space and a number.
+EXTRA = re.compile(r"\?[VS]\d{1,4}(?: \d{1,3})?")
+
+
+def not_queries(texts):
+    """The extra queries that are not queries: only ?V<object> or ?S<object>, optionally with one
+    number, nothing that could change the TIC (no "!")."""
+    return [t for t in texts if not EXTRA.fullmatch(t)]
+
+
+def slave_meaning(reply):
+    """The fields of a slave setup reply (config type 4), in the form seen for object 904."""
+    m = re.fullmatch(r"=S(\d{3}) 4;(\d+);(\d+);(%s);(%s);([01])" % (NUMBER, NUMBER), reply)
+    if not m:
+        return None
+    obj, master, units, on, off, enable = m.groups()
+    text = "slave setup: master %s, units %s, on %s, off %s, %s" % (
+        master if master != "0" else "0 (none)", word(UNITS, units), on, off,
+        "enabled" if enable == "1" else "not enabled")
+    if units == "59":
+        text += " (on %.3e torr, off %.3e torr)" % (float(on) / PA_PER_TORR, float(off) / PA_PER_TORR)
+    return text
 
 
 def word(table, text):
@@ -171,7 +204,16 @@ def main():
     parser.add_argument("device", help="serial device of the TIC's RS-232 port, e.g. /dev/ttyUSB0")
     parser.add_argument("--timeout", type=float, default=0.5, metavar="S",
                         help="reply timeout in seconds (default 0.5, the manual's suggestion)")
+    parser.add_argument("--query", action="append", default=[], metavar="Q",
+                        help='an extra query sent after the ten, e.g. "?S914 4"; queries only '
+                             '(?V<object> or ?S<object>, optionally one number); repeatable')
     args = parser.parse_args()
+    refused = not_queries(args.query)
+    if refused:                         # before the device is opened: nothing is sent
+        for text in refused:
+            print("edwards_tic_probe: refused %r: not a query (only ?V<object> or ?S<object>, "
+                  "optionally with one number)" % text, file=sys.stderr)
+        return 3
 
     try:
         fd = open_line(args.device)
@@ -189,12 +231,23 @@ def main():
             else:
                 text = "NO REPLY" if not reply else "NO CR AT THE END"
             print("%-8s %-19s %-34r %5.0f ms  %s" % (query, what, reply, 1000 * seconds, text))
+        extra_answered = 0
+        for query in args.query:
+            reply, complete, seconds = ask(fd, query, args.timeout)
+            if complete:
+                extra_answered += 1
+                text = slave_meaning(reply) or "raw reply (extra query)"
+            else:
+                text = "NO REPLY" if not reply else "NO CR AT THE END"
+            print("%-8s %-19s %-34r %5.0f ms  %s" % (query, "extra query", reply, 1000 * seconds, text))
     finally:
         os.close(fd)
 
     print("RESULT: %d of %d queries answered, %d in the form the protocol file expects"
           % (answered, len(QUERIES), expected))
-    return 0 if answered == len(QUERIES) else 1
+    if args.query:
+        print("EXTRA: %d of %d extra queries answered" % (extra_answered, len(args.query)))
+    return 0 if answered == len(QUERIES) and extra_answered == len(args.query) else 1
 
 
 if __name__ == "__main__":
