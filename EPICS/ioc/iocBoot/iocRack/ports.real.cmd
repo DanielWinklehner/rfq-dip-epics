@@ -9,7 +9,7 @@
 # valve box and the MFC (99-mist2-serial.rules; seen to work on the rack server for the valve
 # box, the others NOT TESTED), and by USB socket for the two Matsusada adapters, which report no
 # serial number (99-mist2-matsusada.rules; co-u32 and usb-opt seen to work on the rack server).
-# The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2, vgc401, tic) have no rule: replace each with
+# The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2, tic) have no rule: replace each with
 # its /dev/serial/by-path/ name, found with one device plugged in at a time
 # (docs/emulation/LAB-SETUP.md, section 3).
 # ASSUMED, to be replaced when the real computer is set up:
@@ -142,6 +142,7 @@ asynSetOption("NT20_2",-1,"crtscts","N")
 # INFICON VGC401, the foreline gauge's controller, RS-232, read only (T30). 9600 baud is the
 # controller's default (manual tinb01e1-f p. 82); the rate is a setting of the controller.
 # 8N1, no handshake (p. 55). NOT TESTED on the controller.
+# Device name: EPICS/ioc/host/99-mist2-serial.rules, by the serial number of its USB adapter.
 drvAsynSerialPortConfigure("VGC","/dev/mist2/vgc401")
 asynSetOption("VGC",-1,"baud","9600")
 asynSetOption("VGC",-1,"bits","8")

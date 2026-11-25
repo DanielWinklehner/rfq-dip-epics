@@ -43,3 +43,10 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", ATTRS{seria
 #   USB Serial Converter USB\VID_0403&PID_6001\FTJRNRWQ
 # (Windows' FTDI driver adds the port letter A to the serial number in the port's instance ID.)
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="FTJRNRWQ", SYMLINK+="mist2/mfc", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# Foreline gauge controller (INFICON VGC401) on an FTDI FT232R USB to RS-232 adapter. Not from the
+# Windows list: reported by the lab session from the lab computer on 2026-11-25 (udev: USB ID
+# 0403:6001, serial number FTE7S80M, driver ftdi_sio, /dev/ttyUSB0). The name follows the adapter
+# to whichever computer it is plugged into. This line is NOT TESTED and not checked with
+# `udevadm verify` (it has the form of the line above).
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="FTE7S80M", SYMLINK+="mist2/vgc401", ENV{ID_MM_DEVICE_IGNORE}="1"
