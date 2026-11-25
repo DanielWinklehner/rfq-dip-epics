@@ -1946,7 +1946,18 @@ exit code: 1
     c. Where does the cart sit in the system: does it back the big turbopump through the
        roughing line with the INFICON, or pump the six-way cross itself? The GUI's drawing
        needs that; until then its pumps are listed beside the drawing.
+       **Answered the same day** (to the lab session): "Yes, 6-way -> big turbo -> foreline
+       valve -> inficon -> TIC cart". So the cart backs the big turbopump, and the INFICON's
+       gauge is on the cart's side of the foreline valve: with the valve closed it reads the
+       line to the cart, not the big turbopump's outlet. T31 draws the gauge there, T32 the
+       cart at the end of the line. Into the plan with T31's merge.
     d. Start and stop ask for confirmation in the GUI, as the vent valve does. Right?
+    e. The cart's turbopump lets air in by itself from its stop command on (seen on
+       2026-11-25: atmosphere within 30 s). With the foreline valve open that air goes up the
+       roughing line into the big turbopump. Should the IOC refuse a stop of the cart's
+       turbopump from the GUI while the foreline valve reads open? My recommendation: yes;
+       the TIC's panel can still stop it. T32 prepares for it and does not build it without
+       your word.
 
 ## Not verified
 
