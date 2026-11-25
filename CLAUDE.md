@@ -32,7 +32,8 @@ Where the state of the work is written down. Read these before you act:
   network. It has the emulation (Docker), leads the subagents, reviews and merges, and keeps
   the plan and the documents.
 - **A lab session** runs on a computer of the lab's network (10.77.0.x; the lab computer is
-  10.77.0.1, Ubuntu 26.04.1; the rack server and the platform computer hang on the same
+  `mist-at-iba`, user `mist`, 10.77.0.1 on `eno1`, Ubuntu 26.04.1, with the site's network on a
+  USB adapter by DHCP; the rack server and the platform computer hang on the same 10.77.0.x
   network, their addresses are not written down yet: ask, then write them here). It installs,
   reads the real devices, finds device names, edits `EPICS/ioc/iocBoot/*/ports.real.cmd` for
   them, and reports what the hardware answered.

@@ -769,6 +769,39 @@ and 54)
   `libcom1_devices` (82 passed), the plan check. Not rerun: the GUI check (no PV, channel or
   role changed; the registry got the device's new name and notes).
 
+**The foreline gauge (INFICON VGC401) and the Edwards TIC, read only** (subagents, tasks T30 and
+T29, one round each, merged and loaded into the rack IOC on 2026-11-25; answers 58, 59):
+
+- **VGC401** (`vgc401.db`, `vgc401.proto`, 9600 8N1): `PRESSURE:foreline:getpressure` in torr,
+  converted from whatever unit the controller is set to, with `:getstate` (the manual's status
+  words; below and above range the value stays with MINOR, every fault is INVALID with NaN),
+  `:getgauge` (the head the controller identified), `:getunit`, `:geterror`, `:getversion`.
+  Requests for readings only. The controller sends by itself after power-on; the IOC's first
+  request ends that until it is switched off and on (manual p. 55).
+- **TIC** (`tic.db`, `tic.proto`, 9600 8N1 Xon/Xoff): the three gauge sockets
+  (`TIC:gauge<n>:getpressure` in torr, state, units, alert, priority), the turbopump (state,
+  type, speed), the backing pump (state, type), the variant and the identity. Queries only: no
+  command, no setup message. A socket without a gauge and a pump the controller does not have
+  are INVALID with the reason in the state.
+- **A probe for each** (`EPICS/ioc/host/inficon_vgc401_probe.py`, `edwards_tic_probe.py`), which
+  runs without an IOC and prints every raw reply with its time. Pushed ahead of the rest so
+  that the owner could run them.
+- **Simulators** `inficon_vgc401` and `edwards_tic`, a device case for each
+  (`emulation/devtest/vgc401`, 23 tests; `emulation/devtest/tic`, 13 tests), documents
+  `VGC401.md` and `TIC.md`.
+- **Loaded by me:** `st.cmd`, both port files (device names `/dev/mist2/vgc401` and
+  `/dev/mist2/tic` are placeholders without a rule), the simulator's configuration (ports 5034
+  and 5035), the plan (revision 0.29: device `gauge_foreline` filled in, device `tic` new, the
+  rules of both databases, a logging tier for calc records), the registry.
+- **Verified by me:** each engineer's acceptance commands from his worktree; four pages of the
+  VGC401's manual against the engineer's quotes (automatic sending, the request and its
+  acknowledgement, the status digits, the units); that neither probe, protocol file nor
+  database holds a command or a setting; then on the merged branch, with both devices loaded:
+  the plan check (38 tests, no warning), the simulators' tests (175), both device cases (23 and
+  13 passed) and the system tests (**296 passed**, 2 deselected, in 807 s; 282 before, 14 more
+  for the two devices). Not rerun: the GUI check. **Not verified: anything against a real
+  controller.**
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
@@ -867,7 +900,8 @@ nothing of the simulator but a new module with its tests and a line of its READM
 | 31 | The monitors, the push, the first day with hardware (2026-11-24) | "Leave them and commit/push everything. I'll be at the lab in about three hours and will install the new control system/check everything with real hardware. Send me concise instructions for the setup." | Answers question 16: the monitors stay unchecked (P51 is a known behaviour). `emulated-iocs` pushed to `origin` under its own name; no pull request, which you did not ask for. Instructions: `LAB-SETUP.md`, with `EPICS/ioc/host/build-epics.sh` |
 | 32 | The state of the lab, the rack computer, the logger's home (2026-11-24) | "Nothing is running in the lab right now. We moved to a new location and everything was in storage for over a year. I expect to bring devices back online one by one. My plan, thus, is to copy the data from the rack computer then wipe it and do a fresh install of Ubuntu. Then install epics and the Matsusada driver, proto and db files according to your instructions as the first step. Where should the logger live? Main control computer? It has the most modern hardware, the largest disk and easiest to add more disks." | `LAB-SETUP.md` section 1 rewritten for it: what to save from Windows before the wipe (the lab IOC's folder, the list of adapters Windows remembers), a check of the CO-U32 from the installer stick before Windows is gone, Ubuntu 24.04. There is no lab IOC to protect or to ask for `dbl`. The logger: my answer is under question 11; it waits for the operating system of the main control computer |
 | 33 | The main lab computer (2026-11-24) | "The main lab computer already runs ubuntu, so I can test the CO-U32 there, right?" | Yes. `LAB-SETUP.md` section 1: the adapter check is done there with the rule file itself, before the rack computer's Windows is wiped. It also settles the logger's home (question 11): the main lab computer, if it stays on whenever the IOCs are on. In the plan since revision 0.21 |
-| 59 | The foreline gauge's controller (2026-11-25) | "The foreline pressure gauge is a inficon VGC401", then "It has a "control" male 9-pin sub D and an "RS232" female 9-pin sub-D receptacle in the back" | Answers the plan's question on the device `gauge_foreline` (make and model, how it is read): an INFICON VGC401 with an RS-232 socket. **Nothing in the IOC reads it yet: task T30** (brief `T30-inficon-vgc401.md`), read-only, with my decisions in the brief: the PV is `FORELINE:getpressure` in torr (a new name, yours to change before it is used), below and above the gauge's range the value stays with a MINOR alarm, every fault is INVALID. Into the plan when T30 is loaded into the rack IOC. Not known: which gauge head hangs on it, its baud rate and unit (the probe reads them), and the cable to the rack server |
+| 60 | SSH for the development session, and the lab computer (2026-11-25) | "Let's try setting up ssh-ing into the lab computer through the experiment intranet. The lab computer's IP is 10.77.0.1. You are connected and ssh is installed on the lab computer.", "I just switched the manual IP of the laptop to 10.77.0.2 to not interfer with the lab computer's 10.77.0.1", "I can ssh from WSL into 10.77.0.1 using the username and password of the lab computer", the output of `ip -4 -o addr show` there, and "I powered on the VGC401, attached the sensor and plugged it into the lab computer through a USB-to-RS232 adapter cable" | **The development session runs on the desktop PC, not on the laptop, and that PC is not on the lab's network:** it has an address from its own router only, and neither 10.77.0.1 nor 10.77.0.2 answers from it (seen from WSL and from Windows). The lab computer is `mist-at-iba`, user `mist`: 10.77.0.1/24 on `eno1` (the experiment's network), and a private address of the site's network by DHCP on a USB adapter, which is not reachable from outside either. So no SSH from here without a VPN into the site, which is a question for the site's IT and not for today. **My recommendation, given twice: Claude Code on the lab computer** (it needs outgoing internet only), with `CLAUDE.md` as its instructions; not yet answered. A key for the lab exists on the desktop (`~/.ssh/id_ed25519_mist2lab`); whether its line was added on the lab computer I do not know, and it is of no use without a network path. The VGC401 hangs on the lab computer for now: for the rack IOC its adapter must move to the rack server |
+| 59 | The foreline gauge's controller (2026-11-25) | "The foreline pressure gauge is a inficon VGC401", then "It has a "control" male 9-pin sub D and an "RS232" female 9-pin sub-D receptacle in the back" | Answers the plan's question on the device `gauge_foreline` (make and model, how it is read): an INFICON VGC401 with an RS-232 socket. **Nothing in the IOC reads it yet: task T30** (brief `T30-inficon-vgc401.md`), read-only, with my decisions in the brief: the PV is `PRESSURE:foreline:getpressure` in torr, the name the plan had already proposed (the brief said `FORELINE:getpressure`; changed when the file was loaded, see the decisions), below and above the gauge's range the value stays with a MINOR alarm, every fault is INVALID. Into the plan when T30 is loaded into the rack IOC. Not known: which gauge head hangs on it, its baud rate and unit (the probe reads them), and the cable to the rack server |
 | 58 | Today's goal: interlock, vacuum, pump the six-way cross (2026-11-25) | "For this week, we are good. My goal for today is to set up the interlock, the vacuum system, and start pumping on the 6-way cross only (no source). That requires setting up everything we need for the TP controller, the Edwards TIC station, and the foreline pressure reading as well as the ion gauge controller." | Closes the rail's current for now (answer 57). **What exists for today:** the interlock Opta's sketch (not yet run on the board), the gauge box (`PRESSURE:*`), the nAIM (`AIM:*`), the valve box (`VALVE:*`), the NT 20's data output (`TURBO1:raw:get`, format not known, P14). **What does not exist:** start and stop of the turbopump from the IOC (the Opta for it has no firmware, P13, and the three Optas in hand are taken), so the NT 20 is run at its front panel; and **an Edwards TIC is not in the plan at all**: task T29 (brief `T29-edwards-tic.md`), read-only, because I do not know what the station is. Asked: which TIC it is, what it runs, what hangs on its gauge sockets, and how it reaches the rack server (question 23) |
 | 57 | The solenoid valves on the same rail (2026-11-25) | "Actually, we may be getting closer than I want: The solenoid valves require 3 W @ 24 V each. We have four (though only three are used at the same time)." | **3 W at 24 V is 0.125 A per valve**: 0.375 A with three on, 0.5 A with all four. With the three Optas at their most (0.275 A, answer 56): **0.65 A with three valves, 0.775 A with four, of 1.5 A**, so about half at the worst. With the two Optas still to come (valves, turbopumps): 0.83 A and 0.96 A. Not in these sums: the analog expansion, and anything else on the rail. I read the sentence as: the valves are fed from the crate's +24 V rail (A50). In the plan (revision 0.28). These are sums of rated values; a current measurement on the rail has not been made. Not known here: whether the valve coils have a diode across them, which matters on a rail shared with the Optas |
 | 56 | What the crate's +24 V rail can give (2026-11-25) | "These crates are beefy with 1.5A maximum combined current on the +24 rail (2 A on +-24 V rails together, but I have no devices hanging off the -24 V rail)" | **1.5 A at most on the +24 V rail** (2 A for both 24 V rails together, nothing on the -24 V rail). The three Optas take 0.275 A at most (3 x 2.2 W at 24 V, data sheet), under a fifth of it; each further Opta adds up to 0.09 A. Not known here: what else hangs on the +24 V rail, and what the analog expansion (AFX00007) takes. In the plan (revision 0.27). Nothing to change |
@@ -1056,6 +1090,10 @@ nothing of the simulator but a new module with its tests and a line of its READM
 
 ## Not verified
 
+- The INFICON VGC401 and the Edwards TIC on their controllers: the probes, the protocol files
+  and the line settings come from the manuals (A51, A52, P65). The VGC401's manual was read
+  from a third-party copy; of the TIC's variants only the Turbo Controller's instruction manual
+  was read.
 - The steps of `docs/emulation/README.md` on a fresh WSL2 installation: Docker was already
   installed on the machine used.
 - Anything against real hardware, including `ports.real.cmd` and `run-ioc.sh ... real` on a real
@@ -1158,6 +1196,7 @@ nothing of the simulator but a new module with its tests and a line of its READM
 - 2026-11-24: T26 one round (2.4 h), T27 two rounds (1 h and 50 min).
 - 2026-11-25: T28 one round (50 min).
 - 2026-11-25: T29 (Edwards TIC) and T30 (INFICON VGC401) started side by side, each in its own worktree.
+- 2026-11-25: T29 one round (64 min), T30 one round (45 min). Both reports named the model `claude-opus-5-5`.
 - 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
   600 s") near its end; resumed with a message, it finished in four minutes. Its work was
   committed up to that point.
@@ -1255,6 +1294,12 @@ nothing of the simulator but a new module with its tests and a line of its READM
 | No latch in the Opta | As the old box's outputs. The IOC latches the supplies. Whether the hardware contact must latch is question 22 |
 | The door decision runs in the loop that also communicates, with a watchdog of 8 s | As the old box, and simple enough to test on a PC. Its weakness is P62, to be tried on the bench before the contacts are used |
 | Sketches are compiled in a container with fixed versions of the tools | A firmware build that can be repeated and checked here. Flashing stays with the Arduino IDE on the owner's computer |
+| The foreline pressure is `PRESSURE:foreline:getpressure`, not the brief's `FORELINE:getpressure` (T30, at loading) | The plan had proposed that name since 2026-11-21 and it follows the lab's own pattern (`PRESSURE:apg:getpressure`). The database's prefix is a macro, so nothing in it changed; its default stays as the engineer tested it |
+| Both new devices are read only, and the IOC still reads the VGC401's error word every 2 s although reading clears it (T30) | The manual says a persisting error is set again at once, so the word stays readable; a passing error shows for one reading. Not reading it would hide a controller error from the IOC |
+| The plan's fault rule knows one more kind of record that needs a statement: a device record on an output link that is processed by its own scan or a forward link (T29, `plan/build.py`) | The TIC's query records are of type calcout: they send a query and read the reply, and the database does not say that a silent controller fails them. The same structure exists in the supplies' `current:limit`, stated as before (never INVALID by itself), so no existing device's entry in the registry changed (compared) |
+| `vgc401.db`: the two links from the pressure reading to the state carry the severity (MS) (T30, by me) | The state was INVALID only through its state words, which the fault rule cannot see; with the links the registry predicts what the device case shows |
+| The simulated TIC has a gauge on every socket, a turbopump and a backing pump (T29, at loading) | An empty socket is INVALID for good, and the system tests expect every PV valid while nothing is at fault. What the real station has is not known (question 23) |
+| The start test of the VGC401's device case reads value and severity from one Channel Access reply (T30, by me) | It failed once in my run: a get that timed out during the IOC's restart was counted as a valid sample without a value |
 
 ## Assumptions that need your confirmation
 
@@ -1280,6 +1325,8 @@ A19 (the output gate is wanted, and it latches).
 | A48 | The two door switches of the HV cage close when their door closes, so the Opta counts a high input as a closed door (T28) | The old sketch treats the interlock as closed when both inputs are high; how the switches were wired to the lost box is not recorded. Asked in question 21, not answered | One constant per input in the sketch. A switch that opens when the door closes would have to be read the other way round, and a broken wire would then read as a closed door |
 | A49 | An input of the Opta reads its voltage against the supply's minus terminal (T28) | The data sheet gives the input's thresholds and names no reference terminal in words | Seen at the first bench check: an input at the supply's plus must read as a closed door. The supply is the +24 V rail of a NIM crate (answer 55), so the reference is that crate's 24 V return |
 | A50 | The four solenoid valves are fed from the NIM crate's +24 V rail, the one that feeds the Optas | Answer 57 names the valves' power as a worry for that rail and does not say it in so many words | You |
+| A51 | The VGC401 as the lab has it: 9600 baud (the factory default), a reply within 150 ms, a value in Micron stays in Micron above 99000 on the serial line, and its "RS232" socket takes a straight cable (T30) | The manual tinb01e1-f gives the default and the pins, no response time, and the change-over to Torr only for the display; read from a third-party copy of the manual, of which I checked four pages against the engineer's quotes | The probe `inficon_vgc401_probe.py` on the controller: reply times, unit, gauge head |
+| A52 | The TIC station: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual, taken to hold for the lab's variant), replies within 120 ms, a gauge that measures reports the state On and its value in pascal, and an object the controller does not have is answered with an error reply (T29) | The serial manual D397-30-880 covers all variants; the instruction manuals of the Instrument Controller and of the Turbo and Instrument Controller could not be fetched | The probe `edwards_tic_probe.py` on the controller: variant, states, reply times |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
@@ -1367,6 +1414,9 @@ loop, see "Done").
 | P61 | The Opta sketch has never run on a board (T28). Not shown: that `digitalRead` of I1 and I2 reads those terminals (the core's two pin tables name different processor pins for the second input; the user manual's example reads it this way), that a high output closes a relay, what the relays do while the bootloader runs, whether the watchdog disturbs an upload, and that the box starts with 24 V alone, without USB | The bench checks in `LAB-SETUP.md` and in the sketch's README |
 | P62 | In the Opta sketch the door decision and the communication share one loop, as in the old box. The Opta's USB write waits until the computer has taken the data (`USBCDC::send` in the core). If a write ever hangs (the USB cable pulled in the middle of a reply, a computer that stops with the port open), the doors are not read and relays 1 and 2 keep their state until the watchdog restarts the board, up to 8 s later. The IOC's side is safe in that state: no reply, `interlock_open` INVALID, supplies off. Whether a write can hang at all is not known | A bench test (`LAB-SETUP.md`): with the IOC reading, pull the USB cable, then open one input; relay 1 must drop at once. If it does not, the door decision moves into a thread of its own before the contacts are wired to anything |
 | P63 | The Opta's relays have a minimum switching load of 300 mW (data sheet: 12.5 mA at 24 V, 60 mA at 5 V, 60 V at 5 mA). An interlock input of a power supply usually carries less; what the Matsusada and REK inputs carry is not known here | Question 22 b. A small signal relay between the Opta's contact and such an input |
+| P64 | The unit test `test_matsusada_co ... test_back_to_back_transactions_keep_the_line_timing` failed twice on 2026-11-25 while other containers ran on the PC (0.02427 s and 0.02438 s against a limit of 0.02425 s) and passed alone. Its margin of 0.5 ms is too small for a loaded PC | Widen the margin or measure against the simulator's own clock. It is not a fault of the simulator's timing as far as these runs show |
+| P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement |
+| P66 | The two new devices are in the registry (class gauge) and in no drawing of the GUI | With the next GUI round: the foreline gauge beside the turbopump's foreline, the TIC where its gauges turn out to sit |
 
 ## Found in RAS V8.1.0
 

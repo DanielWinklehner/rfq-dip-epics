@@ -246,6 +246,8 @@ caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:volta
 | Valve box (`AVR12`) | 115200 8N1 | `VALVE:id`, `VALVE:s1:get` | firmware |
 | Flow meter Opta (`AVR23`, the lab's COM23) | 115200 8N1 | `FLOW:f1:getflow` to `FLOW:f5:getflow` (l/min) | which circuit each is (question 18 c); no identity records (protocol 1) |
 | nAIM (`AIM`) | 9600 8N1 | `AIM:getpressure`, `AIM:enable` | protocol from INFICON's description (A15, A40) |
+| Foreline gauge, INFICON VGC401 (`VGC`) | 9600 8N1, the controller's default | `PRESSURE:foreline:getpressure`, `:getstate`, `:getgauge`, `:getunit` | never run on the controller (A51): "The foreline gauge and the TIC", below |
+| Edwards TIC station (`TIC`) | 9600 8N1, Xon/Xoff | `TIC:variant:get`, `TIC:gauge1:getpressure`, `TIC:turbo:state:get` | never run on the controller, variant not known (A52, question 23) |
 | MFC (`MFC`) | 9600 8N1, address 254 | `MFC:getFlow`, `MFC:setSP` | written from a draft (A11, P11) |
 | Faraday cup Opta (`AVR16`, the lab's COM16) | 115200 8N1 | `FC1:i1:getcurrent`, `FC1:i2:getcurrent` | what i1 and i2 are and their unit, the sketch (question 18 b); no identity records (protocol 1) |
 | Turbo Opta (`TURBO`) | TCP port 5025 | `TURBO:id` | firmware does not exist (P13): expect INVALID |
@@ -367,6 +369,46 @@ line in eight places of `EPICS/Db/matsusada_co_ctrl.proto` and of `rek.proto`.
 **The platform IOC reads `interlock_open` from the rack IOC.** On the platform computer
 `caget interlock_open` must answer. If not: `export EPICS_CA_ADDR_LIST=<rack IP>` before
 `run-ioc.sh` (Channel Access: UDP 5064 and 5065, TCP 5064).
+
+### The foreline gauge and the TIC
+
+Both are read only: the IOC asks for readings and sends no setting and no command (tasks T29 and
+T30, `docs/emulation/VGC401.md`, `docs/emulation/TIC.md`). **Neither has met its controller.**
+Each has a probe that runs without an IOC; run it first and send me its output.
+
+1. **Probe**, with the controller's serial socket on a USB to RS-232 adapter (a straight cable
+   for both, by their manuals), on whichever computer the adapter is plugged into:
+
+   ```bash
+   python3 EPICS/ioc/host/inficon_vgc401_probe.py /dev/ttyUSB0
+   ```
+
+   ```bash
+   python3 EPICS/ioc/host/edwards_tic_probe.py /dev/ttyUSB0
+   ```
+
+   The VGC401's probe listens for 3 s first: a controller that was just switched on sends its
+   reading every second by itself, and those lines prove cable and baud rate. Its first request
+   ends that sending until the controller is switched off and on, and reading the error word
+   clears it (both from the manual). The TIC's probe tells which TIC variant it is, what is on
+   its three gauge sockets and which pumps it knows.
+2. **For the IOC the adapter must be on the rack server.** Plug it in alone,
+   `ls -l /dev/serial/by-path/`, and put that name into the `VGC` (or `TIC`) line of
+   `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/vgc401` (`/dev/mist2/tic`).
+   A baud rate other than 9600 on the VGC401 goes into the same block.
+3. **Read**, after an IOC restart:
+
+   ```bash
+   caget -a PRESSURE:foreline:getpressure PRESSURE:foreline:getstate PRESSURE:foreline:getgauge PRESSURE:foreline:getunit
+   ```
+
+   ```bash
+   caget -a TIC:variant:get TIC:gauge1:getpressure TIC:gauge1:state:get TIC:turbo:state:get TIC:turbo:speed:get TIC:backing:state:get
+   ```
+
+   Pressures are in torr. Below its range the VGC401's value stays, with a MINOR alarm and the
+   state "Underrange". A TIC socket without a gauge, and a pump the TIC does not have, are
+   INVALID, and the state PV says why.
 
 ## 5. First high voltage
 
