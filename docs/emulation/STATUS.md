@@ -1178,6 +1178,52 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the Edwards station is a 115 V unit, and may not be a TIC at all (A52, question 23)
+
+Owner: "The station's part number is TSM1D1002 does it accept 230 V mains? Could the nAIM and
+the Inficon and the Edwards APG100-XM in theory be driven through that controller?", and then:
+"it says 115 V in tiny letters at the inlet receptacle".
+
+**Nothing here is seen on hardware by me.** The label and the 115 V are the owner's reading; the
+rest is read from Edwards' documents, fetched on 2026-11-25 (sources at the end).
+
+- **Mains: not for 230 V.** The string `TSM1D1002` is in no Edwards list I found (two web
+  searches for the exact string found nothing). Edwards' T-Station order numbers have its shape:
+  `TS85D1002` is the T-Station 85H, dry (XDD1 diaphragm pump), NW40 inlet, 100 to 120 V, and
+  `TS85D1001` the same for 200 to 230 V; `W` in place of `D` is the wet station (E2M1.5), and
+  `TS85M1003` and `TS85M1006` are the dry station with an mXDS3s for 230 V and 115 V. A number
+  that ends in `D1002` therefore reads as dry, NW40, 100 to 120 V, which agrees with the 115 V
+  at the inlet. Not known: what the label's third and fourth characters really are (`85`, `75`).
+- **A T-Station is not a TIC station.** Its data sheet and the range brochure give it a turbo
+  and active gauge controller of its own, for one Edwards active gauge, and name no serial
+  port. Three gauges and RS-232 are named for the stations that carry a TIC Turbo and
+  Instrument Controller. The T-Station's instruction manual (D395-94-880) is not read: the
+  copy found refused an automated download. **So whether T29 (`TIC:*`, `tic.proto`,
+  `edwards_tic_probe.py`) fits the lab's station at all is open** until the owner says what
+  the controller is: its front, the number of gauge sockets, a 9-pin serial socket or none.
+- **The TIC Turbo and Instrument Controller itself**, if the station has one: mains 90 to 264 V
+  a.c., 47 to 63 Hz; three active gauges on FCC68 (RJ45) sockets; Edwards' own active gauges
+  are named and no other make: APG100, APGX-H, WRG, AIM, AIGX, ASG2 in the data sheet of 2020,
+  and APG200, APGX-H, WRG200, AIM200, WRH, AIGX, ASG2 in that of 2024. A 200 W controller feeds
+  a 24 V XDD1; other mains backing pumps are switched through a relay box. In the older EXPT
+  station the backing pump decides the station's mains voltage (separate rows for 100,
+  110 to 120 and 220 to 240 V).
+- **The three gauges through the station's controller:**
+  - APG100-XM: an Edwards active gauge, of the family the TIC's data sheet names. For a
+    T-Station the lists name the APG100-XLC and the APG200-XLC, not the XM: its manual decides.
+  - nAIM: a digital gauge (15 to 48 V d.c., RS-232 or RS-485, 9600 to 38400 baud, an
+    open-collector set point). Its data sheet lists no analogue pressure output, and the
+    brochure says a digital gauge needs no controller and is read by a PC or PLC directly. So
+    not through the controller; it stays on its own serial line, as the IOC reads it now.
+  - The INFICON head on the VGC401 (the controller reports `PCG`): Edwards names its own gauges
+    only, and I found no statement that another make works. Taken as no. Pin assignments not
+    compared.
+
+Sources: Edwards data sheets "TIC Turbo and Instrument Controller" 3601 0650 01 (2020) and
+3601 0654 01 (2024), "T-Station 85" 3601 0254 01 (2024), "nAIM Digital Active Inverted
+Magnetron Vacuum Gauge" 3601 0398 01 (2018), the brochure "Turbomolecular Pumping Stations",
+and the instruction manual "EXPT Pumping Station" B723-00-880 Issue B.
+
 ### 2026-11-25: the rack IOC reads the VGC401, and the GUI shows it (A51, P65)
 
 Owner, after he had moved the adapter to the rack server and started the rack IOC: "I see the
