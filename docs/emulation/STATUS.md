@@ -1276,6 +1276,19 @@ ping. What was seen until then (local time):
   Not known: which other plugs he moved. A serial adapter put back into another USB socket of
   the rack server loses a name that is made from the socket (the TIC's, the two Matsusada
   ones): to be looked at before the next IOC start.
+- **The owner's summary of the run:** "I think that was a rather successful test run with the
+  turbo spinning to full power (and dropping to minimum current drawn once it was spun up,
+  i.e. no major leaks) and reaching the -6 regime in short time." The big turbopump's speed
+  and current are his reading at its controller; the IOC does not see that pump. From my
+  log: the foreline valve opened at 16:47:52 with the cross at atmosphere, the big turbopump
+  took hold at about 17:02:40, the AIM passed 1e-5 torr at 17:14:20 and read 9.65e-6 torr,
+  still falling, when it was switched off at 17:15:04.
+- **A number against "no major leaks", not explained:** closed off by the foreline valve,
+  the cross rose at about 4e-4 torr per second (APG, 17:21 to 17:25, before the valve was
+  pulsed), with 20 torr of air on the cart's side of the valve and the big turbopump
+  coasting. Pumped, it had been at 1e-5 torr and falling. Air past the closed valve, gas
+  from the slowing pump, and the APG's fresh vacuum adjustment are all possible; the cross's
+  volume is not known to me. A rate-of-rise test with the cart's side pumped would tell.
 - **My watchers are stopped** (18:09); the logs are kept on the lab computer, outside the
   repository. The GUI's three containers still run.
 
