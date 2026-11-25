@@ -39,11 +39,16 @@ RACK = S.ioc_container(RACK_IOC)
 TAKEN = {l["macros"]["REQ"]: l["macros"]["RB"] for d in reg.devices.values() for l in d.get("loads", [])
          if l["db"] == "first_contact.db"}
 # Requests of a device, the commands that are sets, per simulator type
-SET_HEADS = {"libcom1": ("S", "s"), "edwards_naim": ("!",)}
+SET_HEADS = {"libcom1": ("S", "s"), "edwards_naim": ("!",), "edwards_tic": ("!",)}
+# The TIC's requests (tic_control.db, T32): the simulator signal of the device's state, and the
+# states in which the request counts as 1 (the read-back's rule)
+TIC_STATES = {"turbo:start:set": ("turbo.state", (1, 5, 4)), "backing:start:set": ("backing.state", (1, 4)),
+              "on:set": ("g%s.state", (6, 11))}
 
 BACK_LIMIT = 60.0      # s: the IOC's container restarted and its heartbeat counting
-TAKE_LIMIT = 3.0       # s after the IOC answers: the valve box and the Opta are polled every 0.5 s,
-                       # the gauge every 1 s; the request follows at once (CP link)
+TAKE_LIMIT = 5.0       # s after the IOC answers: the valve box and the Opta are polled every 0.5 s,
+                       # the gauge every 1 s, the TIC's pumps every 2 s in a chain of seven queries
+                       # (about 1 s); the request follows at once (CP link)
 SILENT_HOLD = 2.0      # s the requests of a silent device are watched to stay INVALID (4 polls)
 LATE_LIMIT = 5.0       # s after the fault is cleared: the reply timeout (1 s) of the poll that
                        # waits, then the next poll (0.5 s)
@@ -57,9 +62,19 @@ def sim_of(req):
     return reg.sim_of(req)[0]
 
 
+def tic_signal(req):
+    key = next(k for k in TIC_STATES if req.endswith(k))
+    signal, states = TIC_STATES[key]
+    if "%s" in signal:                                   # the gauge: its socket from the name
+        signal = signal % re.search(r":gauge(\d+):", req).group(1)
+    return signal, states
+
+
 def signal_of(req):
     """The simulator signal that holds the device's state for a request."""
     sim = sim_of(req)
+    if reg.simulators[sim]["type"] == "edwards_tic":
+        return tic_signal(req)[0]
     if reg.simulators[sim]["type"] == "libcom1":
         return re.search(r"com1_setLink\w*\((\w+)\)", S.field(req, "OUT")).group(1)
     assert reg.simulators[sim]["type"] == "edwards_naim", sim
@@ -67,7 +82,10 @@ def signal_of(req):
 
 
 def device_state(req):
-    return int(round(S.sim_value(sim_of(req), signal_of(req))))
+    value = int(round(S.sim_value(sim_of(req), signal_of(req))))
+    if reg.simulators[sim_of(req)]["type"] == "edwards_tic":
+        return int(value in tic_signal(req)[1])
+    return value
 
 
 def sets_received(sim):
@@ -105,9 +123,10 @@ def show(states):
 
 
 # The requests by simulator, and the pattern written before the restart
-VALVES = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "valve")
-PUMPS = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "turbo")
-GAUGES = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "gauge")
+TIC = sorted(n for n in TAKEN if reg.simulators[sim_of(n)]["type"] == "edwards_tic")
+VALVES = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "valve" and n not in TIC)
+PUMPS = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "turbo" and n not in TIC)
+GAUGES = sorted(n for n in TAKEN if reg.devices[reg.pvs[n]["device"]]["class"] == "gauge" and n not in TIC)
 SILENT_SIM = sim_of(PUMPS[0])                       # the Opta: silent at the IOC's start
 SILENT = sorted(n for n in TAKEN if sim_of(n) == SILENT_SIM)
 ANSWERING = sorted(n for n in TAKEN if sim_of(n) != SILENT_SIM)
@@ -127,12 +146,14 @@ SPARE_AO, WRITTEN_AO, HELD_AO = SPARE[0], SPARE[1], SPARE[2]  # ao channels s5..
 PATTERN = {n: 0 for n in TAKEN}
 PATTERN.update({FORELINE: 1, VENT: 0, OTHER_BO: 1, SPARE_AO: 1, PUMPS[0]: 1, PUMPS[1]: 0})
 PATTERN.update({g: 1 for g in GAUGES})
+PATTERN.update({t: 1 for t in TIC})          # the TIC: both pumps running, the AIM on (as it starts)
 WRITE_BEFORE = PUMPS[1]          # pump 2 (not installed in phase 1): written while the Opta is silent
 
 
 def test_every_request_of_the_list_has_a_take_over():
-    """The ten requests of P25 and the gauge: s1 to s8, both pumps, the cathode."""
-    assert len(VALVES) == 8 and len(PUMPS) == 2 and len(GAUGES) == 1, sorted(TAKEN)
+    """The ten requests of P25 and the gauge: s1 to s8, both pumps, the cathode; and the TIC's
+    three (T32): its turbopump, its backing pump, the AIM on its socket 2."""
+    assert len(VALVES) == 8 and len(PUMPS) == 2 and len(GAUGES) == 1 and len(TIC) == 3, sorted(TAKEN)
     for req, rb in TAKEN.items():
         assert reg.pvs[req]["access"] == "w" and rb in reg.pvs, (req, rb)
     assert reg.pvs[SPARE_AO]["type"] == "ao" and reg.pvs[OTHER_BO]["type"] == "bo"

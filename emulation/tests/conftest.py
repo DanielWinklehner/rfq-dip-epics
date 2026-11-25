@@ -15,6 +15,15 @@ SETTLED = 15          # seconds after an IOC start
 FIRST_CONTACT = 30    # s: probe every 1 s, then GRACE 5 s; 30 s covers a supply answering late
 
 
+def is_tic_request(name):
+    """A request of the Edwards TIC station (tic_control.db, T32): the IOC refuses some of them in
+    some states of the station (a backing pump stop under a running turbopump), so the order of
+    the writes matters. test_12_tic writes them in that order, with their acknowledgement and
+    read-back; the generic write and acknowledgement tests leave them out."""
+    sim = reg.sim_of(name)[0]
+    return bool(sim) and reg.simulators[sim]["type"] == "edwards_tic"
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: needs more than a minute; excluded by default, "
                                        "include with ARGS='-m slow' or ARGS='-m \"\"'")

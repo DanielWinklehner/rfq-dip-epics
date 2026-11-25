@@ -1,14 +1,17 @@
-# Edwards TIC station: read-only (task T29)
+# Edwards TIC station (tasks T29, T31, T32)
 
-The Edwards TIC controller ("the Edwards TIC station") as PVs: `EPICS/Db/tic.db` with the
+The Edwards TIC controller ("the Edwards TIC station") as PVs: `EPICS/Db/tic.db` (read only,
+T29) and `EPICS/Db/tic_control.db` (three requests, T32, section "Control" below) with the
 protocol `EPICS/Db/tic.proto` (StreamDevice), the simulator `edwards_tic`
-(`emulation/sim/mist2sim/devices/edwards_tic.py`), the device case `emulation/devtest/tic`, and
-a probe for the first contact without an IOC, `EPICS/ioc/host/edwards_tic_probe.py`.
+(`emulation/sim/mist2sim/devices/edwards_tic.py`), the device cases `emulation/devtest/tic`
+(`tic.db` alone) and `emulation/devtest/tic_control` (both files), and a probe for the first
+contact without an IOC, `EPICS/ioc/host/edwards_tic_probe.py`.
 
-**Read-only.** Nothing here sends a command or a setup message (`!C`, `!S`) to the controller:
-the probe, the protocol file and the database only query. Starting or stopping a pump, switching
-a gauge or changing a setting from EPICS is not possible with these files. It waits until it is
-known what the station runs.
+**`tic.db` is read only.** It sends nothing but queries, and its device case shows it. The
+commands are in `tic_control.db`, loaded beside it with the same port: the cart's backing pump
+and turbopump on and off, the AIM on socket 2 on and off, each one command, each only when an
+operator writes the request. No file here sends a setup message (`!S`). The probe sends queries
+only.
 
 What is read: the three gauge sockets (pressure and state of each gauge), the turbo pump (state,
 type, speed), the backing pump (state, type), and what the controller says about itself
@@ -16,7 +19,8 @@ type, speed), the backing pump (state, type), and what the controller says about
 the vent valve, heater band, air cooler, gauge types and names, gauges 4 to 6 of a 6-gauge
 controller, power and temperatures, anything of a pump routed through the TIC (objects 800+).
 
-No IOC of the emulation loads `tic.db` yet; the lead adds it after acceptance.
+The rack IOC loads `tic.db`, `tic_control.db` and the three take-overs of `first_contact.db`
+(`iocBoot/iocRack/st.cmd`); so does the emulation.
 
 ## Sources
 
@@ -167,6 +171,93 @@ records treat any error reply `*V<obj> <code>` as "not on this controller": INVA
 word of Table 3. The simulator answers code 2 then (an assumption, option `absent_code`).
 What the identity string of an IC or a TC starts with is not given (1.6.2.2 shows "TIC" only).
 
+## Control (task T32)
+
+The owner, 2026-11-25: "yes, I want to start and stop the pumps from the GUI", and for the AIM
+on socket 2, which the TIC did not switch by itself: "definitely through the GUI too", with his
+rule "The AIMs may not be turned on until the APG shows 1e-2 Torr or lower".
+
+### What is sent
+
+| Request (bo) | 1 | 0 | Command | Seen on the lab's TIC (2026-11-25, by hand) |
+|---|---|---|---|---|
+| `TIC:backing:start:set` | run | stop | `!C910 1` / `!C910 0` | both, each answered `*C910 0` after 19 ms; the state 4 at the next query (32 ms), 0 after 25 ms, nothing between |
+| `TIC:turbo:start:set` | run | stop | `!C904 1` / `!C904 0` | both, each `*C904 0` after 19 ms; the old state still at 32 and 51 ms; 0, 5 Accelerating to about 50 %, 4 Running, 100 % after 120 s; down 7 Braking to 0.3 %, then 0, 105 s with the backing pump off right after the stop (more than 5 minutes with the backing pump left on) |
+| `TIC:gauge2:on:set` | on | off | `!C914 1` / `!C914 0` | **never sent**: D397-30-880 Table 1 object 914 ("On/off"), 1.7.5 "Gauge On = 1, Gauge Off = 0". At the panel: 5 Off to 11 On in one step at a 1 s scan, then one standing value for 146 s (P74); 11 to 5 in one step |
+
+Each write is one command and nothing else: no sequence, no setup, no retry. The protocol
+`command` of `tic.proto` sends the bo's value and expects `*C<obj> 0`; that ends the request
+without alarm. Any other code leaves the request INVALID (CALC) and `...:reason` shows the code's
+word of Table 3; no reply leaves it INVALID (TIMEOUT), the reason "No reply". The pump's state in
+the IOC is the TIC's own, so a failed request does not change it.
+
+The socket of the switched gauge is a macro (`SOCKET=2`, `OBJ=914` in the st.cmd).
+
+### What is read back
+
+| PV | From | Means |
+|---|---|---|
+| `TIC:turbo:start:get` | `TIC:turbo:state:get` (every 2 s) | run in 1 Starting Delay, 5 Accelerating, 4 Running (the states that follow a start); stop in the others; INVALID while the state is not known |
+| `TIC:turbo:atspeed:get` | `TIC:turbo:speed:get` | at speed from 95 % (macro `ATSPEED`); not the state Running, which the TIC shows from 50 % |
+| `TIC:backing:start:get` | `TIC:backing:state:get` | run in 1 Off Going On and 4 On |
+| `TIC:gauge2:on:get` | `TIC:gauge2:state:get` (every 1 s) | on in 6 Striking and 11 On |
+| `TIC:<...>:reason` | each request | Acknowledged, a Table 3 word, No reply, No valid reply, a refusal's word, or "No request since start" |
+| `TIC:gauge2:slave:get` | `?S914 4` every 10 s | "linked" (the TIC switches the gauge by itself at the set points: `:slave:on:get`, `:slave:off:get` in torr, `:slave:master:get` the master's object) or "not linked"; INVALID with "No valid reply" for a reply of another form, whose text `TIC:gauge2:slave:raw` keeps |
+
+The slave setup's reply has not been seen for a gauge: the form is the one the lab's TIC gave
+for the turbopump (`?S904 4` -> `=S904 4;0;59;0.0000e+00;0.0000e+00;0`, 56 ms). The manual's own
+example has no config type (`=S904 913;59;5.1e-2;4.9e-1;1`); such a reply is INVALID here and
+its text kept. The probe reads both gauges' setups with the IOC stopped:
+`edwards_tic_probe.py <device> --query "?S913 4" --query "?S914 4"` (queries only: anything else
+is refused before the port is opened, exit code 3).
+
+### What the IOC refuses, and how it says so
+
+| Request | Refused while | Reason's word |
+|---|---|---|
+| `TIC:turbo:start:set` := 1 | the backing pump is not On (state 4); or its state is not known | "Refused: backing not on"; "Refused: backing unknown" |
+| `TIC:backing:start:set` := 0 | the turbopump is in a state that follows a start (1, 5, 4); or its state is not known | "Refused: turbopump runs"; "Refused: turbo unknown" |
+| `TIC:gauge2:on:set` := 1 | the APG's pressure (`TIC:gauge1:getpressure`) is above 1e-2 torr (macro `PMAX`); or not valid | "Refused: APG > 1e-2 torr"; "Refused: APG not valid" |
+
+A refused request sends nothing: the request is INVALID (LINK) at once, falls back 0.02 s later
+to the read-back's value (in simulation mode, as the take-over at the first contact does) and is
+then without alarm; its reason says why. Stops and switch-offs are never refused, except the
+backing pump's while the turbopump runs. In the run-down (7 Braking) the backing pump may be
+stopped: the order used on 2026-11-25 (turbopump stop, backing pump off right after) held.
+
+How (the header of `tic_control.db` has the details): the request's disable link SDIS reads a
+calc `_refuse` with PP and MS before the record support runs; a refusal is an INVALID alarm of
+that calc, which MS makes the request's own, and with IVOA "Don't drive outputs" the bo does not
+call StreamDevice. DISV is -1, so the request is never disabled.
+
+### What is not built, by decision
+
+- No pressure condition for the turbopump's start (the owner has given none, question 26 b).
+- No sequence ("system on"), no setup message, no procedure for spin-up or shut-down (a later
+  task, the owner's word).
+- No refusal of the turbopump's stop with the foreline valve open: the GUI's confirmation warns
+  while `VALVE:s1:get` reads open or is not known (the owner: "No, but pop up a warning").
+- No communication timeout, no automatic stop: a pump keeps its state when the IOC stops or loses
+  the line. An IOC start sends nothing: each request takes over the station's state at the TIC's
+  first answer (`first_contact.db`).
+- The IOC does not switch the AIM off when the pressure rises: that is the TIC's own slave setup
+  to do, which the IOC reads. An automatic action needs the owner's word.
+- No refusal of a turbopump start while it still brakes (not tried on the controller; see
+  "Assumed").
+
+### The simulator
+
+`edwards_tic` executes the commands as the lab's TIC was seen to: the replies after the
+turnaround (20 ms; 19 ms seen), the backing pump in its new state at once, the turbopump's state
+and speed over time along the curves seen (options `turbo_runup`, `turbo_rundown_backing_off`,
+`turbo_rundown_backing_on`, points [seconds, %]; a change of the backing pump during a run-down
+moves it onto the other curve), the old state for `turbo_delay_s` after a command. The gauge: on
+by `!C91x 1` or the panel (signal `g<n>.panel`), `strike_s` in Striking, then `standing_s` (146 s)
+one standing value, then the pressure; off at once. Its slave setup (option `slave`) is what
+T31's option `switch` was: in the emulation's configuration not linked (the lab's TIC waited for
+the panel), linked in a unit test and in the device case. The emulation's AIM starts On. The
+signal `command_code` makes every command get an error code; the fault `silent` gives none.
+
 ## Assumed
 
 - A-T29-1: The line settings, connector and cable of the Turbo Controller manual (D397-12-880)
@@ -181,8 +272,22 @@ What the identity string of an IC or a TC starts with is not given (1.6.2.2 show
   known).
 - A-T29-5: ReplyTimeout 120 ms suffices (the manual: basic messages less than 100 ms).
 - The simulator: the value of a gauge that is not on (9.9e9, from the example of object 940),
-  the number format, the turnaround (20 ms), the identity string, that a command is answered
-  `*C<obj> 1` and not executed.
+  the number format, the turnaround (20 ms), the identity string, that a setup message or a
+  command to another object is answered `*<type><obj> 1` and not executed.
+- Of T32, in the simulator only (named options in `config/rack.yaml`; the IOC does not depend on
+  any of them):
+  - `turbo_delay_s` 1.0 s: how long the turbopump's state stays the old one after a command
+    (seen: more than 51 ms, and the new state at the next sample 5 s later).
+  - `turbo_running_pct` 50.5 % (seen: 50.1 % Accelerating, 54.3 % Running; 49.5 % to about
+    51 % on the second run) and `turbo_stopped_pct` 0.2 % (seen: 0.3 % Braking, 0.1 % Stopped).
+  - the end of the run-down with the backing pump left on: 0 % after 600 s (seen: 0.7 % and
+    still Braking after 5 minutes).
+  - `start_without_backing: accept` (`!C904 1` with the backing pump off: not tried; the IOC
+    refuses it) and `start_while_braking: accelerate` (a start during the run-down: not tried;
+    the IOC does not refuse it, see the questions in the plan).
+  - a gauge command to a socket without a gauge, or to a gauge in another state than 5, 6, 11:
+    answered `*C91x 5`; `strike_s` 0.5 s (no Striking seen at a 1 s scan).
+  - that `*C914 0` answers a gauge command, as for the pumps (the gauge command was not tried).
 
 ## Seen on the lab's controller (2026-11-25, by the lab session, reported to the development session)
 
@@ -224,4 +329,5 @@ The probe on the powered station, both pumps off, twice with the same replies, 1
 3. Which turbo pump and which backing pump the TIC runs, if any (the probe's pump type lines).
 4. The probe's reply times (are they below 100 ms?).
 5. Which USB-serial adapter connects it, for the device name in `ports.real.cmd`.
-6. Whether starting and stopping pumps from EPICS is wanted later.
+6. Whether starting and stopping pumps from EPICS is wanted later. **Answered (2026-11-25):
+   yes, and the AIM too: section "Control".**

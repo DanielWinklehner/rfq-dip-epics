@@ -96,11 +96,19 @@ UNLISTED = {}                # PV of a faulted device, not in its fault list, se
 RAN = set()                  # (sim, mode) of the fault tests that ran
 
 
+SLOW_ROLES = ("id", "firmware", "channel_list", "slave", "slave_on", "slave_off", "slave_master")
+
+
 def identity_records(sim):
+    """Records scanned every 10 s, processed by the test instead: the identity of a libcom1 board,
+    the query of a TIC gauge's slave setup (tic_control.db, its records follow by forward link)."""
     out = []
     for d in reg.devices_behind(sim):
         if reg.has_role(d, "id"):
             out.append(reg.role(d, "id"))
+        for channel in reg.devices[d].get("channels", {}).values():
+            if "slave" in channel["roles"]:
+                out.append(channel["roles"]["slave"].replace(":slave:get", ":_slave"))
     return out
 
 
@@ -126,7 +134,7 @@ def run_fault(sim, mode, live, unit=None, mine=None, keep_valid=()):
     lim = limit(sim, mode)
     with S.fault(sim, mode, unit) as f:
         poke(identity_records(sim))
-        ident = [n for n in mine if reg.pvs[n].get("role") in ("id", "firmware", "channel_list")]
+        ident = [n for n in mine if reg.pvs[n].get("role") in SLOW_ROLES]
         if ident:
             lim = max(lim, IDENTITY_LIMIT)
         took = S.wait_for(lambda: S.all_invalid(mine), lim,
