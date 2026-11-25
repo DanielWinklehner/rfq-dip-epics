@@ -153,7 +153,8 @@ asynSetOption("VGC",-1,"crtscts","N")
 
 # Edwards TIC station, RS-232, read only (T29). 9600 8N1, Xon/Xoff (TIC Turbo Controller manual
 # D397-12-880 2.4.5). The probe read the controller with these settings on the lab computer on
-# 2026-11-25 (lab session); this IOC has NOT read it yet.
+# 2026-11-25 (lab session). Seen on hardware the same day, 15:06: this IOC reads it on the rack
+# server (identity, variant, gauge 1, both pumps, all without alarm; lab session, by caget).
 # Device name: tic_station is the owner's name for it (2026-11-25). Its adapter (Prolific
 # PL2303, 067b:2303) reports no serial number, so the name needs a rule by the rack server's
 # USB socket, which does not exist yet: until then the adapter's /dev/serial/by-path/ name
@@ -161,8 +162,8 @@ asynSetOption("VGC",-1,"crtscts","N")
 # The by-path name below, lab session 2026-11-25: on the rack server the adapter is /dev/ttyUSB3
 # with ID_PATH=pci-0000:01:00.0-usb-0:4.4:1.0 (the owner's paste of udevadm from there), behind
 # the owner's USB extension, which is a hub: socket 4 of the computer, port 4 of the hub. The
-# link's name is made from that ID_PATH as on the lab computer; the link itself is NOT SEEN, and
-# this IOC has not opened it yet. The adapter moved to another socket or hub port loses the name.
+# link's name is made from that ID_PATH as on the lab computer. The IOC opens it and reads the
+# TIC through it (seen 15:06). The adapter moved to another socket or hub port loses the name.
 # EPICS/ioc/host/99-mist2-serial.rules has a line for /dev/mist2/tic_station by the same socket
 # since that day; this line changes to that name once the rule file is installed on the rack
 # server and the name is seen there.

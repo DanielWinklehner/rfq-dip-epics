@@ -1180,6 +1180,38 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the rack IOC reads the TIC (A52, P65, P73)
+
+Owner, after his pull and restart on the rack server: "ioc is restarted, check the TIC".
+
+**Seen on hardware, from the lab computer at 15:06:09** (`caget -a` in the pvServer container;
+`IOC-RACK:heartbeat` was 15):
+
+| PV | Value | Alarm |
+|---|---|---|
+| `TIC:ident:get` | `TIC100;D39700640T;160070509` | none |
+| `TIC:model:get`, `TIC:sw:get` | `TIC100`, `D39700640T` | none |
+| `TIC:variant:get` | `TIC` | none |
+| `TIC:gauge1:getpressure` | 750.062 | none |
+| `TIC:gauge1:state:get`, `:units:get`, `:alert:get`, `:priority:get` | `On`, `PRESSURE (Pa)`, 0, `OK` | none |
+| `TIC:gauge2:getpressure`, `TIC:gauge3:getpressure` | nan | LINK INVALID |
+| `TIC:gauge2:state:get`, `TIC:gauge3:state:get` | `Gauge Not connected` | none |
+| `TIC:turbo:state:get`, `:type:get`, `:speed:get`, `:alert:get` | `Stopped`, `EXT75DX Pump`, 0, 0 | none |
+| `TIC:backing:state:get`, `:type:get`, `:alert:get` | `Off`, `Mains Backing Pump`, 0 | none |
+
+- **The identity is valid** with the NUL byte in the controller's reply (`e4494e4`).
+- **The by-path name of `69a08e7` is right:** the IOC reads the TIC through it. The link was not
+  listed with `ls`; the port file's comment now says what was seen.
+- **No single INVALID reading in five minutes** (P73): `camonitor` on `TIC:ident:get`,
+  `TIC:variant:get`, `TIC:gauge1:getpressure`, `TIC:gauge1:state:get`, `TIC:turbo:state:get`,
+  `TIC:turbo:speed:get` and `TIC:backing:state:get` from 15:06:23 to 15:11:23: one event each,
+  the first value, and no alarm event. `IOC-RACK:heartbeat` gave 301 events in those 300 s.
+  The station was idle then: pumps off, the gauge at its top value. Not watched: a running
+  station, hours.
+- `PRESSURE:foreline:getpressure` 763 without alarm throughout.
+- The rule for `/dev/mist2/tic_station` (`b8506e0`) passes `udevadm verify` on the lab computer
+  (udevadm 259: 1 file, 0 failed). It is not installed on the rack server.
+
 ### 2026-11-25: the TIC's adapter on the rack server, its socket name in the port file
 
 Owner: "the TIC is on the rack server now, here is the output", from `mist-2@mist-2-rack-IOC`
