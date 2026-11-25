@@ -34,6 +34,18 @@ Python wrapper, root rights for every run) is not needed.
 
 The steps of a first installation, in order: `docs/emulation/LAB-SETUP.md`.
 
+**INFICON VGC401 (foreline gauge controller, task T30).** `inficon_vgc401_probe.py <device>
+[baud]` is the read-only first contact: it listens 3 s without sending (after power-on the
+controller sends a value every second by itself), then asks once each for the pressure (`PR1`),
+the unit (`UNI`), the gauge (`TID`), the error word (`ERR`) and the firmware number (`PNR`),
+and prints the raw replies with their times and a last line with how many answered (exit code
+0: all five). It sends no mnemonic with a parameter; its first character ends the automatic
+transmission and reading `ERR` clears the error word, both as the manual (tinb01e1-f, p. 55, 63)
+describes. Python 3 standard library only, 9600 baud unless given. `inficon_vgc401_fake.py`
+runs it against a fake controller on a pseudo-terminal (exit 0; with `--silent` a controller
+that never answers, exit 1). Cable, line settings and what the output means:
+`docs/emulation/VGC401.md`.
+
 ## Install (once, with root rights)
 
 ```bash
