@@ -1218,6 +1218,14 @@ answered by it: the AIM is on socket 2.**
   and not "Gauge Not connected", with everything at atmosphere. Its pressure is INVALID in the
   IOC until the TIC reports it `On`, as `tic.db` is written. Whether the TIC switches it on by
   itself at low pressure or waits for the panel is not seen yet.
+- **The owner's rule for the AIM** (15:40): "The AIMs may not be turned on until the APG shows
+  1e-2 Torr or lower". 1e-2 torr is 1.33 Pa on the TIC's line. Nothing enforces it in the
+  control system: the IOC switches no gauge. The TIC can do it itself, by its serial manual
+  (D397-30-880 Table 1, object 913 and so 914, the "slave setup", config type 4): a gauge can
+  have a master (gauge 1, 2, 3 or the turbopump's speed) with an on set point and an off set
+  point in pascal and an enable. **How socket 2 is set today is not read:** `tic.db` does not
+  ask it (`?S914 4` would), and the rack IOC holds the line. Not read either: the TIC's
+  instruction manual, for where this is at the panel.
 - **The valve box answers with its identity,** so it runs the firmware of this branch
   (protocol 2), which acknowledges sets. Nothing was set by me.
 - **Not connected, by what the IOC sees:** the interlock Opta and the flow meters.
