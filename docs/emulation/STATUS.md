@@ -1178,6 +1178,77 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC, first contact (A52, P65, question 23)
+
+**Seen on hardware: the TIC answers all ten queries at 9600 baud, 8N1, Xon/Xoff, in the form
+the protocol file expects.** Probe `EPICS/ioc/host/edwards_tic_probe.py` of commit `9a6fe17`,
+run twice on the lab computer (13:08:51 and 13:09:42), on the owner's word ("let's test it on
+this computer"), no IOC on the port. Owner, at the second run: "the TIC station is powered up,
+the USB-to-RS232 is connected, and I connected the APG gauge to the pumping port, so we can do a
+full test down to 1e-3 Torr."
+
+- **Variant (question 23 a):** `?V902` has 10 fields, the TIC Turbo and Instrument Controller.
+  `?S902` answers `TIC100;D39700640T;160070509\x00;5.0`: the first field is `TIC100`, not `TIC`
+  as in the manual's example, and **a NUL byte follows the serial number**, before the
+  semicolon. `tic.proto` reads the whole identity with `%80[^\r]` and its first two fields with
+  `%39[^;]`: what the NUL does to `TIC:ident:get` in the IOC is not tried.
+- **Pumps (question 23 b):** turbopump type 3, "EXT75DX Pump", state 0 Stopped, speed 0.0 %;
+  backing pump type 8, "Mains Backing Pump", state 0 Off. Both pumps were off at both runs.
+- **Gauge sockets (question 23 c):** socket 1 answers `9.9000e+09;59;2;9;0`: no pressure
+  reading, units type 59, state 2 "New Gauge Id", alert 9, priority 0. Sockets 2 and 3: state 0
+  "Gauge Not connected". The owner's APG is on socket 1; the state was the same in both runs,
+  51 s apart. **By A52 the IOC takes a value as a pressure only in state 11 "On":** in state 2
+  `TIC:gauge1:getpressure` is INVALID. What ends the state "New Gauge Id" (a key at the front
+  panel, or time) I have not read.
+- **Reply times:** 23 to 86 ms; the identity is the slowest (61 and 86 ms), the gauges 42 to
+  49 ms, the pump queries 23 to 32 ms. The IOC's `ReplyTimeout` is 120 ms.
+- **Adapter (question 23 d):** Prolific PL2303, USB ID `067b:2303`, driver `pl2303`, **no
+  serial number**, `/dev/ttyUSB0`,
+  `/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0`,
+  `/dev/serial/by-path/pci-0000:00:14.0-usb-0:9:1.0-port0` on the lab computer. Without a
+  serial number it can be named by its socket only, on the rack server by that computer's
+  `by-path` name. udev marks it `ID_MM_CANDIDATE=1`; ModemManager's log names it once at
+  12:53:27 ("not supported by any plugin").
+- **What the probe changed on the controller:** nothing; it sends the ten queries only.
+
+**Not seen yet:** a gauge that measures (state 11, a pressure in pascal), a running pump, the
+IOC on this controller, an error reply. A log of gauge 1 and of both pumps runs on the lab
+computer during the owner's pump-down (the probe every 5 s, queries only).
+
+The whole output of both runs:
+
+```
+run at 2026-11-25 13:08:51 +0100
+?S902    identity            '=S902 TIC100;D39700640T;160070509\x00;5.0'    61 ms  type TIC100, software D39700640T, serial 160070509 , PIC software 5.0
+?V902    system status       '=V902 0;0;2;0;0;0;0;0;0;0'           50 ms  10 fields: TIC (TIC Turbo & Instrument Controller)
+?V913    gauge 1             '=V913 9.9000e+09;59;2;9;0'           42 ms  value 9.9000e+09 (no pressure reading), state 2 New Gauge Id, units 59 pressure, Pa, alert 9, priority 0
+?V914    gauge 2             '=V914 9.9000e+09;59;0;0;0'           44 ms  value 9.9000e+09 (no pressure reading), state 0 Gauge Not connected, units 59 pressure, Pa, alert 0, priority 0
+?V915    gauge 3             '=V915 9.9000e+09;59;0;0;0'           49 ms  value 9.9000e+09 (no pressure reading), state 0 Gauge Not connected, units 59 pressure, Pa, alert 0, priority 0
+?V904    turbo pump state    '=V904 0;0;0'                         24 ms  state 0 Stopped, alert 0, priority 0
+?S904 3  turbo pump type     '=S904 3;3'                           29 ms  pump type 3 EXT75DX Pump
+?V905    turbo speed         '=V905 0.0;0;0'                       28 ms  speed 0.0 %, alert 0, priority 0
+?V910    backing pump state  '=V910 0;0;0'                         24 ms  state 0 Off State, alert 0, priority 0
+?S910 3  backing pump type   '=S910 3;8'                           23 ms  pump type 8 Mains Backing Pump
+RESULT: 10 of 10 queries answered, 10 in the form the protocol file expects
+exit code: 0
+```
+
+```
+run at 2026-11-25 13:09:42 +0100
+?S902    identity            '=S902 TIC100;D39700640T;160070509\x00;5.0'    86 ms  type TIC100, software D39700640T, serial 160070509 , PIC software 5.0
+?V902    system status       '=V902 0;0;2;0;0;0;0;0;0;0'           43 ms  10 fields: TIC (TIC Turbo & Instrument Controller)
+?V913    gauge 1             '=V913 9.9000e+09;59;2;9;0'           42 ms  value 9.9000e+09 (no pressure reading), state 2 New Gauge Id, units 59 pressure, Pa, alert 9, priority 0
+?V914    gauge 2             '=V914 9.9000e+09;59;0;0;0'           42 ms  value 9.9000e+09 (no pressure reading), state 0 Gauge Not connected, units 59 pressure, Pa, alert 0, priority 0
+?V915    gauge 3             '=V915 9.9000e+09;59;0;0;0'           42 ms  value 9.9000e+09 (no pressure reading), state 0 Gauge Not connected, units 59 pressure, Pa, alert 0, priority 0
+?V904    turbo pump state    '=V904 0;0;0'                         32 ms  state 0 Stopped, alert 0, priority 0
+?S904 3  turbo pump type     '=S904 3;3'                           23 ms  pump type 3 EXT75DX Pump
+?V905    turbo speed         '=V905 0.0;0;0'                       27 ms  speed 0.0 %, alert 0, priority 0
+?V910    backing pump state  '=V910 0;0;0'                         25 ms  state 0 Off State, alert 0, priority 0
+?S910 3  backing pump type   '=S910 3;8'                           24 ms  pump type 8 Mains Backing Pump
+RESULT: 10 of 10 queries answered, 10 in the form the protocol file expects
+exit code: 0
+```
+
 ### 2026-11-25: the station's controller is a TIC with three gauge sockets (question 23 a)
 
 Owner: "It's front label says TIC and it has three RJ45 recepticals on the side". **This corrects
@@ -1679,7 +1750,7 @@ A19 (the output gate is wanted, and it latches).
 | A49 | An input of the Opta reads its voltage against the supply's minus terminal (T28) | The data sheet gives the input's thresholds and names no reference terminal in words | Seen at the first bench check: an input at the supply's plus must read as a closed door. The supply is the +24 V rail of a NIM crate (answer 55), so the reference is that crate's 24 V return |
 | A50 | The four solenoid valves are fed from the NIM crate's +24 V rail, the one that feeds the Optas | Answer 57 names the valves' power as a worry for that rail and does not say it in so many words | You |
 | A51 | The VGC401 as the lab has it: 9600 baud (the factory default), a reply within 150 ms, a value in Micron stays in Micron above 99000 on the serial line, and its "RS232" socket takes a straight cable (T30) | The manual tinb01e1-f gives the default and the pins, no response time, and the change-over to Torr only for the display; read from a third-party copy of the manual, of which I checked four pages against the engineer's quotes | The probe `inficon_vgc401_probe.py` on the controller: reply times, unit, gauge head. **Seen on hardware, 2026-11-25 (lab session, "Seen on hardware"):** 9600 baud answers; replies after 91 to 112 ms, within the 150 ms; the cable is "a USB-to-RS232 adapter cable" (owner, answer 60), and what is between it and the "RS232" socket I have not seen. Not seen: a value in Micron (the controller is set to Torr). New: the pressure reply has a blank after the comma (`0, 7.6400E+02`), which the manual's example does not show |
-| A52 | The TIC station: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual, taken to hold for the lab's variant), replies within 120 ms, a gauge that measures reports the state On and its value in pascal, and an object the controller does not have is answered with an error reply (T29) | The serial manual D397-30-880 covers all variants; the instruction manuals of the Instrument Controller and of the Turbo and Instrument Controller could not be fetched | The probe `edwards_tic_probe.py` on the controller: variant, states, reply times |
+| A52 | The TIC station: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual, taken to hold for the lab's variant), replies within 120 ms, a gauge that measures reports the state On and its value in pascal, and an object the controller does not have is answered with an error reply (T29) | The serial manual D397-30-880 covers all variants; the instruction manuals of the Instrument Controller and of the Turbo and Instrument Controller could not be fetched | The probe `edwards_tic_probe.py` on the controller: variant, states, reply times. **Seen on hardware, 2026-11-25 (lab session, "Seen on hardware"):** 9600 8N1 with Xon/Xoff answers, all ten queries in the form the protocol file expects, replies after 23 to 86 ms; it is the TIC Turbo and Instrument Controller (`TIC100`, 10 fields). Not seen yet: a gauge in the state On with a pressure, an error reply. New: a NUL byte after the serial number in the identity, and the gauge on socket 1 in the state 2 "New Gauge Id" with no reading |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
@@ -1768,7 +1839,7 @@ loop, see "Done").
 | P62 | In the Opta sketch the door decision and the communication share one loop, as in the old box. The Opta's USB write waits until the computer has taken the data (`USBCDC::send` in the core). If a write ever hangs (the USB cable pulled in the middle of a reply, a computer that stops with the port open), the doors are not read and relays 1 and 2 keep their state until the watchdog restarts the board, up to 8 s later. The IOC's side is safe in that state: no reply, `interlock_open` INVALID, supplies off. Whether a write can hang at all is not known | A bench test (`LAB-SETUP.md`): with the IOC reading, pull the USB cable, then open one input; relay 1 must drop at once. If it does not, the door decision moves into a thread of its own before the contacts are wired to anything |
 | P63 | The Opta's relays have a minimum switching load of 300 mW (data sheet: 12.5 mA at 24 V, 60 mA at 5 V, 60 V at 5 mA). An interlock input of a power supply usually carries less; what the Matsusada and REK inputs carry is not known here | Question 22 b. A small signal relay between the Opta's contact and such an input |
 | P64 | The unit test `test_matsusada_co ... test_back_to_back_transactions_keep_the_line_timing` failed twice on 2026-11-25 while other containers ran on the PC (0.02427 s and 0.02438 s against a limit of 0.02425 s) and passed alone. Its margin of 0.5 ms is too small for a loaded PC | Widen the margin or measure against the simulator's own clock. It is not a fault of the simulator's timing as far as these runs show |
-| P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement. **VGC401, seen on hardware, 2026-11-25 (lab session):** 17 of 18 replies after 91 to 112 ms, one after 20 ms, on an FTDI adapter with a latency timer of 16 ms; 38 ms are left of the 150 ms. The TIC is not probed yet |
+| P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement. **VGC401, seen on hardware, 2026-11-25 (lab session):** 17 of 18 replies after 91 to 112 ms, one after 20 ms, on an FTDI adapter with a latency timer of 16 ms; 38 ms are left of the 150 ms. **TIC, seen on hardware, 2026-11-25 (lab session):** 20 replies after 23 to 86 ms on a Prolific PL2303 adapter, against a timeout of 120 ms; the identity is the slowest |
 | P66 | The two new devices are in the registry (class gauge) and in no drawing of the GUI | With the next GUI round: the foreline gauge beside the turbopump's foreline, the TIC where its gauges turn out to sit |
 | P67 | ModemManager runs on the lab computer and looked at the VGC401's adapter before the probe ran (lab session, 2026-11-25). If it sent a character, the controller's own sending has ended, and the probe's listening shows nothing although cable and baud rate are right | The probe's requests still answer in that case. To see the automatic lines: the rule file installed (it keeps ModemManager off this adapter) or ModemManager disabled, then the controller switched off and on |
 | P68 | With no IOC connected the GUI's title reads "[SIM] MIST-2" and its banner "EMULATOR — Rack IOC: mode unknown, HV platform IOC: mode unknown" (lab session, on the lab computer, 2026-11-25). On the real system that is wrong | GUI: the emulator's title and banner only when an IOC reports the mode of the emulation; an unknown mode as its own, neutral message |
