@@ -1207,8 +1207,10 @@ seen yet; no file is changed by me.**
   takes another socket (P70), and both read through `tic.db`, read only. An AIM is switched on
   by the TIC, at its panel or by a rule of the TIC's own; nothing in the IOC can switch it.
 - **The nAIM is deferred:** `AIM:*` of the rack IOC stays without a device (INVALID).
-- **What I do not know and have asked:** whether the homemade gauge box is out of the system
-  with this, and which socket the AIM goes on.
+- **The homemade gauge box is out of the system** (question 25 a). Asked "Is the homemade gauge
+  box out of the system with this change?", the owner answered: "Yes, drop it". Its records
+  (`PRESSURE:apg:*`, `PRESSURE:id` and the others of `gauge_ctrl`) have no device from now on.
+- **Still open:** which socket the AIM goes on (question 25 b); it is not plugged in yet.
 - **Touched by it in the plan and the GUI** (the development session's): the gauges' places and
   names (P70, P71), the drawing, the interlock rows that name "nAIM / gauge controller" and
   "APG gauge" as sources, and what the rack IOC loads for the gauge box and the nAIM.
