@@ -1227,6 +1227,49 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the shut-down after the first pump-down, as far as the rack IOC showed it
+
+The owner ran it by hand; I switched nothing and could not have. His words: "I calibrated the
+APG at vacuum now. It's time to shut it all down for today", "big turbo is off, spinning down,
+might take longer than I have", "shutting foreline valve", "I think it's fine, the leaks will
+slowly let air in and the turbo will spin down on its own in the partial vacuum", and at 18:08
+"You can stop logging. I shut everything down". **My view ends at 17:26:20, when the rack IOC
+went away** ("Virtual circuit disconnect" in `camonitor`). At 18:09 the rack server answers no
+ping. What was seen until then (local time):
+
+| Time | Seen |
+|---|---|
+| 17:14:20 | the AIM below 1e-5 torr; 9.65e-6 at 17:15:03, its last and lowest value |
+| 17:15:04 | `TIC:gauge2:state:get` Off (the AIM switched off at the panel), its pressure nan and INVALID |
+| about 17:15 | the big turbopump switched off at its controller (owner's word; not in the IOC) |
+| 17:16:02 | `VALVE:s1:get` 0, the foreline valve closed. `PRESSURE:foreline:getstate` "Underrange" with STATE MINOR, the value standing at 3.76e-4 torr |
+| 17:16:37 | `TIC:turbo:state:get` Braking; the INFICON back in range, 1.45 torr at 17:16:38, 4.5 at 17:16:46 |
+| 17:17:17 | the cart's turbopump at 49 %; the INFICON 12.9 torr |
+| 17:18:24 | the turbopump at 16 %; the INFICON 20.3 torr; **the backing pump still On** |
+| 17:18:51 | the APG off its floor: 7.7e-4 torr, then rising: 1.3e-3 at 17:19:00, 1.0e-2 at 17:20:11, 5.4e-2 at 17:22:36, 0.12 at 17:25:28 |
+| 17:19:56 | `PRESSURE:foreline:getstate` "Bad reply or disconnected", then "No reply", LINK INVALID; valid again 17:20:56 to 17:21:05 and 17:23:28 to 17:25:22; INVALID from then to the end. The INFICON's last values 23.1 torr |
+| 17:23:09, 17:24:58 | `VALVE:s1:get` 1 for half a second each |
+| 17:25:33 to 17:25:37 | `VALVE:s1:get` 1 four times for half a second each; the APG 0.33 torr at 17:25:32, 1.17 at 17:25:33, 2.3 at 17:25:35, 3.3 at 17:26:18 |
+| 17:25:38 | the cart's turbopump at 0.7 %, still Braking |
+| 17:26:20 | every PV disconnected |
+
+- **Not seen:** the backing pump going off (`TIC:backing:state:get` read On from 16:42:42 to the
+  end of my view), the cart's turbopump reaching Stopped, the big turbopump at all, and anything
+  after 17:26:20. That everything is off is the owner's word.
+- **New states and words on the real devices:** the INFICON's "Underrange" with a MINOR alarm
+  and a standing value, as `vgc401.db` is written; and its "Bad reply or disconnected" and
+  "No reply", three times within six minutes, cause not known to me (the controller switched
+  off or its cable pulled would look like this).
+- **The cart's turbopump ran down more slowly than on the blanked cart:** 100 % to 16 % in
+  107 s, 0.7 % after 5 minutes and not yet Stopped, with the backing pump running against the
+  pump's own vent; the INFICON settled at 20 to 23 torr, not at atmosphere.
+- **The cross with the foreline valve closed and the big turbopump coasting:** the APG rose
+  from its floor to 0.12 torr in six and a half minutes, about doubling every 30 to 70 s, before
+  the valve was pulsed. The APG had its vacuum adjustment at 17:12:16; no second gauge covers
+  that range on the cross, so these values are not checked against anything.
+- **My watchers are stopped** (18:09); the logs are kept on the lab computer, outside the
+  repository. The GUI's three containers still run.
+
 ### 2026-11-25: the first pump-down of the six-way cross through the cart (seen through the rack IOC)
 
 The owner ran it by hand, the pumps at the TIC's panel and the foreline valve from the GUI; I
