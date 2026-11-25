@@ -1278,8 +1278,12 @@ IOC:** the big turbopump (manual, at its controller). **Dropped:** the homemade 
   holds the line and has no command record until T32.
 - Today's raw logs and the helper programs I used by hand (the TIC log, the queries, the two
   pump commands, the shut-down sequence, the load test) are in
-  `/home/mist/mist-2-claude/lab-logs-2026-11-25/` on the lab computer, outside the repository.
-  The helpers are not reviewed code: T32 replaces them.
+  `/home/mist/mist-2-claude/lab-logs-2026-11-25/` on the lab computer, outside the repository,
+  with a README that says what each file is. The helpers are not reviewed code: T32 replaces
+  them. **They do not go into the repository:** asked whether they should, the owner
+  answered "No, not in the repo, that is public. Is there's another way to get it to the
+  home pc?" (question 27 a). I sent them to him as one zip file (56 kB) through the app he
+  follows this session with; where he keeps them at home is his.
 
 **Open with the owner** (the development session's questions): names by place for the cross's
 two pressures (25 c), the vacuum interlock's source (25 d). **Open from today's run:** the
