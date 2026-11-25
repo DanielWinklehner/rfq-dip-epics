@@ -1232,6 +1232,12 @@ valve will overwhelm the little turbo"). The big turbopump was not started.
   still Off at 16:56:00, with the APG at 0.0093 torr. So at that pressure the TIC did not
   switch it on by itself within those 40 s; whether a lower set point is stored in the TIC
   is not known.
+- **The AIM was switched on by the owner at the TIC's panel,** not by the TIC (his word: "I
+  switched on the AIM, it's almost an order of magnitude lower than the APG").
+  `TIC:gauge2:state:get` went from Off to On at 17:01:28 with no state between at the 1 s
+  scan; `TIC:gauge2:getpressure` valid from then, 5.8e-4 torr against the APG's 6.2e-3 torr
+  and the INFICON's 6.9e-4 torr. So on this TIC the AIM waits for the panel, and by his
+  earlier word he then wants it switchable from the GUI as well.
 - **The INFICON reads far below the APG** once the turbopump runs (0.0016 against 0.010 torr at
   16:55): it sits behind the stopped big turbopump, at the cart's inlet.
 - **`PRESSURE:foreline:getstate`** stayed "Measurement data okay"; no "Underrange" down to
