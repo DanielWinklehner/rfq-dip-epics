@@ -44,6 +44,8 @@ Examples: `examples/valvebox.yaml`, `examples/thermocouple.yaml`.
 
 **inficon_vgc401** (INFICON VGC401 single-channel gauge controller, manual tinb01e1-f, chapter 5; task T30): `<mnemonic>` CR -> `<ACK>`, then `<ENQ>` (no terminator) -> the data, CR LF; PR1, UNI, TID, ERR, PNR; sends the value every second after power-on until the first character arrives (option `continuous`); options `gauge`, `unit`, `pressure`; signals `pressure` (torr), `status` (PR1's status digit), `unit`, `controller_error`, `continuous`, `power`, `refuse_uni`, counters `n_set` (anything that would change the controller), `n_nak`, `n_enq` (module docstring).
 
+**edwards_tic** (Edwards TIC controller, serial communications manual D397-30-880 Issue H; task T29): queries only; options `variant` (TIC, TC, IC, IC6), `gauges` (per socket null or `{pressure, state, units}`), pump types and states, `absent_code`; signals `g<n>.pressure` (torr, replied in Pa), `g<n>.state`, `g<n>.units`, `turbo.*`, `backing.*` (`.absent` = error replies), `commands` (counts `!` messages, never executed) (module docstring).
+
 ## Control protocol: one JSON object per line, one reply per line
 
 Every reply has `"ok": true`, or `"ok": false` and `"error"`. `unit` is optional everywhere

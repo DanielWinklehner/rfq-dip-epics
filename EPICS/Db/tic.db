@@ -1,0 +1,587 @@
+# tic.db - Edwards TIC controller, READ-ONLY (protocol: tic.proto, task T29)
+#
+# Macros (each with its default):
+#   DEVICE  PV prefix, default TIC
+#   PORT    asyn port, default TIC (RS-232: 9600 baud, 8 data bits, no parity, 1 stop bit,
+#           Xon/Xoff; D397-12-880 Issue E 2.4.5; the port file sets the line)
+#   PROTO   protocol file, default tic.proto. Room for RS-485 multi-drop (D397-30-880 1.6.1:
+#           "#dd:ss" before the "?"): a second protocol file, named here; not built.
+#
+# Nothing here sends a command or a setup ("!C", "!S"); every record only queries. Source of
+# every object, reply field and state word: Edwards D397-30-880 Issue H (see tic.proto).
+#
+# Scan: the three gauges every second, everything else every 2 s in one chain (FLNK) that
+# starts at $(DEVICE):_sys. Line budget: docs/emulation/TIC.md.
+#
+# A pressure is valid only when the gauge's reply says units type 59 (pressure, pascal; 1.7.4)
+# and gauge state 11 (On; 1.7.7). Otherwise, and when the controller does not answer, answers an
+# error code or something else, getpressure is INVALID and its value NaN (never a stale or zero
+# value), and gauge<n>:state:get says why in the words of 1.7.7 (or Table 3 for an error
+# reply). The same for the pumps: a pump type 0 ("No Pump", 1.7.11) or an error reply (the
+# controller has no such object) make state:get INVALID with the word "No Pump" or the error.
+# Severities as in aim.db: a gauge that is off, striking or in error gives an INVALID pressure.
+#
+# Words longer than an mbbi string (25 characters) are shortened: "Invalid command for object
+# ID" (Table 3, 1) -> "Invalid cmd for object ID"; the backing pump states of 1.7.6 without
+# their last word "State" ("On Going Off Shutdown State" -> "On Going Off Shutdown").
+# "No valid reply" (200) is not the manual's: no reply, or a reply of another form.
+#
+# Internal records start with "_". The value queries are calcout records (see tic.proto): their
+# fields A.. hold the fields of the last reply, F the code of an error reply, -1 / NaN for none.
+
+
+# ---------------------------------------------------------------- gauge 1 (object 913)
+
+# A value, B units type, C state, D alert ID, E priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):gauge1:_q") {
+    field(DESC, "Gauge 1: ?V913")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) gauge(913) $(PORT=TIC)")
+    field(SCAN, "$(SCAN=1 second)")
+    field(CALC, "A:=NAN;B:=-1;C:=-1;D:=-1;E:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):gauge1:_ok")
+}
+
+# 1 when the reply is a pressure (units type 59) of a gauge that is on (state 11), else
+# 0 and INVALID
+record(calc, "$(DEVICE=TIC):gauge1:_ok") {
+    field(DESC, "Gauge 1: a pressure, gauge on")
+    field(INPA, "$(DEVICE=TIC):gauge1:_q.B NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge1:_q.C NPP MS")
+    field(CALC, "A=59&&B=11")
+    field(LOLO, "0.5")
+    field(LLSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge1:getpressure")
+}
+
+# Pascal to torr: 1 torr = 101325/760 Pa = 133.322368 Pa
+record(calc, "$(DEVICE=TIC):gauge1:getpressure") {
+    field(DESC, "Gauge 1 pressure")
+    field(INPA, "$(DEVICE=TIC):gauge1:_q.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge1:_ok NPP MS")
+    field(CALC, "B?A/133.322368:NAN")
+    field(EGU, "torr")
+    field(PREC, "2")
+    field(LOPR, "1e-10")
+    field(HOPR, "1000")
+    field(FLNK, "$(DEVICE=TIC):gauge1:_code")
+}
+
+record(calc, "$(DEVICE=TIC):gauge1:_code") {
+    field(DESC, "Gauge 1: state, 100+error, 200")
+    field(INPA, "$(DEVICE=TIC):gauge1:_q.C NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge1:_q.F NPP NMS")
+    field(CALC, "B>=0?100+B:(A>=0?A:200)")
+    field(FLNK, "$(DEVICE=TIC):gauge1:state:get")
+}
+
+# 1.7.7 Active gauge states; 101, 102 Table 3
+record(mbbi, "$(DEVICE=TIC):gauge1:state:get") {
+    field(DESC, "Gauge 1 state")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge1:_code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "Gauge Not connected")
+    field(ONVL, "1")  field(ONST, "Gauge Connected")
+    field(TWVL, "2")  field(TWST, "New Gauge Id")
+    field(THVL, "3")  field(THST, "Gauge Change")
+    field(FRVL, "4")  field(FRST, "Gauge In Alert")  field(FRSV, "MAJOR")
+    field(FVVL, "5")  field(FVST, "Off")
+    field(SXVL, "6")  field(SXST, "Striking")
+    field(SVVL, "7")  field(SVST, "Initialising")
+    field(EIVL, "8")  field(EIST, "Calibrating")
+    field(NIVL, "9")  field(NIST, "Zeroing")
+    field(TEVL, "10")  field(TEST, "Degassing")
+    field(ELVL, "11")  field(ELST, "On")
+    field(TVVL, "12")  field(TVST, "Inhibited")
+    field(TTVL, "101")  field(TTST, "Invalid cmd for object ID")  field(TTSV, "INVALID")
+    field(FTVL, "102")  field(FTST, "Invalid query/command")  field(FTSV, "INVALID")
+    field(FFVL, "200")  field(FFST, "No valid reply")  field(FFSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge1:units:get")
+}
+
+# 1.7.4 SNVT values
+record(mbbi, "$(DEVICE=TIC):gauge1:units:get") {
+    field(DESC, "Gauge 1 units type")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge1:_q.B NPP MS")
+    field(ZRVL, "59")  field(ZRST, "PRESSURE (Pa)")
+    field(ONVL, "66")  field(ONST, "VOLTAGE")  field(ONSV, "MAJOR")
+    field(TWVL, "81")  field(TWST, "PERCENT")  field(TWSV, "MAJOR")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge1:alert:get")
+}
+
+record(longin, "$(DEVICE=TIC):gauge1:alert:get") {
+    field(DESC, "Gauge 1 alert ID (1.7.3)")
+    field(INP, "$(DEVICE=TIC):gauge1:_q.D NPP MS")
+    field(FLNK, "$(DEVICE=TIC):gauge1:priority:get")
+}
+
+# 1.7.2 Priority
+record(mbbi, "$(DEVICE=TIC):gauge1:priority:get") {
+    field(DESC, "Gauge 1 priority")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge1:_q.E NPP MS")
+    field(ZRVL, "0")  field(ZRST, "OK")
+    field(ONVL, "1")  field(ONST, "warning")  field(ONSV, "MINOR")
+    field(TWVL, "2")  field(TWST, "alarm")  field(TWSV, "MAJOR")
+    field(THVL, "3")  field(THST, "alarm")  field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+
+# ---------------------------------------------------------------- gauge 2 (object 914)
+
+# A value, B units type, C state, D alert ID, E priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):gauge2:_q") {
+    field(DESC, "Gauge 2: ?V914")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) gauge(914) $(PORT=TIC)")
+    field(SCAN, "$(SCAN=1 second)")
+    field(CALC, "A:=NAN;B:=-1;C:=-1;D:=-1;E:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):gauge2:_ok")
+}
+
+# 1 when the reply is a pressure (units type 59) of a gauge that is on (state 11), else
+# 0 and INVALID
+record(calc, "$(DEVICE=TIC):gauge2:_ok") {
+    field(DESC, "Gauge 2: a pressure, gauge on")
+    field(INPA, "$(DEVICE=TIC):gauge2:_q.B NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge2:_q.C NPP MS")
+    field(CALC, "A=59&&B=11")
+    field(LOLO, "0.5")
+    field(LLSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge2:getpressure")
+}
+
+# Pascal to torr: 1 torr = 101325/760 Pa = 133.322368 Pa
+record(calc, "$(DEVICE=TIC):gauge2:getpressure") {
+    field(DESC, "Gauge 2 pressure")
+    field(INPA, "$(DEVICE=TIC):gauge2:_q.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge2:_ok NPP MS")
+    field(CALC, "B?A/133.322368:NAN")
+    field(EGU, "torr")
+    field(PREC, "2")
+    field(LOPR, "1e-10")
+    field(HOPR, "1000")
+    field(FLNK, "$(DEVICE=TIC):gauge2:_code")
+}
+
+record(calc, "$(DEVICE=TIC):gauge2:_code") {
+    field(DESC, "Gauge 2: state, 100+error, 200")
+    field(INPA, "$(DEVICE=TIC):gauge2:_q.C NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge2:_q.F NPP NMS")
+    field(CALC, "B>=0?100+B:(A>=0?A:200)")
+    field(FLNK, "$(DEVICE=TIC):gauge2:state:get")
+}
+
+# 1.7.7 Active gauge states; 101, 102 Table 3
+record(mbbi, "$(DEVICE=TIC):gauge2:state:get") {
+    field(DESC, "Gauge 2 state")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge2:_code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "Gauge Not connected")
+    field(ONVL, "1")  field(ONST, "Gauge Connected")
+    field(TWVL, "2")  field(TWST, "New Gauge Id")
+    field(THVL, "3")  field(THST, "Gauge Change")
+    field(FRVL, "4")  field(FRST, "Gauge In Alert")  field(FRSV, "MAJOR")
+    field(FVVL, "5")  field(FVST, "Off")
+    field(SXVL, "6")  field(SXST, "Striking")
+    field(SVVL, "7")  field(SVST, "Initialising")
+    field(EIVL, "8")  field(EIST, "Calibrating")
+    field(NIVL, "9")  field(NIST, "Zeroing")
+    field(TEVL, "10")  field(TEST, "Degassing")
+    field(ELVL, "11")  field(ELST, "On")
+    field(TVVL, "12")  field(TVST, "Inhibited")
+    field(TTVL, "101")  field(TTST, "Invalid cmd for object ID")  field(TTSV, "INVALID")
+    field(FTVL, "102")  field(FTST, "Invalid query/command")  field(FTSV, "INVALID")
+    field(FFVL, "200")  field(FFST, "No valid reply")  field(FFSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge2:units:get")
+}
+
+# 1.7.4 SNVT values
+record(mbbi, "$(DEVICE=TIC):gauge2:units:get") {
+    field(DESC, "Gauge 2 units type")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge2:_q.B NPP MS")
+    field(ZRVL, "59")  field(ZRST, "PRESSURE (Pa)")
+    field(ONVL, "66")  field(ONST, "VOLTAGE")  field(ONSV, "MAJOR")
+    field(TWVL, "81")  field(TWST, "PERCENT")  field(TWSV, "MAJOR")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge2:alert:get")
+}
+
+record(longin, "$(DEVICE=TIC):gauge2:alert:get") {
+    field(DESC, "Gauge 2 alert ID (1.7.3)")
+    field(INP, "$(DEVICE=TIC):gauge2:_q.D NPP MS")
+    field(FLNK, "$(DEVICE=TIC):gauge2:priority:get")
+}
+
+# 1.7.2 Priority
+record(mbbi, "$(DEVICE=TIC):gauge2:priority:get") {
+    field(DESC, "Gauge 2 priority")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge2:_q.E NPP MS")
+    field(ZRVL, "0")  field(ZRST, "OK")
+    field(ONVL, "1")  field(ONST, "warning")  field(ONSV, "MINOR")
+    field(TWVL, "2")  field(TWST, "alarm")  field(TWSV, "MAJOR")
+    field(THVL, "3")  field(THST, "alarm")  field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+
+# ---------------------------------------------------------------- gauge 3 (object 915)
+
+# A value, B units type, C state, D alert ID, E priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):gauge3:_q") {
+    field(DESC, "Gauge 3: ?V915")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) gauge(915) $(PORT=TIC)")
+    field(SCAN, "$(SCAN=1 second)")
+    field(CALC, "A:=NAN;B:=-1;C:=-1;D:=-1;E:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):gauge3:_ok")
+}
+
+# 1 when the reply is a pressure (units type 59) of a gauge that is on (state 11), else
+# 0 and INVALID
+record(calc, "$(DEVICE=TIC):gauge3:_ok") {
+    field(DESC, "Gauge 3: a pressure, gauge on")
+    field(INPA, "$(DEVICE=TIC):gauge3:_q.B NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge3:_q.C NPP MS")
+    field(CALC, "A=59&&B=11")
+    field(LOLO, "0.5")
+    field(LLSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge3:getpressure")
+}
+
+# Pascal to torr: 1 torr = 101325/760 Pa = 133.322368 Pa
+record(calc, "$(DEVICE=TIC):gauge3:getpressure") {
+    field(DESC, "Gauge 3 pressure")
+    field(INPA, "$(DEVICE=TIC):gauge3:_q.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge3:_ok NPP MS")
+    field(CALC, "B?A/133.322368:NAN")
+    field(EGU, "torr")
+    field(PREC, "2")
+    field(LOPR, "1e-10")
+    field(HOPR, "1000")
+    field(FLNK, "$(DEVICE=TIC):gauge3:_code")
+}
+
+record(calc, "$(DEVICE=TIC):gauge3:_code") {
+    field(DESC, "Gauge 3: state, 100+error, 200")
+    field(INPA, "$(DEVICE=TIC):gauge3:_q.C NPP MS")
+    field(INPB, "$(DEVICE=TIC):gauge3:_q.F NPP NMS")
+    field(CALC, "B>=0?100+B:(A>=0?A:200)")
+    field(FLNK, "$(DEVICE=TIC):gauge3:state:get")
+}
+
+# 1.7.7 Active gauge states; 101, 102 Table 3
+record(mbbi, "$(DEVICE=TIC):gauge3:state:get") {
+    field(DESC, "Gauge 3 state")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge3:_code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "Gauge Not connected")
+    field(ONVL, "1")  field(ONST, "Gauge Connected")
+    field(TWVL, "2")  field(TWST, "New Gauge Id")
+    field(THVL, "3")  field(THST, "Gauge Change")
+    field(FRVL, "4")  field(FRST, "Gauge In Alert")  field(FRSV, "MAJOR")
+    field(FVVL, "5")  field(FVST, "Off")
+    field(SXVL, "6")  field(SXST, "Striking")
+    field(SVVL, "7")  field(SVST, "Initialising")
+    field(EIVL, "8")  field(EIST, "Calibrating")
+    field(NIVL, "9")  field(NIST, "Zeroing")
+    field(TEVL, "10")  field(TEST, "Degassing")
+    field(ELVL, "11")  field(ELST, "On")
+    field(TVVL, "12")  field(TVST, "Inhibited")
+    field(TTVL, "101")  field(TTST, "Invalid cmd for object ID")  field(TTSV, "INVALID")
+    field(FTVL, "102")  field(FTST, "Invalid query/command")  field(FTSV, "INVALID")
+    field(FFVL, "200")  field(FFST, "No valid reply")  field(FFSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge3:units:get")
+}
+
+# 1.7.4 SNVT values
+record(mbbi, "$(DEVICE=TIC):gauge3:units:get") {
+    field(DESC, "Gauge 3 units type")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge3:_q.B NPP MS")
+    field(ZRVL, "59")  field(ZRST, "PRESSURE (Pa)")
+    field(ONVL, "66")  field(ONST, "VOLTAGE")  field(ONSV, "MAJOR")
+    field(TWVL, "81")  field(TWST, "PERCENT")  field(TWSV, "MAJOR")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):gauge3:alert:get")
+}
+
+record(longin, "$(DEVICE=TIC):gauge3:alert:get") {
+    field(DESC, "Gauge 3 alert ID (1.7.3)")
+    field(INP, "$(DEVICE=TIC):gauge3:_q.D NPP MS")
+    field(FLNK, "$(DEVICE=TIC):gauge3:priority:get")
+}
+
+# 1.7.2 Priority
+record(mbbi, "$(DEVICE=TIC):gauge3:priority:get") {
+    field(DESC, "Gauge 3 priority")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):gauge3:_q.E NPP MS")
+    field(ZRVL, "0")  field(ZRST, "OK")
+    field(ONVL, "1")  field(ONST, "warning")  field(ONSV, "MINOR")
+    field(TWVL, "2")  field(TWST, "alarm")  field(TWSV, "MAJOR")
+    field(THVL, "3")  field(THST, "alarm")  field(THSV, "MAJOR")
+    field(UNSV, "INVALID")
+}
+
+# ---------------------------------------------------------------- controller (object 902)
+
+# Head of the 2 s chain: system status, identity, turbo pump, backing pump
+record(aai, "$(DEVICE=TIC):_sys") {
+    field(DESC, "System status: ?V902")
+    field(DTYP, "stream")
+    field(INP, "@$(PROTO=tic.proto) system $(PORT=TIC)")
+    field(SCAN, "$(SCAN2=2 second)")
+    field(FTVL, "LONG")
+    field(NELM, "14")
+    field(FLNK, "$(DEVICE=TIC):variant:get")
+}
+
+# The variant from the number of fields of the ?V902 reply (Table 1, 902)
+record(mbbi, "$(DEVICE=TIC):variant:get") {
+    field(DESC, "TIC variant")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):_sys.NORD NPP MS")
+    field(ZRVL, "7")  field(ZRST, "TC")
+    field(ONVL, "8")  field(ONST, "IC")
+    field(TWVL, "10")  field(TWST, "TIC")
+    field(THVL, "14")  field(THST, "IC6")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):ident:get")
+}
+
+# 'TIC;Dxxxxxxxx;serial number;PIC s/w ver' (1.6.2.2)
+record(lsi, "$(DEVICE=TIC):ident:get") {
+    field(DESC, "Identity: ?S902")
+    field(DTYP, "stream")
+    field(INP, "@$(PROTO=tic.proto) ident $(PORT=TIC)")
+    field(SIZV, "81")
+    field(FLNK, "$(DEVICE=TIC):turbo:_qt")
+}
+
+record(stringin, "$(DEVICE=TIC):model:get") {
+    field(DESC, "Identity, first field")
+    field(DTYP, "stream")
+    field(INP, "@$(PROTO=tic.proto) ident_model $(PORT=TIC)")
+    field(SCAN, "I/O Intr")
+}
+
+record(stringin, "$(DEVICE=TIC):sw:get") {
+    field(DESC, "Software version")
+    field(DTYP, "stream")
+    field(INP, "@$(PROTO=tic.proto) ident_sw $(PORT=TIC)")
+    field(SCAN, "I/O Intr")
+}
+
+# ---------------------------------------------------------------- turbo pump (object 904)
+
+# A pump type (1.7.11), F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):turbo:_qt") {
+    field(DESC, "turbo pump type: ?S904 3")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) pump_type(904) $(PORT=TIC)")
+    field(CALC, "A:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):turbo:_q")
+}
+
+# A state, B alert ID, C priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):turbo:_q") {
+    field(DESC, "turbo pump: ?V904")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) pump(904) $(PORT=TIC)")
+    field(CALC, "A:=-1;B:=-1;C:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):turbo:_qs")
+}
+
+# A speed (%), B alert ID, C priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):turbo:_qs") {
+    field(DESC, "Turbo speed: ?V905")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) speed(905) $(PORT=TIC)")
+    field(CALC, "A:=NAN;B:=-1;C:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):turbo:_ok")
+}
+
+# 1 when a pump type other than 0 (No Pump) was read, else 0 and INVALID
+record(calc, "$(DEVICE=TIC):turbo:_ok") {
+    field(DESC, "Turbo pump present")
+    field(INPA, "$(DEVICE=TIC):turbo:_qt.A NPP MS")
+    field(CALC, "A>0")
+    field(LOLO, "0.5")
+    field(LLSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):turbo:_code")
+}
+
+# error reply to the type or the state query: 100 + code; pump type 0: 300 (No Pump);
+# no valid reply: 200; else the state
+record(calc, "$(DEVICE=TIC):turbo:_code") {
+    field(DESC, "turbo: state, 100+error, 200, 300")
+    field(INPA, "$(DEVICE=TIC):turbo:_q.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):turbo:_q.F NPP NMS")
+    field(INPC, "$(DEVICE=TIC):turbo:_qt.A NPP MS")
+    field(INPD, "$(DEVICE=TIC):turbo:_qt.F NPP NMS")
+    field(CALC, "D>=0?100+D:(B>=0?100+B:(C=0?300:(A>=0?A:200)))")
+    field(FLNK, "$(DEVICE=TIC):turbo:state:get")
+}
+
+# 1.7.8 Full pump states
+# 101, 102 Table 3; 300 pump type 0 of 1.7.11
+record(mbbi, "$(DEVICE=TIC):turbo:state:get") {
+    field(DESC, "turbo pump state")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):turbo:_code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "Stopped")
+    field(ONVL, "1")  field(ONST, "Starting Delay")
+    field(TWVL, "2")  field(TWST, "Stopping Short Delay")
+    field(THVL, "3")  field(THST, "Stopping Normal Delay")
+    field(FRVL, "4")  field(FRST, "Running")
+    field(FVVL, "5")  field(FVST, "Accelerating")
+    field(SXVL, "6")  field(SXST, "Fault Braking")  field(SXSV, "MAJOR")
+    field(SVVL, "7")  field(SVST, "Braking")
+    field(EIVL, "101")  field(EIST, "Invalid cmd for object ID")  field(EISV, "INVALID")
+    field(NIVL, "102")  field(NIST, "Invalid query/command")  field(NISV, "INVALID")
+    field(TEVL, "200")  field(TEST, "No valid reply")  field(TESV, "INVALID")
+    field(ELVL, "300")  field(ELST, "No Pump")  field(ELSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):turbo:_tcode")
+}
+
+record(calc, "$(DEVICE=TIC):turbo:_tcode") {
+    field(DESC, "turbo: type, 100+error, 200")
+    field(INPA, "$(DEVICE=TIC):turbo:_qt.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):turbo:_qt.F NPP NMS")
+    field(CALC, "B>=0?100+B:(A>=0?A:200)")
+    field(FLNK, "$(DEVICE=TIC):turbo:type:get")
+}
+
+# 1.7.11 Pump types
+record(mbbi, "$(DEVICE=TIC):turbo:type:get") {
+    field(DESC, "turbo pump type")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):turbo:_tcode NPP MS")
+    field(ZRVL, "0")  field(ZRST, "No Pump")
+    field(ONVL, "1")  field(ONST, "EXDC Pump")
+    field(TWVL, "3")  field(TWST, "EXT75DX Pump")
+    field(THVL, "4")  field(THST, "EXT255DX")
+    field(FRVL, "8")  field(FRST, "Mains Backing Pump")
+    field(FVVL, "9")  field(FVST, "Serial Pump")
+    field(SXVL, "10")  field(SXST, "nEXT - 485")
+    field(SVVL, "11")  field(SVST, "nEXT - 232")
+    field(EIVL, "12")  field(EIST, "nXDS")
+    field(NIVL, "99")  field(NIST, "Not yet identified")
+    field(TEVL, "101")  field(TEST, "Invalid cmd for object ID")  field(TESV, "INVALID")
+    field(ELVL, "102")  field(ELST, "Invalid query/command")  field(ELSV, "INVALID")
+    field(TVVL, "200")  field(TVST, "No valid reply")  field(TVSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):turbo:speed:get")
+}
+
+record(calc, "$(DEVICE=TIC):turbo:speed:get") {
+    field(DESC, "Turbo pump speed")
+    field(INPA, "$(DEVICE=TIC):turbo:_qs.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):turbo:_ok NPP MS")
+    field(CALC, "B?A:NAN")
+    field(EGU, "%")
+    field(PREC, "1")
+    field(LOPR, "0")
+    field(HOPR, "110")
+    field(FLNK, "$(DEVICE=TIC):turbo:alert:get")
+}
+
+record(longin, "$(DEVICE=TIC):turbo:alert:get") {
+    field(DESC, "turbo pump alert ID (1.7.3)")
+    field(INP, "$(DEVICE=TIC):turbo:_q.B NPP MS")
+    field(FLNK, "$(DEVICE=TIC):backing:_qt")
+}
+
+# ---------------------------------------------------------------- backing pump (object 910)
+
+# A pump type (1.7.11), F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):backing:_qt") {
+    field(DESC, "backing pump type: ?S910 3")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) pump_type(910) $(PORT=TIC)")
+    field(CALC, "A:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):backing:_q")
+}
+
+# A state, B alert ID, C priority, F error code (-1: none)
+record(calcout, "$(DEVICE=TIC):backing:_q") {
+    field(DESC, "backing pump: ?V910")
+    field(DTYP, "stream")
+    field(OUT, "@$(PROTO=tic.proto) pump(910) $(PORT=TIC)")
+    field(CALC, "A:=-1;B:=-1;C:=-1;F:=-1;0")
+    field(FLNK, "$(DEVICE=TIC):backing:_code")
+}
+
+# error reply to the type or the state query: 100 + code; pump type 0: 300 (No Pump);
+# no valid reply: 200; else the state
+record(calc, "$(DEVICE=TIC):backing:_code") {
+    field(DESC, "backing: state, 100+error, 200, 300")
+    field(INPA, "$(DEVICE=TIC):backing:_q.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):backing:_q.F NPP NMS")
+    field(INPC, "$(DEVICE=TIC):backing:_qt.A NPP MS")
+    field(INPD, "$(DEVICE=TIC):backing:_qt.F NPP NMS")
+    field(CALC, "D>=0?100+D:(B>=0?100+B:(C=0?300:(A>=0?A:200)))")
+    field(FLNK, "$(DEVICE=TIC):backing:state:get")
+}
+
+# 1.7.6 State (Table 1: 'State 0 - 4')
+# 101, 102 Table 3; 300 pump type 0 of 1.7.11
+record(mbbi, "$(DEVICE=TIC):backing:state:get") {
+    field(DESC, "backing pump state")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):backing:_code NPP MS")
+    field(ZRVL, "0")  field(ZRST, "Off")
+    field(ONVL, "1")  field(ONST, "Off Going On")
+    field(TWVL, "2")  field(TWST, "On Going Off Shutdown")
+    field(THVL, "3")  field(THST, "On Going Off Normal")
+    field(FRVL, "4")  field(FRST, "On")
+    field(FVVL, "101")  field(FVST, "Invalid cmd for object ID")  field(FVSV, "INVALID")
+    field(SXVL, "102")  field(SXST, "Invalid query/command")  field(SXSV, "INVALID")
+    field(SVVL, "200")  field(SVST, "No valid reply")  field(SVSV, "INVALID")
+    field(EIVL, "300")  field(EIST, "No Pump")  field(EISV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):backing:_tcode")
+}
+
+record(calc, "$(DEVICE=TIC):backing:_tcode") {
+    field(DESC, "backing: type, 100+error, 200")
+    field(INPA, "$(DEVICE=TIC):backing:_qt.A NPP MS")
+    field(INPB, "$(DEVICE=TIC):backing:_qt.F NPP NMS")
+    field(CALC, "B>=0?100+B:(A>=0?A:200)")
+    field(FLNK, "$(DEVICE=TIC):backing:type:get")
+}
+
+# 1.7.11 Pump types
+record(mbbi, "$(DEVICE=TIC):backing:type:get") {
+    field(DESC, "backing pump type")
+    field(DTYP, "Raw Soft Channel")
+    field(INP,  "$(DEVICE=TIC):backing:_tcode NPP MS")
+    field(ZRVL, "0")  field(ZRST, "No Pump")
+    field(ONVL, "1")  field(ONST, "EXDC Pump")
+    field(TWVL, "3")  field(TWST, "EXT75DX Pump")
+    field(THVL, "4")  field(THST, "EXT255DX")
+    field(FRVL, "8")  field(FRST, "Mains Backing Pump")
+    field(FVVL, "9")  field(FVST, "Serial Pump")
+    field(SXVL, "10")  field(SXST, "nEXT - 485")
+    field(SVVL, "11")  field(SVST, "nEXT - 232")
+    field(EIVL, "12")  field(EIST, "nXDS")
+    field(NIVL, "99")  field(NIST, "Not yet identified")
+    field(TEVL, "101")  field(TEST, "Invalid cmd for object ID")  field(TESV, "INVALID")
+    field(ELVL, "102")  field(ELST, "Invalid query/command")  field(ELSV, "INVALID")
+    field(TVVL, "200")  field(TVST, "No valid reply")  field(TVSV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=TIC):backing:alert:get")
+}
+
+record(longin, "$(DEVICE=TIC):backing:alert:get") {
+    field(DESC, "backing pump alert ID (1.7.3)")
+    field(INP, "$(DEVICE=TIC):backing:_q.B NPP MS")
+}

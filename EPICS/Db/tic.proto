@@ -1,0 +1,86 @@
+# tic.proto - Edwards TIC controller over RS-232, queries only (database: tic.db, task T29)
+#
+# READ-ONLY: this file sends no command ("!C") and no setup ("!S"). Starting and stopping a pump
+# waits until it is known what the station runs (decision D1 of T29).
+#
+# Source: Edwards "Turbo Instrument Controller (TIC) Serial Communications", D397-30-880 Issue H
+# (2012), which covers all seven TIC variants (Instrument Controller 3 and 6 gauges, Turbo
+# Controller, Turbo & Instrument Controller):
+#   1.2    query "?V<obj>" / "?S<obj>", every message ends with CR, the TIC answers only when asked
+#   1.6    replies "=V<obj> <data>" / "=S<obj> <data>" or the response code "*V<obj> <r>" /
+#          "*S<obj> <r>" (Table 3); fields of the data separated by ";" (1.5)
+#   1.4    basic messages answered in less than 100 ms; suggested master timeout 500 ms
+#   Table 1, 1.6.2.2, 1.6.2.3: the objects below
+# Every reply names its object, so a late reply to another query cannot be taken for this one.
+#
+# ReplyTimeout 120 ms, not the 500 ms the manual suggests: with 500 ms one silent cycle would
+# need 6.6 s of line time every 2 s. 120 ms is the manual's 100 ms for a basic message plus the
+# 16 ms latency timer of a USB-serial adapter; none of these queries is routed to a DX/nEXT pump
+# (objects 800+, 200 ms). Line budget: docs/emulation/TIC.md, "Rate".
+#
+# The records of the value queries are calcout records: StreamDevice writes the fields of the
+# reply into the record's own fields A, B, C ... (%(A) etc., no processing), the error code of an
+# error reply into F. The record's CALC sets these fields to "nothing" (NAN, -1) before every
+# request, so no field keeps a value of an earlier reply. An error reply leaves the record in
+# INVALID/CALC (the @mismatch handler of StreamDevice), a missing one in INVALID/TIMEOUT.
+
+Terminator = CR;
+ReplyTimeout = 120;
+ReadTimeout = 50;
+
+# Gauge 1, 2, 3 (objects 913, 914, 915; Table 1): "?V913" -> "=V913 value;units type;state;
+# alert ID;priority". Value: pressure in pascal when units type is 59 (1.7.4: "PRESSURE 59 -
+# float (Pascals only)"), volts when 66. State: 1.7.7. Alert: 1.7.3. Priority: 1.7.2.
+gauge {
+    out "?V\$1";
+    in "=V\$1 %(A)g;%(B)d;%(C)d;%(D)d;%(E)d";
+    @mismatch { in "*V\$1 %(F)d"; }
+}
+
+# Turbo pump (904, 1.6.2.3) and backing pump (910, Table 1): "state;alert ID;priority".
+# Turbo states: 1.7.8 "Full pump states" 0-7. Backing: "State 0 - 4" (Table 1), the states of 1.7.6.
+pump {
+    out "?V\$1";
+    in "=V\$1 %(A)d;%(B)d;%(C)d";
+    @mismatch { in "*V\$1 %(F)d"; }
+}
+
+# Turbo speed (905, Table 1): "value;alert ID;priority", value 0.0 - 110.0 %.
+speed {
+    out "?V\$1";
+    in "=V\$1 %(A)g;%(B)d;%(C)d";
+    @mismatch { in "*V\$1 %(F)d"; }
+}
+
+# Pump type (904, 910): query setup with config type 3, "?S904 3" -> "=S904 3;p" (1.6.2.3,
+# Table 1), p from 1.7.11 (0 = No Pump).
+pump_type {
+    out "?S\$1 3";
+    in "=S\$1 3;%(A)d";
+    @mismatch { in "*S\$1 %(F)d"; }
+}
+
+# System status (902 ?V, Table 1): one state value per item, then alert ID and priority. The
+# number of fields depends on the variant: TC 7, IC 8, TIC 10, IC6 14 (aai record, NORD).
+system {
+    Separator = ";";
+    out "?V902";
+    in "=V902 %d";
+}
+
+# Identity (902 ?S, 1.6.2.2): "TIC;Dxxxxxxxx;serial number;PIC s/w ver", max 80 characters.
+ident {
+    out "?S902";
+    in "=S902 %80[^\r]";
+}
+
+# The first two fields of every identity reply that ident requested (SCAN I/O Intr: they send
+# nothing). They keep their last value while the controller is silent; ident:get then is INVALID.
+ident_model {
+    ExtraInput = Ignore;
+    in "=S902 %39[^;]";
+}
+ident_sw {
+    ExtraInput = Ignore;
+    in "=S902 %*[^;];%39[^;]";
+}
