@@ -836,6 +836,43 @@ hardware, lab session", which arrives with its first push. None of it seen by me
   Makefile and two helper scripts name it in every call now (the command the lab session used
   by hand on 2.40.3; here checked with Compose v5 only).
 
+**First contact with the real TIC** (the lab session, on the lab computer, 2026-11-25, reported
+to me by message; the replies are in `TIC.md`, "Seen on the lab's controller". None of it seen
+by me):
+
+- **The probe: 10 of 10, twice.** A TIC Turbo and Instrument Controller ("TIC100", software
+  D39700640T), turbopump type "EXT75DX Pump", backing pump type "Mains Backing Pump", the APG
+  on socket 1, sockets 2 and 3 empty. That answers question 23.
+- **A fault of the protocol file, found by it:** the identity has a NUL byte after the serial
+  number, and with it `TIC:ident:get` was INVALID at every read (reproduced with the simulator
+  sending the same form). `tic.proto` now ignores what follows the identity's text.
+- **What the IOC assumed about a measuring gauge holds for the APG** (A52): state "On", units
+  type 59, the value in pascal while the display is in mbar (4.62e4 Pa at atmosphere before
+  the owner's atmosphere adjustment of the gauge, exactly 1.0000e+05 Pa and "1000" on the
+  display after it). A newly plugged gauge stays in "New Gauge Id" without a reading until it
+  is accepted at the TIC's front panel.
+- **Reply times** 23 to 86 ms: reply timeout 150 ms instead of 120 ms.
+- The simulated TIC has the real identity's form and the cart's turbopump type.
+- **One command was sent to the TIC, by hand and on the owner's word** ("can you start the
+  roughing pump?"): the lab session sent `!C910 1`, the TIC answered `*C910 0`, and the
+  backing pump reported the state On 4 s later; the turbopump stayed stopped. Nothing in the
+  repository sends a command: probe, protocol file and database are queries only as before.
+  So the manual's command form works on this controller (question 24).
+- **The turbopump was started the same way** ("start the turbo when the pressure is low
+  enough"): `!C904 1`, answered `*C904 0` after 19 ms, with the backing pump on and the gauge
+  at 10 Pa. Seen in the probe's log every 5 s: state 5 "Accelerating" up to about 50 % speed,
+  state 4 "Running" from there on (not from full speed), 100 % after two minutes; no
+  "Starting Delay", alert and priority 0 throughout. The backing pump went from 0 to 4 with no
+  state in between at that sampling.
+- **The APG reports its floor as an ordinary reading:** exactly 1.0000e-02 Pa (1e-4 mbar,
+  7.5e-5 torr) in the state On, with no alert, once the turbopump ran; the lowest value above
+  it was 0.62 Pa. The IOC would show 7.5e-5 torr as valid (P72).
+- **Verified by me after the changes:** the probe's self-test, the simulators' tests (175),
+  the plan check, the TIC's device case (13 passed, three times), the system tests (296
+  passed, 2 deselected, 797 s).
+- **Not seen:** the IOC on this controller (the adapter hangs on the lab computer), a stop of
+  either pump, a start of the turbopump with the backing pump off.
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
@@ -1123,6 +1160,18 @@ nothing of the simulator but a new module with its tests and a line of its READM
     c. Which gauge hangs on which of its gauge sockets?
     d. How does its serial port reach the rack server (which adapter)?
     Until then T29 reads every socket and both pumps and commands nothing.
+    **Answered on 2026-11-25** by the owner and the probe (lab session): a) a TIC Turbo and
+    Instrument Controller, "TIC100", on a pump cart TSM1D1002 for 115 V; b) turbopump type
+    "EXT75DX Pump" and a mains backing pump, both of the cart; whether it backs the big
+    turbopump is not said; c) the APG on socket 1, sockets 2 and 3 empty; d) a Prolific USB
+    adapter without a serial number, on the lab computer for the test.
+
+24. **Start and stop of the TIC's pumps from the IOC (2026-11-25).** You had the lab session
+    start the backing pump by hand through the TIC's serial line. Do you want that in the IOC
+    and the GUI: the backing pump and the turbopump of the cart, each with a start and stop
+    request that the TIC acknowledges, a read-back from its state, and the request taking
+    over the pump's state at an IOC start without sending anything (as the valves do)? Not
+    built until you say so; T29 is read only by decision.
 
 ## Not verified
 
@@ -1341,6 +1390,9 @@ nothing of the simulator but a new module with its tests and a line of its READM
 | The simulated VGC401 sends the value with a blank for the sign and answers after 95 ms (by me) | As the lab's controller does (firmware 302-519-D). The device case and the emulation now run at the real controller's pace, which showed two tests that assumed a fast line |
 | The VGC401's device case waits for each of the slower records, and its start test drops the channel from before the IOC's restart (by me) | With 0.2 s per exchange the gauge head and the firmware number are read after the pressure. A channel from before the restart found the new IOC only after seconds (seen: not connected for the whole 6 s of the test), a new one searches at once |
 | The GUI's Makefile names the profile "build" and the three services in every Compose call (by me, from the lab session's report) | Ubuntu 26.04's Compose 2.40.3 refuses the project file otherwise, for up, down and logs. The base images are still built and never started |
+| `tic.proto`: the identity ignores what follows its text (ExtraInput = Ignore) (by me, from the lab session's probe) | The lab's TIC puts a NUL byte after the serial number; the text conversion ends there and the rest counted as surplus input, so the record was INVALID. The PIC software version behind the NUL is given up |
+| `tic.proto`: reply timeout 150 ms instead of 120 ms (by me, from the measurement) | Replies came after 23 to 86 ms. 150 ms leaves 64 ms on the slowest, and the 13 queries of a silent controller still take less than the 2 s cycle (1.95 s) |
+| The TIC's three gauge sockets stay loaded although sockets 2 and 3 are empty (for now) | The owner asked about an AIM on the TIC, so a second gauge may come. Until then their PVs are INVALID with the state "Gauge Not connected" (P70) |
 
 ## Assumptions that need your confirmation
 
@@ -1461,6 +1513,9 @@ loop, see "Done").
 | P67 | ModemManager runs on the lab computer and looked at the VGC401's adapter before the probe ran (lab session, 2026-11-25). If it sent a character, the controller's own sending has ended, and the probe's listening shows nothing although cable and baud rate are right | The probe's requests still answer in that case. To see the automatic lines: the rule file installed (it keeps ModemManager off this adapter) or ModemManager disabled, then the controller switched off and on |
 | P68 | With no IOC connected the GUI's title reads "[SIM] MIST-2" and its banner "EMULATOR — Rack IOC: mode unknown, HV platform IOC: mode unknown" (lab session, on the lab computer, 2026-11-25). On the real system that is wrong | GUI: the emulator's title and banner only when an IOC reports the mode of the emulation; an unknown mode as its own, neutral message |
 | P69 | The real VGC401 refused the first request of the probe's first run with two NAK characters and answered every later one (lab session, 2026-11-25); the error word read 0000 right after. Characters already in the controller's input are a possible cause (ModemManager, P67) | The IOC asks again a second later, so it costs one INVALID reading. If it recurs with the rule file installed: send ETX first (the manual, p. 57: it clears the controller's input) |
+| P70 | The lab's TIC has a gauge on socket 1 only, so `TIC:gauge2:*` and `TIC:gauge3:*` are INVALID for good on the real system and show so in the GUI | When it is clear whether an AIM or another gauge comes onto the TIC: load the gauge records per socket (one database per socket), or leave them |
+| P71 | The TIC's pressures have the names of its sockets (`TIC:gauge1:getpressure`), not of the place they measure, unlike the lab's other pressures | Names or aliases in the lab's pattern once the gauges' places are fixed (the APG is on the cart's pumping port for now) |
+| P72 | A gauge at the lower end of its range is a valid reading for the TIC and so for the IOC: the APG showed exactly 1.0000e-02 Pa (7.5e-5 torr) in the state On with the turbopump running (lab session, 2026-11-25). The VGC401 marks the same situation as "Underrange" | Your word whether such a value should carry a MINOR alarm. It needs the floor of each gauge type, which the IOC does not read from the TIC today |
 
 ## Found in RAS V8.1.0
 

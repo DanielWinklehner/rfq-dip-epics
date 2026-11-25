@@ -184,6 +184,36 @@ What the identity string of an IC or a TC starts with is not given (1.6.2.2 show
   the number format, the turnaround (20 ms), the identity string, that a command is answered
   `*C<obj> 1` and not executed.
 
+## Seen on the lab's controller (2026-11-25, by the lab session, reported to the development session)
+
+The probe on the powered station, both pumps off, twice with the same replies, 10 of 10:
+
+| Query | Reply | What it says |
+|---|---|---|
+| `?S902` | `=S902 TIC100;D39700640T;160070509<00>;5.0` | type "TIC100", software D39700640T, and a NUL byte after the serial number |
+| `?V902` | `=V902 0;0;2;0;0;0;0;0;0;0` | 10 fields: a TIC Turbo and Instrument Controller |
+| `?V913` | `=V913 9.9000e+09;59;2;9;0`, later `4.6208e+04;59;11;0;0` | socket 1: first "New Gauge Id" with alert 9 and no reading, then "On" with a value in pascal |
+| `?V914`, `?V915` | `9.9000e+09;59;0;0;0` | sockets 2 and 3: no gauge connected |
+| `?V904`, `?S904 3`, `?V905` | `0;0;0`, `3;3`, `0.0;0;0` | turbopump stopped, type 3 "EXT75DX Pump", speed 0 |
+| `?V910`, `?S910 3` | `0;0;0`, `3;8` | backing pump off, type 8 "Mains Backing Pump" |
+
+- **The NUL byte made `TIC:ident:get` INVALID** (seen with the simulator sending this form:
+  "surplus input"). `tic.proto` ignores what follows the identity's text since that day, so the
+  identity is type, software and serial number; the PIC software version is not read.
+- **A newly plugged gauge is not read until it is accepted at the TIC's front panel:** socket 1
+  stayed in the state "New Gauge Id" for more than two minutes and changed to "On" when the
+  owner selected the gauge there. Until then `TIC:gauge<n>:getpressure` is INVALID and
+  `TIC:gauge<n>:state:get` says "New Gauge Id".
+- **A gauge that measures reports state 11 and units type 59, and its value is in pascal,
+  whatever the display shows:** 4.62e4 Pa on the line while the display showed "460", and
+  after the owner's atmosphere adjustment at the gauge exactly 1.0000e+05 on the line and
+  "1000" on the display. So the display is in mbar and the line in pascal; the IOC shows
+  750 torr for it. No state other than 11 was caught during the adjustment (sampled every 5 s).
+- **Reply times** 23 to 50 ms, the identity 61 and 86 ms: the reply timeout is 150 ms (it was
+  120 ms).
+- **The adapter** is a Prolific PL2303 without a serial number: it is named by its USB socket.
+- Not seen yet: the IOC on this controller, the pumps running, a gauge other than the APG.
+
 ## What is needed from the station to finish
 
 1. Which variant: the label on the back (D397-00/01/02/11/12/21/22-000), or the probe's

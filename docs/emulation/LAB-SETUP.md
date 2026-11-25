@@ -417,6 +417,10 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    Pressures are in torr. Below its range the VGC401's value stays, with a MINOR alarm and the
    state "Underrange". A TIC socket without a gauge, and a pump the TIC does not have, are
    INVALID, and the state PV says why.
+4. **A gauge newly plugged into the TIC must be accepted at the TIC's front panel** before
+   anything reads it: until then its state is "New Gauge Id" and its pressure INVALID (seen
+   on 2026-11-25: more than two minutes, until the gauge was selected at the panel). The TIC
+   sends pascal on its serial line whatever its display shows; the IOC converts to torr.
 
 ## 5. First high voltage
 
