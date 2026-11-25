@@ -1178,6 +1178,30 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC's backing pump switched on over the serial line, by hand (owner's word)
+
+Owner, at the station, with the pump flange blanked off and the APG on the pumping port: "can
+you start the roughing pump?". **One command was sent by hand, on that word. Nothing in the
+repository sends a command: the probe, `tic.proto` and `tic.db` stay read only.**
+
+- **Sent** at 13:20:03 on the lab computer, between two runs of the log: `!C910 1` and CR.
+  Source: D397-30-880 Issue H, Table 1, object 910 "Backing Pump", operation `!C`, "Turn pump
+  on/off", and the command list 1.7.5 (Device Off 0, Device On 1). The program that sent it is
+  not in the repository; it can send `!C910 1` or `!C910 0` and nothing else, and uses the
+  probe's own `open_line` and `ask`.
+- **Seen on hardware:** the reply `*C910 0` after 19 ms (code 0, "no error", Table 3). `?V910`
+  32 ms later: `=V910 4;0;0`, state 4 "On State". No state 1 "Off Going On" was caught.
+- **In the log** (the probe every 5 s): backing pump state 0 up to 13:20:02 and 4 from 13:20:07;
+  gauge 1 in state 11 throughout, 1.0000e+05 Pa before, 5.43e4 Pa at 13:20:07, 3.18e4 Pa at
+  13:20:12, 2.87e4 Pa (215 torr) at 13:20:32. The turbopump stayed in state 0, speed 0.0 %: the
+  command started the backing pump only.
+- **Before that, the gauge:** the owner selected the new gauge at the front panel ("It said new
+  id, when I selected it, it began reading"): state 2 with alert 9 until 13:12:27, state 11
+  with alert 0 from 13:12:32, 4.62e4 Pa at atmosphere. Then his atmosphere adjustment ("I
+  clicked the calibrate button and now it shows 1000, so it must be mbar"): 4.69e4 Pa at
+  13:16:42, exactly 1.0000e+05 Pa from 13:16:47, state 11 in every sample. **So the display is
+  in mbar and the serial value in pascal** (A52).
+
 ### 2026-11-25: the TIC, first contact (A52, P65, question 23)
 
 **Seen on hardware: the TIC answers all ten queries at 9600 baud, 8N1, Xon/Xoff, in the form
