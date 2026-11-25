@@ -49,7 +49,7 @@ on your bench (section "First check").
 
 | Terminal | Connect | Notes |
 | --- | --- | --- |
-| Supply `+` / `-` (two of each) | 12 to 24 V DC | The relays work only with this supply: USB alone does not power them. |
+| Supply `+` / `-` (two of each) | 12 to 24 V DC. In the lab: the +24 V rail of a NIM crate and its return, as the other Optas (owner, 2026-11-25) | The relays work only with this supply: USB alone does not power them. With the crate off the doors read as open. |
 | I1 | door switch 1: one side to supply `+`, the other to I1 | high (closed door) above 6.6 V, low below 4.46 V |
 | I2 | door switch 2: one side to supply `+`, the other to I2 | as I1 |
 | Relay 1 (two terminals, NO contact) | interlock contact 1 | closed while both doors are reported closed |

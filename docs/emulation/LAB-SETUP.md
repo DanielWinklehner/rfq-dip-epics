@@ -315,10 +315,14 @@ compiled and tested on a PC and has never run on an Opta**, so the bench comes f
 It is not personnel protection: it reports the doors to the IOC and gives a contact that
 follows them.
 
-1. **Wiring.** 12 to 24 V DC on the Opta's supply terminals (USB alone does not power the
-   relays). Each door switch between the supply's plus and one input: door 1 on I1, door 2 on
-   I2. An input reads "closed" from 6.6 V and takes up to 24 V. On the bench a wire from plus
-   to I1 and I2 stands in for the switches.
+1. **Wiring.** The Opta's supply terminals on the +24 V rail of the NIM crate, as the other
+   two Optas, and USB to the rack computer (owner, 2026-11-25). Both are needed: USB alone
+   does not power the relays. Each door switch between that same +24 V and one input: door 1
+   on I1, door 2 on I2. An input reads "closed" from 6.6 V and takes up to 24 V. On the bench
+   a wire from plus to I1 and I2 stands in for the switches.
+   The crate is part of the interlock from then on: with the crate off no input is high and
+   no relay has power, so the doors read as open (or the box does not answer at all) and the
+   IOC keeps the AU supplies and the REK off. Expected from the wiring, not seen.
 2. **Flash** with the Arduino IDE 2, as the valve box, with these differences: in the Boards
    Manager install "Arduino Mbed OS Opta Boards" (this repository compiles with 4.6.0), board
    "Opta". Copy `AVR/libcom1` and `AVR/libutil` again from a fresh `git pull` into the
@@ -331,8 +335,9 @@ follows them.
    wire off: `A` shows that door as 0 at once and the relays drop; put it back and it takes a
    second.
 4. **Three things only the bench can show.** Tell me each result.
-   - **24 V alone:** unplug USB, switch the 24 V off and on with both inputs at plus. Relays 1
-     and 2 must come on after about a second, without a computer.
+   - **24 V alone:** unplug USB, then take the plus wire off the Opta's supply terminal and
+     put it back, with both inputs at plus (not the crate's switch: the other Optas hang on
+     it). Relays 1 and 2 must come on after about a second, without a computer.
    - **A second flash:** upload the sketch once more while it runs. If the upload fails or the
      board restarts in the middle, that is the watchdog (the sketch's README says what to do).
    - **USB pulled while the IOC reads:** with the IOC running and both inputs at plus, pull the
