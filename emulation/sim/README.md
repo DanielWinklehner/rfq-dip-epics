@@ -42,6 +42,8 @@ Examples: `examples/valvebox.yaml`, `examples/thermocouple.yaml`.
 
 **keithley_6485** (Keithley 6485 picoammeter, SCPI, manual 6485-901-01 Rev. A; task T25): power-on setup, trigger model with ABOR/INIT, measuring time NPLC / f_line x `autozero_factor`, overflow; signal `current` (A) for a plant model, `power` for a power cycle, counters `n_set` ... (module docstring).
 
+**edwards_tic** (Edwards TIC controller, serial communications manual D397-30-880 Issue H; task T29): queries only; options `variant` (TIC, TC, IC, IC6), `gauges` (per socket null or `{pressure, state, units}`), pump types and states, `absent_code`; signals `g<n>.pressure` (torr, replied in Pa), `g<n>.state`, `g<n>.units`, `turbo.*`, `backing.*` (`.absent` = error replies), `commands` (counts `!` messages, never executed) (module docstring).
+
 ## Control protocol: one JSON object per line, one reply per line
 
 Every reply has `"ok": true`, or `"ok": false` and `"error"`. `unit` is optional everywhere
