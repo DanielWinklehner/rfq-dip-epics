@@ -1190,6 +1190,38 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the AIM on the TIC's socket 2; a look at the whole rack IOC
+
+Owner: "Inficon, AIMs (receptacle 2 on the TIC) and APG are connected to the respective
+controllers. I still need to connect the comressed air and solenoid valve to one of the relays
+and get cooling water for the large Turbo (currently manually controlled)." **Question 25 b is
+answered by it: the AIM is on socket 2.**
+
+**Seen on hardware, from the lab computer at 15:34:50** (`caget -a`, `IOC-RACK:heartbeat` 1737):
+
+| PV | Value | Alarm |
+|---|---|---|
+| `PRESSURE:foreline:getpressure`, `:getstate` | 763, `Measurement data okay` | none |
+| `TIC:gauge1:getpressure`, `:state:get`, `:alert:get` | 750.062, `On`, 0 | none |
+| `TIC:gauge2:getpressure` | nan | LINK INVALID |
+| `TIC:gauge2:state:get`, `:units:get`, `:alert:get`, `:priority:get` | `Off`, `PRESSURE (Pa)`, 0, `OK` | none |
+| `TIC:gauge3:state:get` | `Gauge Not connected` | none |
+| `TIC:turbo:state:get`, `:speed:get`, `TIC:backing:state:get` | `Stopped`, 0, `Off` | none |
+| `VALVE:id`, `VALVE:firmware` | `SolenoidValveBox`, `Nov 24 2026` | none |
+| `VALVE:s1:get` to `VALVE:s5:get` | 0 each | none |
+| `INTLK:id` | | COMM INVALID |
+| `interlock_open` | 1 | LINK INVALID |
+| `FLOW:f1:getflow` to `FLOW:f5:getflow` | 0 each | LINK INVALID |
+| `TURBO1:raw:get` | | DISABLE INVALID |
+
+- **The AIM is known to the TIC and off:** socket 2 reports the state `Off`, not "New Gauge Id"
+  and not "Gauge Not connected", with everything at atmosphere. Its pressure is INVALID in the
+  IOC until the TIC reports it `On`, as `tic.db` is written. Whether the TIC switches it on by
+  itself at low pressure or waits for the panel is not seen yet.
+- **The valve box answers with its identity,** so it runs the firmware of this branch
+  (protocol 2), which acknowledges sets. Nothing was set by me.
+- **Not connected, by what the IOC sees:** the interlock Opta and the flow meters.
+
 ### 2026-11-25: the owner changes where the gauges go (for the plan: the development session's)
 
 Owner: "slight change of plans: inficon foes on the roughing line (because it has a smaller
