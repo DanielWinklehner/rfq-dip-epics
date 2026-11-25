@@ -386,7 +386,8 @@ const phases = {
     await clickTag("turbo1");
     await main.waitForTimeout(1500);
     check(context.pages().length === before, "a second click on it opens no second window");
-    const [second] = await Promise.all([context.waitForEvent("page"), clickTag("naim")]);
+    // the foreline gauge: a second device that the Overview draws (the nAIM was, until T31)
+    const [second] = await Promise.all([context.waitForEvent("page"), clickTag("gauge_foreline")]);
     await second.waitForLoadState();
     check(context.pages().length === before + 1, "another device opens a window of its own beside it");
     await main.reload();
