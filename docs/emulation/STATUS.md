@@ -1178,6 +1178,58 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC station shut down over the serial line, by hand (owner's word)
+
+Owner: "yes, push your commits and shut the TIC station down gracefully. I think tic_station is
+a good name. ad 3. will do, ad 4. yes ok." **Two commands were sent by hand, on that word; the
+repository's TIC files stay read only.**
+
+- **The order** is the EXT75DX manual's (B722-40-880 Issue E, 4.8): the stop command, the
+  backing pump off immediately after it, then venting. Venting was left to the station: the
+  TIC is set to open its vent valve at 50 % speed (`?S922` answered 1).
+- **Sent** at 13:37:31, in one gap of the log, with the replies and their times:
+  `?V904` `=V904 4;0;0` 24 ms; `?V910` `=V910 4;0;0` 25 ms; `?V922` `=V922 4;0;0` 26 ms;
+  **`!C904 0` `*C904 0` 19 ms**; `?V904` `=V904 4;0;0` 51 ms (still "Running");
+  **`!C910 0` `*C910 0` 19 ms**; `?V910` `=V910 0;0;0` 25 ms (off at once, no state 2 or 3
+  seen); `?V922` `=V922 4;0;0` 23 ms; `?V905` `=V905 100.0;0;0` 29 ms.
+- **The run-down in the log** (the probe every 5 s; turbopump state, speed in %, gauge 1 in Pa):
+  13:37:31 4, 100.0, 1.0000e-02 | 13:37:36 7, 92.5, 2.20e3 | 13:37:41 7, 73.2, 4.24e3 |
+  13:37:46 7, 57.1, 9.38e3 | 13:37:50 7, 35.9, 2.51e4 | 13:37:55 7, 17.6, 5.35e4 |
+  13:38:00 7, 9.4, 1.0000e+05 | 13:38:30 7, 1.6 | 13:39:11 7, 0.3 | 13:39:16 0, 0.1 |
+  13:39:20 0, 0.0. **State 7 "Braking" from the first sample after the stop to 0.3 %, then
+  state 0 "Stopped", 105 s after the command.** States 2, 3 and 6 were not seen. Gauge 1 in
+  state 11 with alert 0 throughout; exactly 1.0000e+05 Pa from 13:38:00 on (the value it was
+  adjusted to at atmosphere).
+- **The TIC's vent valve output** (`?V922`, asked every 5 s): 4 up to 13:37:46 (speed 54.3 %),
+  0 from 13:37:51 (speed 32.5 %): it changes at 50 %, as set.
+- **Air came in before that.** Gauge 1 read 2.2e3 Pa (16.5 torr) 5 s after the stop, with the
+  pump at 92.5 %, and about doubled every 5 s (4.2e3, 9.4e3, 2.5e4, 5.4e4 Pa) while the TIC's
+  vent output still read 4. Where it came in I cannot see from the serial line. Two
+  possibilities: the turbopump's own controlled venting from 100 % to 50 % (its manual's
+  Table 18, if the vent valve hangs on the pump's electronics), or air back through the
+  backing pump that I had just switched off. The manual warns against a fast pressure rise at
+  full speed in a small volume. **If it was the backing pump, the stop order of the pump's
+  manual is wrong for this cart, and the backing pump should stay on until the turbopump has
+  stopped.** The TIC's own "system off" setup points the same way: it stops the turbopump and
+  leaves the backing pump on (`?S933`: `904;0;1;910;1;0`). To settle at the cart: where the
+  vent valve's cable goes, and whether the backing pump has an inlet valve.
+- **The log:** 355 runs of the probe between 13:10:12 and 13:40:06, ten of ten queries answered
+  in every one. It is stopped; nothing holds the port.
+
+**"tic_station"** (owner, above): I read it as the name he wants for the station's serial line
+on the rack server (`/dev/mist2/tic_station`; the port file has `/dev/mist2/tic` today). The
+adapter has no serial number, so the name needs a rule by the rack server's socket; its
+`by-path` line is still to come from there.
+
+**The GUI's Makefile on Compose 2.40.3** (commit `3c58422`, with the owner's OK): with the stack
+up, `make -C RAS/mist2 dev-up` ended with exit code 0 in 4 s: the four images from the cache,
+"check-ports: the mist2ras stack is already running, ports not checked", then **`pvserver` and
+`frontend` were recreated** (new container IDs; `nginx` kept running), "MIST-2 GUI is up". The
+page answered 200 afterwards. `make -n -C RAS/mist2 dev-down dev-logs` prints both commands
+with `--profile build` (exit code 0); neither was run.
+
+**Pushed** on the owner's word: `348f8a6` at 13:36, the lab session's first push.
+
 ### 2026-11-25: the TIC's turbopump started over the serial line, by hand (owner's word)
 
 Owner: "start the turbo when the pressure is low enough". **One command was sent by hand, on
