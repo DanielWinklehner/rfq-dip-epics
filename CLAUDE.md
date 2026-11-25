@@ -33,8 +33,9 @@ Where the state of the work is written down. Read these before you act:
   the plan and the documents.
 - **A lab session** runs on a computer of the lab's network (10.77.0.x; the lab computer is
   `mist-at-iba`, user `mist`, 10.77.0.1 on `eno1`, Ubuntu 26.04.1, with the site's network on a
-  USB adapter by DHCP; the rack server and the platform computer hang on the same 10.77.0.x
-  network, their addresses are not written down yet: ask, then write them here). It installs,
+  USB adapter by DHCP; the rack server is 10.77.0.6 (owner, 2026-11-25; it answers a ping from
+  the lab computer); the platform computer hangs on the same 10.77.0.x network and was not
+  online on 2026-11-25, its address is not written down yet: ask, then write it here). It installs,
   reads the real devices, finds device names, edits `EPICS/ioc/iocBoot/*/ports.real.cmd` for
   them, and reports what the hardware answered.
 - The two exchange through git only. A lab session pulls before each step
