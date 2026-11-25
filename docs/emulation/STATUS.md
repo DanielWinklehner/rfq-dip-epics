@@ -1193,6 +1193,29 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the foreline valve did not move: the solenoid is on another relay (owner)
+
+Owner, 16:13: "I tried to open the foreline valve", then "Must have lucked out and connected the
+fifth relay...", and "Which relay number is the roughing valve?"
+
+- **In the control system the foreline valve is channel 1**: `VALVE:s1:set` and `VALVE:s1:get`,
+  "Foreline Valve" in the GUI (plan, "Channels (owner, 2026-11-21): 1 foreline valve, 2 MFC
+  shutoff valve, 3 vent valve, 4 Faraday cup actuator, 5 to 8 unused"). In the sketch channel 1
+  is pin 22 of the Arduino Mega and channel 5 pin 30 (`solenoidValvePins` 22, 24, 26, 28, 30,
+  32, 34, 36). Which relay of the board each pin drives is the box's wiring: not seen by me.
+- **Seen in the watch log for channel 1:** on from 16:04:36 to 16:04:37 and from 16:06:16 to
+  16:06:19, read back each time; `VALVE:s1:set` last processed at 16:06:18. So the box switched
+  channel 1; by the owner's word the valve did not move, its solenoid being on what he takes
+  for the fifth relay. `VALVE:s5:get` was not in the log; it read 0 at 15:34.
+- **Not done:** no relay was switched by me. Moving the wire to relay 1, or a test of channel 5
+  (`VALVE:s5:set`), is the owner's.
+
+**A correction of mine:** four clock times in the entries below were estimates and not read
+from a clock (the owner's rule for the AIM, his two answers on the pumps and the AIM, and the
+end of the valve observation). They are corrected from the commit times and marked "about".
+To the development session I had also named 15:50 as the start of the watch log; it started at
+15:38:50.
+
 ### 2026-11-25: the valve box switches from the control system (seen in the watch log)
 
 Not asked for and not done by me: I set nothing. The `camonitor` log that runs on the lab
@@ -1207,12 +1230,12 @@ four used channels of the valve box switched on and off, one at a time, between 
 - **So the box carries out sets from the IOC and its read-back follows**, with the sketch of
   this branch (`VALVE:id` `SolenoidValveBox`, `VALVE:firmware` `Nov 24 2026`). Which relay moved
   what at the bench is the owner's to say.
-- In the same log nothing else changed up to 16:30: gauge 1 750.062 `On`, gauge 2 `Off`, both
+- In the same log nothing else changed up to 16:11: gauge 1 750.062 `On`, gauge 2 `Off`, both
   pumps of the TIC off, the foreline gauge 763 with "Measurement data okay".
 
 ### 2026-11-25: the owner wants to start and stop the TIC's pumps from the GUI (question 24)
 
-Owner, 16:10, after I had told him that the TIC is read only in the control system and that
+Owner, about 16:08, after I had told him that the TIC is read only in the control system and that
 question 24 was open: **"yes, I want to start and stop the pumps from the GUI."** Nothing is
 built by it; the development session's task.
 
@@ -1226,7 +1249,7 @@ backing pump off, a start with the turbopump still running down, any command wit
 the line at the same time.
 
 Asked of the owner with it: whether the AIM is to be switched from the GUI as well, or by the
-TIC alone (his rule: not before the APG shows 1e-2 torr or lower). **His answer, 16:20:** "The
+TIC alone (his rule: not before the APG shows 1e-2 torr or lower). **His answer, about 16:10:** "The
 APG and the AIMs from the TIC cart should show as on the side flange. Does the TIC switch it on
 automatically or would I go and do it from the panel? If the latter, definitely through the GUI
 too."
@@ -1269,7 +1292,7 @@ answered by it: the AIM is on socket 2.**
   and not "Gauge Not connected", with everything at atmosphere. Its pressure is INVALID in the
   IOC until the TIC reports it `On`, as `tic.db` is written. Whether the TIC switches it on by
   itself at low pressure or waits for the panel is not seen yet.
-- **The owner's rule for the AIM** (15:40): "The AIMs may not be turned on until the APG shows
+- **The owner's rule for the AIM** (about 15:35): "The AIMs may not be turned on until the APG shows
   1e-2 Torr or lower". 1e-2 torr is 1.33 Pa on the TIC's line. Nothing enforces it in the
   control system: the IOC switches no gauge. The TIC can do it itself, by its serial manual
   (D397-30-880 Table 1, object 913 and so 914, the "slave setup", config type 4): a gauge can
