@@ -1192,6 +1192,24 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the owner wants to start and stop the TIC's pumps from the GUI (question 24)
+
+Owner, 16:10, after I had told him that the TIC is read only in the control system and that
+question 24 was open: **"yes, I want to start and stop the pumps from the GUI."** Nothing is
+built by it; the development session's task.
+
+What today's runs on the controller give that task, all above in this section: `!C910 1` and
+`!C910 0`, `!C904 1` and `!C904 0` are each answered `*C9xx 0` within 19 ms; the backing pump
+goes 0 to 4 and 4 to 0 with no state between seen at 5 s; the turbopump goes 0, 5 (to 50 %),
+4 on the way up and 4, 7, 0 on the way down in 105 s; the state right after a command is still
+the old one; the pump vents itself from the stop on (`?S853` = 1), so the stop order of its
+manual held: turbopump stop, backing pump off right after. Not tried: `!C904 1` with the
+backing pump off, a start with the turbopump still running down, any command with the IOC on
+the line at the same time.
+
+Asked of the owner with it, not answered: whether the AIM is to be switched from the GUI as
+well, or by the TIC alone (his rule: not before the APG shows 1e-2 torr or lower).
+
 ### 2026-11-25: the AIM on the TIC's socket 2; a look at the whole rack IOC
 
 Owner: "Inficon, AIMs (receptacle 2 on the TIC) and APG are connected to the respective
