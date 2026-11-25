@@ -1178,6 +1178,37 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC's turbopump started over the serial line, by hand (owner's word)
+
+Owner: "start the turbo when the pressure is low enough". **One command was sent by hand, on
+that word; the repository's TIC files stay read only.**
+
+- **What "low enough" rested on:** the EXT75DX's manual B722-40-880 Issue E, Table 5: critical
+  backing pressure 8 mbar for nitrogen, maximum continuous backing pressure 2 mbar with natural
+  convection cooling (5 mbar with forced air); section 4.3: the pump may be started together
+  with its backing pump. The TIC itself holds no condition: `?S904 4` answered
+  `=S904 4;0;59;0.0000e+00;0.0000e+00;0` (no master gauge, not enabled) and `?S904 21`
+  `=S904 21;0` (start delay 0). Gauge 1 read 1.04e1 Pa (0.104 mbar, 0.078 torr) and the backing
+  pump had been on for 7 minutes.
+- **Seen before the start** (13:27:17, queries only): air cooler `=V924 0;0;0` with `=S924 1`
+  (slaved to the turbopump), vent valve `=V922 4;0;0`, turbopump `=V904 0;0;0`, backing pump
+  `=V910 4;0;0`, `?S905` `=S905 8;8`, `?S910 70` `=S910 70;0`, `?V907`, `?V908` `0;0;0`,
+  `?V906` `0.0;0;0`. With the vent valve in state 4 the volume held 0.08 torr: state 4 is the
+  closed valve on this station.
+- **Sent** at 13:27:28: `!C904 1` and CR (D397-30-880 Table 1, object 904, `!C`, "On =1, Off
+  =0"). **Reply `*C904 0` after 19 ms.** `?V904` 32 ms later still answered `=V904 0;0;0`.
+- **The run-up in the log** (the probe every 5 s; turbopump state, speed in %):
+  13:27:27 0, 0.0; 13:27:32 5, 5.5; 13:27:37 5, 13.3; 13:27:42 5, 20.3; 13:27:52 5, 31.5;
+  13:28:02 5, 41.8; 13:28:12 5, 50.1; 13:28:17 4, 54.3; 13:28:27 4, 62.3; 13:28:55 4, 82.5;
+  13:29:06 4, 89.0. **State 5 "Accelerating" up to 50 % and state 4 "Running" from 54 % on;
+  state 1 "Starting Delay" was not seen** (the delay is 0). The backing pump stayed in state 4.
+  The log has a gap from 13:28:27 to 13:28:55, where I restarted it.
+- **Gauge 1 during it:** 1.03e1 Pa at 13:27:27, 4.53e0 Pa at 13:27:32, 6.20e-1 Pa (4.7e-3 torr)
+  at 13:27:37, and **exactly 1.0000e-02 Pa from 13:27:42 on, in state 11 with alert 0.** That
+  is 1e-4 mbar, below the range of an APG100-XM (to 1e-3 mbar by Edwards' range table): the
+  gauge's floor, reported as a valid reading. The IOC would show 7.5e-5 torr without an alarm.
+  The owner's aim, 1e-3 torr, was passed within 15 s of the start.
+
 ### 2026-11-25: the TIC's backing pump switched on over the serial line, by hand (owner's word)
 
 Owner, at the station, with the pump flange blanked off and the APG on the pumping port: "can
