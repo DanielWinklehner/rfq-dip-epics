@@ -1,4 +1,4 @@
-import { connectedChannels, roleLabel, rolesOf, trends } from "./registry";
+import { channelClass, connectedChannels, roleLabel, rolesOf, trends } from "./registry";
 
 // What each registry role means to the operator. Roles are the contract
 // between the registry and the widget classes; the registry's own labels win.
@@ -90,7 +90,18 @@ const roleWords = {
 };
 
 export const roleWord = (role) => roleWords[role] ?? role;
-export const roleText = (id, role) => roleLabel(id, role) ?? roleWord(role);
+
+// Words for the roles of a channel shown with another class's widget (the
+// pumps of the TIC station, T32): their read-back is the state the station
+// reports, not a relay contact as for the big turbopump.
+const classChannelWords = {
+  run_state: "run state (station)",
+};
+
+export const roleText = (id, role, channel) =>
+  roleLabel(id, role) ??
+  (channel && channelClass(id, channel) ? classChannelWords[role] : undefined) ??
+  roleWord(role);
 
 // The trend PVs of a device (its connected channels too) or of one channel:
 // the registry's trend roles, each with the set point drawn beside it where

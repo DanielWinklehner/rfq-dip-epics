@@ -49,7 +49,7 @@ const tagRows = (id, channel) => {
     const read = reads.filter((role) => roles[role]);
     const set = sets.filter((role) => roles[role] && pvInfo(roles[role]).access === "w");
     const rowLabel = (role) =>
-      label && read.length + set.length === 1 ? label : [label, roleText(id, role)].filter(Boolean).join(" ");
+      label && read.length + set.length === 1 ? label : [label, roleText(id, role, ch)].filter(Boolean).join(" ");
     return [
       ...read.map((role) => ({
         pv: roles[role],
