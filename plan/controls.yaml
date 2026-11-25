@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.36"
+  revision: "0.37"
   date: "2026-11-25"
   author: "D. Winklehner"
   basis:
@@ -53,6 +53,7 @@ meta:
     - "Revision 0.32: the Edwards station answered the probe (lab session, 2026-11-25): a TIC Turbo and Instrument Controller (TIC100) with an EXT75DX turbopump, a mains backing pump and the APG on gauge socket 1. No record changed."
     - "Revision 0.33: the rack IOC reads the TIC station on the rack server (lab session, 2026-11-25, 15:06): identity, variant, the APG on socket 1 and both pumps' states valid. Its serial line is named tic_station (owner). No record changed."
     - "Revision 0.35 (T31): the homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'): the rack IOC no longer loads pressure.db and libcom1_device.db on AVR6, and its PVs (PRESSURE:apg:*, PRESSURE:diag_box:*, PRESSURE:id and the box's others) end. The six-way cross's pressures are TIC:gauge1 (APG) and TIC:gauge2 (AIM, socket 2, owner); TIC socket 3 is empty and marked so (channel_flags, not installed). The GUI draws the TIC's gauges and the foreline gauge."
+    - "Revision 0.37 (T32): the TIC cart's pumps are started and stopped from the IOC and the GUI, and the AIM on the TIC's socket 2 is switched on and off (owner, 2026-11-25: 'yes, I want to start and stop the pumps from the GUI', and the AIM 'definitely through the GUI too'). New database tic_control.db beside tic.db (which stays read only): three acknowledged requests (TIC:turbo:start:set, TIC:backing:start:set, TIC:gauge2:on:set), their read-backs from the TIC's own states, the turbopump's at-speed, three refusals in the IOC (turbopump start without the backing pump on, backing pump stop under a running turbopump, AIM on unless the APG reads 1e-2 torr or lower), the take-over at the first contact, and the AIM's slave setup read only. The device tic shows its pumps as channels with the widget class turbo; their start and stop ask for confirmation, the turbopump's stop warns while the foreline valve is not known closed."
     - "Revision 0.36: the roughing line as the owner described it on 2026-11-25 (six-way cross, big turbopump, foreline valve, INFICON, TIC cart), what the first pump-down showed of the gauges, and his start-up order for a later task on procedures. No record changed."
     - "Revision 0.34: the owner's change of 2026-11-25 for the gauges: the INFICON on the roughing line, the APG and a regular AIM on the six-way cross, both on the TIC station; the nAIM later (flagged not installed). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
@@ -496,30 +497,46 @@ devices:
     location: rack
     host: ioc_rack
     link: "RS-232 (9-way D), Prolific USB to RS-232 adapter without a serial number behind a USB extension (a hub); the owner's name for the line is tic_station, by the rack server's USB socket"
-    protocol: "StreamDevice, tic.proto (Edwards D397-30-880), 9600 baud, queries only"
+    protocol: "StreamDevice, tic.proto (Edwards D397-30-880), 9600 baud; queries (tic.db) and the commands of three requests (tic_control.db)"
     epics:
       - {db: tic.db, macros: {PORT: TIC, DEVICE: TIC}}
+      - {db: tic_control.db, macros: {PORT: TIC, DEVICE: TIC, SOCKET: "2", OBJ: "914"}}
+      - {db: first_contact.db, macros: {P: TIC, N: turbo, REQ: "TIC:turbo:start:set", RB: "TIC:turbo:start:get"}}
+      - {db: first_contact.db, macros: {P: TIC, N: backing, REQ: "TIC:backing:start:set", RB: "TIC:backing:start:get"}}
+      - {db: first_contact.db, macros: {P: TIC, N: gauge2, REQ: "TIC:gauge2:on:set", RB: "TIC:gauge2:on:get"}}
     status: new
     flags: {assumed: "Read by the rack IOC since 2026-11-25 with the station idle (lab session). Not seen through the IOC: the pumps running, a gauge other than the APG, hours of running"}
-    labels: {gauge1: "APG, six-way cross", gauge2: "AIM, six-way cross", gauge3: "TIC socket 3 (empty)"}
+    labels: {gauge1: "APG, six-way cross", gauge2: "AIM, six-way cross", gauge3: "TIC socket 3 (empty)",
+             turbo: "Cart turbopump (EXT75DX)", backing: "Cart backing pump"}
+    # the cart's two pumps are channels of the station, shown with the widget of a turbopump (T32)
+    channel_classes: {turbo: turbo, backing: turbo}
+    confirm:
+      turbo:
+        - {value: 1, text: "Start the cart's turbopump? The IOC refuses it while the backing pump is not on."}
+        - {value: 0, text: "Stop the cart's turbopump? It vents itself from the stop command on.",
+           warn: {pv: "VALVE:s1:get", unless: 0, text: "The foreline valve is open, or its state is not known. The cart's turbopump vents itself from its stop on: air goes up the roughing line into the big turbopump. Close the foreline valve first, unless you mean it."}}
+      backing:
+        - {value: 1, text: "Start the cart's backing pump?"}
+        - {value: 0, text: "Stop the cart's backing pump? The IOC refuses it while the turbopump runs (Starting Delay, Accelerating or Running)."}
     channel_flags:
       gauge3: {not_installed: "Socket 3 of the TIC is empty (lab session, 2026-11-25: 'Gauge Not connected'): its pressure is INVALID for good"}
     notes:
       - "The lab has an Edwards TIC station (owner, 2026-11-25): its front says TIC, it has three gauge sockets (RJ45), and its mains inlet says 115 V. Not on 230 V mains without a transformer: the TIC controller alone takes 90 to 264 V by its data sheet, so the 115 V belongs to another part of the cart; rating plate and manual decide. It was not in the plan before."
-      - "Read only (T29): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. No command and no setup message is sent: starting and stopping a pump from the IOC waits until it is known what the station runs. Document: docs/emulation/TIC.md."
+      - "Read (T29, tic.db, queries only): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. Document: docs/emulation/TIC.md."
+      - "Control (T32, tic_control.db): three requests, each one command acknowledged by the TIC: the backing pump on and off (!C910), the turbopump on and off (!C904), both seen on the lab's TIC on 2026-11-25, and the AIM on socket 2 on and off (!C914, from the manual only, not tried). The read-back is the TIC's own state (running in the states that follow a start); at speed is 95 % or more. The IOC refuses a turbopump start while the backing pump is not on, a backing pump stop while the turbopump runs, and the AIM's switch-on unless the APG reads a valid 1e-2 torr or lower; a refused request sends nothing and says why. No sequence, no setup message, no communication timeout, no automatic action: a pump keeps its state when the IOC stops. After an IOC start the requests take over the station's state without sending anything (first_contact.db). The AIM's slave setup (?S914 4) is read every 10 s, so the GUI says whether the TIC switches it by itself. The first use on the real station is a step of its own (docs/emulation/LAB-SETUP.md)."
       - "A pressure is valid only while its gauge reports the state On and a pressure in pascal; otherwise it is INVALID and the state says why. A socket without a gauge and a pump the controller does not have are INVALID as well."
       - "Seen with the probe on 2026-11-25 (lab session; not seen by the development session): all ten queries answered within 23 to 86 ms (reply timeout 150 ms). The APG on socket 1 reports the state On and its value in pascal once it was accepted at the TIC's front panel; before that the state is New Gauge Id and there is no reading. Sockets 2 and 3 are empty, so their PVs are INVALID. The identity has a NUL byte after the serial number, which the protocol file ignores with the PIC software version behind it."
       - "The APG100-XM goes on a TIC socket; the nAIM (digital, own serial line) and the INFICON head (on the VGC401) do not. An AIM would be one of the three sockets (owner's question, 2026-11-25)."
       - "Owner, 2026-11-25: the APG and a regular AIM go on the six-way cross and both are run by the TIC station; the nAIM is deferred. So the six-way cross's two pressures are TIC:gauge<n>:getpressure. The APG is on socket 1 (it sat on the cart's pumping port for the first tests), the AIM on socket 2 (owner, 2026-11-25; read through the rack IOC as Off at atmosphere, its pressure INVALID). A newly plugged gauge must be accepted at the TIC's panel. Switching the AIM is the TIC's business; the IOC reads."
-      - "Rule of the owner (2026-11-25): the AIM may not be turned on until the APG shows 1e-2 torr or lower. Nothing in the control system switches the AIM, so nothing here enforces it; the TIC can hold it itself (a slave setup of socket 2 on socket 1, D397-30-880 Table 1). How the lab's TIC is set is not read."
+      - "Rule of the owner (2026-11-25): the AIM may not be turned on until the APG shows 1e-2 torr or lower. Since T32 the IOC refuses TIC:gauge2:on:set := 1 unless TIC:gauge1:getpressure is valid and at or below 1e-2 torr. The IOC does not switch the AIM off when the pressure rises (an automatic action needs the owner's word); the TIC can, by its own slave setup of socket 2, which TIC:gauge2:slave:get reads."
       - "The cart backs the big turbopump: six-way cross, big turbopump, foreline valve, INFICON, TIC cart (owner, 2026-11-25). The start-up order he wants as a later procedure: backing pump on, foreline valve open, the cart's turbopump on, the big turbopump on (otherwise the inrush from opening the foreline valve overwhelms the small turbopump). The cart's turbopump lets air in by itself from its stop command on (seen), so the foreline valve is closed before it is stopped; by his word the GUI will warn and not refuse (T32). Procedures for spin-up and shut-down are a later task."
       - "Seen in the first pump-down of the six-way cross (lab session, 2026-11-25): the TIC did not switch the AIM on by itself when the APG passed 1e-2 torr; switched on at the panel it was reported On with one unchanging value for 146 s before the value followed the pressure (STATUS.md, P74). The APG falls smoothly to 6.4e-4 torr and reads its floor, 7.5e-5 torr, one sample later (P72)."
       - "The homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'); since T31 the rack IOC, the emulation and the GUI follow."
       - "Socket 3 is empty: the channel gauge3 is flagged not installed (channel_flags). Its records stay loaded; the registry lists its PVs apart from the device's (not_installed_pvs), so the tests, the logger and the GUI's alarm summaries leave them out, as the GUI leaves out a device that is not installed, and the device window still shows them."
-      - "In the emulation (T31) the TIC switches the AIM by the APG's value: on at 1e-2 torr or lower (the owner's rule), through the state Striking; the switch-off pressure and the striking time are assumed (emulation/sim/config/rack.yaml). On the lab's TIC who switches it is not seen."
+      - "In the emulation (T32) the AIM is switched as on the lab's TIC: by the command or at the panel (the simulator's control port), not by the TIC itself (no slave link, as seen: the TIC did not switch it when the APG passed 1e-2 torr). It starts On. After a switch-on it reports one standing value for 146 s (seen, P74)."
     questions:
       - "Does the cart back the big turbopump, and where do its gauges sit in the end? Then the pressures get names of the lab's pattern."
-      - "Should the IOC start and stop its pumps later?"
+      - "Should the IOC refuse a turbopump start while the turbopump still brakes (not tried on the controller; the simulator accelerates again, an assumption)?"
 
   - id: gauge_gas
     name: "Gas injection pressure"
@@ -1331,18 +1348,14 @@ databases:
     channels:
       "gauge<n>": {p: "gauge<n>:getpressure", state: "gauge<n>:state:get", units: "gauge<n>:units:get",
                    alert: "gauge<n>:alert:get", priority: "gauge<n>:priority:get"}
+      # the station's two pumps as channels (T32: shown with the widget class turbo, plan channel_classes)
+      turbo: {state: "turbo:state:get", type: "turbo:type:get", speed: "turbo:speed:get", alert: "turbo:alert:get"}
+      backing: {state: "backing:state:get", type: "backing:type:get", alert: "backing:alert:get"}
     roles:
       variant: "variant:get"
       ident: "ident:get"
       model: "model:get"
       software: "sw:get"
-      turbo_state: "turbo:state:get"
-      turbo_type: "turbo:type:get"
-      turbo_speed: "turbo:speed:get"
-      turbo_alert: "turbo:alert:get"
-      backing_state: "backing:state:get"
-      backing_type: "backing:type:get"
-      backing_alert: "backing:alert:get"
     internal: ["gauge1:_q", "gauge1:_ok", "gauge1:_code", "gauge2:_q", "gauge2:_ok", "gauge2:_code",
                "gauge3:_q", "gauge3:_ok", "gauge3:_code", "_sys",
                "turbo:_qt", "turbo:_q", "turbo:_qs", "turbo:_ok", "turbo:_code", "turbo:_tcode",
@@ -1356,6 +1369,38 @@ databases:
       "turbo:_qs": [silent, closed]
       "backing:_qt": [silent, closed]
       "backing:_q": [silent, closed]
+
+  tic_control.db:              # loaded beside tic.db (T32): the requests of the station's pumps and of one gauge
+    channels:
+      turbo:
+        run_cmd: {record: "turbo:start:set", readback: run_state, test: [0, 1], ack: true,
+                  note: "!C904 1 / !C904 0, acknowledged *C904 0 (seen on the lab's TIC). Refused by the IOC (nothing sent, falls back at once, result says why) while the backing pump is not On or its state is not known. After an IOC start it takes over the turbopump's state at the TIC's first answer (first_contact.db)"}
+        run_state: "turbo:start:get"
+        atspeed: "turbo:atspeed:get"
+        result: "turbo:start:reason"
+      backing:
+        run_cmd: {record: "backing:start:set", readback: run_state, test: [0, 1], ack: true,
+                  note: "!C910 1 / !C910 0, acknowledged *C910 0 (seen on the lab's TIC). Refused by the IOC while the turbopump is in a state that follows a start (Starting Delay, Accelerating, Running) or its state is not known. After an IOC start it takes over the backing pump's state at the TIC's first answer (first_contact.db)"}
+        run_state: "backing:start:get"
+        result: "backing:start:reason"
+      "gauge<n>":
+        enable: {record: "gauge<n>:on:set", readback: enable_state, test: [0, 1], ack: true,
+                 note: "!C914 1 / !C914 0 (from the manual only, not tried on the controller). Refused by the IOC unless the APG's pressure (gauge1) is valid and at or below 1e-2 torr (the owner's rule). After an IOC start it takes over the gauge's state at the TIC's first answer (first_contact.db)"}
+        enable_state: "gauge<n>:on:get"
+        result: "gauge<n>:on:reason"
+        slave: {record: "gauge<n>:slave:get", note: "the TIC's own slave setup of the gauge (?S914 4, every 10 s): linked (the TIC switches it by itself at the set points) or not linked"}
+        slave_on: "gauge<n>:slave:on:get"
+        slave_off: "gauge<n>:slave:off:get"
+        slave_master: "gauge<n>:slave:master:get"
+        slave_raw: {record: "gauge<n>:slave:raw", note: "the text of the last reply to ?S914 4, any form"}
+    internal: ["turbo:_refuse", "turbo:_after", "turbo:_back", "turbo:_back:on", "turbo:_back:copy", "turbo:_back:off",
+               "turbo:_rb", "turbo:_atspeed",
+               "backing:_refuse", "backing:_after", "backing:_back", "backing:_back:on", "backing:_back:copy",
+               "backing:_back:off", "backing:_rb",
+               "gauge2:_refuse", "gauge2:_after", "gauge2:_back", "gauge2:_back:on", "gauge2:_back:copy",
+               "gauge2:_back:off", "gauge2:_rb", "gauge2:_slave", "gauge2:_slave:code"]
+    invalid_on:
+      "gauge2:_slave": [silent, closed]   # the slave setup query on an output link, every 10 s: sends ?S914 4 and reads its reply
 
   solenoidbox.db:
     class: valve
