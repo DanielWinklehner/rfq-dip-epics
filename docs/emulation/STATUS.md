@@ -1238,6 +1238,19 @@ valve will overwhelm the little turbo"). The big turbopump was not started.
   scan; `TIC:gauge2:getpressure` valid from then, 5.8e-4 torr against the APG's 6.2e-3 torr
   and the INFICON's 6.9e-4 torr. So on this TIC the AIM waits for the panel, and by his
   earlier word he then wants it switchable from the GUI as well.
+- **The AIM's first value was not a measurement.** `TIC:gauge2:getpressure` read 5.81178e-4 torr,
+  the same to six digits, from 17:01:28 to 17:03:53, in the state On and without alarm, while
+  the APG beside it fell from 6.2e-3 to 6.4e-4 torr. From 17:03:54 it moved (6.10e-4, then
+  down). So for 146 s after it is switched on the TIC reports the AIM as On with a value that
+  stands still. I had told the owner at 17:02 that the AIM read a tenth of the APG and was the
+  one to trust: wrong at that moment, and corrected to him.
+- **The big turbopump** (not in the IOC; started by the owner at its controller): the APG began
+  to fall faster at about 17:02:40 (5.8e-3 torr at 17:02:38, 3.3e-3 at 17:02:58, 1.5e-3 at
+  17:03:14, 6.4e-4 at 17:03:23) and read its floor, 7.50062e-05 torr, from 17:03:24, in one
+  step from 6.4e-4 torr: below about 6e-4 torr the TIC gives the floor, still in the state On
+  with alert 0. The AIM: 3.0e-4 torr at 17:04:06, 8.8e-5 at 17:04:29, 3.9e-5 at 17:04:56. The
+  INFICON on the roughing line rose meanwhile, from 6.5e-4 torr at 17:02:20 to 1.6e-3 at
+  17:04:20.
 - **The INFICON reads far below the APG** once the turbopump runs (0.0016 against 0.010 torr at
   16:55): it sits behind the stopped big turbopump, at the cart's inlet.
 - **`PRESSURE:foreline:getstate`** stayed "Measurement data okay"; no "Underrange" down to
