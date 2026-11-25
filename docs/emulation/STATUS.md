@@ -1251,6 +1251,13 @@ valve will overwhelm the little turbo"). The big turbopump was not started.
   with alert 0. The AIM: 3.0e-4 torr at 17:04:06, 8.8e-5 at 17:04:29, 3.9e-5 at 17:04:56. The
   INFICON on the roughing line rose meanwhile, from 6.5e-4 torr at 17:02:20 to 1.6e-3 at
   17:04:20.
+- **The APG's vacuum adjustment** (owner, at the TIC: "I calibrated the APG at vacuum now"):
+  `TIC:gauge1:state:get` read "Calibrating" for one sample at 17:12:16, with
+  `TIC:gauge1:getpressure` nan and LINK INVALID in that sample, and On again at 17:12:17 with
+  the floor value 7.50062e-05 torr, as before it. The AIM beside it read 1.1e-5 torr then.
+  What the adjustment changed shows only where the APG reads above its floor again.
+- **The AIM under the big turbopump:** 3.6e-5 torr at 17:05, 2.0e-5 at 17:06, 1.5e-5 at 17:08,
+  1.26e-5 at 17:10, 1.05e-5 at 17:13:19. The INFICON 7.2e-4 torr at 17:13.
 - **The INFICON reads far below the APG** once the turbopump runs (0.0016 against 0.010 torr at
   16:55): it sits behind the stopped big turbopump, at the cart's inlet.
 - **`PRESSURE:foreline:getstate`** stayed "Measurement data okay"; no "Underrange" down to
