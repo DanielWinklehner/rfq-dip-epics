@@ -1,4 +1,5 @@
 # 99-mist2-serial.rules - fixed names of the rack computer's serial devices that have a serial number
+# (and, at the end, of one that has none and is named by its USB socket)
 #
 # Each line gives a device the name that EPICS/ioc/iocBoot/iocRack/ports.real.cmd opens
 # (/dev/mist2/<name>), by its USB ID and serial number. Source of every number: the device list
@@ -50,3 +51,13 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{seria
 # to whichever computer it is plugged into. This line is NOT TESTED and not checked with
 # `udevadm verify` (it has the form of the line above).
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="FTE7S80M", SYMLINK+="mist2/vgc401", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# --- by USB socket: an adapter without a serial number ------------------------------------------
+# Edwards TIC station (the owner's name: tic_station) on a Prolific PL2303 USB to RS-232 adapter,
+# which reports no serial number. Named by its place on the RACK SERVER, as the Matsusada
+# adapters are: ID_PATH from the owner's paste of udevadm there on 2026-11-25 (through the lab
+# session), /dev/ttyUSB3, behind the owner's USB extension, which is a hub (socket 4 of the
+# computer, port 4 of the hub). The adapter moved to another socket or hub port loses the name.
+# NOT TESTED and not checked with `udevadm verify`. Until this line is installed and
+# /dev/mist2/tic_station seen, ports.real.cmd opens the adapter by its /dev/serial/by-path/ name.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", ENV{ID_PATH}=="pci-0000:01:00.0-usb-0:4.4:1.0", SYMLINK+="mist2/tic_station", ENV{ID_MM_DEVICE_IGNORE}="1"

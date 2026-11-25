@@ -163,6 +163,9 @@ asynSetOption("VGC",-1,"crtscts","N")
 # the owner's USB extension, which is a hub: socket 4 of the computer, port 4 of the hub. The
 # link's name is made from that ID_PATH as on the lab computer; the link itself is NOT SEEN, and
 # this IOC has not opened it yet. The adapter moved to another socket or hub port loses the name.
+# EPICS/ioc/host/99-mist2-serial.rules has a line for /dev/mist2/tic_station by the same socket
+# since that day; this line changes to that name once the rule file is installed on the rack
+# server and the name is seen there.
 drvAsynSerialPortConfigure("TIC","/dev/serial/by-path/pci-0000:01:00.0-usb-0:4.4:1.0-port0")
 asynSetOption("TIC",-1,"baud","9600")
 asynSetOption("TIC",-1,"bits","8")
