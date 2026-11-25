@@ -121,7 +121,9 @@ class InficonVgc401(Simulator):
         p *= TORR_TO.get(self._unit(), 1.0)
         if self.options["gauge"] != "CDG":
             p = float("%.2E" % p)
-        return "%.4E" % p if math.isfinite(p) else "9.9999E+99"
+        # Seen on the lab's VGC401 on 2026-11-25 (firmware 302-519-D): '0, 7.6400E+02', a blank
+        # where the manual's form "sx.xxxxEsxx" has the sign of a positive value.
+        return "% .4E" % p if math.isfinite(p) else " 9.9999E+99"
 
     def measurement(self):
         return "%d,%s" % (int(self.status.value), self.value_text())        # p. 60

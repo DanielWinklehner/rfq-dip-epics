@@ -26,7 +26,7 @@ import tty
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROBE = os.path.join(HERE, "inficon_vgc401_probe.py")
 
-DATA = {"PR1": "0,7.5000E-03", "UNI": "1", "TID": "PSG", "PNR": "302-519-E", "ERR": None}
+DATA = {"PR1": "0, 7.5000E-03", "UNI": "1", "TID": "PSG", "PNR": "302-519-E", "ERR": None}
 
 
 def fake(master, silent, stop):
@@ -36,7 +36,7 @@ def fake(master, silent, stop):
     buf, last, error = b"", None, "0000"
     while not stop.is_set():
         if not heard and not silent and time.monotonic() >= next_auto:
-            os.write(master, b"0,7.5000E-03 Torr\r\n")
+            os.write(master, b"0, 7.5000E-03 Torr\r\n")
             next_auto += 1.0
         if not select.select([master], [], [], 0.05)[0]:
             continue

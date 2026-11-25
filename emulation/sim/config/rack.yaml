@@ -242,7 +242,7 @@
   type: inficon_vgc401
   port: 5034
   baud: 9600
-  turnaround_ms: 5            # ASSUMED: the manual gives no response time
+  turnaround_ms: 95           # seen on the lab's controller: 91 to 112 ms per reply (2026-11-25)
   options:
     gauge: PSG
     unit: 0                   # mbar: the IOC converts to torr

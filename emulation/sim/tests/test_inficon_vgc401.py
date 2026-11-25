@@ -36,16 +36,16 @@ class Dialogue(unittest.TestCase):
         self.sim, self.clock = make(unit=1, pressure=8.34e-3)
 
     def test_pr1_as_in_the_example_of_p75(self):
-        self.assertEqual(read(self.sim, b"PR1"), "0,8.3400E-03")
-        self.assertEqual(one(self.sim, ENQ), "0,8.3400E-03")        # repeated <ENQ>: again
+        self.assertEqual(read(self.sim, b"PR1"), "0, 8.3400E-03")
+        self.assertEqual(one(self.sim, ENQ), "0, 8.3400E-03")        # repeated <ENQ>: again
 
     def test_value_format_and_two_decimals(self):
         self.sim.pressure.target = 1.23456e-2
-        self.assertRegex(read(self.sim, b"PR1"), r"^0,\d\.\d\d00E[-+]\d\d$")    # p. 60 note
+        self.assertRegex(read(self.sim, b"PR1"), r"^0, \d\.\d\d00E[-+]\d\d$")    # p. 60 note
 
     def test_cdg_keeps_four_decimals(self):
         sim, _ = make(gauge="CDG", unit=1, pressure=1.23456e-2)
-        self.assertEqual(read(sim, b"PR1"), "0,1.2346E-02")
+        self.assertEqual(read(sim, b"PR1"), "0, 1.2346E-02")
 
     def test_units(self):
         for unit, factor in ((0, 1.33322368), (1, 1.0), (2, 133.322368), (3, 1000.0)):
@@ -133,7 +133,7 @@ class Automatic(unittest.TestCase):
     def test_tick_sends_once_per_second(self):
         sim, _ = make(unit=1, pressure=7.5e-3)
         sim.tick(0.0)
-        self.assertEqual(sim.outbox, [b"0,7.5000E-03 Torr"])
+        self.assertEqual(sim.outbox, [b"0, 7.5000E-03 Torr"])
         sim.tick(0.5)
         self.assertEqual(len(sim.outbox), 1)
         sim.tick(1.0)
@@ -162,14 +162,14 @@ class Tcp(unittest.TestCase):
         with SimThread([sim]):
             c = LineClient(sim.port, term=b"\r\n")
             self.addCleanup(c.close)
-            self.assertEqual(c.readline(1.5), b"0,7.5000E-03 Torr")   # sends by itself
+            self.assertEqual(c.readline(1.5), b"0, 7.5000E-03 Torr")   # sends by itself
             c.send(b"PR1\r")                                           # ... until asked
             line = c.readline(1.0)
             if line != b"\x06":                                        # one on its way
-                self.assertEqual(line, b"0,7.5000E-03 Torr")
+                self.assertEqual(line, b"0, 7.5000E-03 Torr")
                 self.assertEqual(c.readline(1.0), b"\x06")
             c.send(ENQ)                                                # no terminator
-            self.assertEqual(c.readline(1.0), b"0,7.5000E-03")
+            self.assertEqual(c.readline(1.0), b"0, 7.5000E-03")
             self.assertIsNone(c.readline(1.5))                         # nothing by itself
             with ControlClient("127.0.0.1", sim.control_port) as ctl:
                 self.assertEqual(ctl.get("continuous")["value"], 0.0)

@@ -61,7 +61,9 @@ ERRORS = {"1000": "controller error (see the display)", "0100": "NO HWR, no hard
 
 # request -> (meaning, the data reply of the manual)
 REQUESTS = {
-    "PR1": ("pressure and status", r"([0-7]),([-+]?\d\.\d{4}E[-+]\d\d)"),   # p. 60
+    # p. 60: "x,sx.xxxxEsxx". The lab's controller (firmware 302-519-D) sends a blank for the
+    # sign of a positive value: '0, 7.6400E+02' (seen 2026-11-25).
+    "PR1": ("pressure and status", r"([0-7]),([-+ ]?\d\.\d{4}E[-+]\d\d)"),
     "UNI": ("pressure unit", r"([0-3])"),                                   # p. 67
     "TID": ("gauge identification", r"(%s)" % "|".join(sorted(GAUGES, key=len, reverse=True))),
     "ERR": ("error word", r"([01]{4})"),                                    # p. 63
@@ -174,7 +176,7 @@ def explain(mnemonic, match):
     value = match.group(1)
     if mnemonic == "PR1":
         return "status %s = %s, value %s in the controller's unit" % (
-            value, STATUS[value], match.group(2))
+            value, STATUS[value], match.group(2).strip())
     if mnemonic == "UNI":
         return UNITS[value]
     if mnemonic == "TID":

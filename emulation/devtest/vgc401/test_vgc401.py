@@ -4,9 +4,12 @@ The simulator's true pressure is in torr; it reports it in its unit, with the ma
 to two decimals as the manual says (p. 60): 1 % is the tolerance.
 """
 
+import json
 import math
 import os
 import re
+import subprocess
+import sys
 import time
 
 import epics
@@ -37,12 +40,28 @@ def sevr(name):
     return get(name + ".SEVR")
 
 
-def sample(name):
-    """(value, severity) of ONE Channel Access reply, or None when the get timed out (the IOC
-    is restarting). Two gets, one for each, can straddle a change: a value from before it
-    with a severity from after it."""
-    data = epics.get_pv(name, form="time").get_with_metadata(use_monitor=False, timeout=2.0)
-    return None if data is None or data.get("value") is None else (data["value"], data["severity"])
+# Samples of one PV, taken by a NEW process: a list of (value, severity), each pair from ONE
+# Channel Access reply (two gets can straddle a change). A new process has a new channel, which
+# searches at once and often; a channel of this process from before an IOC restart found the
+# new IOC only after seconds (seen: not connected for 6 s, also after PV.disconnect()).
+SAMPLER = """
+import json, sys, time, epics
+pv = epics.PV(sys.argv[1], form="time", auto_monitor=False)
+end, out = time.time() + float(sys.argv[2]), []
+while time.time() < end:
+    data = pv.get_with_metadata(use_monitor=False, timeout=0.5) if pv.wait_for_connection(timeout=0.5) else None
+    if data is not None and data.get("value") is not None:
+        out.append((data["value"], data["severity"]))
+    time.sleep(0.1)
+print(json.dumps(out))
+"""
+
+
+def samples(name, seconds):
+    done = subprocess.run([sys.executable, "-c", SAMPLER, name, str(seconds)], capture_output=True, text=True,
+                          timeout=seconds + 30)
+    assert done.returncode == 0, done.stderr
+    return [tuple(pair) for pair in json.loads(done.stdout.strip().splitlines()[-1])]
 
 
 def wait_for(what, test, timeout=10.0):
@@ -74,9 +93,14 @@ def restart_ioc_trigger():
 
 
 def restart_ioc():
+    """Restart the IOC and come back when this process sees the new one. Its channels from
+    before the restart find the new IOC only at their next search, which can be seconds away
+    (seen: None for more than 6 s), so wait for the ones the tests read right after."""
     restart_ioc_trigger()
     time.sleep(1.0)                 # the old IOC is stopped within 0.2 s
-    wait_for(lambda: get("DEVTEST:heartbeat"), lambda h: h < 30, 30)
+    wait_for(lambda: get("DEVTEST:heartbeat"), lambda h: h < 30, 60)
+    for name in (PRESSURE + ".SEVR", P + "_pr1.SEVR", PRESSURE, UNIT):
+        wait_for(lambda: epics.get_pv(name).wait_for_connection(timeout=1.0), lambda ok: ok, 60)
 
 
 # --- read correctly -----------------------------------------------------------------------------
@@ -87,9 +111,11 @@ def test_first_readings():
     assert sevr(STATE) == NO_ALARM
     assert epics.PV(PRESSURE).get_ctrlvars(timeout=2)["units"] == "torr"
     assert get(UNIT, as_string=True) == "mbar"
-    assert get(GAUGE) == "PSG"
-    assert get(VERSION) == "302-519-E"
-    assert get(ERROR_WORD, as_string=True) == "No error" and sevr(ERROR_WORD) == NO_ALARM
+    # the records of the 2 s scan follow the pressure: an exchange takes 0.2 s on the real controller
+    wait_for(lambda: get(GAUGE), lambda g: g == "PSG", 5)
+    wait_for(lambda: get(VERSION), lambda v: v == "302-519-E", 5)
+    wait_for(lambda: get(ERROR_WORD, as_string=True), lambda e: e == "No error", 5)
+    assert sevr(ERROR_WORD) == NO_ALARM
 
 
 @pytest.mark.parametrize("unit,name", [(0, "mbar"), (1, "Torr"), (2, "Pascal"), (3, "Micron")])
@@ -219,14 +245,7 @@ def test_controller_that_sends_by_itself_at_the_start(ctl):
     ctl.set("power", 0)
     ctl.set("power", 1)
     ctl.release("power")
-    wait_for(lambda: get("DEVTEST:heartbeat"), lambda h: h < 30, 30)
-    seen = []
-    end = time.time() + 6.0
-    while time.time() < end:
-        one = sample(PRESSURE)
-        if one is not None:
-            seen.append(one)
-        time.sleep(0.1)
+    seen = samples(PRESSURE, 8.0)
     log = sim_log()
     power_on = [log_time(l) for l in log if "power on" in l][-1]
     stopped = [log_time(l) for l in log if "first character received" in l][-1]
@@ -276,7 +295,8 @@ ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invali
                    r"|syntax|bad ", re.I)
 EXPECTED = re.compile(r"No reply|does not match|mismatch|Timeout|timed out|connect|Connection"
                       r"|disconnect|Broken pipe|reset by peer|still busy|asynManager|restarted"
-                      r"|additional errors of the following type|input \"|was expected", re.I)
+                      r"|additional errors of the following type|input \"|was expected"
+                      r"|status returned to normal", re.I)
 
 
 def test_ioc_log_has_no_database_protocol_or_link_error():

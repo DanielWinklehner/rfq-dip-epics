@@ -34,17 +34,24 @@
 # Terminators: the requests end with CR (written into each request, p. 57), <ENQ> is sent
 # alone: an OutTerminator would follow the <ENQ> with an empty message. Replies end CR LF.
 #
-# Timing (vgc401.db: PR1 every 1 s, UNI, TID, ERR, PNR every 2 s): in 2 s the line carries at
-# most 6 exchanges. A silent controller costs one ReplyTimeout each (the acknowledgement never
-# comes): 6 x 150 ms = 0.9 s. The worst case, an acknowledgement and then no data, costs two:
-# 6 x 300 ms = 1.8 s, plus about 110 characters at 9600 baud (0.11 s) = 1.9 s < 2 s. The
-# manual gives no response time; 150 ms is assumed, the probe measures it.
+# Seen on the lab's controller on 2026-11-25 (firmware 302-519-D, the probe, an FTDI adapter with
+# its 16 ms latency timer): every reply came 91 to 112 ms after its request (one after 20 ms),
+# so an exchange (acknowledgement and data) takes about 0.2 s. And the pressure reply is
+# '0, 7.6400E+02': a blank where the manual's form has the sign of a positive value. %g takes
+# it (the device case runs with a simulator that sends this form).
+#
+# Timing (vgc401.db: PR1 every 1 s, UNI, TID, ERR, PNR every 2 s): in 2 s the line carries 6
+# exchanges, 1.2 s as measured. ReplyTimeout 300 ms, about three times the measured reply time
+# (150 ms, assumed before the measurement, left 38 ms). A silent controller costs one
+# ReplyTimeout per exchange (the acknowledgement never comes): 6 x 300 ms = 1.8 s < 2 s. An
+# acknowledgement and then no data costs 0.1 s + 0.3 s: 6 x 0.4 s = 2.4 s, more than the
+# period, so in that fault the readings come late (the records wait their turn), not wrong.
 #
 # Argument \$1 of get_pressure: the PV prefix (redirection target $(DEVICE):_pr1:status).
 
 OutTerminator = "";
 InTerminator = CR LF;
-ReplyTimeout = 150;
+ReplyTimeout = 300;
 ReadTimeout = 50;
 
 # PR1 (p. 60): the value goes into the record (the controller's unit), the status digit into

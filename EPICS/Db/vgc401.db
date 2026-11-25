@@ -26,6 +26,10 @@ record(ai, "$(DEVICE=FORELINE):_pr1") {
     field(DTYP, "stream")
     field(INP,  "@vgc401.proto get_pressure($(DEVICE=FORELINE)) $(PORT=VGC)")
     field(SCAN, "1 second")
+    # Ahead of the four requests of the 2 s scan in the port's queue: an exchange takes 0.2 s on
+    # the real controller, and behind all four (0.8 s) the pressure missed its next scan (seen
+    # in the device case at the controller's reply time: 5 requests a second instead of 6).
+    field(PRIO, "HIGH")
     field(PREC, "4")
     field(FLNK, "$(DEVICE=FORELINE):_state")
 }
