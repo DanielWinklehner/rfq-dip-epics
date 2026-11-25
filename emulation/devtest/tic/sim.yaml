@@ -1,0 +1,17 @@
+# Edwards TIC (task T29): a TIC Turbo & Instrument Controller as assumed for the cases of D5.
+# Gauge 1 an ion gauge at 1e-6 torr, gauge 2 a Pirani at 5e-3 torr, socket 3 empty;
+# a nEXT turbo pump (type 11) running; no backing pump on the controller (type 0, "No Pump").
+- name: tic
+  type: edwards_tic
+  port: 5034                  # control port 6034
+  baud: 9600
+  turnaround_ms: 20           # the manual: less than 100 ms (D397-30-880 1.4); value assumed
+  options:
+    variant: TIC
+    gauges:
+      - {pressure: 1.0e-6}
+      - {pressure: 5.0e-3}
+      - null
+    turbo_type: 11
+    backing_type: 0
+    backing_state: 0
