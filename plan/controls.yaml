@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.26"
+  revision: "0.27"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -45,6 +45,7 @@ meta:
     - "Revision 0.24: the valve box's relays are SRD-05VDC-SL-C (owner, 2026-11-24), and an IOC restart must not release them (owner, same day). No record changed."
     - "Revision 0.25: the old interlock box was not found after the move; the third Arduino Opta takes its place (owner, 2026-11-24), with the old box's channels and PVs (firmware AVR/devices/InterlockOpta, T28, not yet run on the board). The dipole and quadrupole supplies wait (owner). No record changed."
     - "Revision 0.26: the lab's Optas are fed from the +24 V rail of an old NIM crate and have USB to the computer (owner, 2026-11-25); the interlock Opta the same. No record changed."
+    - "Revision 0.27: the NIM crate's +24 V rail gives 1.5 A at most (owner, 2026-11-25); the three Optas take 0.3 A at most. No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -701,6 +702,7 @@ devices:
       - "Terminals: door switches on inputs I1 and I2, each fed from the Opta's supply (high = door closed, assumed, A48). Relays 1 and 2 are on only while both doors are reported closed, decided in the Opta without the IOC; a door that opens is reported open for at least 1 s; no latch. Nothing is wired to these contacts yet. Relays 3 and 4 are the old box's two relays by command and switch nothing (owner, 2026-11-21, for the old box)."
       - "The Opta's relays need at least 300 mW to switch reliably (data sheet: 12.5 mA at 24 V, 60 mA at 5 V). An interlock input of a supply that carries less needs a signal relay in between."
       - "Supply: the +24 V rail of an old NIM crate, as the lab's other Optas, and USB to the rack computer (owner, 2026-11-25); the door switches are fed from the same rail. USB alone does not power the relays. With the crate off the doors read as open (or the box does not answer), so no AU or REK output can be switched on: the crate is part of the interlock (expected, not seen)."
+      - "The crate's +24 V rail gives 1.5 A at most (2 A for both 24 V rails together, nothing on the -24 V rail; owner, 2026-11-25). An Opta takes up to 2.2 W at 24 V (data sheet), so the three in hand take 0.3 A at most and each further one up to 0.09 A. What the analog expansion takes is not known here."
       - "Not personnel protection: a microcontroller with a program, as the old box was."
       - "Two interlock inputs, the HV cage doors (1 = door closed; labels from the lab GUI of 2023). The summary PV interlock_open (formerly interlock_status) has no device prefix: 0 = both doors closed, non-zero = open. It is the output permit of the AU supplies and the REK, which latch: an opened door switches them off, and they stay off until the operator switches them on again."
     questions:
