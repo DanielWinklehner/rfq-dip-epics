@@ -435,11 +435,22 @@ Since T32 the rack IOC can start and stop the cart's two pumps and switch the AI
 (`tic_control.db`, `docs/emulation/TIC.md`, "Control"). The pump commands are those sent by hand
 on 2026-11-25 (`!C910`, `!C904`); **the AIM's command (`!C914 1`) has never been sent to the
 TIC**: it is from the manual only. **Nothing of it has met the real TIC through the IOC.** Do
-the steps in this order, each on its own, with the cart in view; keep a log running on the lab
-computer from step 1 to the end and send it back:
+the steps in this order, each on its own, with the cart in view. Pull on the rack server first
+(the probe of step 1 knows `--query` only since T32). Keep a log running from before step 2
+to the end, into a file in a folder outside the repository (the repository is public), and
+send it back. On the rack server, where EPICS is built:
 
 ```bash
 camonitor TIC:backing:start:set TIC:backing:start:get TIC:backing:state:get TIC:backing:start:reason TIC:turbo:start:set TIC:turbo:start:get TIC:turbo:state:get TIC:turbo:speed:get TIC:turbo:atspeed:get TIC:turbo:start:reason TIC:gauge1:getpressure TIC:gauge2:on:set TIC:gauge2:on:get TIC:gauge2:state:get TIC:gauge2:getpressure TIC:gauge2:on:reason VALVE:s1:get
+```
+
+The lab computer has no EPICS of its own: there `camonitor`, `caget` and `caput` are in the
+GUI's pvServer container, so each of them in this section is written with this in front, and
+its time stamps are UTC (seen on the lab computer, lab session, 2026-11-25; the tools are at
+that path in the image built here):
+
+```bash
+docker exec mist2ras-pvserver-1 /epics/base/bin/linux-x86_64/camonitor TIC:backing:start:set TIC:backing:start:get TIC:backing:state:get TIC:backing:start:reason TIC:turbo:start:set TIC:turbo:start:get TIC:turbo:state:get TIC:turbo:speed:get TIC:turbo:atspeed:get TIC:turbo:start:reason TIC:gauge1:getpressure TIC:gauge2:on:set TIC:gauge2:on:get TIC:gauge2:state:get TIC:gauge2:getpressure TIC:gauge2:on:reason VALVE:s1:get
 ```
 
 1. **The AIM's slave setup, IOC stopped** (on the rack server, the rack IOC stopped, the
@@ -452,7 +463,7 @@ camonitor TIC:backing:start:set TIC:backing:start:get TIC:backing:state:get TIC:
    You should see the ten lines as before and two more, `?S913 4` and `?S914 4`, each with a
    reply. **Send back** both lines as printed: their form decides whether the IOC reads them
    (`=S914 4;...`, the form seen for the turbopump, or another one).
-2. **The IOC takes over, sending nothing.** Pull, start the rack IOC, both pumps off at the
+2. **The IOC takes over, sending nothing.** Start the rack IOC, both pumps off at the
    panel. `caget -a TIC:backing:start:set TIC:turbo:start:set TIC:gauge2:on:set
    TIC:gauge2:slave:get TIC:gauge2:slave:raw`: you should see `stop`, `stop`, `off` without
    alarm (taken over from the TIC, nothing sent: the cart does not move), "not linked" or
