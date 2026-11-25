@@ -1179,6 +1179,20 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: a line from the rack server; the TIC's adapter is not there yet
+
+The owner pasted, from `mist-2@mist-2-rack-IOC`, the output of
+`udevadm info -q property -n /dev/ttyUSB1 | grep -E "ID_PATH=|ID_VENDOR_ID|ID_MODEL_ID"`:
+`ID_MODEL_ID=1000`, `ID_VENDOR_ID=1192`, `ID_PATH=pci-0000:00:1d.0-usb-0:1.2:1.0`.
+
+- **That is the Matsusada CO-U32 adapter, not the TIC's:** USB ID `1192:1000` in socket 1.2 is
+  the line of `99-mist2-matsusada.rules` that gives `/dev/mist2/co-u32`. So on the rack server
+  `/dev/ttyUSB1` is the CO-U32 today, which agrees with the rule (seen in the owner's paste).
+  The number in my example command was a guess of mine.
+- **The TIC's adapter** (Prolific, `067b:2303`) was still in the lab computer at 14:00 (`lsusb`
+  there). Its line from the rack server is still to come.
+- The rack server's host name and user are in `CLAUDE.md` now.
+
 ### 2026-11-25: the TIC station shut down over the serial line, by hand (owner's word)
 
 Owner: "yes, push your commits and shut the TIC station down gracefully. I think tic_station is
