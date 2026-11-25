@@ -1324,14 +1324,30 @@ IOC:** the big turbopump (manual, at its controller). **Dropped:** the homemade 
 1. The cart's mains back; on the rack server `ls -l /dev/mist2/ /dev/serial/by-path/`: the
    TIC's adapter and the two Matsusada adapters are named by their USB socket and lose the name
    in another socket. The TIC's line must be `pci-0000:01:00.0-usb-0:4.4:1.0-port0`.
-2. On the rack server a `git pull` (T31: the gauge box out of the IOC, new drawings and labels)
-   and the IOC's start. The first start after a boot restarts the valve box and releases its
-   relays.
-3. Read `TIC:ident:get`, `TIC:gauge1:*`, `TIC:gauge2:*`, `PRESSURE:foreline:*`. A gauge that the
+2. On the rack server a `git pull`. It brings T31 (the gauge box out of the IOC, new drawings
+   and labels) and T32 (the cart's pumps and the AIM from the IOC and the GUI; pushed by the
+   development session as `38f48a5` at 22:23 on 2026-11-25, after the lab was shut down).
+3. **Before the IOC's start,** step 1 of T32's first start (`LAB-SETUP.md`, "The TIC cart's
+   pumps and the AIM from the IOC: the first start (T32)"): the probe on the TIC's line with
+   its two added queries, `?S913 4` and `?S914 4`. It wants the IOC stopped, which it is after
+   a boot, and the probe knows `--query` only after the pull. Queries only. It is the owner's
+   to run on the rack server and to paste; the two added lines go to the development session
+   as printed, by message.
+4. The IOC's start. The first start after a boot restarts the valve box and releases its
+   relays. By the development session's word the start sends no command to the TIC (the three
+   requests take over the TIC's state); **not seen on hardware**, it is step 2 of T32's first
+   start, with the cart in view and both pumps off at the panel.
+5. Read `TIC:ident:get`, `TIC:gauge1:*`, `TIC:gauge2:*`, `PRESSURE:foreline:*`. A gauge that the
    TIC shows as "New ID" must be accepted at its panel before the IOC has a pressure.
-4. If T32 is pushed by then: its first use is written steps in `LAB-SETUP.md`, the backing
-   pump first, with a lab session watching the read-backs.
-5. Not needed, when wanted: the rule file on the rack server for `/dev/mist2/tic_station`.
+6. T32's steps 3 to 10 in their order, each on its own. **Steps 3 to 9 are requests to real
+   things (the backing pump, the cart's turbopump, the AIM): a lab session sends none of them
+   without the owner's word for that step.** Steps 3 and 6 are meant to be refused by the IOC
+   with nothing sent; that refusal has not met the hardware either. Step 7 is the first
+   `!C914 1` the TIC ever gets (from the manual only, A54). A lab session keeps the
+   `camonitor` log of `LAB-SETUP.md` running from before step 2 to the end, in the pvServer
+   container as below, written to a file outside the repository; what it showed goes into
+   this section in words.
+7. Not needed, when wanted: the rule file on the rack server for `/dev/mist2/tic_station`.
 
 **What a lab session on `mist-at-iba` should know:**
 
@@ -1345,8 +1361,18 @@ IOC:** the big turbopump (manual, at its controller). **Dropped:** the homemade 
   still active on the lab computer, and its sleep targets are not masked.
 - The GUI: three containers with the restart policy `unless-stopped`; `make -C RAS/mist2 dev-up`
   works since `3c58422`. <http://localhost:3000/>.
+- **The GUI on the lab computer has T32 already** (seen 2026-11-25, 22:28 to 22:29, after my
+  pull of `38f48a5`): the frontend took the new source without a restart (its log: updates of
+  the changed files at 22:28:16, no error line), and the TIC's window (`/device/tic`) shows
+  STOP and RUN for the cart's turbopump and for its backing pump, and OFF and ON for the AIM,
+  every field "no connection" with the rack server shut down. I pressed none of them. **Not
+  seen:** any of the three against an IOC, the confirmation, the warning for a turbopump stop
+  with the foreline valve open.
 - With the TIC's adapter on the rack server no command can be sent to the TIC by hand: the IOC
-  holds the line and has no command record until T32.
+  holds the line. It has no command record until the rack server has pulled T32; from then on
+  the three requests of `tic_control.db` (`TIC:backing:start:set`, `TIC:turbo:start:set`,
+  `TIC:gauge2:on:set`) are the way, by the GUI or by `caput`, and each is a switch of
+  something real.
 - Today's raw logs and the helper programs I used by hand (the TIC log, the queries, the two
   pump commands, the shut-down sequence, the load test) are in
   `/home/mist/mist-2-claude/lab-logs-2026-11-25/` on the lab computer, outside the repository,
