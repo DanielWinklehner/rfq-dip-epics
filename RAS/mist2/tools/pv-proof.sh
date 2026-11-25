@@ -37,7 +37,8 @@ if [ "$standin" = 1 ] && [ "$prefix" = 172.30.0 ]; then
     exit 2
 fi
 
-compose=(docker compose -f compose.dev.yaml)
+# --profile build: Compose 2.40.3 refuses the project file without it (see the Makefile)
+compose=(docker compose -f compose.dev.yaml --profile build)
 standin_compose=(docker compose -f tools/standin/compose.yaml)
 set -a; . ./.env; set +a
 want="$prefix.255"

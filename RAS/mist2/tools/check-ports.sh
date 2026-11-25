@@ -6,7 +6,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 set -a; . ./.env; set +a
 
-if [ -n "$(docker compose -f compose.dev.yaml ps -q 2>/dev/null)" ]; then
+# --profile build: Compose 2.40.3 refuses the project file without it (see the Makefile)
+if [ -n "$(docker compose -f compose.dev.yaml --profile build ps -q 2>/dev/null)" ]; then
     echo "check-ports: the mist2ras stack is already running, ports not checked"
     exit 0
 fi
