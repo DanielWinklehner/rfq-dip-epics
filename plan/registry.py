@@ -111,6 +111,7 @@ def build(model):
         labels, states = owner.get("labels") or {}, owner.get("states") or {}
         spare, confirm = set(owner.get("spare") or []), owner.get("confirm") or {}
         channel_flags = owner.get("channel_flags") or {}
+        channel_classes = owner.get("channel_classes") or {}   # a channel with its own widget class (the TIC's pumps)
         absent = {}      # PVs of a channel that is not installed: listed apart (not_installed_pvs)
         for pv in owner["pvs"]:
             if pv["state"] != "existing":
@@ -139,6 +140,8 @@ def build(model):
                             channel["flags"] = channel_flags[pv["channel"]]
                         if pv["channel"] in states:
                             channel["states"] = states[pv["channel"]]
+                        if pv["channel"] in channel_classes:
+                            channel["class"] = channel_classes[pv["channel"]]
                         channel["roles"] = {}
                     scope = out_channels[pv["channel"]]["roles"]
                 scope[pv["role"]] = pv["name"]

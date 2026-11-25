@@ -1,4 +1,4 @@
-import { channelLabel, connectedChannels, devices, pvInfo, rolesOf, wordsOf } from "../registry";
+import { channelClass, channelLabel, connectedChannels, devices, pvInfo, rolesOf, wordsOf } from "../registry";
 import { roleText } from "../roles";
 
 // The tag form of each widget class (LAYOUT.md 1.4): the roles a tag reads.
@@ -6,8 +6,8 @@ import { roleText } from "../roles";
 const tagRoles = {
   supply: ["vread", "iread", "out_state"],
   valve: ["state"],
-  gauge: ["p"],
-  turbo: ["state", "speed"],
+  gauge: ["p", "result"],
+  turbo: ["state", "speed", "result"],
   mfc: ["flow", "sp"],
   reading: ["value"],
   interlock: ["open", "state"],
@@ -40,15 +40,16 @@ const stateBeside = { gauge: "p" };
 // that channel; a tag of a device shows the device's roles, then every
 // connected channel (spare ones only in the device window).
 const tagRows = (id, channel) => {
-  const { class: kind } = devices[id];
-  const reads = tagRoles[kind] ?? ["id"];
-  const sets = setRoles[kind] ?? [];
   const rowsOf = (ch, label) => {
+    // a channel with a class of its own (the pumps of the TIC station) is shown as that class
+    const kind = (ch && channelClass(id, ch)) ?? devices[id].class;
+    const reads = tagRoles[kind] ?? ["id"];
+    const sets = setRoles[kind] ?? [];
     const roles = rolesOf(id, ch);
     const read = reads.filter((role) => roles[role]);
     const set = sets.filter((role) => roles[role] && pvInfo(roles[role]).access === "w");
     const rowLabel = (role) =>
-      label && read.length + set.length === 1 ? label : [label, roleText(id, role)].filter(Boolean).join(" ");
+      label && read.length + set.length === 1 ? label : [label, roleText(id, role, ch)].filter(Boolean).join(" ");
     return [
       ...read.map((role) => ({
         pv: roles[role],

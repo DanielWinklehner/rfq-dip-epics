@@ -16,6 +16,10 @@
 //   setpoint <id> <role> type the middle of the test range, Enter; prints the value
 //   command <id> <channel|-> <role> <value> <dialog|nodialog>
 //                        press a request button; the confirmation must (not) appear
+//   ask <id> <channel|-> <role> <value> <warn|nowarn>
+//                        press a request button; the confirmation must appear,
+//                        with (warn) or without (nowarn) its warning; Cancel:
+//                        the request keeps its value (nothing is sent)
 //   alloff               press ALL HV OFF in the app bar
 //   shows <id> <role> <value>
 //                        the request buttons of a role show that value pressed
@@ -489,6 +493,34 @@ const phases = {
       await page.getByRole("dialog").getByRole("button").last().click();
     }
     await page.waitForTimeout(1000);
+    await page.close();
+  },
+
+  async ask() {
+    const [id, channel, role, value, warn] = args;
+    const roles = channel === "-" ? devices[id].roles : devices[id].channels[channel].roles;
+    const page = await openDevice(id);
+    await settle(page);
+    const group = page.locator(`[data-part="Controls"] [data-pv="${roles[role]}"]`);
+    const before = await group.locator('[aria-pressed="true"]').textContent();
+    await group.getByRole("button").nth(Number(value)).click();
+    const dialog = page.getByRole("dialog");
+    const shown = await dialog
+      .waitFor({ state: "visible", timeout: 2000 })
+      .then(() => true)
+      .catch(() => false);
+    check(shown, `${id} ${channel} ${role} := ${value}: asks for confirmation`);
+    if (shown) {
+      await page.waitForTimeout(1500); // the dialog fades in, the warning's PV connects
+      const warned = (await dialog.locator("[data-warning]").count()) > 0;
+      check(warned === (warn === "warn"), `${id} ${channel} ${role} := ${value}: ${warned ? "warns" : "does not warn"}` +
+        (warned ? ` (${(await dialog.locator("[data-warning]").textContent()).slice(0, 60)}...)` : ""));
+      await shot(page, `ask-${id}-${channel}-${value}-${warn}`, false);
+      await dialog.getByRole("button").first().click(); // Cancel
+      await page.waitForTimeout(1000);
+      const after = await group.locator('[aria-pressed="true"]').textContent();
+      check(after === before, `${id} ${channel} ${role}: Cancel keeps ${before} (now ${after})`);
+    }
     await page.close();
   },
 

@@ -66,6 +66,11 @@ class ParseDb(unittest.TestCase):
         self.assertEqual(len(recs), 1)
         self.assertEqual(recs[0]["aliases"], ["X:old", "X:older"])
 
+    def test_a_macro_with_a_default_after_the_prefix_is_part_of_the_key(self):
+        text = 'record(bo, "$(D=TIC):gauge$(S=2):on:set")\nrecord(calc, "$(P):_take:$(N)")\n'
+        self.assertEqual([r["key"] for r in parse(text)], ["gauge2:on:set", "_take:$(N)"])
+        self.assertEqual([r["key"] for r in parse(text, {"S": "3", "N": "x", "P": "A"})], ["gauge3:on:set", "_take:$(N)"])
+
     def test_alias_of_an_unknown_record(self):
         with self.assertRaisesRegex(DbError, "test.db line 1: alias b for record a"):
             parse('alias("a", "b")\n')
@@ -294,6 +299,21 @@ class DrivesAndTrends(unittest.TestCase):
             data["databases"]["loop.db"]["drives"]["macro"] = "HB"     # the heartbeat: a calc, not written
         warnings = self.model_with(change).warnings
         self.assertTrue(any("drives IOC-HV:heartbeat, which is not a written record" in w for w in warnings), warnings)
+
+    def test_confirm_per_value_with_a_warning_and_channel_classes(self):
+        tic = lambda data: [d for d in data["devices"] if d["id"] == "tic"][0]  # noqa: E731
+        model = Model(os.path.join(REPO, "plan", "controls.yaml"), os.path.join(REPO, "EPICS", "Db"))
+        self.assertEqual([w for w in model.warnings if "confirm" in w or "channel_classes" in w], [])
+        warnings = self.model_with(lambda data: tic(data)["confirm"]["turbo"][1]["warn"].update(pv="VALVE:s9:nothing")).warnings
+        self.assertTrue(any("warns by VALVE:s9:nothing" in w for w in warnings), warnings)
+        warnings = self.model_with(lambda data: tic(data)["confirm"]["turbo"].append({"value": 1, "text": "x"})).warnings
+        self.assertTrue(any("asks twice for one value" in w for w in warnings), warnings)
+        warnings = self.model_with(lambda data: tic(data)["confirm"]["turbo"][0].update(when=1)).warnings
+        self.assertTrue(any("confirm of 'turbo' needs" in w for w in warnings), warnings)
+        warnings = self.model_with(lambda data: tic(data)["channel_classes"].update(turbo="pump")).warnings
+        self.assertTrue(any("'pump' is no widget class" in w for w in warnings), warnings)
+        warnings = self.model_with(lambda data: tic(data)["channel_classes"].update(cart="turbo")).warnings
+        self.assertTrue(any("channel_classes for 'cart'" in w for w in warnings), warnings)
 
     def test_channel_flags_name_a_channel_and_a_known_flag(self):
         tic = lambda data: [d for d in data["devices"] if d["id"] == "tic"][0]  # noqa: E731

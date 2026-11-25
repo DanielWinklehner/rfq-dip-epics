@@ -8,6 +8,9 @@
    say that all queries were answered.
 2. A fake that reads and never answers: the probe must print NO REPLY for every query and exit
    with 1.
+3. Extra queries (--query, task T32): "?S913 4" and "?S914 4" are sent after the ten and their
+   replies printed; anything that is not a query ("!C904 1", "!S914 4;...", "?S914 4 1",
+   "?S914;") is refused before the line is opened: exit code 3, nothing sent.
 The fake also checks that the probe sent queries only ("?"), never a command or setup ("!").
 Exit code 0 when both runs behave so, 1 otherwise. Python 3 standard library only, Linux.
 """
@@ -30,6 +33,8 @@ REPLIES = {
     "?V905": "=V905 100.0;0;0",
     "?V910": "=V910 4;0;0",
     "?S910 3": "=S910 3;8",
+    "?S913 4": "=S913 4;0;59;0.0000e+00;0.0000e+00;0",   # the form seen for ?S904 4 (no master)
+    "?S914 4": "=S914 4;913;59;1.3332e+00;2.6664e+00;1",  # a link on gauge 1 (made up)
 }
 
 
@@ -57,12 +62,12 @@ class Fake(threading.Thread):
                     os.write(self.master, REPLIES[text].encode("ascii") + b"\r")
 
 
-def run(answer):
+def run(answer, extra=()):
     master, slave = os.openpty()
     fake = Fake(master, answer)
     fake.start()
     try:
-        result = subprocess.run([sys.executable, PROBE, os.ttyname(slave), "--timeout", "0.3"],
+        result = subprocess.run([sys.executable, PROBE, os.ttyname(slave), "--timeout", "0.3"] + list(extra),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                 timeout=60)
     finally:
@@ -93,6 +98,19 @@ def main():
     if any(not m.startswith("?") for m in received):
         print("FAIL: the probe sent something other than queries: %r" % received)
         good = False
+    print("== 3. extra queries")
+    result, received = run(answer=True, extra=["--query", "?S913 4", "--query", "?S914 4"])
+    if result.returncode != 0 or "EXTRA: 2 of 2 extra queries answered" not in result.stdout \
+            or received[-2:] != ["?S913 4", "?S914 4"] or len(received) != 12 \
+            or "master 913, units 59 pressure, Pa, on 1.3332e+00, off 2.6664e+00, enabled" not in result.stdout:
+        print("FAIL: expected both extra queries sent last, answered and read as slave setups: %r" % received)
+        good = False
+    for bad in ("!C904 1", "!S914 4;913;59;1;2;1", "?S914 4 1", "?S914;", "?C904", "?S914 4\r!C904 1"):
+        result, received = run(answer=True, extra=["--query", "?S914 4", "--query", bad])
+        if result.returncode != 3 or received or "refused" not in result.stdout:
+            print("FAIL: %r was not refused before the line was opened (exit %d, sent %r)"
+                  % (bad, result.returncode, received))
+            good = False
     print("PASS" if good else "FAILED")
     return 0 if good else 1
 

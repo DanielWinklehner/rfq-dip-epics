@@ -1,7 +1,9 @@
-# tic.proto - Edwards TIC controller over RS-232, queries only (database: tic.db, task T29)
+# tic.proto - Edwards TIC controller over RS-232 (databases: tic.db, task T29; tic_control.db, T32)
 #
-# READ-ONLY: this file sends no command ("!C") and no setup ("!S"). Starting and stopping a pump
-# waits until it is known what the station runs (decision D1 of T29).
+# The protocols down to "ident_sw" are queries only, and they are all that tic.db uses: tic.db
+# alone sends no command ("!C") and no setup ("!S"). The protocols at the end ("command", task T32)
+# send a command; only tic_control.db uses them, for the requests of the station's two pumps and
+# of one gauge. No protocol here sends a setup ("!S").
 #
 # Source: Edwards "Turbo Instrument Controller (TIC) Serial Communications", D397-30-880 Issue H
 # (2012), which covers all seven TIC variants (Instrument Controller 3 and 6 gauges, Turbo
@@ -91,4 +93,46 @@ ident_model {
 ident_sw {
     ExtraInput = Ignore;
     in "=S902 %*[^;];%39[^;]";
+}
+
+# ------------------------------------------------------------------ task T32 (tic_control.db)
+
+# A command: "!C<obj> <d>", answered "*C<obj> <r>" (D397-30-880 Table 1: 904 turbo pump and 910
+# backing pump "Turn pump on/off", On = 1, Off = 0; 913-915 gauges "On/off", 1.7.5 Gauge On = 1,
+# Gauge Off = 0; the response codes of Table 3, 0 "no error"). Used by the request records (bo)
+# of tic_control.db: the record's value is sent (%d, the RVAL of a bo without MASK: 0 or 1).
+# Seen on the lab's controller (2026-11-25, sent by hand): "!C910 1", "!C910 0", "!C904 1",
+# "!C904 0", each answered "*C9xx 0" after 19 ms. The gauge's "!C914 1" / "!C914 0" were not
+# tried: from the manual only.
+# The acknowledgement "*C<obj> 0" ends the request without alarm. Another code: the @mismatch
+# handler stores it in the bo's own field IVOV (not used otherwise: the records have IVOA "Don't
+# drive outputs") and the record ends INVALID/CALC; tic_control.db shows the code's word. No
+# reply: INVALID/TIMEOUT. Every reply names its object, so a late reply to a query is not taken
+# for the acknowledgement.
+command {
+    out "!C\$1 %d";
+    in "*C\$1 0";
+    @mismatch { in "*C\$1 %(IVOV)d"; }
+}
+
+# The slave setup of a gauge, read only: "?S<obj> 4" (Table 1, objects 913-915, config type 4:
+# "Read slave setup - master; units type; on setpoint; off setpoint, enable"; master an object
+# ID, gauge 1/2/3 or the turbo speed; set points in pascal for units 59). The form of the reply is
+# that seen on the lab's controller for the turbopump's object 904 (2026-11-25):
+# "=S904 4;0;59;0.0000e+00;0.0000e+00;0", config type first. The gauges' replies were not seen;
+# the manual's own example (1.6.2.3) has no config type ("=S904 913;59;5.1e-2;4.9e-1;1"): such a
+# reply, or any other form, leaves the record INVALID (CALC, as a mismatch) and slave_raw keeps
+# its text. Fields into the calcout's A (master), B (units type), C (on), D (off), E (enable),
+# an error code into F.
+slave {
+    out "?S\$1 4";
+    in "=S\$1 4;%(A)d;%(B)d;%(C)g;%(D)g;%(E)d";
+    @mismatch { in "*S\$1 %(F)d"; }
+}
+
+# The text of every "=S<obj> ..." reply that slave requested (SCAN I/O Intr: it sends nothing),
+# whatever its form, for the first contact with a controller whose replies are not known.
+slave_raw {
+    ExtraInput = Ignore;
+    in "=S\$1 %39[^\r]";
 }

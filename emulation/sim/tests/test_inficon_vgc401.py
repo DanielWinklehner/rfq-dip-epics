@@ -191,12 +191,12 @@ class Range(unittest.TestCase):
     """T31: the head's measuring range (a configuration value): underrange and overrange."""
 
     def setUp(self):
-        self.sim, _ = make(gauge="PCG", unit=1, range_torr=[3.75e-5, 1125.0], pressure=0.03)
+        self.sim, _ = make(gauge="PCG", unit=1, range_torr=[3.75e-4, 1125.0], pressure=0.03)
 
     def test_inside_outside(self):
         self.assertEqual(read(self.sim, b"PR1"), "0, 3.0000E-02")
         self.sim.pressure.target = 1e-6
-        self.assertEqual(read(self.sim, b"PR1"), "1, 3.7500E-05")
+        self.assertEqual(read(self.sim, b"PR1"), "1, 3.7500E-04")
         self.sim.pressure.target = 2000.0
         self.assertEqual(read(self.sim, b"PR1"), "2, 1.1200E+03")
         self.sim.pressure.target = 760.0

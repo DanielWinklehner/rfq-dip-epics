@@ -10,15 +10,36 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import Widget from "React-Automation-Studio/components/SystemComponents/Widgets/Widget";
+import { useEpicsPV } from "React-Automation-Studio/components/SystemComponents/EpicsPV";
 import { alarmColors, alarmState, alarmWord, marker } from "../../alarm/severity";
+
+// The registry's question for a value: `confirm` is one { value, text } or a
+// list of them (a pump's start and stop, T32).
+const questionFor = (confirm, value) => [].concat(confirm ?? []).find((ask) => ask.value === value);
+
+// A warning in the question ({ pv, unless, text }): shown unless the PV is
+// connected, valid and reads `unless` (the foreline valve closed before the
+// cart's turbopump is stopped). Read while the question is open; until the PV
+// has connected its state is not known, so the warning shows.
+const Warning = ({ warn }) => {
+  const pv = useEpicsPV({ pv: warn.pv });
+  const known = pv.initialized && Number(pv.severity) < 3 && Number(pv.value) === Number(warn.unless);
+  if (known) return null;
+  return (
+    <Typography color="error" fontWeight={600} sx={{ mt: 1.5 }} data-warning={warn.pv}>
+      {warn.text}
+    </Typography>
+  );
+};
 
 const PvCommandComponent = (props) => {
   const theme = useTheme();
   const [asked, setAsked] = useState(null);
   const state = alarmState(props.initialized, props.alarmSeverity);
   const colors = alarmColors(theme, state);
+  const question = asked === null ? null : questionFor(props.confirm, asked);
   const send = (value) => {
-    if (props.confirm?.value === value) setAsked(value);
+    if (questionFor(props.confirm, value)) setAsked(value);
     else props.handleImmediateChange(value);
   };
   return (
@@ -51,7 +72,10 @@ const PvCommandComponent = (props) => {
       </ToggleButtonGroup>
       <Dialog open={asked !== null} onClose={() => setAsked(null)}>
         <DialogTitle>Confirm</DialogTitle>
-        <DialogContent>{props.confirm?.text}</DialogContent>
+        <DialogContent>
+          {question?.text}
+          {question?.warn && <Warning warn={question.warn} />}
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setAsked(null)}>Cancel</Button>
           <Button
@@ -71,7 +95,8 @@ const PvCommandComponent = (props) => {
 
 // A binary request (output, valve, pump, gauge, loop mode): one button per
 // state, named by the registry's words (custom_selection_strings). `confirm` =
-// { value, text } from the registry asks first. `dense`: the form inside a
+// { value, text } from the registry, or a list of them, asks first, with a
+// warning where the question has one. `dense`: the form inside a
 // tag, without the label (the tag row has it).
 const PvCommand = (props) => <Widget {...props} component={PvCommandComponent} />;
 

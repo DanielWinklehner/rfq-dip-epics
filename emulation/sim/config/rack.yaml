@@ -218,9 +218,10 @@
 # Read only. On the roughing line, the turbopump's foreline (owner, 2026-11-25); the plant model's
 # foreline pressure drives it (config/plant.yaml). Seen on the lab's controller (2026-11-25, lab
 # session): 9600 baud, gauge head PCG, unit Torr, firmware 302-519-D, a reply after 91 to 112 ms.
-# ASSUMED: the PCG's measuring range, 5e-5 to 1500 mbar (INFICON's data sheet of the PCG550, as
-# remembered, not read for this task), and that the controller then reports underrange or
-# overrange with the end of the range as its value (the manual gives neither).
+# The lower end of the range is seen on the lab's controller (2026-11-25): "Underrange" with the
+# value standing at 3.76e-4 torr (5e-4 mbar). ASSUMED: the upper end, 1500 mbar (INFICON's data
+# sheet of the PCG550, as remembered, not read), and that the controller reports overrange with
+# the end of the range as its value (the manual gives neither).
 - name: vgc401
   type: inficon_vgc401
   port: 5034
@@ -231,14 +232,22 @@
     unit: 1                   # seen: Torr (UNI answers 1)
     firmware: "302-519-D"     # seen: PNR
     pressure: 0.03            # torr, without the plant model
-    range_torr: [3.75e-5, 1125.0]   # ASSUMED: 5e-5 to 1500 mbar
+    range_torr: [3.75e-4, 1125.0]   # seen on the lab's controller, 2026-11-25 (the lower end, 5e-4 mbar); the upper end ASSUMED (1500 mbar)
     continuous: true          # sends by itself after power-on until the first character (p. 55)
 
-# --- Edwards TIC station, RS-232 (asyn port TIC), task T29 --------------------------------------
-# Read only. As the lab's station reports itself (2026-11-25, lab session): a TIC Turbo and
-# Instrument Controller (TIC100) with an EXT75DX turbopump and a mains backing pump. Both pumps
-# run here, so that every PV has a value while nothing is at fault (the real cart's state is
-# whatever the owner set at its panel).
+# --- Edwards TIC station, RS-232 (asyn port TIC), tasks T29, T31, T32 ---------------------------
+# As the lab's station reports itself (2026-11-25, lab session): a TIC Turbo and Instrument
+# Controller (TIC100) with an EXT75DX turbopump and a mains backing pump. Both pumps run at the
+# start, so that every PV has a value while nothing is at fault (the real cart's state is
+# whatever the owner set at its panel). Since T32 the IOC starts and stops both pumps and switches
+# the AIM ("!C904", "!C910", "!C914"); what the simulator does after each command is what the lab's
+# controller was seen to do (edwards_tic.py), with these named values:
+#   turbo_runup, turbo_rundown_backing_off, turbo_rundown_backing_on: the defaults, the speed
+#   curves seen on 2026-11-25 (the last point of the run-down with the backing pump on, 0 % after
+#   600 s, is ASSUMED: it was still Braking at 0.7 % after 5 minutes).
+#   ASSUMED, not seen: turbo_delay_s (the old state after a command: seen more than 51 ms, less than
+#   5 s), turbo_running_pct and turbo_stopped_pct (between seen samples), start_without_backing and
+#   start_while_braking (not tried on the controller; the IOC refuses the first itself).
 # The gauges (owner, 2026-11-25; task T31): socket 1 the APG100-XM, socket 2 a regular AIM, both
 # on the six-way cross; socket 3 empty (plan: device tic, channel gauge3 not installed). The plant
 # model drives both (config/plant.yaml): the APG with the true cross pressure (the simulator
@@ -246,23 +255,28 @@
 # values below.
 #   APG: seen on the lab's TIC to report exactly 1.0000e-02 Pa at high vacuum and exactly
 #   1.0000e+05 Pa at atmosphere, always in the state On (floor_pa, top_pa).
-#   AIM: seen at atmosphere in the state 5 "Off", units 59, alert 0, priority 0. The owner's rule
-#   (2026-11-25): not on until the APG shows 1e-2 torr or lower (on_torr). Who switches it on is
-#   not seen (the TIC's own slave setup, D397-30-880 Table 1 object 914, or the owner at the
-#   panel); here the TIC does, by socket 1's value. ASSUMED: off again above 2e-2 torr
-#   (off_torr) and 3 s in the state 6 "Striking" (strike_s): neither is seen nor in a manual read.
+#   AIM: seen at atmosphere in the state 5 "Off". The lab's TIC did not switch it on by itself when
+#   the APG passed 1e-2 torr: the owner switched it at the panel (seen), so here it has no slave
+#   link ("?S914 4" answers "not linked", as the turbopump's object did on the lab's TIC) and is
+#   switched by "!C914" or the panel (signal g2.panel). It starts On, so that every PV is valid
+#   while nothing is at fault. After a switch-on it reports one standing value for standing_s
+#   (146 s, seen), after strike_s in the state Striking (0.5 s, ASSUMED: none seen at a 1 s scan).
 - name: tic
   type: edwards_tic
   port: 5035
   baud: 9600
-  turnaround_ms: 20           # ASSUMED: the manual says less than 100 ms
+  turnaround_ms: 20           # seen: commands answered after 19 ms; queries 23 to 50 ms
   options:
     variant: TIC
     gauges:
       - {pressure: 4.3e-6, floor_pa: 1.0e-2, top_pa: 1.0e+5}          # APG100-XM: true pressure, it reports its floor
-      - {pressure: 2.0e-6,                                             # AIM, at the base reading
-         switch: {master: 1, on_torr: 1.0e-2, off_torr: 2.0e-2, strike_s: 3.0}}
+      - {pressure: 2.0e-6, standing_s: 146.0, strike_s: 0.5}           # AIM, at the base reading, On, no slave link
       - null                                                           # socket 3: empty
     turbo_type: 3             # EXT75DX Pump, as the lab's cart reports (2026-11-25)
     backing_type: 8           # Mains Backing Pump (D397-30-880 1.7.11)
     backing_state: 4          # On State (1.7.6)
+    turbo_delay_s: 1.0        # ASSUMED: the turbopump's old state after its command
+    turbo_running_pct: 50.5   # ASSUMED: seen 50.1 % Accelerating, 54.3 % Running
+    turbo_stopped_pct: 0.2    # ASSUMED: seen 0.3 % Braking, 0.1 % Stopped
+    start_without_backing: accept     # ASSUMED (not tried); the IOC refuses such a start
+    start_while_braking: accelerate   # ASSUMED (not tried)

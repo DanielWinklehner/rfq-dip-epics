@@ -374,9 +374,10 @@ line in eight places of `EPICS/Db/matsusada_co_ctrl.proto` and of `rek.proto`.
 
 ### The foreline gauge and the TIC
 
-Both are read only: the IOC asks for readings and sends no setting and no command (tasks T29 and
-T30, `docs/emulation/VGC401.md`, `docs/emulation/TIC.md`). **Neither has met its controller.**
-Each has a probe that runs without an IOC; run it first and send me its output.
+Both are read by the IOC (tasks T29 and T30, `docs/emulation/VGC401.md`,
+`docs/emulation/TIC.md`), which sends them no setting. The VGC401 gets no command; the TIC gets
+one only when an operator starts or stops one of its pumps or switches the AIM (T32, the next
+section). Each has a probe that runs without an IOC; run it first and send me its output.
 
 1. **Probe**, with the controller's serial socket on a USB to RS-232 adapter (a straight cable
    for both, by their manuals), on whichever computer the adapter is plugged into. Two things
@@ -427,6 +428,76 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    anything reads it: until then its state is "New Gauge Id" and its pressure INVALID (seen
    on 2026-11-25: more than two minutes, until the gauge was selected at the panel). The TIC
    sends pascal on its serial line whatever its display shows; the IOC converts to torr.
+
+### The TIC cart's pumps and the AIM from the IOC: the first start (T32)
+
+Since T32 the rack IOC can start and stop the cart's two pumps and switch the AIM on socket 2
+(`tic_control.db`, `docs/emulation/TIC.md`, "Control"). The pump commands are those sent by hand
+on 2026-11-25 (`!C910`, `!C904`); **the AIM's command (`!C914 1`) has never been sent to the
+TIC**: it is from the manual only. **Nothing of it has met the real TIC through the IOC.** Do
+the steps in this order, each on its own, with the cart in view; keep a log running on the lab
+computer from step 1 to the end and send it back:
+
+```bash
+camonitor TIC:backing:start:set TIC:backing:start:get TIC:backing:state:get TIC:backing:start:reason TIC:turbo:start:set TIC:turbo:start:get TIC:turbo:state:get TIC:turbo:speed:get TIC:turbo:atspeed:get TIC:turbo:start:reason TIC:gauge1:getpressure TIC:gauge2:on:set TIC:gauge2:on:get TIC:gauge2:state:get TIC:gauge2:getpressure TIC:gauge2:on:reason VALVE:s1:get
+```
+
+1. **The AIM's slave setup, IOC stopped** (on the rack server, the rack IOC stopped, the
+   adapter's name from `ports.real.cmd`): queries only, the probe refuses anything else.
+
+   ```bash
+   python3 EPICS/ioc/host/edwards_tic_probe.py <the TIC's device> --query "?S913 4" --query "?S914 4"
+   ```
+
+   You should see the ten lines as before and two more, `?S913 4` and `?S914 4`, each with a
+   reply. **Send back** both lines as printed: their form decides whether the IOC reads them
+   (`=S914 4;...`, the form seen for the turbopump, or another one).
+2. **The IOC takes over, sending nothing.** Pull, start the rack IOC, both pumps off at the
+   panel. `caget -a TIC:backing:start:set TIC:turbo:start:set TIC:gauge2:on:set
+   TIC:gauge2:slave:get TIC:gauge2:slave:raw`: you should see `stop`, `stop`, `off` without
+   alarm (taken over from the TIC, nothing sent: the cart does not move), "not linked" or
+   "linked", and the text of the reply of step 1. **Send back** the output; if
+   `TIC:gauge2:slave:get` is INVALID ("No valid reply"), the reply had another form: that is
+   expected possible and changes nothing else.
+3. **A refusal, nothing sent.** With the backing pump off, press the turbopump's RUN in the GUI
+   (or `caput TIC:turbo:start:set 1`). You should see the request go back to `stop` at once,
+   `TIC:turbo:start:reason` "Refused: backing not on", and the cart does nothing.
+4. **The backing pump on.** Its RUN in the GUI, confirm (or `caput TIC:backing:start:set 1`).
+   You should hear it start, and see `TIC:backing:start:reason` "Acknowledged" without alarm,
+   `TIC:backing:state:get` "On" within 2 s, `TIC:backing:start:get` "run". **If the reason is
+   another word** (a code of the TIC, "No reply"), stop here and send it back; the request
+   stays INVALID and the pump keeps its state.
+5. **The turbopump on**, when the pressure is low enough for you (the EXT75DX's manual: critical
+   backing pressure 8 mbar for nitrogen). Its RUN, confirm. You should see "Acknowledged", the
+   state "Accelerating" within about 5 s, "Running" from about 50 %, and
+   `TIC:turbo:atspeed:get` "at speed" from 95 % (about two minutes, as by hand on 2026-11-25).
+6. **The second refusal.** With the turbopump running, press the backing pump's STOP, confirm.
+   You should see the request back at `run` at once, the reason "Refused: turbopump runs", and
+   the backing pump keeps running.
+7. **The AIM on, the first `!C914 1` ever** (from the manual only), when the APG reads 1e-2
+   torr or lower (the IOC refuses it above: "Refused: APG > 1e-2 torr", or "Refused: APG not
+   valid"). Its switch in the GUI (or `caput TIC:gauge2:on:set 1`). You should see
+   "Acknowledged", `TIC:gauge2:state:get` "On" (perhaps "Striking" first), and its pressure:
+   on 2026-11-25 the first value stood still for 146 s before it followed the pressure (P74),
+   so do not trust it in that time. **Send back** what the reason says and what the TIC's
+   panel shows; if the reason is a code of the TIC ("Invalid cmd for object ID" and the like),
+   the command is not the TIC's: switch the AIM at the panel as before.
+8. **The AIM off** (`caput TIC:gauge2:on:set 0`): "Acknowledged", the state "Off", the pressure
+   INVALID. Then on again if you need it.
+9. **The shut-down**, in the order of 2026-11-25: close the foreline valve (the turbopump's STOP
+   in the GUI warns while it is open or not known: the pump vents itself from its stop on, into
+   the big turbopump), the turbopump's STOP, confirm, then the backing pump's STOP. The IOC
+   allows the backing pump's stop only once the TIC's state of the turbopump reads "Braking":
+   the TIC shows a new state some seconds after the command and the IOC reads it every 2 s. So
+   for the first seconds after the turbopump's stop you will see the backing pump's request
+   go back to `run` with "Refused: turbopump runs"; wait until `TIC:turbo:state:get` (the
+   turbopump's "state" in the GUI) reads "Braking", then press the backing pump's STOP again.
+   You should then see the backing pump "Off" at once. With the backing pump left on the
+   run-down took more than five minutes. Likewise, right after the backing pump's start (step 4)
+   or stop, and right after the turbopump's start, the other pump's request is refused for up
+   to 10 s (the IOC holds the acknowledged command until the TIC's state can show it).
+10. **Send back** the `camonitor` log of all steps, and anything the cart did that the GUI did
+    not show.
 
 ## 5. First high voltage
 

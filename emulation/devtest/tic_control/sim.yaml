@@ -1,0 +1,24 @@
+# Edwards TIC (task T32): the lab's station as the rack's emulation has it (config/rack.yaml):
+# a TIC Turbo & Instrument Controller, an EXT75DX turbopump and a mains backing pump, both
+# running; the APG on socket 1 (its floor and top as seen), the AIM on socket 2, On, socket 3
+# empty. Unlike the emulation, the AIM has a slave setup on the APG (on at 1e-2 torr, off above
+# 2e-2 torr), not enabled at the start: the case enables it to read "linked" (D9a). Its standing
+# value lasts 5 s here (146 s seen), so that the case need not wait; the rest as in rack.yaml.
+- name: tic
+  type: edwards_tic
+  port: 5034                  # control port 6034
+  baud: 9600
+  turnaround_ms: 20           # seen: commands answered after 19 ms
+  options:
+    variant: TIC
+    gauges:
+      - {pressure: 4.0e-3, floor_pa: 1.0e-2, top_pa: 1.0e+5}
+      - {pressure: 2.0e-4, standing_s: 5.0, strike_s: 0.5,
+         slave: {master: 1, on_torr: 1.0e-2, off_torr: 2.0e-2, enable: false}}
+      - null
+    turbo_type: 3
+    backing_type: 8
+    backing_state: 4
+    turbo_state: 4
+    turbo_speed: 100.0
+    turbo_delay_s: 1.0

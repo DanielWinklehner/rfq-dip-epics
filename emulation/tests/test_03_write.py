@@ -7,7 +7,7 @@ import pytest
 
 import system as S
 from system import reg
-from conftest import baseline_ok, snapshot, write_target
+from conftest import baseline_ok, is_tic_request, snapshot, write_target
 
 # Read-back limits, seconds from the completed caput:
 ECHO_LIMIT = 5.0     # an echo or state read-back: the Matsusada :get records are read by a forward
@@ -28,7 +28,8 @@ def is_command(name):
     return spec.get("readback") is None and not spec["ack"]
 
 
-WRITES = [n for n in reg.writes() if not is_command(n)]
+# The TIC's requests: test_12_tic (the IOC refuses some of them in some states, the order matters)
+WRITES = [n for n in reg.writes() if not is_command(n) and not is_tic_request(n)]
 
 
 def test_commands_are_only_command_devices():

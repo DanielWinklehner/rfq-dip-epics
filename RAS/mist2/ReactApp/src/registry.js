@@ -80,6 +80,10 @@ export const connectedChannels = (id) =>
 
 export const channelLabel = (id, channel) => channelOf(id, channel).label;
 
+// The widget class of a channel that has its own (plan: channel_classes; the
+// TIC station's pumps are shown as turbopumps), else undefined.
+export const channelClass = (id, channel) => channelOf(id, channel).class;
+
 // The words of a role's values (index = value): those of the channel, else
 // the device's words for the role, else the record's own state strings.
 export const wordsOf = (id, channel, role) =>

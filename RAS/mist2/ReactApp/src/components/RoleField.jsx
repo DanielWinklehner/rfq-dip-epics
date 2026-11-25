@@ -17,7 +17,7 @@ const RoleField = ({ id, channel, role, dense, label }) => {
   if (!pv) return null;
   const { type, access, confirm } = pvInfo(pv);
   const words = wordsOf(id, channel, role);
-  const props = { pv, label: label ?? roleText(id, role) };
+  const props = { pv, label: label ?? roleText(id, role, channel) };
   if (access === "w") {
     return type === "bo" ? (
       <PvCommand {...props} custom_selection_strings={words} confirm={confirm} dense={dense} />

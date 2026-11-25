@@ -35,6 +35,9 @@ the only place where the GUI and the tests learn device and PV names.
     plan: `channel_flags`). Treated as a device that is not installed: no tag, no alarm, no
     trend; the device window names it with the reason. Such a channel is listed under
     `not_installed_channels`, not under `channels`, and its PVs under `not_installed_pvs`.
+  - `class`: the widget class of a channel that has one of its own (plan: `channel_classes`):
+    the TIC station's pumps `turbo` and `backing` are shown with the widget of a turbopump.
+    Absent elsewhere: a channel is shown by its device's widget.
   - `states`: words of the channel, index = value, for example `["closed", "open"]` for the
     valves s1 to s3 and `["out", "in"]` for the Faraday cup actuator s4. They apply to both the
     command and the read-back of the channel.
@@ -56,9 +59,12 @@ the only place where the GUI and the tests learn device and PV names.
   - `ack`: the device answers the set.
   - `readback`: a PV name, or null.
   - `note`: what a test or the GUI must know, where there is something.
-- `confirm`: `{"value": 1, "text": "..."}` on a written PV. Ask the operator with this text before
-  writing that value; other values are written without asking. Today only `VALVE:s3:set`, the
-  vent valve.
+- `confirm`: `{"value": 1, "text": "..."}` on a written PV, or a list of them (one per value).
+  Ask the operator with this text before writing that value; other values are written without
+  asking. A question may carry `"warn": {"pv": ..., "unless": 0, "text": "..."}`: the warning is
+  shown in the question unless that PV is connected, valid and reads `unless`. Today the vent
+  valve `VALVE:s3:set` (open), and the TIC cart's pumps (T32): start and stop of each, the
+  turbopump's stop with a warning while the foreline valve `VALVE:s1:get` does not read closed.
 - `sim`: the simulator behind a StreamDevice record, as `name` or `name:unit`.
 - `fails_with`: the simulators whose **silence** turns the PV INVALID (line up, no answer; also
   garbled replies, except for the NT 20 `raw` record).

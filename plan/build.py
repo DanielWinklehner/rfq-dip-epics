@@ -70,9 +70,14 @@ def expand(text, macros, undefined=None):
     return "".join(out)
 
 
-def record_key(template):
-    """Name of a record in its database without the prefix macro: $(DEV=AU-20P7)-$(UNITNUM):voltage:get -> voltage:get."""
-    return re.sub(r"^(?:\$[({][^)}]*[)}][-:]?)+", "", template)
+def record_key(template, macros=None):
+    """Name of a record in its database without the prefix macro: $(DEV=AU-20P7)-$(UNITNUM):voltage:get -> voltage:get.
+    A macro with a default after the prefix is a part of the name that a load chooses, a socket or channel number
+    (tic_control.db: $(DEVICE=TIC):gauge$(SOCKET=2):on:set -> gauge2:on:set): it is expanded with the load's value, or
+    its default. A macro without a default stays as it is (first_contact.db: _take:$(N))."""
+    rest = re.sub(r"^(?:\$[({][^)}]*[)}][-:]?)+", "", template)
+    return re.sub(r"\$[({]([A-Za-z0-9_]+)=([^)}]*)[)}]",
+                  lambda m: str((macros or {}).get(m.group(1), m.group(2))), rest)
 
 
 class DbError(Exception):
@@ -176,7 +181,7 @@ def parse_db(path, macros, undefined=None):
                         raise DbError("%s line %d: %r in the body of record %s is not field, info or alias"
                                       % (name, item_line, item, template))
                 take("}")
-            records.append({"name": expand(template, macros, undefined), "key": record_key(template), "type": rtype,
+            records.append({"name": expand(template, macros, undefined), "key": record_key(template, macros), "type": rtype,
                             "egu": fields.get("EGU", ""), "desc": fields.get("DESC", ""), "scan": fields.get("SCAN", ""),
                             "fields": fields, "info": info, "aliases": own_aliases, "state": "existing"})
         elif word == "alias":
@@ -578,6 +583,11 @@ class Model:
                             self.warnings.append("PV %s is defined by %s and %s" % (name, seen[name], owner["id"]))
                         seen[name] = owner["id"]
 
+    def all_pvs(self):
+        """Every PV name (and alias) that a loaded database defines."""
+        return {name for owner in self.d["hosts"] + self.devices for pv in owner["pvs"] if pv["state"] == "existing"
+                for name in [pv["name"]] + pv.get("aliases", [])}
+
     def _check_roles(self):
         """Every record of a loaded database has a role or is internal; every rule names a record that exists."""
         users = {}
@@ -648,12 +658,32 @@ class Model:
                 if not (isinstance(words, list) and all(isinstance(w, str) for w in words)):
                     self.warnings.append("%s: states of %r must be a list of words (index = value)" % (owner["id"], name))
             for name, ask in (owner.get("confirm") or {}).items():
+                # one question {value, text}, or a list of them (a question per value: a pump's start and stop); a
+                # question may carry a warning {pv, unless, text}: shown unless that PV is connected, valid and reads
+                # `unless` (the foreline valve closed before the cart's turbopump is stopped, T32)
                 written = [pv for pv in owner["pvs"] if name in (pv.get("channel"), pv.get("role")) and pv["type"] in WRITE_TYPES
                            and not pv.get("internal")]
-                if not isinstance(ask, dict) or set(ask) != {"value", "text"}:
-                    self.warnings.append("%s: confirm of %r needs exactly 'value' and 'text'" % (owner["id"], name))
+                asks = ask if isinstance(ask, list) else [ask]
+                bad = [a for a in asks if not isinstance(a, dict) or not {"value", "text"} <= set(a) <= {"value", "text", "warn"}
+                       or ("warn" in a and (not isinstance(a["warn"], dict) or set(a["warn"]) != {"pv", "unless", "text"}))]
+                if not asks or bad:
+                    self.warnings.append("%s: confirm of %r needs 'value' and 'text' (and optionally 'warn' with 'pv', 'unless' "
+                                         "and 'text'), or a list of such" % (owner["id"], name))
                 elif not written:
                     self.warnings.append("%s: confirm of %r, which has no written PV" % (owner["id"], name))
+                elif len({a["value"] for a in asks}) != len(asks):
+                    self.warnings.append("%s: confirm of %r asks twice for one value" % (owner["id"], name))
+                for a in asks:
+                    if isinstance(a, dict) and isinstance(a.get("warn"), dict) and a["warn"].get("pv") not in self.all_pvs():
+                        self.warnings.append("%s: confirm of %r warns by %s, which no database defines" % (owner["id"], name, a["warn"].get("pv")))
+            classes_known = {r.get("class") for r in self.rules.values() if r.get("class")}
+            for name, cls in (owner.get("channel_classes") or {}).items():
+                # a channel shown with the widget of another class than its device's (the TIC's pumps: turbo)
+                if name not in channels:
+                    self.warnings.append("%s: channel_classes for %r, which is no channel of the device" % (owner["id"], name))
+                elif cls not in classes_known:
+                    self.warnings.append("%s: channel_classes of %r: %r is no widget class (known: %s)"
+                                         % (owner["id"], name, cls, ", ".join(sorted(classes_known))))
 
     def _check_loads(self):
         """The loads in controls.yaml against the dbLoadRecords lines of the st.cmd files, in both directions."""

@@ -166,6 +166,24 @@ request=$(python3 -c "import json; print(json.load(open('$registry'))['devices']
 browser command au_src - out_cmd 1 nodialog; result $?
 ca wait "$state" ON 15; result $?
 
+# the TIC cart's pumps (T32): start and stop ask; the turbopump's stop warns while the foreline
+# valve is open (or not known), not while it is closed; Cancel sends nothing. The AIM's switch.
+foreline=$(python3 -c "import json; print(json.load(open('$registry'))['devices']['valves']['channels']['s1']['roles']['state'])")
+aim=$(python3 -c "import json; print(json.load(open('$registry'))['devices']['tic']['channels']['gauge2']['roles']['enable_state'])")
+browser command valves s1 cmd 0 nodialog; result $?
+ca wait "$foreline" 0 15; result $?
+browser ask tic turbo run_cmd 0 nowarn; result $?
+browser command valves s1 cmd 1 nodialog; result $?
+ca wait "$foreline" 1 15; result $?
+browser ask tic turbo run_cmd 0 warn; result $?
+browser command valves s1 cmd 0 nodialog; result $?
+ca wait "$foreline" 0 15; result $?
+browser ask tic backing run_cmd 0 nowarn; result $?
+browser command tic gauge2 enable 0 nodialog; result $?
+ca wait "$aim" off 15; result $?
+browser command tic gauge2 enable 1 nodialog; result $?
+ca wait "$aim" on 15; result $?
+
 step "5b: the permit latches"
 read -r ilk_sim door permit < <(python3 -c "
 import json; d = json.load(open('$registry'))['devices']['ilk_old']

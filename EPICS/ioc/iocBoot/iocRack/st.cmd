@@ -56,8 +56,15 @@ dbLoadRecords("$(MIST2_DB)/aim.db",            "PORT=AIM,DEVICE=AIM")
 dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=AIM,N=enable,REQ=AIM:enable,RB=AIM:_enable:get")
 # Foreline gauge: INFICON VGC401, read only (T30). The prefix is the plan's name for this pressure.
 dbLoadRecords("$(MIST2_DB)/vgc401.db",         "PORT=VGC,DEVICE=PRESSURE:foreline")
-# Edwards TIC station, read only (T29): three gauge sockets, turbopump, backing pump
+# Edwards TIC station (T29): three gauge sockets, turbopump, backing pump, read only (tic.db)
 dbLoadRecords("$(MIST2_DB)/tic.db",            "PORT=TIC,DEVICE=TIC")
+# ... and its three requests (T32): the cart's turbopump and backing pump started and stopped, the
+# AIM on socket 2 switched, each one acknowledged command, refused by the IOC where the hardware
+# needs it (tic_control.db); each takes over the station's state at the first contact
+dbLoadRecords("$(MIST2_DB)/tic_control.db",    "PORT=TIC,DEVICE=TIC,SOCKET=2,OBJ=914")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=TIC,N=turbo,REQ=TIC:turbo:start:set,RB=TIC:turbo:start:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=TIC,N=backing,REQ=TIC:backing:start:set,RB=TIC:backing:start:get")
+dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=TIC,N=gauge2,REQ=TIC:gauge2:on:set,RB=TIC:gauge2:on:get")
 
 # Cooling water: five flow meters on an Arduino Opta (libcom1 protocol 1: no identity records).
 # It replaces the sensor box (sensorbox.db), which the lab's st.cmd of 2026 no longer loads.
