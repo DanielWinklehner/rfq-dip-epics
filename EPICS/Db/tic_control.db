@@ -19,6 +19,9 @@
 #   ATSPEED     the turbopump's speed in % from which it counts as at speed, default 95
 #   SCAN_SLAVE  scan of the gauge's slave setup query, default "10 second"
 #   BACK_S      seconds after a refused request until it falls back, default 0.02
+#   HOLD_S      seconds an acknowledged turbopump start and an acknowledged backing pump stop
+#               are held for the other pump's refusal, default 10 (ASSUMED: the lag seen on the
+#               lab's TIC, below 5 s, plus the 2 s poll, plus margin)
 #
 # The three requests (bo, written by an operator; 1 = start or on, 0 = stop or off):
 #   $(DEVICE):turbo:start:set     "!C904 1" / "!C904 0"   seen on the lab's TIC (2026-11-25)
@@ -52,6 +55,14 @@
 #   gauge2:on:set := 1      unless the APG's pressure ($(DEVICE):$(APG):getpressure) is valid and
 #                           at or below PMAX torr: "Refused: APG > 1e-2 torr" / "Refused: APG not
 #                           valid"
+# The hold: the TIC's state lags a command (the turbopump's old state 51 ms after "!C904 1", the
+# new one by 5 s; read every 2 s). So an acknowledged turbopump start counts as "turbopump runs"
+# and an acknowledged backing pump stop as "backing not on" for HOLD_S seconds (internal records
+# turbo:_started, backing:_stopped), whatever the polled state shows: the other pump's request
+# within that time is refused with the same words. The pump's own acknowledged request of the
+# other value ends it (a turbopump stop, a backing pump start), so "backing pump, then turbopump"
+# and "turbopump stop, then backing pump stop" work as before; the backing pump's stop is then
+# refused only until the TIC's state shows Braking (the lag), which errs to the safe side.
 # Stops and switch-offs are never refused. There is no pressure condition for the turbopump (the
 # owner has given none), no communication timeout and no automatic action: a pump keeps its state
 # when the IOC stops or loses the line, and the IOC does not switch the gauge off by itself when
@@ -110,7 +121,8 @@ record(calc, "$(DEVICE=TIC):turbo:_refuse") {
     field(INPB, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
     field(INPC, "$(DEVICE=TIC):backing:_code NPP NMS")
     field(INPD, "$(DEVICE=TIC):turbo:start:set.MLST NPP")
-    field(CALC, "B||A#1?0:(C=4?0:(C>=0&&C<=4?1:2))")
+    field(INPE, "$(DEVICE=TIC):backing:_stopped NPP NMS")
+    field(CALC, "B||A#1?0:(C=4?(E?1:0):(C>=0&&C<=4?1:2))")
     field(HIGH, "0.5")
     field(HSV,  "INVALID")
 }
@@ -154,7 +166,40 @@ record(mbbi, "$(DEVICE=TIC):turbo:start:reason") {
     field(TVVL, "20")  field(TVST, "Refused: backing not on")
     field(TTVL, "21")  field(TTST, "Refused: backing unknown")
     field(FTVL, "30")  field(FTST, "No request since start")
+    field(FLNK, "$(DEVICE=TIC):turbo:_mem")
+}
+
+# The hold (the lead's review of T32): the TIC shows a pump's new state only some time after
+# the command (the turbopump's old state still 51 ms after "!C904 1", the new one by 5 s, seen
+# on the lab's TIC), and the IOC reads it every 2 s. An acknowledged start is remembered for HOLD_S
+# seconds in _started, which the other pump's _refuse reads beside the TIC's state. Set only
+# after a real acknowledgement (reason 0, not in simulation mode: neither a refusal, an error
+# code, no reply, a take-over at the first contact nor a fall-back); ended by the pump's own
+# acknowledged request of the other value (OCAL C).
+record(calcout, "$(DEVICE=TIC):turbo:_mem") {
+    field(DESC, "Turbopump: hold after ack (internal)")
+    field(INPA, "$(DEVICE=TIC):turbo:_after NPP")
+    field(INPB, "$(DEVICE=TIC):turbo:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):turbo:start:set.VAL NPP")
+    field(CALC, "!B&&A=0")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "C")
+    field(OUT,  "$(DEVICE=TIC):turbo:_started PP")
     field(FLNK, "$(DEVICE=TIC):turbo:_back")
+}
+
+# 1 for HOLD_S seconds after it was set (boRecord: HIGH > 0 starts a delayed callback that sets
+# VAL 0 and processes the record; a second 1 restarts that timer: callbackRequestDelayed ->
+# epicsTimerStartDelay, which takes a pending timer out of the queue and inserts it again with
+# the new expiry, timer.cpp privateStart). Soft record, no device.
+record(bo, "$(DEVICE=TIC):turbo:_started") {
+    field(DESC, "Turbopump: held (internal)")
+    field(HIGH, "$(HOLD_S=10)")
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(ZNAM, "no")
+    field(ONAM, "held")
 }
 
 # A refused request falls back: BACK_S later (the request is active during its forward link)
@@ -258,7 +303,8 @@ record(calc, "$(DEVICE=TIC):backing:_refuse") {
     field(INPB, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
     field(INPC, "$(DEVICE=TIC):turbo:_code NPP NMS")
     field(INPD, "$(DEVICE=TIC):backing:start:set.MLST NPP")
-    field(CALC, "B||A#0?0:(C=0||C=2||C=3||C=6||C=7?0:(C=1||C=4||C=5?1:2))")
+    field(INPE, "$(DEVICE=TIC):turbo:_started NPP NMS")
+    field(CALC, "B||A#0?0:(C=0||C=2||C=3||C=6||C=7?(E?1:0):(C=1||C=4||C=5?1:2))")
     field(HIGH, "0.5")
     field(HSV,  "INVALID")
 }
@@ -302,7 +348,40 @@ record(mbbi, "$(DEVICE=TIC):backing:start:reason") {
     field(TVVL, "20")  field(TVST, "Refused: turbopump runs")
     field(TTVL, "21")  field(TTST, "Refused: turbo unknown")
     field(FTVL, "30")  field(FTST, "No request since start")
+    field(FLNK, "$(DEVICE=TIC):backing:_mem")
+}
+
+# The hold (the lead's review of T32): the TIC shows a pump's new state only some time after
+# the command (the turbopump's old state still 51 ms after "!C904 1", the new one by 5 s, seen
+# on the lab's TIC), and the IOC reads it every 2 s. An acknowledged stop is remembered for HOLD_S
+# seconds in _stopped, which the other pump's _refuse reads beside the TIC's state. Set only
+# after a real acknowledgement (reason 0, not in simulation mode: neither a refusal, an error
+# code, no reply, a take-over at the first contact nor a fall-back); ended by the pump's own
+# acknowledged request of the other value (OCAL !C).
+record(calcout, "$(DEVICE=TIC):backing:_mem") {
+    field(DESC, "Backing pump: hold after ack (internal)")
+    field(INPA, "$(DEVICE=TIC):backing:_after NPP")
+    field(INPB, "$(DEVICE=TIC):backing:start:set.SIMM NPP")
+    field(INPC, "$(DEVICE=TIC):backing:start:set.VAL NPP")
+    field(CALC, "!B&&A=0")
+    field(OOPT, "When Non-zero")
+    field(DOPT, "Use OCAL")
+    field(OCAL, "!C")
+    field(OUT,  "$(DEVICE=TIC):backing:_stopped PP")
     field(FLNK, "$(DEVICE=TIC):backing:_back")
+}
+
+# 1 for HOLD_S seconds after it was set (boRecord: HIGH > 0 starts a delayed callback that sets
+# VAL 0 and processes the record; a second 1 restarts that timer: callbackRequestDelayed ->
+# epicsTimerStartDelay, which takes a pending timer out of the queue and inserts it again with
+# the new expiry, timer.cpp privateStart). Soft record, no device.
+record(bo, "$(DEVICE=TIC):backing:_stopped") {
+    field(DESC, "Backing pump: held (internal)")
+    field(HIGH, "$(HOLD_S=10)")
+    field(PINI, "YES")
+    field(VAL,  "0")
+    field(ZNAM, "no")
+    field(ONAM, "held")
 }
 
 # A refused request falls back: BACK_S later (the request is active during its forward link)

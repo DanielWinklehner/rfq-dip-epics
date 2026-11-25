@@ -414,6 +414,43 @@ def test_turbopump_start_straight_after_a_backing_pump_stop_is_refused(ctl):
         wait_for(lambda: word("TIC:turbo:state:get"), lambda w: w == "Running", 6.0)
 
 
+def test_only_an_acknowledged_start_is_held(ctl):
+    """A turbopump start answered with an error code, one without reply, and one written in
+    simulation mode (sends nothing) set no hold: a backing pump stop straight after is sent."""
+    stopped_turbo_and_backing_on(ctl)
+    ctl.set("command_code", 5)
+    try:
+        put(TURBO, 1)
+        assert sevr(TURBO) == INVALID and word(REASON[TURBO]) == "Invalid cmd in this state"
+    finally:
+        ctl.release("command_code")
+    acknowledged(ctl, BACKING, 0)                     # sent: no hold after an error reply
+    acknowledged(ctl, BACKING, 1, 1)
+    ctl.fault("silent")
+    try:
+        put(TURBO, 1)
+        assert sevr(TURBO) == INVALID and word(REASON[TURBO]) == "No reply"
+    finally:
+        ctl.clear("silent")
+    settle([RB[TURBO], RB[BACKING]])
+    acknowledged(ctl, BACKING, 0)                     # sent: no hold after no reply
+    acknowledged(ctl, BACKING, 1, 1)
+    acknowledged(ctl, TURBO, 0)                       # the request acknowledged at 0 first
+    put(TURBO + ".SIMM", 1)
+    try:
+        sent = commands(ctl)
+        put(TURBO, 1)                                 # in simulation mode: nothing sent
+        assert commands(ctl) == sent
+    finally:
+        put(TURBO + ".SIMM", 0)
+    acknowledged(ctl, BACKING, 0)                     # sent: no hold after a write in simulation mode
+    acknowledged(ctl, BACKING, 1, 1)
+    acknowledged(ctl, TURBO, 1, 1)
+    ctl.set("turbo.speed", 100.0)
+    ctl.release("turbo.speed")
+    wait_for(lambda: word("TIC:turbo:state:get"), lambda w: w == "Running", 6.0)
+
+
 ERROR = re.compile(r"error|can't open|not found|undefined|no such|illegal|invalid|failed|unknown"
                    r"|syntax|bad ", re.I)
 EXPECTED = re.compile(r"No reply|does not match|mismatch|Timeout|timed out|connect|Connection"

@@ -1394,9 +1394,9 @@ databases:
         slave_master: "gauge<n>:slave:master:get"
         slave_raw: {record: "gauge<n>:slave:raw", note: "the text of the last reply to ?S914 4, any form"}
     internal: ["turbo:_refuse", "turbo:_after", "turbo:_back", "turbo:_back:on", "turbo:_back:copy", "turbo:_back:off",
-               "turbo:_rb", "turbo:_atspeed",
+               "turbo:_rb", "turbo:_atspeed", "turbo:_mem", "turbo:_started",
                "backing:_refuse", "backing:_after", "backing:_back", "backing:_back:on", "backing:_back:copy",
-               "backing:_back:off", "backing:_rb",
+               "backing:_back:off", "backing:_rb", "backing:_mem", "backing:_stopped",
                "gauge2:_refuse", "gauge2:_after", "gauge2:_back", "gauge2:_back:on", "gauge2:_back:copy",
                "gauge2:_back:off", "gauge2:_rb", "gauge2:_slave", "gauge2:_slave:code"]
     invalid_on:
