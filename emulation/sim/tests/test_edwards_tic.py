@@ -66,7 +66,7 @@ class Tic(unittest.TestCase):
         self.assertEqual(ask(self.sim, "?S904 3"), "*S904 2")
 
     def test_identity_and_system_status(self):
-        self.assertEqual(ask(self.sim, "?S902"), "=S902 TIC;DSIM00000;SIM0001;SIM")
+        self.assertEqual(ask(self.sim, "?S902"), "=S902 TIC100;D39700640T;000000000\x00;5.0")
         self.assertEqual(ask(self.sim, "?V902"), "=V902 4;4;11;11;0;0;0;0;0;0")
 
     def test_variants(self):

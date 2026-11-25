@@ -79,9 +79,11 @@ def test_every_reading_has_a_value():
     assert sevr("TIC:turbo:speed:get") == 0
     assert get("TIC:turbo:alert:get") == 0
     assert word("TIC:variant:get") == "TIC"
-    assert get("TIC:ident:get", as_string=True) == "TIC;DSIM00000;SIM0001;SIM"
-    assert word("TIC:model:get") == "TIC"
-    assert word("TIC:sw:get") == "DSIM00000"
+    # the simulator's identity has the NUL byte of the lab's controller after the serial number:
+    # the identity ends there, and the record is valid (ExtraInput = Ignore in tic.proto)
+    assert get("TIC:ident:get", as_string=True) == "TIC100;D39700640T;000000000"
+    assert word("TIC:model:get") == "TIC100"
+    assert word("TIC:sw:get") == "D39700640T"
     print("gauge 1 %.3e torr, gauge 2 %.3e torr, turbo %s at %.1f %%"
           % (get(G1), get(G2), word("TIC:turbo:state:get"), get("TIC:turbo:speed:get")))
 

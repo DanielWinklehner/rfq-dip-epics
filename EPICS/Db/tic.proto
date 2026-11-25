@@ -13,10 +13,12 @@
 #   Table 1, 1.6.2.2, 1.6.2.3: the objects below
 # Every reply names its object, so a late reply to another query cannot be taken for this one.
 #
-# ReplyTimeout 120 ms, not the 500 ms the manual suggests: with 500 ms one silent cycle would
-# need 6.6 s of line time every 2 s. 120 ms is the manual's 100 ms for a basic message plus the
-# 16 ms latency timer of a USB-serial adapter; none of these queries is routed to a DX/nEXT pump
-# (objects 800+, 200 ms). Line budget: docs/emulation/TIC.md, "Rate".
+# ReplyTimeout 150 ms, not the 500 ms the manual suggests: with 500 ms one silent cycle would
+# need 6.6 s of line time every 2 s. Seen on the lab's controller on 2026-11-25 (the probe, a
+# Prolific adapter): replies after 23 to 50 ms, the identity after 61 and 86 ms. 150 ms leaves
+# 64 ms on the slowest, and 13 queries of a silent controller take 1.95 s of the 2 s (120 ms,
+# from the manual's "less than 100 ms", was the value before the measurement). None of these
+# queries is routed to a DX/nEXT pump (objects 800+, 200 ms). Line budget: docs/emulation/TIC.md.
 #
 # The records of the value queries are calcout records: StreamDevice writes the fields of the
 # reply into the record's own fields A, B, C ... (%(A) etc., no processing), the error code of an
@@ -25,7 +27,7 @@
 # INVALID/CALC (the @mismatch handler of StreamDevice), a missing one in INVALID/TIMEOUT.
 
 Terminator = CR;
-ReplyTimeout = 120;
+ReplyTimeout = 150;
 ReadTimeout = 50;
 
 # Gauge 1, 2, 3 (objects 913, 914, 915; Table 1): "?V913" -> "=V913 value;units type;state;
@@ -69,7 +71,13 @@ system {
 }
 
 # Identity (902 ?S, 1.6.2.2): "TIC;Dxxxxxxxx;serial number;PIC s/w ver", max 80 characters.
+# The lab's controller answers '=S902 TIC100;D39700640T;160070509<00>;5.0' (seen 2026-11-25):
+# a NUL byte after the serial number. The text conversion ends at the NUL, and without
+# ExtraInput = Ignore the rest ("<00>;5.0") is surplus input and the record INVALID (seen with
+# the simulator sending this form). So the identity is type, software and serial number; the
+# PIC software version behind the NUL is not read.
 ident {
+    ExtraInput = Ignore;
     out "?S902";
     in "=S902 %80[^\r]";
 }

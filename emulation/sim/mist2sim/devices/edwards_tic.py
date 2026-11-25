@@ -72,7 +72,10 @@ class EdwardsTic(Simulator):
         "backing_type": 8,         # 1.7.11 (8 Mains Backing Pump); 0 = No Pump
         "backing_state": 4,        # 1.7.6 (4 On State)
         "absent_code": 2,          # reply code for an object the variant does not have
-        "identity": "TIC;DSIM00000;SIM0001;SIM",   # ?S902 (1.6.2.2)
+        # ?S902 (1.6.2.2: "TIC;Dxxxxxxxx;serial;PIC s/w ver"). The form of the lab's controller,
+        # seen on 2026-11-25: 'TIC100;D39700640T;160070509\x00;5.0', the first field "TIC100" and a
+        # NUL byte after the serial number. The serial number here is made up.
+        "identity": "TIC100;D39700640T;000000000\x00;5.0",
         "noise": 0.01,             # relative noise of a pressure reading
     }
 

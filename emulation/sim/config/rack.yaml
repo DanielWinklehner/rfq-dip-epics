@@ -265,6 +265,6 @@
       - {pressure: 5.0e-3}
       - {pressure: 1.0e-6}
       - {pressure: 2.0e-2}
-    turbo_type: 11
+    turbo_type: 3             # EXT75DX Pump, as the lab's cart reports (2026-11-25)
     backing_type: 8           # Mains Backing Pump (D397-30-880 1.7.11)
     backing_state: 4          # On State (1.7.6)

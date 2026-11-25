@@ -20,7 +20,7 @@ import threading
 PROBE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "edwards_tic_probe.py")
 
 REPLIES = {
-    "?S902": "=S902 TIC;D39722000Z;FAKE0001;2.1",
+    "?S902": "=S902 TIC100;D39700640T;000000000\x00;5.0",   # the form of the lab's controller, with its NUL
     "?V902": "=V902 4;4;11;11;0;0;0;0;0;0",
     "?V913": "=V913 1.3332e-04;59;11;0;0",          # 1.0e-6 torr in pascal
     "?V914": "=V914 6.6661e-01;59;11;0;0",          # 5.0e-3 torr
