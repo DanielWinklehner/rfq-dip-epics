@@ -1207,8 +1207,21 @@ manual held: turbopump stop, backing pump off right after. Not tried: `!C904 1` 
 backing pump off, a start with the turbopump still running down, any command with the IOC on
 the line at the same time.
 
-Asked of the owner with it, not answered: whether the AIM is to be switched from the GUI as
-well, or by the TIC alone (his rule: not before the APG shows 1e-2 torr or lower).
+Asked of the owner with it: whether the AIM is to be switched from the GUI as well, or by the
+TIC alone (his rule: not before the APG shows 1e-2 torr or lower). **His answer, 16:20:** "The
+APG and the AIMs from the TIC cart should show as on the side flange. Does the TIC switch it on
+automatically or would I go and do it from the panel? If the latter, definitely through the GUI
+too."
+
+- **For the drawing:** the TIC's APG and AIM both on the side flange of the six-way cross.
+- **For the AIM's switching:** he wants it from the GUI unless the TIC switches it by itself.
+  Which of the two holds on his TIC is not known: the serial manual gives each gauge a slave
+  setup (a master gauge with an on and an off set point and an enable, config type 4), so the
+  TIC can do it once that is set; how socket 2 is set is not read (the rack IOC holds the line
+  and `tic.db` does not ask `?S914 4`), and the TIC's instruction manual could not be fetched
+  (two copies answered 403). The turbopump's slave setup on this TIC read "no master, not
+  enabled" today, which is all I have on how it was left. The log that runs on the lab computer
+  shows it at the next pump-down: socket 2 going from Off to On by itself, or not.
 
 ### 2026-11-25: the AIM on the TIC's socket 2; a look at the whole rack IOC
 
