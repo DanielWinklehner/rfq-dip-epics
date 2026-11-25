@@ -29,6 +29,13 @@ const shapes = {
       <path d="M -17 -17 L 17 17 M -17 17 L 17 -17" fill="none" />
     </>
   ),
+  // a backing pump (the TIC cart's, T32): a circle with the triangle of a pump
+  pump: () => (
+    <>
+      <circle r={16} />
+      <path d="M -9 9 L 0 -12 L 9 9" fill="none" />
+    </>
+  ),
   cup: () => <path d="M -16 -14 L -16 14 L 16 14 L 16 -14 L 10 -14 L 10 8 L -10 8 L -10 -14 Z" />,
   filament: () => <path d="M -22 22 L -22 -4 L 0 -26 L 22 -4 L 22 22" fill="none" strokeWidth={4} />,
 };

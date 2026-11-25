@@ -2,7 +2,7 @@
  "about": "Geometry of the drawings (brief T11: geometry in data). Coordinates in the drawing's viewBox. statics: parts without a device. elements: a device or one channel (registry ids) with an optional symbol (type, x, y, rotate, state = role that fills it), an optional anchor for the leader line, and a tag (x, y, w). list: the area where the page's devices that no element places are listed. A page without elements is a generated list.",
  "pages": {
   "Overview": {
-   "viewBox": [0, 0, 1920, 960],
+   "viewBox": [0, 0, 1920, 1080],
    "statics": [
     {"type": "text", "x": 20, "y": 24, "text": "MIST-2 phase 1. Arrangement as told by the owner (G2); where the gauges and the vent valve sit is assumed.", "muted": true, "italic": true},
     {"type": "rect", "x": 40, "y": 60, "w": 560, "h": 660, "style": "dashed"},
@@ -29,8 +29,8 @@
     {"type": "line", "points": [[1010, 520], [1078, 598]], "style": "pipe"},
     {"type": "text", "x": 1060, "y": 660, "text": "side flange", "size": 11},
     {"type": "line", "points": [[900, 714], [900, 860], [557, 860]], "style": "pipe"},
-    {"type": "circle", "x": 535, "y": 860, "r": 22, "style": "solid"},
-    {"type": "text", "x": 535, "y": 905, "text": "roughing pump (no PVs yet)", "anchor": "middle", "size": 11},
+    {"type": "line", "points": [[511, 860], [486, 860]], "style": "pipe"},
+    {"type": "text", "x": 503, "y": 900, "text": "TIC cart", "anchor": "middle", "size": 11},
     {"type": "text", "x": 760, "y": 848, "text": "foreline", "size": 11, "muted": true},
     {"type": "line", "points": [[876, 690], [780, 690]], "style": "pipe"},
     {"type": "text", "x": 772, "y": 694, "text": "air", "anchor": "end", "size": 11},
@@ -57,10 +57,12 @@
     {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 820, "y": 690, "state": "state"}, "tag": {"x": 644, "y": 702, "w": 200}},
     {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 720, "y": 860, "state": "state"}, "tag": {"x": 640, "y": 888, "w": 200}},
     {"device": "tic", "channel": "gauge2", "symbol": {"type": "gauge", "x": 1090, "y": 615}, "tag": {"x": 1180, "y": 560, "w": 210}},
-    {"device": "tic", "channel": "gauge1", "symbol": {"type": "gauge", "x": 1125, "y": 615}, "tag": {"x": 1180, "y": 642, "w": 210}},
-    {"device": "gauge_foreline", "symbol": {"type": "gauge", "x": 630, "y": 860}, "tag": {"x": 420, "y": 914, "w": 200}}
+    {"device": "tic", "channel": "gauge1", "symbol": {"type": "gauge", "x": 1125, "y": 615}, "tag": {"x": 1180, "y": 654, "w": 210}},
+    {"device": "gauge_foreline", "symbol": {"type": "gauge", "x": 630, "y": 860}, "tag": {"x": 420, "y": 914, "w": 200}},
+    {"device": "tic", "channel": "turbo", "symbol": {"type": "turbo", "x": 535, "y": 860, "state": "run_state"}, "tag": {"x": 290, "y": 968, "w": 220}},
+    {"device": "tic", "channel": "backing", "symbol": {"type": "pump", "x": 470, "y": 860, "state": "run_state"}, "tag": {"x": 526, "y": 968, "w": 210}}
    ],
-   "list": {"x": 1580, "y": 40, "w": 260, "h": 900}
+   "list": {"x": 1580, "y": 40, "w": 260, "h": 1020}
   },
   "Plasma generator": {
    "viewBox": [0, 0, 1920, 770],
@@ -127,7 +129,7 @@
    "list": {"x": 1660, "y": 40, "w": 240, "h": 500}
   },
   "Vacuum and gas": {
-   "viewBox": [0, 0, 1920, 700],
+   "viewBox": [0, 0, 1920, 800],
    "statics": [
     {"type": "rect", "x": 60, "y": 220, "w": 220, "h": 120, "style": "dashed"},
     {"type": "text", "x": 170, "y": 285, "text": "ion source (HV platform)", "anchor": "middle", "size": 11},
@@ -144,8 +146,8 @@
     {"type": "line", "points": [[800, 390], [868, 450]], "style": "pipe"},
     {"type": "text", "x": 905, "y": 500, "text": "side flange", "anchor": "middle", "size": 11},
     {"type": "line", "points": [[700, 534], [700, 610], [302, 610]], "style": "pipe"},
-    {"type": "circle", "x": 280, "y": 610, "r": 22, "style": "solid"},
-    {"type": "text", "x": 280, "y": 655, "text": "roughing pump (no PVs yet)", "anchor": "middle", "size": 11},
+    {"type": "line", "points": [[256, 610], [221, 610]], "style": "pipe"},
+    {"type": "text", "x": 245, "y": 652, "text": "TIC cart", "anchor": "middle", "size": 11},
     {"type": "line", "points": [[676, 510], [540, 510]], "style": "pipe"},
     {"type": "text", "x": 532, "y": 514, "text": "air", "anchor": "end", "size": 11},
     {"type": "line", "points": [[190, 340], [190, 520]], "style": "pipe"}
@@ -155,13 +157,15 @@
     {"device": "valves", "channel": "s3", "symbol": {"type": "valve", "x": 600, "y": 510, "state": "state"}, "tag": {"x": 420, "y": 428, "w": 200}},
     {"device": "valves", "channel": "s1", "symbol": {"type": "valve", "x": 480, "y": 610, "state": "state"}, "tag": {"x": 400, "y": 625, "w": 200}},
     {"device": "valves", "channel": "s2", "symbol": {"type": "valve", "x": 190, "y": 430, "state": "state", "rotate": 90}, "tag": {"x": 210, "y": 366, "w": 200}},
-    {"device": "mfc", "tag": {"x": 80, "y": 520, "w": 200}},
+    {"device": "mfc", "tag": {"x": 16, "y": 440, "w": 168}},
     {"device": "tic", "channel": "gauge2", "symbol": {"type": "gauge", "x": 885, "y": 465}, "tag": {"x": 960, "y": 390, "w": 220}},
-    {"device": "tic", "channel": "gauge1", "symbol": {"type": "gauge", "x": 920, "y": 465}, "tag": {"x": 960, "y": 472, "w": 220}},
+    {"device": "tic", "channel": "gauge1", "symbol": {"type": "gauge", "x": 920, "y": 465}, "tag": {"x": 960, "y": 484, "w": 220}},
     {"device": "gauge_foreline", "symbol": {"type": "gauge", "x": 390, "y": 610}, "tag": {"x": 300, "y": 540, "w": 170}},
-    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 60, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 40, "w": 200}}
+    {"device": "valves", "channel": "s4", "symbol": {"type": "valve", "x": 700, "y": 60, "state": "state", "rotate": 90}, "tag": {"x": 740, "y": 40, "w": 200}},
+    {"device": "tic", "channel": "turbo", "symbol": {"type": "turbo", "x": 280, "y": 610, "state": "run_state"}, "tag": {"x": 40, "y": 672, "w": 220}},
+    {"device": "tic", "channel": "backing", "symbol": {"type": "pump", "x": 205, "y": 610, "state": "run_state"}, "tag": {"x": 276, "y": 702, "w": 210}}
    ],
-   "list": {"x": 1300, "y": 40, "w": 240, "h": 640}
+   "list": {"x": 1300, "y": 40, "w": 240, "h": 740}
   },
   "Cooling and interlocks": {
    "viewBox": [0, 0, 1920, 320],
