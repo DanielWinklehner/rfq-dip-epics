@@ -377,7 +377,12 @@ T30, `docs/emulation/VGC401.md`, `docs/emulation/TIC.md`). **Neither has met its
 Each has a probe that runs without an IOC; run it first and send me its output.
 
 1. **Probe**, with the controller's serial socket on a USB to RS-232 adapter (a straight cable
-   for both, by their manuals), on whichever computer the adapter is plugged into:
+   for both, by their manuals), on whichever computer the adapter is plugged into. Two things
+   first, both seen on the lab computer on 2026-11-25: the user must be in the group `dialout`
+   (`sudo usermod -aG dialout "$USER"`, then log in again), or the port cannot be opened; and
+   the desktop's ModemManager must keep off the port, because any character it sends ends the
+   VGC401's own sending. The rule file does that for the VGC401's adapter (step 2); otherwise
+   `sudo systemctl disable --now ModemManager`.
 
    ```bash
    python3 EPICS/ioc/host/inficon_vgc401_probe.py /dev/ttyUSB0
@@ -392,10 +397,13 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    ends that sending until the controller is switched off and on, and reading the error word
    clears it (both from the manual). The TIC's probe tells which TIC variant it is, what is on
    its three gauge sockets and which pumps it knows.
-2. **For the IOC the adapter must be on the rack server.** Plug it in alone,
-   `ls -l /dev/serial/by-path/`, and put that name into the `VGC` (or `TIC`) line of
-   `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/vgc401` (`/dev/mist2/tic`).
-   A baud rate other than 9600 on the VGC401 goes into the same block.
+2. **For the IOC the adapter must be on the rack server.** The VGC401's adapter (FTDI, serial
+   number FTE7S80M) gets the name `/dev/mist2/vgc401` from `99-mist2-serial.rules` on any
+   computer that has the rule file (copy it again as in section 3, then pull the adapter and
+   plug it in; the line is new and not tested). The TIC's adapter has no rule yet: plug it in
+   alone, `ls -l /dev/serial/by-path/`, and put that name into the `TIC` line of
+   `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/tic`.
+   A baud rate other than 9600 on the VGC401 goes into its block of the same file.
 3. **Read**, after an IOC restart:
 
    ```bash
@@ -439,7 +447,7 @@ and stay off after the door closes. All four AU off at once: `caput AU:alloff:se
   `LOOP-DIS:mode:setpoint` there until TDK and REK are checked by hand: the gains come from
   the model (A32), tuning is `LOOP.md` section 7.
 - **GUI**, on any Linux or WSL2 with Docker Engine. On Ubuntu 26.04 Docker comes from Ubuntu's
-  own packages: `sudo apt install docker.io docker-compose-v2 make`, then
+  own packages: `sudo apt install docker.io docker-compose-v2 docker-buildx make`, then
   `sudo usermod -aG docker "$USER"` and log in again (not tried on 26.04):
 
   ```bash
@@ -448,6 +456,10 @@ and stay off after the door closes. All four AU off at once: `caput AU:alloff:se
 
   In `RAS/mist2/.env` set `EPICS_CA_ADDR_LIST="<rack IP> <platform IP>"`, then
   `make -C RAS/mist2 dev-up` (15 minutes the first time) and open <http://localhost:3000/>.
+  Seen on 26.04.1 by the lab session (2026-11-25): `docker-buildx` is only suggested by
+  `docker.io`, and the GUI's Compose file builds with `additional_contexts`, so it is in the
+  command above (whether the build works without it was not tried); and a new group takes
+  effect only after a new login.
   Not tried with IOCs on another computer.
 - **Logger:** not needed on the first day. Its home is the main lab computer (Ubuntu, the
   largest disk), as long as that computer stays on whenever the IOCs are on: switch its
