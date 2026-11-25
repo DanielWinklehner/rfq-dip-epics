@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.35"
+  revision: "0.36"
   date: "2026-11-25"
   author: "D. Winklehner"
   basis:
@@ -53,6 +53,7 @@ meta:
     - "Revision 0.32: the Edwards station answered the probe (lab session, 2026-11-25): a TIC Turbo and Instrument Controller (TIC100) with an EXT75DX turbopump, a mains backing pump and the APG on gauge socket 1. No record changed."
     - "Revision 0.33: the rack IOC reads the TIC station on the rack server (lab session, 2026-11-25, 15:06): identity, variant, the APG on socket 1 and both pumps' states valid. Its serial line is named tic_station (owner). No record changed."
     - "Revision 0.35 (T31): the homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'): the rack IOC no longer loads pressure.db and libcom1_device.db on AVR6, and its PVs (PRESSURE:apg:*, PRESSURE:diag_box:*, PRESSURE:id and the box's others) end. The six-way cross's pressures are TIC:gauge1 (APG) and TIC:gauge2 (AIM, socket 2, owner); TIC socket 3 is empty and marked so (channel_flags, not installed). The GUI draws the TIC's gauges and the foreline gauge."
+    - "Revision 0.36: the roughing line as the owner described it on 2026-11-25 (six-way cross, big turbopump, foreline valve, INFICON, TIC cart), what the first pump-down showed of the gauges, and his start-up order for a later task on procedures. No record changed."
     - "Revision 0.34: the owner's change of 2026-11-25 for the gauges: the INFICON on the roughing line, the APG and a regular AIM on the six-way cross, both on the TIC station; the nAIM later (flagged not installed). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
@@ -481,6 +482,7 @@ devices:
     notes:
       - "The foreline pressure gauge is read by an INFICON VGC401 with an RS-232 socket (owner, 2026-11-25). Wanted since 2026-11-21."
       - "It is on the roughing line because its flange is smaller than the others' (owner, 2026-11-25)."
+      - "Its place (owner, 2026-11-25): six-way cross, big turbopump, foreline valve, this gauge, TIC cart. So it is on the cart's side of the foreline valve: with the valve closed it reads the line to the cart, not the big turbopump's outlet. In the first pump-down it went down to 1.4e-3 torr without the state Underrange."
       - "Read only (T30): pressure with its state, the gauge head the controller has identified, its pressure unit, its error word, its firmware number. Nothing sets a parameter. Manual: tinb01e1-f, chapter 5. Document: docs/emulation/VGC401.md."
       - "PRESSURE:foreline:getpressure is in torr: the controller sends its value in its own unit, which the IOC reads and converts. Below or above the gauge's range the value stays, with a MINOR alarm; a gauge error, no gauge and no reply are INVALID, and PRESSURE:foreline:getstate says which."
       - "The controller sends its reading every second by itself after power-on; the IOC's first request ends that until it is switched off and on (manual p. 55). Reading the error word clears it (p. 63)."
@@ -510,6 +512,8 @@ devices:
       - "The APG100-XM goes on a TIC socket; the nAIM (digital, own serial line) and the INFICON head (on the VGC401) do not. An AIM would be one of the three sockets (owner's question, 2026-11-25)."
       - "Owner, 2026-11-25: the APG and a regular AIM go on the six-way cross and both are run by the TIC station; the nAIM is deferred. So the six-way cross's two pressures are TIC:gauge<n>:getpressure. The APG is on socket 1 (it sat on the cart's pumping port for the first tests), the AIM on socket 2 (owner, 2026-11-25; read through the rack IOC as Off at atmosphere, its pressure INVALID). A newly plugged gauge must be accepted at the TIC's panel. Switching the AIM is the TIC's business; the IOC reads."
       - "Rule of the owner (2026-11-25): the AIM may not be turned on until the APG shows 1e-2 torr or lower. Nothing in the control system switches the AIM, so nothing here enforces it; the TIC can hold it itself (a slave setup of socket 2 on socket 1, D397-30-880 Table 1). How the lab's TIC is set is not read."
+      - "The cart backs the big turbopump: six-way cross, big turbopump, foreline valve, INFICON, TIC cart (owner, 2026-11-25). The start-up order he wants as a later procedure: backing pump on, foreline valve open, the cart's turbopump on, the big turbopump on (otherwise the inrush from opening the foreline valve overwhelms the small turbopump). The cart's turbopump lets air in by itself from its stop command on (seen), so the foreline valve is closed before it is stopped; by his word the GUI will warn and not refuse (T32). Procedures for spin-up and shut-down are a later task."
+      - "Seen in the first pump-down of the six-way cross (lab session, 2026-11-25): the TIC did not switch the AIM on by itself when the APG passed 1e-2 torr; switched on at the panel it was reported On with one unchanging value for 146 s before the value followed the pressure (STATUS.md, P74). The APG falls smoothly to 6.4e-4 torr and reads its floor, 7.5e-5 torr, one sample later (P72)."
       - "The homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'); since T31 the rack IOC, the emulation and the GUI follow."
       - "Socket 3 is empty: the channel gauge3 is flagged not installed (channel_flags). Its records stay loaded; the registry lists its PVs apart from the device's (not_installed_pvs), so the tests, the logger and the GUI's alarm summaries leave them out, as the GUI leaves out a device that is not installed, and the device window still shows them."
       - "In the emulation (T31) the TIC switches the AIM by the APG's value: on at 1e-2 torr or lower (the owner's rule), through the state Striking; the switch-off pressure and the striking time are assumed (emulation/sim/config/rack.yaml). On the lab's TIC who switches it is not seen."
