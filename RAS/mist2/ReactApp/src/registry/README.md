@@ -33,7 +33,8 @@ the only place where the GUI and the tests learn device and PV names.
     The key is absent on connected channels.
   - `flags`: `{"not_installed": reason}` for a channel known to be empty (the TIC's socket 3;
     plan: `channel_flags`). Treated as a device that is not installed: no tag, no alarm, no
-    trend; the device window names it with the reason. Its PVs are under `not_installed_pvs`.
+    trend; the device window names it with the reason. Such a channel is listed under
+    `not_installed_channels`, not under `channels`, and its PVs under `not_installed_pvs`.
   - `states`: words of the channel, index = value, for example `["closed", "open"]` for the
     valves s1 to s3 and `["out", "in"]` for the Faraday cup actuator s4. They apply to both the
     command and the read-back of the channel.

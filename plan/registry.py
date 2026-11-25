@@ -170,8 +170,12 @@ def build(model):
         classes = sorted({pv["cls"] for pv in owner["pvs"] if pv.get("cls")})
         result = {"name": owner["name"], "class": classes[0] if classes else None}
         result["roles"] = out_roles
-        if out_channels:
-            result["channels"] = out_channels
+        absent_channels = {k: v for k, v in out_channels.items() if (v.get("flags") or {}).get("not_installed")}
+        present_channels = {k: v for k, v in out_channels.items() if k not in absent_channels}
+        if present_channels:
+            result["channels"] = present_channels
+        if absent_channels:
+            result["not_installed_channels"] = absent_channels
         role_labels = {k: v for k, v in labels.items() if k in out_roles}
         if role_labels:
             result["labels"] = role_labels

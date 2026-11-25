@@ -3669,7 +3669,9 @@
       "alert": "TIC:gauge2:alert:get",
       "priority": "TIC:gauge2:priority:get"
      }
-    },
+    }
+   },
+   "not_installed_channels": {
     "gauge3": {
      "label": "TIC socket 3 (empty)",
      "flags": {

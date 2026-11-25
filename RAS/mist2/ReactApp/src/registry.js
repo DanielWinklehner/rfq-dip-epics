@@ -55,27 +55,35 @@ const textTypes = ["bi", "bo", "mbbi", "mbbo", "stringin", "stringout", "lsi", "
 export const isText = (name) => textTypes.includes(pvInfo(name).type);
 export const isLongString = (name) => ["lsi", "lso"].includes(pvInfo(name).type);
 
-// Roles of a device, or of one of its channels: { role: PV name }.
-export const rolesOf = (id, channel) =>
-  channel ? devices[id].channels[channel].roles : devices[id].roles;
+// A channel of a device: installed ones under `channels`, those flagged not
+// installed (plan: channel_flags) under `not_installed_channels`.
+const channelOf = (id, channel) =>
+  devices[id].channels?.[channel] ?? devices[id].not_installed_channels[channel];
 
-export const channelsOf = (id) => Object.keys(devices[id].channels ?? {});
+// Roles of a device, or of one of its channels: { role: PV name }.
+export const rolesOf = (id, channel) => (channel ? channelOf(id, channel).roles : devices[id].roles);
+
+// Every channel, the ones not installed last (the device window lists them).
+export const channelsOf = (id) => [
+  ...Object.keys(devices[id].channels ?? {}),
+  ...Object.keys(devices[id].not_installed_channels ?? {}),
+];
 
 // A spare channel is not connected: it is shown only in the device window.
-export const isSpare = (id, channel) => Boolean(devices[id].channels[channel].spare);
+export const isSpare = (id, channel) => Boolean(channelOf(id, channel).spare);
 // A channel flagged not installed (plan: channel_flags) is treated as a device
 // that is not installed: only in the device window, never in a tag or alarm.
-export const isChannelInstalled = (id, channel) => !devices[id].channels[channel].flags?.not_installed;
-export const channelFlags = (id, channel) => devices[id].channels[channel].flags ?? {};
+export const isChannelInstalled = (id, channel) => !channelOf(id, channel).flags?.not_installed;
+export const channelFlags = (id, channel) => channelOf(id, channel).flags ?? {};
 export const connectedChannels = (id) =>
   channelsOf(id).filter((channel) => !isSpare(id, channel) && isChannelInstalled(id, channel));
 
-export const channelLabel = (id, channel) => devices[id].channels[channel].label;
+export const channelLabel = (id, channel) => channelOf(id, channel).label;
 
 // The words of a role's values (index = value): those of the channel, else
 // the device's words for the role, else the record's own state strings.
 export const wordsOf = (id, channel, role) =>
-  (channel ? devices[id].channels[channel].states : devices[id].states?.[role]) ??
+  (channel ? channelOf(id, channel).states : devices[id].states?.[role]) ??
   pvInfo(rolesOf(id, channel)[role]).states;
 
 // The label of a device-level role, if the registry has one.
