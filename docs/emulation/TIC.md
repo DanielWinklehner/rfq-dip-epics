@@ -219,11 +219,28 @@ is refused before the port is opened, exit code 3).
 | `TIC:backing:start:set` := 0 | the turbopump is in a state that follows a start (1, 5, 4); or its state is not known | "Refused: turbopump runs"; "Refused: turbo unknown" |
 | `TIC:gauge2:on:set` := 1 | the APG's pressure (`TIC:gauge1:getpressure`) is above 1e-2 torr (macro `PMAX`); or not valid | "Refused: APG > 1e-2 torr"; "Refused: APG not valid" |
 
+**The hold.** The TIC shows a pump's new state only some time after its command (the
+turbopump's old state 51 ms after `!C904 1`, the new one by 5 s, seen on 2026-11-25), and the
+IOC reads it every 2 s. So the IOC remembers an acknowledged turbopump start and an acknowledged
+backing pump stop for `HOLD_S` seconds (default 10, ASSUMED: the lag seen, below 5 s, plus the
+2 s poll, plus margin) and refuses the other pump's request within that time with the same words
+("Refused: turbopump runs", "Refused: backing not on"), whatever the polled state shows. Only a
+request the TIC acknowledged sets it (not a refused one, not one with an error code or without
+reply, not a take-over at the first contact or a fall-back); the pump's own acknowledged
+request of the other value ends it (a turbopump stop, a backing pump start). Internal records
+`turbo:_mem`, `turbo:_started`, `backing:_mem`, `backing:_stopped` (a bo with HIGH = HOLD_S: a
+second 1 restarts its timer, callbackRequestDelayed -> epicsTimerStartDelay, which takes a
+pending timer out of the queue and inserts it again with the new expiry).
+
 A refused request sends nothing: the request is INVALID (LINK) at once, falls back 0.02 s later
 to the read-back's value (in simulation mode, as the take-over at the first contact does) and is
 then without alarm; its reason says why. Stops and switch-offs are never refused, except the
 backing pump's while the turbopump runs. In the run-down (7 Braking) the backing pump may be
-stopped: the order used on 2026-11-25 (turbopump stop, backing pump off right after) held.
+stopped: the order used on 2026-11-25 (turbopump stop, backing pump off right after) held. With
+the IOC "right after" means: once the TIC's state of the turbopump reads Braking. For the first
+seconds after the turbopump's stop the state still reads Running and the backing pump's stop
+is refused ("Refused: turbopump runs"); the operator repeats it when the state reads Braking.
+That errs to the safe side.
 
 How (the header of `tic_control.db` has the details): the request's disable link SDIS reads a
 calc `_refuse` with PP and MS before the record support runs; a refusal is an INVALID alarm of
@@ -276,6 +293,9 @@ signal `command_code` makes every command get an error code; the fault `silent` 
   command to another object is answered `*<type><obj> 1` and not executed.
 - Of T32, in the simulator only (named options in `config/rack.yaml`; the IOC does not depend on
   any of them):
+  - `HOLD_S` 10 s in `tic_control.db` (an IOC value, not the simulator's): how long an
+    acknowledged turbopump start and backing pump stop are held for the other pump's refusal
+    (seen lag below 5 s, plus the 2 s poll, plus margin).
   - `turbo_delay_s` 1.0 s: how long the turbopump's state stays the old one after a command
     (seen: more than 51 ms, and the new state at the next sample 5 s later).
   - `turbo_running_pct` 50.5 % (seen: 50.1 % Accelerating, 54.3 % Running; 49.5 % to about

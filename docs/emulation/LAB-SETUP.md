@@ -486,9 +486,16 @@ camonitor TIC:backing:start:set TIC:backing:start:get TIC:backing:state:get TIC:
    INVALID. Then on again if you need it.
 9. **The shut-down**, in the order of 2026-11-25: close the foreline valve (the turbopump's STOP
    in the GUI warns while it is open or not known: the pump vents itself from its stop on, into
-   the big turbopump), the turbopump's STOP, confirm, then the backing pump's STOP right after
-   (allowed while the turbopump brakes). You should see the turbopump "Braking", the backing
-   pump "Off" at once. With the backing pump left on the run-down took more than five minutes.
+   the big turbopump), the turbopump's STOP, confirm, then the backing pump's STOP. The IOC
+   allows the backing pump's stop only once the TIC's state of the turbopump reads "Braking":
+   the TIC shows a new state some seconds after the command and the IOC reads it every 2 s. So
+   for the first seconds after the turbopump's stop you will see the backing pump's request
+   go back to `run` with "Refused: turbopump runs"; wait until `TIC:turbo:state:get` (the
+   turbopump's "state" in the GUI) reads "Braking", then press the backing pump's STOP again.
+   You should then see the backing pump "Off" at once. With the backing pump left on the
+   run-down took more than five minutes. Likewise, right after the backing pump's start (step 4)
+   or stop, and right after the turbopump's start, the other pump's request is refused for up
+   to 10 s (the IOC holds the acknowledged command until the TIC's state can show it).
 10. **Send back** the `camonitor` log of all steps, and anything the cart did that the GUI did
     not show.
 
