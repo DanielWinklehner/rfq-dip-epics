@@ -47,7 +47,7 @@ dbLoadRecords("$(MIST2_DB)/supply_first_contact.db", "S=AU-20P7-4")
 dbLoadRecords("$(MIST2_DB)/au_alloff.db", "PORT1=mat_opt,PORT2=mat_co,R1=AU-20P15-1:SetToggleOutput,R2=AU-20P7-2:SetToggleOutput,R3=AU-20P7-3:SetToggleOutput,R4=AU-20P7-4:SetToggleOutput")
 
 # Vacuum gauges. The six-way cross's APG and AIM are on the Edwards TIC station (tic.db below,
-# sockets 1 and 2; owner, 2026-11-25). The homemade gauge controller (pressure.db on AVR6) is out
+# sockets 1 and 2; owner, 2026-11-25). The homemade gauge controller (pressure.db) is out
 # of the system (owner, 2026-11-25: "Yes, drop it"): no longer loaded.
 # Edwards nAIM: deferred by the owner (2026-11-25), loaded without its gauge (INVALID).
 dbLoadRecords("$(MIST2_DB)/aim.db",            "PORT=AIM,DEVICE=AIM")
