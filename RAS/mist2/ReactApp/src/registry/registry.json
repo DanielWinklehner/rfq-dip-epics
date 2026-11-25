@@ -4474,6 +4474,24 @@
      "channel": "turbo",
      "log": "events"
     },
+    "TIC:turbo:_mem": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Turbopump: hold after ack (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TIC:turbo:_started": {
+     "type": "bo",
+     "access": "w",
+     "desc": "Turbopump: held (internal)",
+     "states": [
+      "no",
+      "held"
+     ],
+     "internal": true,
+     "log": "none"
+    },
     "TIC:turbo:_back": {
      "type": "calcout",
      "access": "r",
@@ -4632,6 +4650,24 @@
      "role": "result",
      "channel": "backing",
      "log": "events"
+    },
+    "TIC:backing:_mem": {
+     "type": "calcout",
+     "access": "r",
+     "desc": "Backing pump: hold after ack (internal)",
+     "internal": true,
+     "log": "none"
+    },
+    "TIC:backing:_stopped": {
+     "type": "bo",
+     "access": "w",
+     "desc": "Backing pump: held (internal)",
+     "states": [
+      "no",
+      "held"
+     ],
+     "internal": true,
+     "log": "none"
     },
     "TIC:backing:_back": {
      "type": "calcout",
