@@ -42,6 +42,8 @@ Examples: `examples/valvebox.yaml`, `examples/thermocouple.yaml`.
 
 **keithley_6485** (Keithley 6485 picoammeter, SCPI, manual 6485-901-01 Rev. A; task T25): power-on setup, trigger model with ABOR/INIT, measuring time NPLC / f_line x `autozero_factor`, overflow; signal `current` (A) for a plant model, `power` for a power cycle, counters `n_set` ... (module docstring).
 
+**inficon_vgc401** (INFICON VGC401 single-channel gauge controller, manual tinb01e1-f, chapter 5; task T30): `<mnemonic>` CR -> `<ACK>`, then `<ENQ>` (no terminator) -> the data, CR LF; PR1, UNI, TID, ERR, PNR; sends the value every second after power-on until the first character arrives (option `continuous`); options `gauge`, `unit`, `pressure`; signals `pressure` (torr), `status` (PR1's status digit), `unit`, `controller_error`, `continuous`, `power`, `refuse_uni`, counters `n_set` (anything that would change the controller), `n_nak`, `n_enq` (module docstring).
+
 ## Control protocol: one JSON object per line, one reply per line
 
 Every reply has `"ok": true`, or `"ok": false` and `"error"`. `unit` is optional everywhere
