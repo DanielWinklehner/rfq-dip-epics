@@ -218,9 +218,10 @@
 # Read only. On the roughing line, the turbopump's foreline (owner, 2026-11-25); the plant model's
 # foreline pressure drives it (config/plant.yaml). Seen on the lab's controller (2026-11-25, lab
 # session): 9600 baud, gauge head PCG, unit Torr, firmware 302-519-D, a reply after 91 to 112 ms.
-# ASSUMED: the PCG's measuring range, 5e-5 to 1500 mbar (INFICON's data sheet of the PCG550, as
-# remembered, not read for this task), and that the controller then reports underrange or
-# overrange with the end of the range as its value (the manual gives neither).
+# The lower end of the range is seen on the lab's controller (2026-11-25): "Underrange" with the
+# value standing at 3.76e-4 torr (5e-4 mbar). ASSUMED: the upper end, 1500 mbar (INFICON's data
+# sheet of the PCG550, as remembered, not read), and that the controller reports overrange with
+# the end of the range as its value (the manual gives neither).
 - name: vgc401
   type: inficon_vgc401
   port: 5034
@@ -231,7 +232,7 @@
     unit: 1                   # seen: Torr (UNI answers 1)
     firmware: "302-519-D"     # seen: PNR
     pressure: 0.03            # torr, without the plant model
-    range_torr: [3.75e-5, 1125.0]   # ASSUMED: 5e-5 to 1500 mbar
+    range_torr: [3.75e-4, 1125.0]   # seen on the lab's controller, 2026-11-25 (the lower end, 5e-4 mbar); the upper end ASSUMED (1500 mbar)
     continuous: true          # sends by itself after power-on until the first character (p. 55)
 
 # --- Edwards TIC station, RS-232 (asyn port TIC), task T29 --------------------------------------
