@@ -1179,6 +1179,45 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC's line through a USB extension, a load test; the restarted rack IOC
+
+**The extension.** Owner: "I have a USB extension cord that I put in between the PC and the TIC
+now, I would like you to "stress-test" it. Poll it for five to 10 minutes and let me know what
+the package loss is". Seen on the lab computer: the extension is a USB 2.0 hub (USB ID
+`1a40:0101`, 4 ports) and the Prolific adapter hangs on its port 4. **The adapter's name by
+socket changed with it,** from `pci-0000:00:14.0-usb-0:9:1.0` to
+`pci-0000:00:14.0-usb-0:9.4:1.0`: a rule by socket on the rack server must be taken with the
+extension in place, and the adapter must stay on that port of it.
+
+**The test, seen on hardware** (14:06:24 to 14:16:24, the probe's ten queries one after the
+other without a pause, each checked with the probe's own `meaning`, timeout 0.5 s; queries
+only; the TIC on, both pumps off, gauge 1 at 1.0000e+05 Pa):
+
+- **16210 queries sent, 27.0 a second; 16210 answered, all to the right object and in the
+  form the protocol file expects. None lost, none wrong.** Per minute 1618 to 1627, all good.
+- **Reply times:** min 23 ms, median 42 ms, mean 36.9 ms, 99 % below 63 ms, max 107 ms; one
+  reply over 100 ms, none over 150 ms (the IOC's reply timeout since `e4494e4`). Without the
+  extension, this morning: 20 replies of the probe, 23 to 86 ms, median 37 ms.
+- **The kernel's log** has no line about USB, the hub or the adapter between 14:06 and 14:17:
+  no reset, no reconnect.
+- **Not seen:** what USB itself repeated. A damaged USB packet is sent again below what a
+  program sees, and the adapter's driver (`pl2303`) gave no error counters. The test ran on
+  the lab computer with the pumps off: not on the rack server's socket, not beside running
+  pumps or high voltage, and for ten minutes only. The IOC asks about 6.5 times a second, a
+  quarter of this load.
+
+**The rack IOC after the owner's pull and restart** ("ioc is restarted after pulling, but I
+didn't move the TIC over yet"), seen from the lab computer:
+
+- 14:01:59: `IOC-RACK:heartbeat` 32. `PRESSURE:foreline:getpressure` 763 without alarm, state
+  "Measurement data okay", `PCG`, `Torr`, "No error", `302-519-D`.
+- **The pressure has a new time stamp every second** (the request's priority, `7ae5af5`): read
+  every 0.4 s for 64 s from 14:02:32, 65 distinct stamps, gaps 0.82 to 1.22 s, median 1.10 s,
+  none over 1.5 s. In the first seconds after the start (heartbeat 32 to 36) two stamps were
+  2 s apart.
+- `TIC:ident:get` COMM INVALID, `TIC:model:get` UDF INVALID, `TIC:variant:get` and
+  `TIC:gauge1:getpressure` LINK INVALID: the TIC's adapter is still on the lab computer.
+
 ### 2026-11-25: a line from the rack server; the TIC's adapter is not there yet
 
 The owner pasted, from `mist-2@mist-2-rack-IOC`, the output of
