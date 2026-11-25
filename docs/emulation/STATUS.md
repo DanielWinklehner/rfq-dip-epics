@@ -1228,6 +1228,63 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### Handover: where the lab stands on the evening of 2026-11-25
+
+Owner, at the end of the day: "I will be back in two weeks, but may want to prepare some more
+control system stuff for then." A lab session that starts fresh reads this first; the entries
+below it have the details.
+
+**As the owner left it** (his words, and what I saw up to 17:26:20): the rack computer shut
+down, the cart's mains unplugged, both turbopumps and the roughing pump off, the foreline valve
+closed, the AIM off. The six-way cross was at about 3 torr of air when my view ended. He
+unplugged and replugged "a few things" at the end, the INFICON among them.
+
+**Working on the real system today:** the INFICON VGC401 on the roughing line
+(`PRESSURE:foreline:*`), the TIC cart with the APG on socket 1 and the AIM on socket 2
+(`TIC:*`, read only), the valve box with the foreline valve on channel 1 (`VALVE:s1`), the GUI
+on the lab computer against the rack IOC, and a first pump-down of the cross to 9.65e-6 torr.
+**Not connected:** the interlock Opta, the flow meters, the platform computer. **Not in the
+IOC:** the big turbopump (manual, at its controller). **Dropped:** the homemade gauge box.
+**Deferred:** the nAIM.
+
+**First things on his return, in this order:**
+
+1. The cart's mains back; on the rack server `ls -l /dev/mist2/ /dev/serial/by-path/`: the
+   TIC's adapter and the two Matsusada adapters are named by their USB socket and lose the name
+   in another socket. The TIC's line must be `pci-0000:01:00.0-usb-0:4.4:1.0-port0`.
+2. On the rack server a `git pull` (T31: the gauge box out of the IOC, new drawings and labels)
+   and the IOC's start. The first start after a boot restarts the valve box and releases its
+   relays.
+3. Read `TIC:ident:get`, `TIC:gauge1:*`, `TIC:gauge2:*`, `PRESSURE:foreline:*`. A gauge that the
+   TIC shows as "New ID" must be accepted at its panel before the IOC has a pressure.
+4. If T32 is pushed by then: its first use is written steps in `LAB-SETUP.md`, the backing
+   pump first, with a lab session watching the read-backs.
+5. Not needed, when wanted: the rule file on the rack server for `/dev/mist2/tic_station`.
+
+**What a lab session on `mist-at-iba` should know:**
+
+- There is no EPICS on the lab computer. `caget`, `caput` and `camonitor` are in the GUI's
+  pvServer container: `docker exec mist2ras-pvserver-1 /epics/base/bin/linux-x86_64/caget -a
+  <PV>`. Their time stamps are UTC, one hour behind local time in winter.
+- No access to the rack server from here (no SSH key). What only that computer can show is the
+  owner's to run and paste.
+- `mist` is in `dialout` and `docker` from the next login on; until then a serial port needed
+  `sudo setfacl -m u:mist:rw /dev/ttyUSB*` from the owner after every replug. ModemManager is
+  still active on the lab computer, and its sleep targets are not masked.
+- The GUI: three containers with the restart policy `unless-stopped`; `make -C RAS/mist2 dev-up`
+  works since `3c58422`. <http://localhost:3000/>.
+- With the TIC's adapter on the rack server no command can be sent to the TIC by hand: the IOC
+  holds the line and has no command record until T32.
+- Today's raw logs and the helper programs I used by hand (the TIC log, the queries, the two
+  pump commands, the shut-down sequence, the load test) are in
+  `/home/mist/mist-2-claude/lab-logs-2026-11-25/` on the lab computer, outside the repository.
+  The helpers are not reviewed code: T32 replaces them.
+
+**Open with the owner** (the development session's questions): names by place for the cross's
+two pressures (25 c), the vacuum interlock's source (25 d). **Open from today's run:** the
+cross's rate of rise when closed off, and the APG's readings after its vacuum adjustment, which
+no second gauge has checked.
+
 ### 2026-11-25: the shut-down after the first pump-down, as far as the rack IOC showed it
 
 The owner ran it by hand; I switched nothing and could not have. His words: "I calibrated the
