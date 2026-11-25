@@ -873,6 +873,16 @@ by me):
 - **Not seen:** the IOC on this controller (the adapter hangs on the lab computer), a stop of
   either pump, a start of the turbopump with the backing pump off.
 
+**The rack IOC reads the TIC** (the lab session from the lab computer, 2026-11-25, 15:06, after
+the owner's pull and restart on the rack server; not seen by me): `TIC:ident:get`
+"TIC100;D39700640T;160070509" (the identity fix works on the controller), variant TIC, the APG
+on socket 1 at 750 torr in the state On, sockets 2 and 3 "Gauge Not connected" and INVALID,
+turbopump Stopped at 0 %, backing pump Off, all without alarm. Over five minutes no reading
+of seven watched PVs turned INVALID (the station was idle; P73 stays open for a running
+station and for hours). The adapter's by-path name in `ports.real.cmd` is right; the rule for
+`/dev/mist2/tic_station` passes `udevadm verify` and is not installed. The foreline pressure
+from the VGC401 arrives every 0.8 to 1.2 s since the restart with the corrected database.
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
