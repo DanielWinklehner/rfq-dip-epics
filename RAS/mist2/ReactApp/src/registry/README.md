@@ -31,11 +31,16 @@ the only place where the GUI and the tests learn device and PV names.
   - `label`: null where the channel has no name.
   - `spare: true`: the channel is not connected (valves s5 to s8, sensor box flows f1 and f5).
     The key is absent on connected channels.
+  - `flags`: `{"not_installed": reason}` for a channel known to be empty (the TIC's socket 3;
+    plan: `channel_flags`). Treated as a device that is not installed: no tag, no alarm, no
+    trend; the device window names it with the reason. Its PVs are under `not_installed_pvs`.
   - `states`: words of the channel, index = value, for example `["closed", "open"]` for the
     valves s1 to s3 and `["out", "in"]` for the Faraday cup actuator s4. They apply to both the
     command and the read-back of the channel.
   - `roles`.
 - `simulators`, `loads`, `pvs`.
+- `not_installed_pvs`: the PVs of a channel flagged not installed, in the form of `pvs`, kept
+  apart so that the system tests and the logger, which read `pvs`, leave them out.
 
 ## A PV
 

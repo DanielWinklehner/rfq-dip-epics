@@ -29,6 +29,12 @@ const setRoles = {
   loop: ["mode_cmd", "sp_cmd"],
 };
 
+// A read role whose value can be INVALID or out of range for a reason the
+// device states in its role `state`: the tag shows the state's word beside the
+// value while the value is not in alarm-free state (a gauge: "Off", "Striking",
+// "Gauge Not connected", "Underrange").
+const stateBeside = { gauge: "p" };
+
 // Rows of a tag: { pv, words, label } for what it reads, then { set: true,
 // pv, id, channel, role, label } for what it sets. A tag of one channel shows
 // that channel; a tag of a device shows the device's roles, then every
@@ -44,7 +50,14 @@ const tagRows = (id, channel) => {
     const rowLabel = (role) =>
       label && read.length + set.length === 1 ? label : [label, roleText(id, role)].filter(Boolean).join(" ");
     return [
-      ...read.map((role) => ({ pv: roles[role], words: wordsOf(id, ch, role), label: rowLabel(role) })),
+      ...read.map((role) => ({
+        pv: roles[role],
+        words: wordsOf(id, ch, role),
+        label: rowLabel(role),
+        ...(stateBeside[kind] === role && roles.state
+          ? { statePv: roles.state, stateWords: wordsOf(id, ch, "state") }
+          : {}),
+      })),
       ...set.map((role) => ({ set: true, pv: roles[role], id, channel: ch, role, label: rowLabel(role) })),
     ];
   };

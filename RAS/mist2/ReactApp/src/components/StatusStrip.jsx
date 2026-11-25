@@ -12,6 +12,7 @@ import { openDeviceWindow } from "../windows";
 import PvLamp from "./fields/PvLamp";
 import useReading from "./fields/useReading";
 import RoleField from "./RoleField";
+import modeSummary from "./modeSummary";
 
 const beatTimeout = 5000;
 
@@ -87,19 +88,6 @@ const AliveChip = ({ id }) => {
 
 const services = infrastructureDevices.filter((id) => rolesOf(id).alive);
 
-// The banner text (LAYOUT.md 1.3), or null when every IOC reports "real".
-const bannerText = (modes) => {
-  const entries = Object.keys(iocs).map((ioc) => [iocs[ioc].name, modes[ioc]]);
-  if (entries.every(([, mode]) => mode === "real")) return null;
-  if (entries.every(([, mode]) => mode === "sim")) {
-    return `EMULATOR — ${entries.map(([name]) => name).join(" and ")} report mode sim. No hardware is connected.`;
-  }
-  const parts = entries.map(([name, mode]) =>
-    mode === "sim" ? `${name} in mode sim` : mode === "real" ? `${name} on real hardware` : `${name}: mode unknown`
-  );
-  return `${entries.some(([, mode]) => mode === "real") ? "MIXED" : "EMULATOR"} — ${parts.join(", ")}.`;
-};
-
 // The interlock summary: every interlock device with its inputs.
 const InterlockSummary = () =>
   installedDevices()
@@ -119,17 +107,19 @@ const InterlockSummary = () =>
     ));
 
 // Below the app bar of every window: the emulator banner, the IOC chips, the
-// chips of the services (the data logger) and the interlock summary. Sets the window title, with [SIM] while the banner
-// shows. `compact` (device windows) leaves out the interlock summary.
+// chips of the services (the data logger) and the interlock summary. Sets the window title, with
+// [SIM] for the emulation and [MIXED] for a mix (modeSummary.js). `compact` (device windows) leaves out the interlock summary.
 const StatusStrip = ({ title, compact = false }) => {
   const theme = useTheme();
   const [modes, setModes] = useState({});
   const onMode = useCallback((ioc, mode) => setModes((m) => ({ ...m, [ioc]: mode })), []);
-  const banner = bannerText(modes);
+  const { prefix, banner, kind } = modeSummary(Object.keys(iocs).map((ioc) => [iocs[ioc].name, modes[ioc]]));
   useEffect(() => {
-    document.title = `${banner ? "[SIM] " : ""}${title}`;
-  }, [banner, title]);
-  const { main, dark } = theme.palette.emulator;
+    document.title = `${prefix}${title}`;
+  }, [prefix, title]);
+  // The emulator's stripes for the emulation and a mix; a neutral grey when a
+  // mode is not known.
+  const { main, dark } = kind === "unknown" ? { main: theme.palette.grey[600], dark: theme.palette.grey[800] } : theme.palette.emulator;
   return (
     <Stack
       direction={compact ? "column" : "row"}
@@ -139,6 +129,7 @@ const StatusStrip = ({ title, compact = false }) => {
     >
       <Box
         data-banner={banner ? "shown" : "hidden"}
+        data-mode={kind}
         sx={{
           flexGrow: 1,
           px: 1.5,

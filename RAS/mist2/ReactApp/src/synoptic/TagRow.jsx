@@ -20,9 +20,10 @@ const Label = ({ x, y, children }) => {
 
 // One value of a tag, in the shared alarm look, with the RAS context menu.
 // A value with two words (registry) gets a lamp.
-const ReadRow = ({ pv, words, label, x, y, w }) => {
+const ReadRow = ({ pv, words, label, x, y, w, stateWord }) => {
   const theme = useTheme();
   const { state, text, on, menu, openMenu } = useReading(pv, words);
+  const why = state !== "ok" && stateWord ? stateWord(state) : null;
   const colors = alarmColors(theme, state);
   return (
     <g data-pv={pv} data-alarm={state} onContextMenu={openMenu}>
@@ -37,6 +38,11 @@ const ReadRow = ({ pv, words, label, x, y, w }) => {
       />
       <Label x={x} y={y}>
         {label}
+        {why && (
+          <tspan data-state-word fontWeight={700} fill={theme.palette.text.primary}>
+            {` · ${why}`}
+          </tspan>
+        )}
       </Label>
       {words?.length === 2 && <Lamp x={x + w - 100} y={y + 2} size={13} state={state} on={on} />}
       <text
@@ -76,6 +82,15 @@ const SetRow = ({ id, channel, role, label, x, y, w }) => {
   );
 };
 
-const TagRow = (row) => (row.set ? <SetRow {...row} /> : <ReadRow {...row} />);
+// A read row with the device's state beside it (tagRows: statePv): the
+// state's word, when the state itself is read without INVALID.
+const StatedReadRow = ({ statePv, stateWords, ...row }) => {
+  const reading = useReading(statePv, stateWords);
+  const word = ["ok", "minor", "major"].includes(reading.state) ? reading.text.replace(/ [▲■?×]$/, "") : null;
+  return <ReadRow {...row} stateWord={() => word} />;
+};
+
+const TagRow = (row) =>
+  row.set ? <SetRow {...row} /> : row.statePv ? <StatedReadRow {...row} /> : <ReadRow {...row} />;
 
 export default TagRow;

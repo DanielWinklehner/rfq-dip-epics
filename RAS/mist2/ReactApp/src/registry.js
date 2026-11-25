@@ -8,15 +8,20 @@ export const iocs = registry.iocs;
 export const devices = registry.devices;
 export const simulators = registry.simulators;
 
+// The PVs of a channel that is not installed (a TIC socket without a gauge)
+// are listed apart in the registry (not_installed_pvs): known here, shown in
+// the device window, left out of tags, alarms and trends.
+const devicePvs = (device) => ({ ...device.pvs, ...(device.not_installed_pvs ?? {}) });
+
 const allPvs = Object.fromEntries([
   ...Object.values(iocs).flatMap((ioc) => Object.entries(ioc.pvs)),
-  ...Object.values(devices).flatMap((device) => Object.entries(device.pvs)),
+  ...Object.values(devices).flatMap((device) => Object.entries(devicePvs(device))),
 ]);
 
 export const pvInfo = (name) => allPvs[name];
 
 const owners = Object.fromEntries(
-  Object.entries(devices).flatMap(([id, device]) => Object.keys(device.pvs).map((name) => [name, id]))
+  Object.entries(devices).flatMap(([id, device]) => Object.keys(devicePvs(device)).map((name) => [name, id]))
 );
 export const deviceOfPv = (name) => owners[name];
 
@@ -58,7 +63,12 @@ export const channelsOf = (id) => Object.keys(devices[id].channels ?? {});
 
 // A spare channel is not connected: it is shown only in the device window.
 export const isSpare = (id, channel) => Boolean(devices[id].channels[channel].spare);
-export const connectedChannels = (id) => channelsOf(id).filter((channel) => !isSpare(id, channel));
+// A channel flagged not installed (plan: channel_flags) is treated as a device
+// that is not installed: only in the device window, never in a tag or alarm.
+export const isChannelInstalled = (id, channel) => !devices[id].channels[channel].flags?.not_installed;
+export const channelFlags = (id, channel) => devices[id].channels[channel].flags ?? {};
+export const connectedChannels = (id) =>
+  channelsOf(id).filter((channel) => !isSpare(id, channel) && isChannelInstalled(id, channel));
 
 export const channelLabel = (id, channel) => devices[id].channels[channel].label;
 
@@ -77,7 +87,11 @@ export const alarmPvs = (id, channel) => {
   const names = channel ? Object.values(rolesOf(id, channel)) : Object.keys(devices[id].pvs);
   return names.filter((name) => {
     const info = pvInfo(name);
-    return info.access === "r" && !info.internal && !(info.channel && isSpare(id, info.channel));
+    return (
+      info.access === "r" &&
+      !info.internal &&
+      !(info.channel && (isSpare(id, info.channel) || !isChannelInstalled(id, info.channel)))
+    );
   });
 };
 
