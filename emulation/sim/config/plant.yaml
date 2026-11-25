@@ -5,8 +5,10 @@
 #
 # The machine (owner, 2026-11-21): ion source with a hairpin filament on the HV platform, HV
 # break, ONE chamber at ground (CF 10" six-way cross) with ONE turbopump (turbopump 1) on its
-# bottom flange. nAIM and APG side by side on the cross. No diagnostic box, no turbopump 2 and
-# no foreline gauge in phase 1 (gauges.p2 and nt20_2 are not used).
+# bottom flange. The APG and a regular AIM on the cross, both on the Edwards TIC station (sockets 1
+# and 2), and the foreline gauge on the INFICON VGC401 (owner, 2026-11-25). No diagnostic box and
+# no turbopump 2 in phase 1 (nt20_2 is not used). The nAIM is deferred (owner, 2026-11-25): nothing
+# drives the simulator `aim`. The homemade gauge box is out of the system.
 #
 # NOTHING IN THE SECTION `model` IS A MEASURED PROPERTY OF MIST-2 except the working point the
 # owner gave from memory (wp_*, source "owner's working point, 2026-11-21"). The model derives
@@ -28,8 +30,8 @@ links:
   tdk:          {host: sim-hv, port: 6001}
   rek:          {host: sim-hv, port: 6019}
   thermocouple: {host: sim-hv, port: 6020}
-  aim:          {host: sim-rack, port: 6003}
-  gauges:       {host: sim-rack, port: 6006}
+  tic:          {host: sim-rack, port: 6035}
+  vgc401:       {host: sim-rack, port: 6034}
   mat_opt:      {host: sim-rack, port: 6008}
   valvebox:     {host: sim-rack, port: 6012}
   mfc:          {host: sim-rack, port: 6013}
@@ -59,8 +61,10 @@ outputs:
   tdk.load_ohm:        filament_resistance
   rek.1.load_ohm:      rek_load
   mat_opt.1.load_ohm:  source_load
-  aim.pressure:        aim_reading               # nAIM on the cross, torr (N2 calibrated)
-  gauges.p1:           apg_reading               # APG on the cross, torr (floor 1e-3)
+  tic.g1.pressure:     cross_pressure            # APG on the cross, TIC socket 1, torr: the true pressure;
+                                                 # the simulator reports its ends (1e-2 Pa, 1e5 Pa) exactly
+  tic.g2.pressure:     aim_reading               # AIM on the cross, TIC socket 2, torr (N2 calibrated)
+  vgc401.pressure:     foreline_pressure         # foreline gauge (PCG on the VGC401), torr
   faradaycup.i1:       cup_current               # A. ASSUMED: i1 of FC1 is the cup current in A (rack.yaml)
   thermocouple.t1:     back_plate_temperature    # deg C
   thermocouple.t2:     feedthrough_temperature
@@ -74,7 +78,7 @@ model:
   wp_filament_current_a:   {value: 90.0, unit: A, source: "owner's working point, 2026-11-21: filament 90 A"}
   wp_discharge_voltage_v:  {value: 150.0, unit: V, source: "owner's working point, 2026-11-21: discharge 150 V"}
   wp_discharge_current_a:  {value: 24.0, unit: A, source: "owner's working point, 2026-11-21: discharge 24 A (the full scale of the REK150-24)"}
-  wp_cross_reading_low_torr:  {value: 1.0e-5, unit: torr, source: "owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading); compared with the model, not used by it"}
+  wp_cross_reading_low_torr:  {value: 1.0e-5, unit: torr, source: "owner's working point, 2026-11-21: 'around 1e-5 Torr' in the six-way cross (nAIM reading then); compared with the model, not used by it"}
   wp_cross_reading_high_torr: {value: 5.0e-5, unit: torr, source: "owner's working point, 2026-11-21 (second answer): 'it could be that at 20% we were more in the 5e-5 Torr range'; compared with the model, not used by it"}
   wp_gas_sccm:             {value: 1.0, unit: sccm, source: "owner's working point, 2026-11-21: MFC about 20 % of 5 sccm H2"}
   # --- 1. filament ----------------------------------------------------------------------------
@@ -97,15 +101,15 @@ model:
   aperture_conductance_l_s: {value: 8.0, unit: l/s, source: "estimate: molecular flow of H2 through an extraction aperture of about 5 mm"}
   chamber_volume_l:        {value: 1.0, unit: l, source: "estimate: plasma chamber of the source"}
   cross_volume_l:          {value: 40.0, unit: l, source: "estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long)"}
-  aim_h2_factor:           {value: 0.46, unit: "1", source: "law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure. That the nAIM is calibrated for N2 is the owner's belief (2026-11-21), not checked on the gauge"}
-  cross_base_reading_torr: {value: 2.0e-6, unit: torr, source: "free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas"}
-  apg_floor_torr:          {value: 1.0e-3, unit: torr, source: "free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that"}
-  apg_ceiling_torr:        {value: 944.06, unit: torr, source: "free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml)"}
+  aim_h2_factor:           {value: 0.46, unit: "1", source: "law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure. That the cross's ion gauge is calibrated for N2 was the owner's belief for the nAIM (2026-11-21) and is ASSUMED for the AIM on the TIC (T31), not checked on either gauge"}
+  cross_base_reading_torr: {value: 2.0e-6, unit: torr, source: "free choice: the ion gauge's base reading with the pump at speed and no gas (the nAIM simulator's constant before T31; the AIM's value without the plant in rack.yaml)"}
+  apg_floor_torr:          {value: 7.50062e-5, unit: torr, source: "seen on hardware: the lab's APG100-XM on the TIC reported exactly 1.0000e-02 Pa at high vacuum (lab session, 2026-11-25); the simulator tic has it as floor_pa (rack.yaml)"}
+  apg_ceiling_torr:        {value: 750.062, unit: torr, source: "seen on hardware: the lab's APG100-XM on the TIC reported exactly 1.0000e+05 Pa at atmosphere after its adjustment (lab session, 2026-11-25); the simulator tic has it as top_pa (rack.yaml)"}
   turbo_speed_n2_l_s:      {value: 1150.0, unit: l/s, source: "law (data sheet): Leybold TURBOVAC 1000 C, 250 ISO-K inlet, N2 (GA 05.118/14.02, 1.3 Technical Data); the pump model is the owner's 'I think it's a 1000C with a 250 ISO-K flange'"}
   turbo_h2_n2_ratio:       {value: 1.018, unit: "1", source: "estimate: the data sheet gives no H2 speed for the 1000 C; ratio H2/N2 of the TURBOVAC 600 C in the same table (570 / 560 l/s)"}
   turbo_stopped_fraction:  {value: 0.01, unit: "1", source: "estimate: what a stopped turbopump still pumps (through to the foreline)"}
   turbo_p_limit_torr:      {value: 0.01, unit: torr, source: "estimate: inlet pressure at which the turbopump has lost half its speed (data sheet: max. permanent inlet pressure 1e-3 to 1e-2 mbar)"}
-  foreline_base_torr:      {value: 3.0e-2, unit: torr, source: "free choice: the APG simulator's constant before phase 1 (no foreline gauge in the control system yet)"}
+  foreline_base_torr:      {value: 3.0e-2, unit: torr, source: "free choice: the APG simulator's constant before phase 1; the VGC401 simulator's value without the plant (rack.yaml)"}
   foreline_volume_l:       {value: 2.0, unit: l, source: "estimate: turbopump outlet, foreline up to the foreline valve"}
   rough_speed_l_s:         {value: 5.0, unit: l/s, source: "estimate: roughing pump (make and model not known)"}
   foreline_outgas_torr_l_s: {value: 1.0e-3, unit: torr l/s, source: "estimate: outgassing of the foreline"}

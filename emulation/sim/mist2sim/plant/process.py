@@ -181,7 +181,7 @@ class Plant:
             return "no step yet"
         down = [n for n, lk in self.links.items() if not lk.up]
         return ("If %.1f A, T %.0f K, emission %.3g A, discharge %.3g A at %.1f V, "
-                "cross %.2e (nAIM %.2e), foreline %.2e torr, beam %.3g mA, cup %.3g mA, "
+                "cross %.2e (AIM %.2e), foreline %.2e torr, beam %.3g mA, cup %.3g mA, "
                 "links %d/%d up%s" % (
                     self.inputs.get("filament_current", 0.0), o["filament_temperature"],
                     o["emission"], o["discharge_current"], o["discharge_voltage"],

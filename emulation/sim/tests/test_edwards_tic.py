@@ -102,5 +102,82 @@ class Tic(unittest.TestCase):
             make(gauges=[{"pressur": 1e-6}])
 
 
+APG = {"pressure": 4.0e-6, "floor_pa": 1.0e-2, "top_pa": 1.0e5}
+SWITCH = {"master": 1, "on_torr": 1.0e-2, "off_torr": 2.0e-2, "strike_s": 3.0}
+
+
+class SixWayCross(unittest.TestCase):
+    """T31: the APG on socket 1 with the ends seen on the lab's TIC, the AIM on socket 2
+    switched by socket 1's value (the owner's rule: not on above 1e-2 torr)."""
+
+    def setUp(self):
+        self.sim = make(noise=0.01, gauges=[dict(APG), {"pressure": 2e-6, "switch": dict(SWITCH)}, None])
+        self.s = self.sim.signals
+
+    def state(self, n):
+        return gauge(ask(self.sim, "?V91%d" % (2 + n)))[3]
+
+    def test_apg_reports_exactly_its_floor_and_top_in_the_state_on(self):
+        for _ in range(20):
+            self.assertEqual(ask(self.sim, "?V913"), "=V913 1.0000e-02;59;11;0;0")
+        self.s["g1.pressure"].force(760.0)
+        for _ in range(20):
+            self.assertEqual(ask(self.sim, "?V913"), "=V913 1.0000e+05;59;11;0;0")
+        self.s["g1.pressure"].force(1.0)
+        value = gauge(ask(self.sim, "?V913"))[1]
+        self.assertAlmostEqual(value / PA_PER_TORR, 1.0, delta=0.05)
+
+    def test_aim_follows_the_apg(self):
+        clock = self.sim.clock
+        self.assertEqual(self.state(2), 6)                      # APG at its floor: strikes
+        clock.advance(2.9)
+        self.assertEqual(self.state(2), 6)
+        clock.advance(0.2)
+        self.assertEqual(self.state(2), 11)
+        self.assertAlmostEqual(gauge(ask(self.sim, "?V914"))[1] / (2e-6 * PA_PER_TORR), 1, delta=0.05)
+        self.s["g1.pressure"].force(1.5e-2)                     # between on and off: stays on
+        self.assertEqual(self.state(2), 11)
+        self.s["g1.pressure"].force(2.1e-2)                     # above off: off
+        self.assertEqual(ask(self.sim, "?V914"), "=V914 9.9000e+09;59;5;0;0")
+        self.s["g1.pressure"].force(1.5e-2)                     # back between: stays off
+        clock.advance(10)
+        self.assertEqual(self.state(2), 5)
+        self.s["g1.pressure"].force(1.0e-2)                     # at the owner's 1e-2 torr: strikes
+        self.assertEqual(self.state(2), 6)
+        self.s["g1.pressure"].force(3e-2)                       # off while striking
+        self.assertEqual(self.state(2), 5)
+
+    def test_aim_off_at_atmosphere_as_seen(self):
+        sim = make(gauges=[dict(APG, pressure=760.0), {"pressure": 2e-6, "switch": dict(SWITCH)}, None])
+        self.assertEqual(ask(sim, "?V914"), "=V914 9.9000e+09;59;5;0;0")
+        sim.clock.advance(60)
+        self.assertEqual(ask(sim, "?V914"), "=V914 9.9000e+09;59;5;0;0")
+        self.assertEqual(ask(sim, "?V915"), "=V915 9.9000e+09;59;0;0;0")
+
+    def test_aim_off_when_the_apg_is_not_on(self):
+        self.assertEqual(self.state(2), 6)
+        self.sim.clock.advance(5)
+        self.assertEqual(self.state(2), 11)
+        self.s["g1.state"].force(2)                              # New Gauge Id: no reading
+        self.assertEqual(self.state(2), 5)
+
+    def test_a_state_held_over_the_control_port_wins(self):
+        self.assertEqual(self.state(2), 6)
+        self.s["g2.state"].force(4)
+        self.sim.clock.advance(5)
+        self.assertEqual(self.state(2), 4)
+        self.s["g2.state"].release()
+        self.assertEqual(self.state(2), 11)
+
+    def test_bad_switch(self):
+        for bad in ({"master": 2}, {"on_torr": 3e-2}, {"strike_s": -1}, {"master": 4}):
+            with self.assertRaises(ConfigError):
+                make(gauges=[dict(APG), {"switch": dict(SWITCH, **bad)}, None])
+        with self.assertRaises(ConfigError):
+            make(gauges=[dict(APG), {"switch": {"master": 1}}, None])
+        with self.assertRaises(ConfigError):
+            make(gauges=[dict(APG, floor_pa=1e6)])
+
+
 if __name__ == "__main__":
     unittest.main()

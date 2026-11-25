@@ -7,7 +7,8 @@
 
 The machine: ion source with a hairpin filament on the high-voltage platform, a high-voltage
 break, ONE vacuum chamber at ground (a CF 10" six-way cross) with ONE turbopump on its bottom
-flange. nAIM and APG both measure the cross. The vent valve vents the turbopump (and through
+flange. The APG and the AIM on the TIC station both measure the cross (owner, 2026-11-25); the
+foreline gauge on the VGC401 measures the foreline. The vent valve vents the turbopump (and through
 it, a little, the cross). See README.md, section "Plant model", for the equations.
 
 Calibration: the owner's working point (parameters wp_*) fixes the hot filament resistance, the
@@ -192,8 +193,8 @@ class PlantModel:
                                        1000.0, 4000.0)
         d["filament_area_cm2"] = area_cm2(d["filament_t_hot_k"])
         # pumping: the speed of the turbopump comes from its data sheet (N2) and the H2/N2
-        # ratio; the outgassing gives today's base reading with the pump at speed (the nAIM is
-        # calibrated for N2 and reads hydrogen low by aim_h2_factor)
+        # ratio; the outgassing gives today's base reading with the pump at speed (the ion gauge
+        # is calibrated for N2 and reads hydrogen low by aim_h2_factor)
         q = p["wp_gas_sccm"] * p["sccm_to_torr_l_s"]
         d["turbo_speed_l_s"] = p["turbo_speed_n2_l_s"] * p["turbo_h2_n2_ratio"]
         d["cross_base_torr"] = p["cross_base_reading_torr"] / p["aim_h2_factor"]
@@ -271,8 +272,9 @@ class PlantModel:
         return d["turbo_speed_l_s"] * f / (1.0 + max(0.0, pressure) / p["turbo_p_limit_torr"])
 
     def gauges(self, p_cross):
-        """(nAIM reading, APG reading), torr. The nAIM is calibrated for N2 and reads hydrogen
-        low; the APG (Pirani type) shows nothing below its floor."""
+        """(AIM reading, APG reading), torr. The AIM (an ion gauge) is calibrated for N2 and reads
+        hydrogen low; the APG (Pirani type) reports nothing below its floor and above its top
+        (seen on the lab's TIC: 1.0000e-02 Pa and 1.0000e+05 Pa)."""
         p = self.p
         aim = p["aim_h2_factor"] * p_cross
         apg = min(p["apg_ceiling_torr"], max(p["apg_floor_torr"], p_cross))

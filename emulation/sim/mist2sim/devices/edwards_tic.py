@@ -185,9 +185,12 @@ class EdwardsTic(Simulator):
             value = NOT_ON_VALUE
         elif units == 59:
             p = self.signals["g%d.pressure" % n].value
-            value = max(p * (1.0 + self.rng.gauss(0.0, self.options["noise"])), 0.0) * PA_PER_TORR
             floor, top = self.ends[n]
-            value = min(top, max(floor, value))
+            if not floor < p * PA_PER_TORR < top:
+                value = min(top, max(floor, p * PA_PER_TORR))      # at an end: that end, exactly
+            else:
+                value = max(p * (1.0 + self.rng.gauss(0.0, self.options["noise"])), 0.0) * PA_PER_TORR
+                value = min(top, max(floor, value))
         else:
             value = VOLTAGE_VALUE
         return "%.4e;%d;%d;%d;%d" % (value, units, state, self._int("g%d.alert" % n),

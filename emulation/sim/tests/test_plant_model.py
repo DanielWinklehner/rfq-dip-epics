@@ -284,7 +284,7 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(set(model), set(PARAMETERS))
         for name, entry in model.items():
             self.assertTrue(entry["unit"], name)
-            self.assertRegex(entry["source"], r"^(law|estimate|free choice|owner's working point, 2026-11-21)", name)
+            self.assertRegex(entry["source"], r"^(law|estimate|free choice|seen on hardware|owner's working point, 2026-11-21)", name)
             if name.startswith("wp_"):
                 self.assertTrue(entry["source"].startswith("owner's working point, 2026-11-21"), name)
         with open(README) as f:
@@ -293,9 +293,11 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(sorted(set(PARAMETERS) - set(table)), [], "parameters missing in README.md")
         for name in INPUTS:
             self.assertIn(name, text)
-        # phase 1: no turbopump 2, no diagnostic box gauge
+        # phase 1: no turbopump 2; the gauge box is out and the nAIM deferred (T31)
         self.assertNotIn("nt20_2", cfg["links"])
-        self.assertNotIn("gauges.p2", cfg["outputs"])
+        self.assertNotIn("gauges", cfg["links"])
+        self.assertNotIn("aim", cfg["links"])
+        self.assertNotIn("tic.g3.pressure", cfg["outputs"])
 
     def test_gas_scale_matches_the_mfc(self):
         import yaml

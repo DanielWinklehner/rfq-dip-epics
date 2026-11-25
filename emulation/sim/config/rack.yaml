@@ -33,6 +33,8 @@
       - {address: 4, vfs: 20000, ifs: 0.0075, polarity: "-", load_ohm: 4.0e+6}  # lens 2, AU20N7.5
 
 # --- Edwards nAIM ion gauge, RS-232 (asyn port AIM) ---------------------------------------------
+# Deferred by the owner (2026-11-25), flagged not installed in the plan: the rack IOC still loads
+# aim.db, and this simulator keeps its PVs valid in the emulation. Nothing drives its pressure.
 - name: aim
   type: edwards_naim
   port: 5003
@@ -41,29 +43,6 @@
   options:
     units: torr               # ASSUMED: the unit configured in the gauge (the lab's database says torr)
     pressure: 2.0e-6
-
-# --- Gauge controller for APG and AIM, Teensy, libcom1 (asyn port AVR6) -------------------------
-# AVR/devices/IonGaugeController_Teensy (owner, 2026-11-21: the board is a Teensy).
-# Channels p1 (APG, on the six-way cross) and p2 (AIM: second six-way cross, phase 2)
-- name: gauges
-  type: libcom1
-  port: 5006
-  baud: 115200
-  bits_per_char: 11           # 8 bits, even parity, 1 stop, as ports.real.cmd opens the port (the
-                              # lab's st.cmd). On the Teensy's USB serial the setting changes
-                              # nothing on the wire; here it only sets the reply delay
-  turnaround_ms: 1            # ASSUMED
-  in_terminator: "\n"
-  out_terminator: "\r\n"      # Serial.println
-  options:
-    identity: IonGaugeController_Teensy
-    firmware: "Nov 21 2026"   # the sketch reports __DATE__
-    number_format: g          # Teensy (ARM): snprintf %g, not the AVR format
-    out_buffer: 128
-    in_buffer: 128
-    channels:
-      - {id: p1, access: rw, behaviour: analog, value: 3.0e-2, noise: 1.0e-4, lo: 1.0e-3, hi: 944.06}
-      - {id: p2, access: rw, behaviour: analog, value: 8.0e-7, noise: 4.0e-9, lo: 7.5e-9, hi: 7.5e-3}
 
 # --- Interlock box: two door switches, Arduino Opta, libcom1 (asyn port AVR11) ------------------
 # AVR/devices/InterlockOpta, in place of the lost Arduino Mega box (owner, 2026-11-24, answer 54),
@@ -236,24 +215,42 @@
     failure_signal: f2
 
 # --- INFICON VGC401, the foreline gauge's controller, RS-232 (asyn port VGC), task T30 ----------
-# Read only. ASSUMED: 9600 baud and mbar are the controller's defaults (manual tinb01e1-f p. 82),
-# the lab's settings are not known; the gauge head is not known (a Pirani assumed).
+# Read only. On the roughing line, the turbopump's foreline (owner, 2026-11-25); the plant model's
+# foreline pressure drives it (config/plant.yaml). Seen on the lab's controller (2026-11-25, lab
+# session): 9600 baud, gauge head PCG, unit Torr, firmware 302-519-D, a reply after 91 to 112 ms.
+# ASSUMED: the PCG's measuring range, 5e-5 to 1500 mbar (INFICON's data sheet of the PCG550, as
+# remembered, not read for this task), and that the controller then reports underrange or
+# overrange with the end of the range as its value (the manual gives neither).
 - name: vgc401
   type: inficon_vgc401
   port: 5034
   baud: 9600
   turnaround_ms: 95           # seen on the lab's controller: 91 to 112 ms per reply (2026-11-25)
   options:
-    gauge: PSG
-    unit: 0                   # mbar: the IOC converts to torr
-    pressure: 0.03            # torr
+    gauge: PCG                # seen: TID answers PCG
+    unit: 1                   # seen: Torr (UNI answers 1)
+    firmware: "302-519-D"     # seen: PNR
+    pressure: 0.03            # torr, without the plant model
+    range_torr: [3.75e-5, 1125.0]   # ASSUMED: 5e-5 to 1500 mbar
     continuous: true          # sends by itself after power-on until the first character (p. 55)
 
 # --- Edwards TIC station, RS-232 (asyn port TIC), task T29 --------------------------------------
-# Read only. ASSUMED, all of it: which TIC variant the station is and what hangs on it is not
-# known (docs/emulation/STATUS.md, question 23). A Turbo & Instrument Controller with a gauge
-# on every socket, a turbopump running and a backing pump on, so that every PV has a value
-# while nothing is at fault; an empty socket would be INVALID for good.
+# Read only. As the lab's station reports itself (2026-11-25, lab session): a TIC Turbo and
+# Instrument Controller (TIC100) with an EXT75DX turbopump and a mains backing pump. Both pumps
+# run here, so that every PV has a value while nothing is at fault (the real cart's state is
+# whatever the owner set at its panel).
+# The gauges (owner, 2026-11-25; task T31): socket 1 the APG100-XM, socket 2 a regular AIM, both
+# on the six-way cross; socket 3 empty (plan: device tic, channel gauge3 not installed). The plant
+# model drives both (config/plant.yaml): the APG with the true cross pressure (the simulator
+# clamps it to the gauge's ends), the AIM with its reading; without the plant they read the
+# values below.
+#   APG: seen on the lab's TIC to report exactly 1.0000e-02 Pa at high vacuum and exactly
+#   1.0000e+05 Pa at atmosphere, always in the state On (floor_pa, top_pa).
+#   AIM: seen at atmosphere in the state 5 "Off", units 59, alert 0, priority 0. The owner's rule
+#   (2026-11-25): not on until the APG shows 1e-2 torr or lower (on_torr). Who switches it on is
+#   not seen (the TIC's own slave setup, D397-30-880 Table 1 object 914, or the owner at the
+#   panel); here the TIC does, by socket 1's value. ASSUMED: off again above 2e-2 torr
+#   (off_torr) and 3 s in the state 6 "Striking" (strike_s): neither is seen nor in a manual read.
 - name: tic
   type: edwards_tic
   port: 5035
@@ -262,9 +259,10 @@
   options:
     variant: TIC
     gauges:
-      - {pressure: 5.0e-3}
-      - {pressure: 1.0e-6}
-      - {pressure: 2.0e-2}
+      - {pressure: 4.3e-6, floor_pa: 1.0e-2, top_pa: 1.0e+5}          # APG100-XM: true pressure, it reports its floor
+      - {pressure: 2.0e-6,                                             # AIM, at the base reading
+         switch: {master: 1, on_torr: 1.0e-2, off_torr: 2.0e-2, strike_s: 3.0}}
+      - null                                                           # socket 3: empty
     turbo_type: 3             # EXT75DX Pump, as the lab's cart reports (2026-11-25)
     backing_type: 8           # Mains Backing Pump (D397-30-880 1.7.11)
     backing_state: 4          # On State (1.7.6)

@@ -21,7 +21,7 @@ from mist2sim.plant.process import split_signal
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(HERE, "..", "config")
 PUMPS = ("nt20_1", "nt20_2")
-RESTARTED = "aim"           # this one runs in its own thread, to be stopped and started again
+RESTARTED = "tic"           # this one runs in its own thread, to be stopped and started again
 
 
 def entries():
@@ -83,12 +83,17 @@ class PlantProcessTest(unittest.TestCase):
     def test_machine_reacts_and_lets_go(self):
         # every simulator connected, the process values under outside control
         self.assertTrue(wait_until(lambda: all(lk.up for lk in self.plant.links.values()), 5))
-        self.assertTrue(wait_until(lambda: values(self.ctl("aim"))["pressure"]["external"], 3))
-        aim = lambda: values(self.ctl("aim"), "pressure")[0]   # noqa: E731
+        self.assertTrue(wait_until(lambda: values(self.ctl("tic"))["g2.pressure"]["external"], 3))
+        aim = lambda: values(self.ctl("tic"), "g2.pressure")[0]   # noqa: E731  the AIM on TIC socket 2
         base_t1 = values(self.ctl("thermocouple"), "t1")[0]
-        # phase 1: nothing drives the second gauge channel or depends on turbopump 2
-        self.assertFalse(values(self.ctl("gauges"))["p2"]["external"])
+        # phase 1: nothing drives the nAIM (deferred), TIC socket 3 (empty) or turbopump 2
+        self.assertFalse(values(self.ctl("aim"))["pressure"]["external"])
+        self.assertFalse(values(self.ctl("tic"))["g3.pressure"]["external"])
+        self.assertNotIn("aim", self.plant.links)
         self.assertNotIn("nt20_2", self.plant.links)
+        # the foreline gauge (VGC401) reads the model's foreline pressure
+        self.assertTrue(wait_until(lambda: values(self.ctl("vgc401"))["pressure"]["external"], 3))
+        self.assertAlmostEqual(values(self.ctl("vgc401"), "pressure")[0] / self.plant_get("foreline_pressure"), 1, delta=0.05)
         # the pump is not running: the pressure in the cross rises from the base pressure
         self.assertTrue(wait_until(lambda: aim() > 2e-5, 6))
 
@@ -98,8 +103,10 @@ class PlantProcessTest(unittest.TestCase):
         self.assertTrue(wait_until(lambda: aim() < 2.2e-6, 5))
         pumped = aim()
         self.assertAlmostEqual(pumped, 2.0e-6, delta=2e-7)
-        # the APG on the cross shows its floor at high vacuum
-        self.assertEqual(values(self.ctl("gauges"), "p1")[0], 1.0e-3)
+        # the APG on the cross reports exactly its floor at high vacuum, and the AIM is on
+        self.assertLess(values(self.ctl("tic"), "g1.pressure")[0], 1e-5)
+        self.assertEqual(self.device("tic", "?V913")[0], [b"=V913 1.0000e-02;59;11;0;0"])
+        self.assertTrue(wait_until(lambda: self.device("tic", "?V914")[0][0].split(b";")[2] == b"11", 5))
 
         # gas: MFC 20 % of 5 sccm, shutoff valve still closed: no change
         self.device("mfc", "@@@254S!20")
@@ -174,8 +181,8 @@ class PlantProcessTest(unittest.TestCase):
         self.sims[RESTARTED] = fresh
         self.t_restart = SimThread([fresh]).__enter__()
         self.assertTrue(wait_until(lambda: self.plant.links[RESTARTED].up, 3))
-        self.assertTrue(wait_until(lambda: values(self.ctl("aim"))["pressure"]["external"], 2))
-        self.assertGreater(aim(), 3 * pumped)
+        self.assertTrue(wait_until(lambda: values(self.ctl("tic"))["g2.pressure"]["external"], 2))
+        self.assertGreater(aim(), 1.03 * pumped)
 
         # stop the plant: every signal back to the device's own behaviour
         self.t_plant.stop()
@@ -186,8 +193,9 @@ class PlantProcessTest(unittest.TestCase):
         self.assertEqual(values(self.ctl("rek"), "1.load_ohm")[0], 5.0)
         self.assertEqual(values(self.ctl("faradaycup"), "i1")[0], 1.0e-6)
         self.assertEqual(values(self.ctl("thermocouple"), "t1")[0], 41.0)
-        self.assertEqual(values(self.ctl("gauges"), "p1")[0], 3.0e-2)
-        self.assertLess(aim(), 1e-5)
+        self.assertEqual(values(self.ctl("tic"), "g1.pressure")[0], 4.3e-6)
+        self.assertEqual(values(self.ctl("vgc401"), "pressure")[0], 0.03)
+        self.assertEqual(aim(), 2.0e-6)
 
     def test_waits_for_simulators_that_are_not_there(self):
         self.t_plant.stop()

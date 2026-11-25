@@ -187,5 +187,35 @@ class Tcp(unittest.TestCase):
                 self.assertTrue(wait_until(lambda: c.readline(0.2) == b"\x06", 2.0))
 
 
+class Range(unittest.TestCase):
+    """T31: the head's measuring range (a configuration value): underrange and overrange."""
+
+    def setUp(self):
+        self.sim, _ = make(gauge="PCG", unit=1, range_torr=[3.75e-5, 1125.0], pressure=0.03)
+
+    def test_inside_outside(self):
+        self.assertEqual(read(self.sim, b"PR1"), "0, 3.0000E-02")
+        self.sim.pressure.target = 1e-6
+        self.assertEqual(read(self.sim, b"PR1"), "1, 3.7500E-05")
+        self.sim.pressure.target = 2000.0
+        self.assertEqual(read(self.sim, b"PR1"), "2, 1.1200E+03")
+        self.sim.pressure.target = 760.0
+        self.assertEqual(read(self.sim, b"PR1"), "0, 7.6000E+02")
+
+    def test_a_status_set_from_outside_wins(self):
+        self.sim.pressure.target = 1e-6
+        self.sim.status.target = 3
+        self.assertTrue(read(self.sim, b"PR1").startswith("3,"))
+
+    def test_without_range_no_underrange(self):
+        sim, _ = make(unit=1, pressure=1e-6)
+        self.assertEqual(read(sim, b"PR1"), "0, 1.0000E-06")
+
+    def test_bad_range(self):
+        for bad in ([1.0], [2.0, 1.0], [0, 1.0], "x"):
+            with self.assertRaises(ConfigError):
+                make(range_torr=bad)
+
+
 if __name__ == "__main__":
     unittest.main()
