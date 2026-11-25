@@ -1,0 +1,14 @@
+# INFICON VGC401 on the foreline (task T30), RS-232. 9600 baud is the controller's default
+# (manual tinb01e1-f p. 82); the lab's setting is not known.
+- name: vgc401
+  type: inficon_vgc401
+  port: 5034                  # control port 6034
+  baud: 9600
+  turnaround_ms: 5            # response time: not in the manual, assumed
+  options:
+    gauge: PSG                # the head on the foreline is not known: a Pirani assumed
+    unit: 0                   # mbar, the default (p. 82): the IOC converts to torr
+    pressure: 0.03            # torr
+    noise: 0.0
+    continuous: true          # sends by itself after power-on (p. 55)
+    com_mode: 0               # every 100 ms instead of the default 1 s: a harder test of the start
