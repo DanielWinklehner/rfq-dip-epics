@@ -915,6 +915,76 @@ one round with one restart after a stall, merged 2026-11-25; answers 65, 66):
 - **Known to differ from the lab's TIC:** the simulated TIC switches the AIM on by itself at
   1e-2 torr on the APG. The real one waited for the panel (answer 69). T32 replaces it.
 
+**The TIC cart's pumps and the AIM from the IOC and the GUI** (subagent, task T32, two rounds,
+merged 2026-11-25; answers 67 and 69, question 26):
+
+- **Three requests, each one command that the TIC acknowledges:** `TIC:backing:start:set`
+  (`!C910 1` / `0`) and `TIC:turbo:start:set` (`!C904 1` / `0`), the commands the lab session
+  sent by hand on 2026-11-25, and `TIC:gauge2:on:set` for the AIM (`!C914 1` / `0`, **from the
+  manual only, never sent to the TIC**, A54). They are in a new database, `tic_control.db`;
+  `tic.db` stays read only, and its device case still shows that it sends nothing but queries.
+- **What the station does is read from the TIC, not assumed:** `TIC:turbo:start:get`,
+  `TIC:backing:start:get` and `TIC:gauge2:on:get` come from the TIC's own states,
+  `TIC:turbo:atspeed:get` from the speed (95 % or more; the TIC's "Running" begins at 50 %),
+  and `...:reason` says what became of the last request: acknowledged, the TIC's error word,
+  no reply, or why the IOC refused it.
+- **The IOC refuses, and sends nothing then:** a turbopump start unless the backing pump is
+  On; a backing pump stop while the turbopump is in a state that follows a start; the AIM's
+  switch-on unless the APG reads a valid 1e-2 torr or lower (your rule). A state that is not
+  known refuses as well. A refused request falls back within a moment to what the TIC shows,
+  and its reason says why. A stop of the turbopump, a start of the backing pump and the AIM's
+  switch-off are never refused.
+- **Found in my review, closed in the second round:** the TIC shows a pump's new state only
+  seconds after a command (seen: the old state 51 ms after the start, the new one by 5 s),
+  and the IOC reads it every 2 s. In that time the first version sent a backing pump stop
+  straight after a turbopump start, and a turbopump start straight after a backing pump stop
+  (two new tests, which failed on it). Now an acknowledged turbopump start and an
+  acknowledged backing pump stop count for 10 s whatever the state shows (A53). The other
+  side of the same lag: after the turbopump's stop the backing pump's stop is refused for
+  the first seconds, until the TIC shows Braking; `LAB-SETUP.md` says so.
+- **Nothing happens by itself:** no sequence, no setup message to the TIC, no timeout, no
+  automatic stop or switch-off. A pump keeps its state when the IOC stops. After an IOC start
+  the three requests take over the station's state and nothing is sent.
+- **The AIM's own link in the TIC** (its slave setup, `?S914 4`) is read every 10 s, so the
+  GUI says whether the TIC switches the AIM by itself. That reply was never seen for a gauge
+  (A54): one of another form shows as INVALID with its text kept (`TIC:gauge2:slave:raw`).
+- **The GUI:** the cart's turbopump and backing pump at the end of the roughing line on the
+  Overview and the vacuum page, each with its state, the last request's result and STOP /
+  RUN. Start and stop ask first. The turbopump's stop warns in red while the foreline valve
+  (`VALVE:s1:get`) is open or not known, and does not refuse (answer 69). The AIM's switch is
+  at its gauge and asks nothing (question 26 d is open).
+- **The simulator** runs the pumps as the lab's TIC was seen to: the run-up and both run-down
+  curves of 2026-11-25, the late state, the AIM's standing value for 146 s after a switch-on.
+  The simulated AIM no longer switches by itself (the real TIC did not). The simulated
+  VGC401's range begins at 3.75e-4 torr, as seen (P75).
+- **The probe** takes extra queries (`--query "?S914 4"`); anything that is not a query is
+  refused before the port is opened.
+- **By me:** plan 0.38, the TIC's flag in the GUI now says what is open (its requests have not
+  met the real TIC; the AIM's command is from the manual only) in place of "station idle",
+  which the pump-down had overtaken; the hold's 10 s listed as the IOC's assumption in
+  `TIC.md`; this document and the row of T32 in `PLAN.md`.
+- **Verified by me on the merged branch:** the plan check without a warning (41 tests); the
+  simulators' tests (195); the probe's test; the device cases `tic_control` (23), `tic` (13),
+  `vgc401` (23) and `libcom1_devices` (82); the system tests, **297 passed**, 2 deselected,
+  803 s (288 before: ten new ones for the TIC, and the TIC's requests moved from the general
+  write tests into them, by the engineer's count); the GUI check, **PASS**, 320 checks; the
+  rack IOC's start with the real port file in a container (it loads `tic_control.db` and the
+  three take-overs, its start finished, the error lines are those of the missing devices as
+  before T32). I read `tic_control.db` and the protocol line by line. I broke two conditions
+  on purpose in a copy (a refused backing pump request allowed to drive its output; the
+  turbopump's refusal ignoring the hold): the device case failed with 5 of 23, among them
+  both refusals of the backing pump's stop and both tests of the hold. I looked at the
+  screenshots of the Overview, the vacuum page, the TIC's device window and the two
+  questions before a stop.
+- **Not seen by anyone:** nothing of it has met the real TIC through the IOC. `!C914` and
+  `?S913 4` / `?S914 4` were never sent to it. What the TIC does with a turbopump start
+  without its backing pump, or during the run-down, was not tried (the IOC refuses the first
+  and not the second, P77). The GUI was checked by the headless check and by my look at four
+  screenshots, not by a person in a browser.
+- **The first use on the real station:** `LAB-SETUP.md`, "The TIC cart's pumps and the AIM
+  from the IOC: the first start (T32)", ten steps with what you should see and what to send
+  back. Each step that switches something is yours to take.
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
@@ -2237,6 +2307,15 @@ exit code: 1
     them out of the history as well means rewriting what is pushed, which I do only on your
     explicit word, or you make the repository private.
 
+29. **The cart's pumps from the IOC (T32, 2026-11-25).**
+    a. Should the IOC refuse a turbopump start while the pump still brakes (P77)? It does not
+       now.
+    b. While the TIC does not tell the other pump's state (no reply, an error reply), the IOC
+       refuses a turbopump start and a backing pump stop. Right so?
+    c. After the turbopump's stop the backing pump's stop is refused until the TIC shows
+       Braking, some seconds. Is that acceptable for stopping by hand, until the shut-down
+       procedure exists (question 27 c)?
+
 ## Not verified
 
 - **The VGC401 has met its controller on 2026-11-25:** see "Seen on hardware, lab session". The
@@ -2350,6 +2429,7 @@ exit code: 1
 - 2026-11-25: T29 (Edwards TIC) and T30 (INFICON VGC401) started side by side, each in its own worktree.
 - 2026-11-25: T29 one round (64 min), T30 one round (45 min). Both reports named the model `claude-opus-5-5`.
 - 2026-11-25: T31 one round with one restart: the first run stalled after about 40 minutes without a commit and was resumed; about 105 minutes in all. Model reported: `claude-opus-5-5`.
+- 2026-11-25: T32 two rounds: the first 136 minutes; the second 70 minutes after my review (the hold after an acknowledged command, a wording in the lab steps, a label in the GUI). Model reported both times: `claude-opus-5-5`.
 - 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
   600 s") near its end; resumed with a message, it finished in four minutes. Its work was
   committed up to that point.
@@ -2463,6 +2543,10 @@ exit code: 1
 | The TIC's three gauge sockets stay loaded although sockets 2 and 3 are empty (for now) | The owner asked about an AIM on the TIC, so a second gauge may come. Until then their PVs are INVALID with the state "Gauge Not connected" (P70) |
 | An empty socket of the TIC is flagged in the plan (`channel_flags`, `not_installed`) and its PVs leave the registry's lists for tests, logger and alarms (T31) | Its records are INVALID for good, and the system tests expect every PV valid while nothing is at fault. An uninstalled device (turbopump 2) is still simulated and tested; an empty socket cannot be |
 | The GUI check's window test clicks the foreline gauge's tag (by me) | It clicked the nAIM's, which is no longer drawn |
+| The cart's two pumps are channels of the device `tic` with a widget class of their own (`channel_classes` in the plan), not devices (T32) | One database holds the three requests, the plan ties a database's load to one device, and the AIM's switch must sit in the TIC's gauge channel. The GUI draws and opens them like the big turbopump |
+| A pump request is refused while the other pump's state is not known (T32) | The refusals are for the hardware, and an unknown state is no evidence that the request is safe. With a silent TIC no request arrives anyway. Question 29 b asks you |
+| An acknowledged turbopump start and an acknowledged backing pump stop count for 10 s for the other pump's refusal, whatever the TIC's state shows (by me, from the review of T32; A53) | The TIC's state lags a command by up to 5 s (seen) and is read every 2 s; without the hold the request the refusal is there to stop went through in that time (shown by two tests) |
+| No refusal of a turbopump stop with the foreline valve open: the GUI warns (T32) | Your word (answer 69): "No, but pop up a warning" |
 | The tracked screenshots of the GUI check are those of my run on the merged branch (by me) | They are the record of how the pages look; the drawings changed |
 
 ## Assumptions that need your confirmation
@@ -2491,6 +2575,8 @@ A19 (the output gate is wanted, and it latches).
 | A50 | The four solenoid valves are fed from the NIM crate's +24 V rail, the one that feeds the Optas | Answer 57 names the valves' power as a worry for that rail and does not say it in so many words | You |
 | A51 | The VGC401 as the lab has it: 9600 baud (the factory default), a reply within 150 ms, a value in Micron stays in Micron above 99000 on the serial line, and its "RS232" socket takes a straight cable (T30) | The manual tinb01e1-f gives the default and the pins, no response time, and the change-over to Torr only for the display; read from a third-party copy of the manual, of which I checked four pages against the engineer's quotes | The probe `inficon_vgc401_probe.py` on the controller: reply times, unit, gauge head. **Seen on hardware, 2026-11-25 (lab session, "Seen on hardware"):** 9600 baud answers; replies after 91 to 112 ms, within the 150 ms; the cable is "a USB-to-RS232 adapter cable" (owner, answer 60), and what is between it and the "RS232" socket I have not seen. Not seen: a value in Micron (the controller is set to Torr). New: the pressure reply has a blank after the comma (`0, 7.6400E+02`), which the manual's example does not show |
 | A52 | The TIC station: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual, taken to hold for the lab's variant), replies within 120 ms, a gauge that measures reports the state On and its value in pascal, and an object the controller does not have is answered with an error reply (T29) | The serial manual D397-30-880 covers all variants; the instruction manuals of the Instrument Controller and of the Turbo and Instrument Controller could not be fetched | The probe `edwards_tic_probe.py` on the controller: variant, states, reply times. **Seen on hardware, 2026-11-25 (lab session, "Seen on hardware"):** 9600 8N1 with Xon/Xoff answers, all ten queries in the form the protocol file expects, replies after 23 to 86 ms; it is the TIC Turbo and Instrument Controller (`TIC100`, 10 fields). Not seen yet: a gauge in the state On with a pressure, an error reply. New: a NUL byte after the serial number in the identity, and the gauge on socket 1 in the state 2 "New Gauge Id" with no reading |
+| A53 | The TIC's state shows an acknowledged pump command within 10 s (`HOLD_S` in `tic_control.db`): for that long the IOC counts an acknowledged turbopump start as "runs" and an acknowledged backing pump stop as "not on" (T32) | Seen on 2026-11-25: the turbopump's old state 51 ms after the start, the new one at the next sample 5 s later; the IOC reads the state every 2 s. No closer measurement | The `camonitor` log of the first use (`LAB-SETUP.md`): the time from a request to its state |
+| A54 | The TIC switches the gauge on socket 2 by `!C914 1` / `!C914 0` and answers `*C914 0`, and answers `?S914 4` in the form it gave for the turbopump's object (`=S904 4;0;59;...`) (T32) | D397-30-880 Table 1 (object 914, "On/off", config type 4) and 1.7.5; never sent to the controller. The manual's own example of a slave setup has another form | Steps 1 and 7 of the first use; another form of the setup's reply is shown as INVALID with its text, the switch does not depend on it |
 | A15 | nAIM answers `!C752` as in the Edwards manual | INFICON's description of the protocol | The gauge |
 | A16 | One Opta drives both NT 20, wired as "ON/OFF switch" (Fig. 6) | Manual | You, rear panels |
 | A17 | NT 20 RS-232 record format is unknown. Simulator and parser use an invented format | Manual: "more details on request" | A capture from a unit |
@@ -2589,8 +2675,10 @@ loop, see "Done").
 | P72 | A gauge at the lower end of its range is a valid reading for the TIC and so for the IOC: the APG showed exactly 1.0000e-02 Pa (7.5e-5 torr) in the state On with the turbopump running (lab session, 2026-11-25). On the six-way cross the same day it fell smoothly to 6.4e-4 torr and read that floor one sample later: a step, below which its value says nothing. The VGC401 marks the same situation as "Underrange" | Your word whether such a value should carry a MINOR alarm. It needs the floor of each gauge type, which the IOC does not read from the TIC today |
 | P73 | The TIC's reply timeout of 150 ms has 43 ms to spare on the slowest of 16210 replies (107 ms, through the owner's USB extension; lab session's load test, 2026-11-25). A reply that takes longer gives one INVALID reading. Not covered by the test: the rack server's socket, running pumps or high voltage nearby, more than ten minutes | Watch for single INVALID readings of `TIC:*` once the logger runs. A longer timeout needs the slower queries (identity, pump types) asked less often, or a silent controller no longer fits the 2 s cycle |
 | P74 | After the AIM was switched on at the TIC's panel, the TIC reported it as On with one unchanging value (5.81178e-4 torr) for 146 s before the value began to follow the pressure (lab session's log, 2026-11-25, 17:01:28 to 17:03:54). The IOC showed that standing value as a valid pressure; no state other than On was seen | The IOC cannot tell it from a reading by state or alert. With T32's switch the IOC knows when the gauge was switched on and could mark its pressure for a time after it; a value that does not change at all for many samples is a second sign. Your word on whether it should |
-| P75 | The simulated VGC401's measuring range starts at 3.75e-5 torr (the engineer's memory of the gauge head's data sheet, T31). The lab's controller reported "Underrange" with the value standing at 3.76e-4 torr (5e-4 mbar; lab session, 2026-11-25, 17:16) | The lower end in the simulator's configuration to 3.75e-4 torr, with T32 |
+| P75 | DONE with T32 (2026-11-25): the simulator's range begins at 3.75e-4 torr. Was: The simulated VGC401's measuring range starts at 3.75e-5 torr (the engineer's memory of the gauge head's data sheet, T31). The lab's controller reported "Underrange" with the value standing at 3.76e-4 torr (5e-4 mbar; lab session, 2026-11-25, 17:16) | Nothing |
 | P76 | EXPLAINED the same evening (owner, to the lab session: "I unplugged and replugged a few things toward the end, one of them the inficon"): not a fault of the line; the readings came back valid by themselves each time the plug was back, which is how `vgc401.db` should behave on a pulled cable. Was: During the shut-down `PRESSURE:foreline:*` read "Bad reply or disconnected" and "No reply" three times between 17:19 and 17:26 (lab session's log), INVALID each time. Probably the controller or its cable being switched off; not known | Ask the owner what he switched at those times before it is taken for a fault of the line |
+| P77 | The IOC does not refuse a turbopump start while the cart's turbopump still brakes (T32). What the TIC does with it was not tried; the simulator lets the pump accelerate again from its present speed, an assumption | Your word (question 29 a); the EXT75DX's manual may say whether a restart during the run-down is allowed, it was not read for this |
+| P78 | The three requests of T32 have never met the real TIC through the IOC; the AIM's command and the slave setup's query were never sent to it at all (A54) | The ten steps of `LAB-SETUP.md`, "the first start (T32)", on your return, with the `camonitor` log sent back |
 
 ## Found in RAS V8.1.0
 

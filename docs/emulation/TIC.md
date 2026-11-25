@@ -291,11 +291,12 @@ signal `command_code` makes every command get an error code; the fault `silent` 
 - The simulator: the value of a gauge that is not on (9.9e9, from the example of object 940),
   the number format, the turnaround (20 ms), the identity string, that a setup message or a
   command to another object is answered `*<type><obj> 1` and not executed.
+- Of T32, in the IOC: `HOLD_S` 10 s in `tic_control.db`, how long an acknowledged turbopump
+  start and backing pump stop are held for the other pump's refusal (seen lag below 5 s, plus
+  the 2 s poll, plus margin; STATUS.md A53). And that the TIC answers the gauge command
+  `!C914 1` / `!C914 0` with `*C914 0` and switches the gauge (the manual only, A54).
 - Of T32, in the simulator only (named options in `config/rack.yaml`; the IOC does not depend on
   any of them):
-  - `HOLD_S` 10 s in `tic_control.db` (an IOC value, not the simulator's): how long an
-    acknowledged turbopump start and backing pump stop are held for the other pump's refusal
-    (seen lag below 5 s, plus the 2 s poll, plus margin).
   - `turbo_delay_s` 1.0 s: how long the turbopump's state stays the old one after a command
     (seen: more than 51 ms, and the new state at the next sample 5 s later).
   - `turbo_running_pct` 50.5 % (seen: 50.1 % Accelerating, 54.3 % Running; 49.5 % to about
