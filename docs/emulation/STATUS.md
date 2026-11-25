@@ -1228,6 +1228,11 @@ IOC it must move to the rack server, and the `VGC` line of `ports.real.cmd` stil
 `/dev/mist2/vgc401`), a value in Micron (the controller is set to Torr), a reading under
 vacuum, underrange and overrange, another baud rate, the controller's own sending.
 
+Owner, 2026-11-25, after the probe: "the foreline pirani probe will go on the rack computer, it
+was just attached here for testing". The adapter's name under `/dev/serial/by-id/` is made from
+its serial number and not from the socket, so it should be the same on the rack server:
+expected, not seen there.
+
 The whole output of both runs:
 
 ```
