@@ -1194,6 +1194,19 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: stopping the cart's turbopump with the foreline valve open (question 26 e)
+
+Asked "Should the IOC refuse to stop the cart's turbopump from the GUI while the foreline valve
+is open?", the owner answered, about 16:40: **"No, but pop up a warning. Later we will implement
+spin-up and shut-down procedures"**.
+
+- So no refusal in the IOC: a stop of the cart's turbopump from the GUI is carried out with the
+  foreline valve open as well, after a warning in the GUI.
+- Procedures for spin-up and shut-down are a later piece of work, his word.
+- Told to him today, because it holds at the TIC's panel too: close the foreline valve before
+  stopping the cart's turbopump, which vents itself from its stop command on (above:
+  atmosphere within 30 s on the blanked cart).
+
 ### 2026-11-25: where the TIC cart sits (question 26 c)
 
 Asked whether the cart backs the big turbopump through the roughing line with the INFICON or
