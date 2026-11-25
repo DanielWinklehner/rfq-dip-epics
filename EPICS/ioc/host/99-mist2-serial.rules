@@ -23,9 +23,7 @@
 # NOT TESTED on hardware: written from the Windows list. The syntax passes `udevadm verify`
 # (Ubuntu 24.04, systemd 255). Install and check: README.md in this directory.
 
-# Gauge controller (Teensy), COM6 in the lab's st.cmd (line 20). rack-serial-devices.txt line 24:
-#   USB Serial Device (COM6) USB\VID_16C0&PID_0483\3596460
-SUBSYSTEM=="tty", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="0483", ATTRS{serial}=="3596460", SYMLINK+="mist2/gauges", ENV{ID_MM_DEVICE_IGNORE}="1"
+# Gauge controller (Teensy, COM6): out of the system (owner, 2026-11-25: "Yes, drop it"); its line is removed.
 
 # Interlock box. The Arduino Mega of this line was not found after the move (owner, 2026-11-24);
 # an Arduino Opta takes its place and gets its own line here when its serial number is known

@@ -5,9 +5,9 @@
 #
 # Device names under /dev/mist2/ come from the udev rules in EPICS/ioc/host: by serial number,
 # as Windows on the rack computer listed them on 2026-11-24
-# (reference/lab-2026/rack-serial-devices.txt), for the gauge controller, the interlock box, the
-# valve box and the MFC (99-mist2-serial.rules; seen to work on the rack server for the valve
-# box, the others NOT TESTED), and by USB socket for the two Matsusada adapters, which report no
+# (reference/lab-2026/rack-serial-devices.txt), for the interlock box, the valve box and the MFC
+# (99-mist2-serial.rules; seen to work on the rack server for the valve box, the others NOT
+# TESTED), and by USB socket for the two Matsusada adapters, which report no
 # serial number (99-mist2-matsusada.rules; co-u32 and usb-opt seen to work on the rack server).
 # The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2, tic_station) have no rule: replace each with
 # its /dev/serial/by-path/ name, found with one device plugged in at a time
@@ -50,16 +50,6 @@ asynSetOption("AIM",-1,"parity","none")
 asynSetOption("AIM",-1,"stop","1")
 asynSetOption("AIM",-1,"clocal","Y")
 asynSetOption("AIM",-1,"crtscts","N")
-
-# Gauge controller for APG and AIM, Teensy, libcom1. Even parity as in the lab's st.cmd (2023, 2026).
-# Device name: EPICS/ioc/host/99-mist2-serial.rules
-drvAsynSerialPortConfigure("AVR6","/dev/mist2/gauges")
-asynSetOption("AVR6",-1,"baud","115200")
-asynSetOption("AVR6",-1,"bits","8")
-asynSetOption("AVR6",-1,"parity","even")
-asynSetOption("AVR6",-1,"stop","1")
-asynSetOption("AVR6",-1,"clocal","Y")
-asynSetOption("AVR6",-1,"crtscts","N")
 
 # Interlock box, libcom1 on USB serial: an Arduino Opta (AVR/devices/InterlockOpta) in place of
 # the lost Arduino Mega box since 2026-11-25. The baud rate means nothing to the Opta's USB port.

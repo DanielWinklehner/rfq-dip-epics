@@ -17,9 +17,6 @@ drvAsynIPPortConfigure("mat_co","sim-rack:5009")
 # Edwards nAIM ion gauge, RS-232
 drvAsynIPPortConfigure("AIM","sim-rack:5003")
 
-# Gauge controller for APG and AIM, Arduino, libcom1
-drvAsynIPPortConfigure("AVR6","sim-rack:5006")
-
 # Old interlock box, Arduino, libcom1
 drvAsynIPPortConfigure("AVR11","sim-rack:5011")
 
