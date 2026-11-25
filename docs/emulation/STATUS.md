@@ -1217,7 +1217,12 @@ fifth relay...", and "Which relay number is the roughing valve?"
   answered "Yes, it moved". **So the foreline valve's solenoid is on channel 5 of the valve box
   today, and the GUI's "Foreline Valve" (channel 1) does not move it.** Asked which way to fix it,
   he answered: "yep, that was it. but it's fine, I'll connect a different cable". So he rewires and
-  the labels stay; that the valve then moves with channel 1 is still to be seen.
+  the labels stay.
+- **The foreline valve works on channel 1** (owner, 16:24: "the foreline valve works now on channel 1").
+  Seen in the watch log: `VALVE:s1:get` 1 from 16:17:22 to 16:18:45 and from 16:24:04 to
+  16:24:07, read back each time; `VALVE:s1:set` last processed at 16:24:06; all five channels
+  read 0 at 16:24:27. That the valve itself moved is his word; the read-back is the relay's
+  output, not a position switch.
 
 **A correction of mine:** four clock times in the entries below were estimates and not read
 from a clock (the owner's rule for the AIM, his two answers on the pumps and the AIM, and the
