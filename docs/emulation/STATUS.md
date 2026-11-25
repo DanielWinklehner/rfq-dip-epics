@@ -1268,6 +1268,14 @@ ping. What was seen until then (local time):
   from its floor to 0.12 torr in six and a half minutes, about doubling every 30 to 70 s, before
   the valve was pulsed. The APG had its vacuum adjustment at 17:12:16; no second gauge covers
   that range on the cross, so these values are not checked against anything.
+- **Explained by the owner afterwards:** "I unplugged and replugged a few things toward the
+  end, one of them the inficon. At the very end, after shutting down the rack computer
+  remotely, i unplugged mains and the roughing pump stopped as well." So the INFICON's three
+  dropouts were his unplugging, not a fault of the line; and the backing pump ran until the
+  cart's mains was pulled, after the rack computer was down, which is why I never saw it Off.
+  Not known: which other plugs he moved. A serial adapter put back into another USB socket of
+  the rack server loses a name that is made from the socket (the TIC's, the two Matsusada
+  ones): to be looked at before the next IOC start.
 - **My watchers are stopped** (18:09); the logs are kept on the lab computer, outside the
   repository. The GUI's three containers still run.
 
