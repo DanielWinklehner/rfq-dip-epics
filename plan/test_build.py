@@ -164,6 +164,20 @@ class FaultRule(unittest.TestCase):
     def test_disabled_at_run_time_needs_a_statement(self):
         self.assertEqual(faults(self.PROBE)[1], ["probe"])
 
+    # A query record on an output link (tic.db): a calcout that sends a query and reads the reply.
+    QUERY = ('record(calcout, "q") { field(DTYP, "stream") field(OUT, "@p.proto ask P1") field(SCAN, "1 second") '
+             'field(FLNK, "q2") }\n'
+             'record(calcout, "q2") { field(DTYP, "stream") field(OUT, "@p.proto ask2 P1") }\n'
+             'record(calc, "pub") { field(INPA, "q.A NPP MS") field(INPB, "q2.A NPP MS") field(SCAN, "1 second") }\n'
+             'record(ao, "set") { field(DTYP, "stream") field(OUT, "@p.proto set P1") }')
+
+    def test_scanned_or_forwarded_output_device_record_needs_a_statement(self):
+        self.assertEqual(faults(self.QUERY)[1], ["q", "q2"])       # not "set": only a client processes it
+
+    def test_query_record_stated_fails_and_passes_it_on(self):
+        got, missing, needless = faults(self.QUERY, {"q": ["silent", "closed"], "q2": ["closed"]})
+        self.assertEqual((got["q"], got["q2"], got["pub"], missing, needless), (BOTH, CLOSED, BOTH, [], []))
+
     def test_statement_replaces_the_own_device(self):
         got, missing, _ = faults(self.PROBE, {"probe": []})
         self.assertEqual((got["probe"], missing), (NONE, []))

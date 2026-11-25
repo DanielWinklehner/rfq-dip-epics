@@ -306,7 +306,7 @@ def log_tier(rules, pv):
 #   INVALID    a processed StreamDevice record that reads (INP); a processed record with an MS
 #              input link to a record that is INVALID. Device records that only write (OUT) fail
 #              only when written, which the registry's 'ack' covers.
-# Three things the database does not tell, so controls.yaml states them per record
+# Four things the database does not tell, so controls.yaml states them per record
 # (databases: <db>: invalid_on: {record: [silent, closed]}), and the check fails without it.
 # The statement replaces what the record's own device does to it (in the running state, after
 # the IOC has started); severity that reaches it through MS input links is still added:
@@ -317,7 +317,11 @@ def log_tier(rules, pv):
 #   - a processed record that is disabled with a severity (SDIS and DISS): when it is disabled
 #     depends on its logic;
 #   - a record that another record disables at run time (an output link to its DISA field), such
-#     as a first-contact probe that stops once the device has answered.
+#     as a first-contact probe that stops once the device has answered;
+#   - a StreamDevice record on an output link (OUT) that is processed without being written: by
+#     its own periodic SCAN or by a forward link. It talks to the device every time, so a closed
+#     port fails it; whether a silent device fails it depends on its protocol (does it read a
+#     reply?), which is not in the database. A query record of type calcout is the case (tic.db).
 FAULTS = ("silent", "closed")
 NO_SEVERITY = ("", "NO_ALARM")
 
@@ -379,6 +383,11 @@ def fault_analysis(records, statements):
         for kind, key, target, field, mods in links_of(rec):
             if kind == "out" and field == "DISA" and target in records:
                 undecided.add(target)
+    forwarded = {target for rec in records.values() for kind, key, target, field, mods in links_of(rec) if kind == "fwd"}
+    for name, rec in records.items():
+        if is_stream(rec, "OUT") and rec.get("source") is not None and (
+                rec["fields"].get("SCAN", "Passive") not in ("Passive", "I/O Intr", "Event") or name in forwarded):
+            undecided.add(name)
 
     def static(name, seen):
         """Every device behind a record: its own, through input links, and the device records it writes."""
@@ -481,6 +490,9 @@ class Model:
                 why = "it is disabled with severity %s" % rec["fields"]["DISS"]
             elif disablers:
                 why = "%s disables it at run time" % ", ".join(disablers)
+            elif is_stream(rec, "OUT"):
+                why = ("it is a StreamDevice record on an output link that is processed without being written, by its "
+                       "SCAN or a forward link: the database does not tell whether its protocol reads a reply")
             else:
                 why = "it writes to a StreamDevice record through an output link"
             self.warnings.append("%s (loaded by %s): the rule cannot tell whether record %s turns INVALID when its device "

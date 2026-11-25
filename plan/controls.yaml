@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.28"
+  revision: "0.29"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -47,6 +47,7 @@ meta:
     - "Revision 0.26: the lab's Optas are fed from the +24 V rail of an old NIM crate and have USB to the computer (owner, 2026-11-25); the interlock Opta the same. No record changed."
     - "Revision 0.27: the NIM crate's +24 V rail gives 1.5 A at most (owner, 2026-11-25); the three Optas take 0.3 A at most. No record changed."
     - "Revision 0.28: the four solenoid valves take 3 W at 24 V each, at most three at a time (owner, 2026-11-25); the sum on the NIM crate's +24 V rail. No record changed."
+    - "Revision 0.29: the foreline gauge is read by an INFICON VGC401 (owner, 2026-11-25), and the lab has an Edwards TIC station (owner, same day). Both are read by the rack IOC, read only (T29, T30): PRESSURE:foreline:* and TIC:*. Neither has met its controller yet."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -461,19 +462,47 @@ devices:
 
   - id: gauge_foreline
     name: "Foreline gauge"
-    model: "tbd (a gauge is on the foreline today, not read by the control system)"
+    model: "INFICON VGC401 single-channel controller; the gauge head on it is read from the controller"
     subsystem: vacuum
     location: rack
     host: ioc_rack
-    link: "tbd"
-    protocol: "tbd"
+    link: "RS-232 (the controller's 9-pin socket), straight cable, USB to RS-232 adapter"
+    protocol: "StreamDevice, vgc401.proto, 9600 baud (the controller's default), requests for readings only"
+    epics:
+      - {db: vgc401.db, macros: {PORT: VGC, DEVICE: "PRESSURE:foreline"}}
     status: new
-    proposed:
-      - {name: "PRESSURE:foreline:getpressure", type: ai, egu: torr, desc: "Foreline pressure"}
+    flags: {assumed: "Never run against the controller (T30): baud rate, reply time and the handling of the unit Micron are from the manual"}
+    labels: {p: "Foreline"}
     notes:
-      - "Wanted by the owner (2026-11-21): the foreline pressure comes from a gauge that is not in the control system yet and should be added eventually."
+      - "The foreline pressure gauge is read by an INFICON VGC401 with an RS-232 socket (owner, 2026-11-25). Wanted since 2026-11-21."
+      - "Read only (T30): pressure with its state, the gauge head the controller has identified, its pressure unit, its error word, its firmware number. Nothing sets a parameter. Manual: tinb01e1-f, chapter 5. Document: docs/emulation/VGC401.md."
+      - "PRESSURE:foreline:getpressure is in torr: the controller sends its value in its own unit, which the IOC reads and converts. Below or above the gauge's range the value stays, with a MINOR alarm; a gauge error, no gauge and no reply are INVALID, and PRESSURE:foreline:getstate says which."
+      - "The controller sends its reading every second by itself after power-on; the IOC's first request ends that until it is switched off and on (manual p. 55). Reading the error word clears it (p. 63)."
+      - "Assumed: 9600 baud (the factory default), a reply within 150 ms, and that a value in Micron stays in Micron above 99000 on the serial line."
     questions:
-      - "Make and model of the foreline gauge, and how can it be read (analog output, serial)?"
+      - "Which gauge head hangs on the VGC401, and which baud rate and unit is it set to? The probe EPICS/ioc/host/inficon_vgc401_probe.py reads all three."
+
+  - id: tic
+    name: "Edwards TIC station"
+    model: "Edwards TIC (variant not known: Instrument Controller, Turbo Controller or Turbo and Instrument Controller)"
+    subsystem: vacuum
+    location: rack
+    host: ioc_rack
+    link: "RS-232 (9-way D), straight cable, USB to RS-232 adapter"
+    protocol: "StreamDevice, tic.proto (Edwards D397-30-880), 9600 baud, queries only"
+    epics:
+      - {db: tic.db, macros: {PORT: TIC, DEVICE: TIC}}
+    status: new
+    flags: {assumed: "Never run against the controller (T29). Which TIC variant the station is, what it runs and which gauge is on which socket is not known"}
+    labels: {gauge1: "TIC gauge 1", gauge2: "TIC gauge 2", gauge3: "TIC gauge 3"}
+    notes:
+      - "The lab has an Edwards TIC station (owner, 2026-11-25). It was not in the plan before."
+      - "Read only (T29): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. No command and no setup message is sent: starting and stopping a pump from the IOC waits until it is known what the station runs. Document: docs/emulation/TIC.md."
+      - "A pressure is valid only while its gauge reports the state On and a pressure in pascal; otherwise it is INVALID and the state says why. A socket without a gauge and a pump the controller does not have are INVALID as well."
+      - "Assumed: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual), replies within 120 ms, and that a measuring gauge reports the state On."
+    questions:
+      - "Which TIC is it (the label, D397-xx-000), which pumps does it run, and which gauge is on which socket? The probe EPICS/ioc/host/edwards_tic_probe.py reads all of it."
+      - "Should the IOC start and stop its pumps later?"
 
   - id: gauge_gas
     name: "Gas injection pressure"
@@ -595,7 +624,7 @@ devices:
       - {name: "rough1:running:get", type: bi, desc: "Pump running (contactor or pump status)"}
       - {name: "rough1:fault:get", type: bi, desc: "Motor protection / pump fault"}
     notes:
-      - "Foreline pressure exists already: PRESSURE:apg:getpressure."
+      - "Foreline pressure: PRESSURE:foreline:getpressure, read from the INFICON VGC401 (T30). The APG of the homemade gauge box sits on the six-way cross (owner, 2026-11-21)."
     questions:
       - "Make and model of the roughing pumps, and how many? Do they have a remote interface or only mains?"
 
@@ -1105,6 +1134,7 @@ logging:
   written: {tier: events, reason: "set points and requests: every change is a set command in the event log"}
   types:
     ai: {tier: raw, reason: "a measured value"}
+    calc: {tier: raw, reason: "a measured value converted in the IOC (unit, validity)"}
     bi: {tier: events, reason: "a binary state: on change"}
     mbbi: {tier: events, reason: "a state word: on change"}
     longin: {tier: events, reason: "a status or fault word: on change"}
@@ -1129,8 +1159,9 @@ logging:
 #   unit      macro that holds the unit address on a bus (a simulator with several units)
 #   invalid_on  record: the faults of its device ([silent, closed], [closed] or []) on which it turns
 #             INVALID, for the records whose database does not tell: a record that writes to a
-#             device record through an output link, or that is disabled with a severity (SDIS,
-#             DISS). build.py names every such record that lacks it. Everything else follows from
+#             device record through an output link, one that is disabled with a severity (SDIS,
+#             DISS), or a device record on an output link that is processed without being written
+#             (a query record). build.py names every such record that lacks it. Everything else follows from
 #             how the records are processed (build.py, "faults").
 #   macros    macros that every load of this database has (optional)
 #   drives    {macro, while: {role, value}}: a PV of another device (named by the macro) that this
@@ -1174,6 +1205,7 @@ databases:
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
       "_out:resend": []        # writes only when a value was stored in the busy ToggleOutput; then LINK on a closed port, until its next evaluation
+      "current:limit": []      # processed through _limit:send at the first contact, on a write and with a switch-on, not while the supply is silent
 
   rek.db:
     class: supply
@@ -1201,6 +1233,7 @@ databases:
       OutputIntlk: []          # its own device does not matter, only the permit (through MS)
       "_out:switch": []        # writes only when OutputIntlk changes; then LINK on a closed port
       "_out:resend": []        # writes only when a value was stored in the busy ToggleOutput; then LINK on a closed port, until its next evaluation
+      "current:limit": []      # processed through _limit:send at the first contact, on a write and with a switch-on, not while the supply is silent
 
   au_alloff.db:
     class: command
@@ -1263,6 +1296,48 @@ databases:
       enable: {record: enable, readback: null, test: [0, 1], ack: true,
                note: "no read-back record: getpressure is INVALID while the gauge is off. After an IOC start it takes over the state of the cold cathode at the gauge's first answer (first_contact.db)"}
     internal: ["_enable:get"]
+
+  vgc401.db:
+    class: gauge
+    roles:
+      p: getpressure
+      state: getstate
+      unit: getunit
+      head: getgauge
+      error: geterror
+      version: getversion
+    internal: ["_pr1", "_pr1:status", "_state", "_unit:factor"]
+
+  tic.db:
+    class: gauge
+    channels:
+      "gauge<n>": {p: "gauge<n>:getpressure", state: "gauge<n>:state:get", units: "gauge<n>:units:get",
+                   alert: "gauge<n>:alert:get", priority: "gauge<n>:priority:get"}
+    roles:
+      variant: "variant:get"
+      ident: "ident:get"
+      model: "model:get"
+      software: "sw:get"
+      turbo_state: "turbo:state:get"
+      turbo_type: "turbo:type:get"
+      turbo_speed: "turbo:speed:get"
+      turbo_alert: "turbo:alert:get"
+      backing_state: "backing:state:get"
+      backing_type: "backing:type:get"
+      backing_alert: "backing:alert:get"
+    internal: ["gauge1:_q", "gauge1:_ok", "gauge1:_code", "gauge2:_q", "gauge2:_ok", "gauge2:_code",
+               "gauge3:_q", "gauge3:_ok", "gauge3:_code", "_sys",
+               "turbo:_qt", "turbo:_q", "turbo:_qs", "turbo:_ok", "turbo:_code", "turbo:_tcode",
+               "backing:_qt", "backing:_q", "backing:_code", "backing:_tcode"]
+    invalid_on:                # query records on an output link: each sends a query and reads its reply
+      "gauge1:_q": [silent, closed]
+      "gauge2:_q": [silent, closed]
+      "gauge3:_q": [silent, closed]
+      "turbo:_qt": [silent, closed]
+      "turbo:_q": [silent, closed]
+      "turbo:_qs": [silent, closed]
+      "backing:_qt": [silent, closed]
+      "backing:_q": [silent, closed]
 
   solenoidbox.db:
     class: valve

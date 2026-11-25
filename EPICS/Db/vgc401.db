@@ -37,10 +37,12 @@ record(ai, "$(DEVICE=FORELINE):_pr1:status") {
 
 # The status digit if the reply was read, else 8 (no reply: TIMEOUT) or 9 (any other failure:
 # NAK, a reply of another form, no connection). menuAlarmStat TIMEOUT = 10.
+# MS on the link to _pr1: a failed read is INVALID here and in getstate through the links as
+# well as through the state words 8 and 9, so that the plan's fault rule (plan/build.py) sees it.
 record(calc, "$(DEVICE=FORELINE):_state") {
     field(DESC, "Measurement state (internal)")
     field(INPA, "$(DEVICE=FORELINE):_pr1:status NPP")
-    field(INPB, "$(DEVICE=FORELINE):_pr1.SEVR NPP")
+    field(INPB, "$(DEVICE=FORELINE):_pr1.SEVR NPP MS")
     field(INPC, "$(DEVICE=FORELINE):_pr1.STAT NPP")
     field(CALC, "B<3?A:(C=10?8:9)")
     field(FLNK, "$(DEVICE=FORELINE):getstate")
@@ -49,7 +51,7 @@ record(calc, "$(DEVICE=FORELINE):_state") {
 # State words 0 to 7: the manual's (p. 60)
 record(mbbi, "$(DEVICE=FORELINE):getstate") {
     field(DESC, "Foreline gauge state")
-    field(INP,  "$(DEVICE=FORELINE):_state NPP")
+    field(INP,  "$(DEVICE=FORELINE):_state NPP MS")
     field(ZRVL, "0")
     field(ONVL, "1")
     field(TWVL, "2")

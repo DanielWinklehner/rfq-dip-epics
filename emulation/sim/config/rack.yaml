@@ -234,3 +234,37 @@
     normal_signal: n2
     accel_signal: a2
     failure_signal: f2
+
+# --- INFICON VGC401, the foreline gauge's controller, RS-232 (asyn port VGC), task T30 ----------
+# Read only. ASSUMED: 9600 baud and mbar are the controller's defaults (manual tinb01e1-f p. 82),
+# the lab's settings are not known; the gauge head is not known (a Pirani assumed).
+- name: vgc401
+  type: inficon_vgc401
+  port: 5034
+  baud: 9600
+  turnaround_ms: 5            # ASSUMED: the manual gives no response time
+  options:
+    gauge: PSG
+    unit: 0                   # mbar: the IOC converts to torr
+    pressure: 0.03            # torr
+    continuous: true          # sends by itself after power-on until the first character (p. 55)
+
+# --- Edwards TIC station, RS-232 (asyn port TIC), task T29 --------------------------------------
+# Read only. ASSUMED, all of it: which TIC variant the station is and what hangs on it is not
+# known (docs/emulation/STATUS.md, question 23). A Turbo & Instrument Controller with a gauge
+# on every socket, a turbopump running and a backing pump on, so that every PV has a value
+# while nothing is at fault; an empty socket would be INVALID for good.
+- name: tic
+  type: edwards_tic
+  port: 5035
+  baud: 9600
+  turnaround_ms: 20           # ASSUMED: the manual says less than 100 ms
+  options:
+    variant: TIC
+    gauges:
+      - {pressure: 5.0e-3}
+      - {pressure: 1.0e-6}
+      - {pressure: 2.0e-2}
+    turbo_type: 11
+    backing_type: 8           # Mains Backing Pump (D397-30-880 1.7.11)
+    backing_state: 4          # On State (1.7.6)

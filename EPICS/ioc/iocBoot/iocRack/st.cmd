@@ -53,6 +53,10 @@ dbLoadRecords("$(MIST2_DB)/aim.db",            "PORT=AIM,DEVICE=AIM")
 # The requests take over the state of their device at its first answer, sending nothing
 # (first_contact.db): the cold cathode, the valves, the pumps
 dbLoadRecords("$(MIST2_DB)/first_contact.db", "P=AIM,N=enable,REQ=AIM:enable,RB=AIM:_enable:get")
+# Foreline gauge: INFICON VGC401, read only (T30). The prefix is the plan's name for this pressure.
+dbLoadRecords("$(MIST2_DB)/vgc401.db",         "PORT=VGC,DEVICE=PRESSURE:foreline")
+# Edwards TIC station, read only (T29): three gauge sockets, turbopump, backing pump
+dbLoadRecords("$(MIST2_DB)/tic.db",            "PORT=TIC,DEVICE=TIC")
 
 # Cooling water: five flow meters on an Arduino Opta (libcom1 protocol 1: no identity records).
 # It replaces the sensor box (sensorbox.db), which the lab's st.cmd of 2026 no longer loads.

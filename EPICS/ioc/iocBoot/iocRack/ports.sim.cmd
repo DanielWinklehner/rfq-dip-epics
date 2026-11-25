@@ -43,3 +43,9 @@ drvAsynIPPortConfigure("NT20_1","sim-rack:5032")
 
 # Leybold NT 20 no. 2, RS-232 data output, listen only
 drvAsynIPPortConfigure("NT20_2","sim-rack:5033")
+
+# INFICON VGC401, the foreline gauge's controller, RS-232
+drvAsynIPPortConfigure("VGC","sim-rack:5034")
+
+# Edwards TIC station, RS-232
+drvAsynIPPortConfigure("TIC","sim-rack:5035")
