@@ -1208,8 +1208,12 @@ fifth relay...", and "Which relay number is the roughing valve?"
   16:06:19, read back each time; `VALVE:s1:set` last processed at 16:06:18. So the box switched
   channel 1; by the owner's word the valve did not move, its solenoid being on what he takes
   for the fifth relay. `VALVE:s5:get` was not in the log; it read 0 at 15:34.
-- **Not done:** no relay was switched by me. Moving the wire to relay 1, or a test of channel 5
-  (`VALVE:s5:set`), is the owner's.
+- **Channel 5 pulsed by me, on the owner's word.** Asked "Shall I switch channel 5 on for three
+  seconds, to see whether your solenoid is on it?", he answered: "Yes, pulse 5". From the lab
+  computer, `caput` in the pvServer container, with the pumps off and everything at atmosphere:
+  `VALVE:s5:set` 0 to 1 at 16:16:29; `VALVE:s5:get` read 1 at 16:16:30, 16:16:31 and 16:16:32;
+  `VALVE:s5:set` 1 to 0 at 16:16:32; `VALVE:s5:get` 0 from 16:16:33. Channels 1 to 4 read 0
+  throughout. Whether the valve moved is the owner's to say.
 
 **A correction of mine:** four clock times in the entries below were estimates and not read
 from a clock (the owner's rule for the AIM, his two answers on the pumps and the AIM, and the
