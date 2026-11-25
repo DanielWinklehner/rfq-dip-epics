@@ -1213,6 +1213,16 @@ repository's TIC files stay read only.**
   stopped.** The TIC's own "system off" setup points the same way: it stops the turbopump and
   leaves the backing pump on (`?S933`: `904;0;1;910;1;0`). To settle at the cart: where the
   vent valve's cable goes, and whether the backing pump has an inlet valve.
+- **Settled afterwards: it was the turbopump's own controlled venting.** Owner, asked where the
+  vent valve's cable goes: "To the turbopump". Read through the TIC at 13:43:33 (a query,
+  routed to the pump as D397-30-880 Table 1 says for objects from 800): `?S853` answered
+  `=S853 1` after 112 ms. By the EXT75DX manual (Table 18 and the serial table) option 1 is
+  controlled venting between 100 % and 50 % speed and the valve fully open below 50 %; the
+  factory setting would be 0. That is what gauge 1 showed, so the stop order of the pump's
+  manual fits this cart. `?V904`, `?V910` and `?V922` answered `0;0;0` then. `?S851` (pump
+  type) came back as an empty line after 1 ms; not followed up.
+  **Not explained:** the same manual says the pump's electronics shut the vent valve only at a
+  start command, yet the backing pump alone reached 0.08 torr before the turbopump was started.
 - **The log:** 355 runs of the probe between 13:10:12 and 13:40:06, ten of ten queries answered
   in every one. It is stopped; nothing holds the port.
 
