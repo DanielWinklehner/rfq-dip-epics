@@ -1194,6 +1194,21 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: where the TIC cart sits (question 26 c)
+
+Asked whether the cart backs the big turbopump through the roughing line with the INFICON or
+pumps the six-way cross itself, the owner answered, about 16:35: **"Yes, 6-way -> big turbo ->
+foreline valve -> inficon -> TIC cart"**.
+
+- So the cart is the backing station of the big turbopump, and the order along the roughing
+  line is: six-way cross, big turbopump, foreline valve (`VALVE:s1`), the INFICON's gauge
+  (`PRESSURE:foreline:*`), the TIC cart with its EXT75DX and its backing pump.
+- **The INFICON is on the cart's side of the foreline valve.** With the valve closed it reads
+  the line to the cart, not the big turbopump's outlet.
+- The TIC's APG and AIM are on the side flange of the six-way cross (his word earlier today).
+- Nothing of this is seen by me; it is his description of the bench. For the drawings and the
+  plan: the development session's.
+
 ### 2026-11-25: the foreline valve did not move: the solenoid is on another relay (owner)
 
 Owner, 16:13: "I tried to open the foreline valve", then "Must have lucked out and connected the
