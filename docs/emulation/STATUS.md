@@ -1213,7 +1213,10 @@ fifth relay...", and "Which relay number is the roughing valve?"
   computer, `caput` in the pvServer container, with the pumps off and everything at atmosphere:
   `VALVE:s5:set` 0 to 1 at 16:16:29; `VALVE:s5:get` read 1 at 16:16:30, 16:16:31 and 16:16:32;
   `VALVE:s5:set` 1 to 0 at 16:16:32; `VALVE:s5:get` 0 from 16:16:33. Channels 1 to 4 read 0
-  throughout. Whether the valve moved is the owner's to say.
+  throughout. **The valve moved:** asked "Did the valve move when channel 5 was on?", the owner
+  answered "Yes, it moved". **So the foreline valve's solenoid is on channel 5 of the valve box
+  today, and the GUI's "Foreline Valve" (channel 1) does not move it.** Open: whether he moves
+  the wire to channel 1's relay or keeps channel 5 and the labels change.
 
 **A correction of mine:** four clock times in the entries below were estimates and not read
 from a clock (the owner's rule for the AIM, his two answers on the pumps and the AIM, and the
