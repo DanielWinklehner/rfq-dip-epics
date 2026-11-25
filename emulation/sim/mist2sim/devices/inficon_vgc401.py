@@ -39,6 +39,9 @@ serial value in Micron above 99000 Micron (p. 41 switches the readout to Torr; h
 Micron), the response time, and what an empty message does (ignored). Mnemonics of p. 59 that
 are not modelled (SP1, FIL, ...) are answered <NAK> and set the syntax flag; a parameter to a
 mnemonic other than UNI and COM is acknowledged, counted in n_set and not applied.
+With the option range_torr (task T31) the status follows the pressure at the ends of the head's
+range (1 underrange, 2 overrange) and the value is the end of the range: both assumed, the range
+a configuration value (config/rack.yaml).
 """
 
 import math
@@ -70,6 +73,11 @@ class InficonVgc401(Simulator):
         "continuous": True,        # sends by itself after power-on (p. 55)
         "com_mode": 1,             # interval of that output: 0 100 ms, 1 1 s (default), 2 1 min
         "firmware": "302-519-E",   # PNR (p. 71); the number of p. 2
+        # [low, high] in torr: the measuring range of the gauge head (task T31). Below it PR1
+        # reports status 1 (underrange), above it status 2 (overrange), each with the end of
+        # the range as its value; null: no range, the status is the signal `status` alone. The
+        # manual does not give the heads' ranges, nor the value sent with status 1 and 2.
+        "range_torr": None,
     }
 
     def setup(self):
@@ -80,6 +88,9 @@ class InficonVgc401(Simulator):
             raise ConfigError("%s: unit must be 0, 1, 2 or 3 (p. 67)" % self.name)
         if o["com_mode"] not in COM_INTERVAL:
             raise ConfigError("%s: com_mode must be 0, 1 or 2 (p. 61)" % self.name)
+        rng = o["range_torr"]
+        if rng is not None and not (isinstance(rng, (list, tuple)) and len(rng) == 2 and 0 < rng[0] < rng[1]):
+            raise ConfigError("%s: range_torr must be null or [low, high] with 0 < low < high" % self.name)
         self.pressure = self.add_signal("pressure", o["pressure"], lo=0.0)
         self.status = self.add_signal("status", 0.0)
         self.unit = self.add_signal("unit", float(o["unit"]))
@@ -115,9 +126,23 @@ class InficonVgc401(Simulator):
     def _unit(self):
         return int(self.unit.value)
 
-    def value_text(self):
-        """sx.xxxxEsxx in the current unit (p. 56, 60); 3rd and 4th decimal 0 except CDG."""
+    def reading(self):
+        """(status digit, pressure in torr) as PR1 reports them: the signal `status`, and with
+        the option range_torr status 1 or 2 and the end of the range outside it (assumed)."""
+        status = int(self.status.value)
         p = max(0.0, self.pressure.value * (1.0 + self.rng.gauss(0.0, self.options["noise"])))
+        rng = self.options["range_torr"]
+        if rng is not None and status == 0:
+            if p < rng[0]:
+                status, p = 1, float(rng[0])
+            elif p > rng[1]:
+                status, p = 2, float(rng[1])
+        return status, p
+
+    def value_text(self, p=None):
+        """sx.xxxxEsxx in the current unit (p. 56, 60); 3rd and 4th decimal 0 except CDG."""
+        if p is None:
+            p = max(0.0, self.pressure.value * (1.0 + self.rng.gauss(0.0, self.options["noise"])))
         p *= TORR_TO.get(self._unit(), 1.0)
         if self.options["gauge"] != "CDG":
             p = float("%.2E" % p)
@@ -126,7 +151,8 @@ class InficonVgc401(Simulator):
         return "% .4E" % p if math.isfinite(p) else " 9.9999E+99"
 
     def measurement(self):
-        return "%d,%s" % (int(self.status.value), self.value_text())        # p. 60
+        status, p = self.reading()
+        return "%d,%s" % (status, self.value_text(p))        # p. 60
 
     def gauge(self):
         status = int(self.status.value)

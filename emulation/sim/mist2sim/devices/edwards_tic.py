@@ -32,10 +32,23 @@ Not in the manual, so options or choices of this simulator (named so in TIC.md):
     config type: "*S904 3" (missing parameter); another config type: "*S904 9"
   - the turnaround (`turnaround_ms`, default 20 ms; the manual says less than 100 ms)
   - multi-drop addressing ("#dd:ss", RS-485) is not simulated
+  - per socket, optional (task T31): `floor_pa`, `top_pa`, the gauge's ends: the value it
+    reports is never below or above them. The lab's APG100-XM on socket 1 was seen to report
+    exactly 1.0000e-02 Pa at high vacuum and exactly 1.0000e+05 Pa at atmosphere, in the state
+    On (lab session, 2026-11-25); the simulator does the same with these two options.
+  - per socket, optional (task T31): `switch`, a gauge that is switched on and off by another
+    socket's value: {master: socket, on_torr, off_torr, strike_s}. Off (state 5) while the
+    master reads above on_torr or is not On; at or below on_torr it strikes (state 6) for
+    strike_s, then is On (11); On or striking, it goes Off when the master reads above off_torr.
+    Who switches the lab's AIM on socket 2 is not seen (the TIC by its own slave setup, object
+    914 of Table 1, or the owner at the panel), nor its state while it strikes, nor where it goes
+    off again; the three numbers are configuration values (config/rack.yaml says which are
+    assumed). A state set over the control port wins while it is held.
 
 Signals (all settable over the control port, D5 cases):
   g<n>.pressure  true pressure at gauge n in torr (reported in pascal); for a plant model
-  g<n>.state     gauge state, 1.7.7 (0 not connected, 5 off, 6 striking, 4 in alert, 11 on ...)
+  g<n>.state     gauge state, 1.7.7 (0 not connected, 5 off, 6 striking, 4 in alert, 11 on ...);
+                 a switched gauge (option `switch`) writes it itself
   g<n>.units     units type of the reply, 1.7.4 (59; 66 = voltage mode)
   g<n>.alert, g<n>.priority     alert ID (1.7.3) and priority (1.7.2)
   turbo.state (1.7.8), turbo.speed (%), turbo.type (1.7.11, 0 = No Pump), turbo.alert,
@@ -44,6 +57,7 @@ Signals (all settable over the control port, D5 cases):
   commands       number of "!" messages received
 """
 
+import math
 import re
 
 from ..core import ConfigError, Simulator, register
@@ -53,6 +67,8 @@ GAUGE_OBJECTS = [913, 914, 915, 934, 935, 936]
 VARIANTS = {"TIC": (3, True), "TC": (0, True), "IC": (3, False), "IC6": (6, False)}
 NOT_ON_VALUE = 9.9e9
 VOLTAGE_VALUE = 6.546
+
+GAUGE_KEYS = {"pressure", "state", "units", "floor_pa", "top_pa", "switch"}
 
 MESSAGE = re.compile(r"([?!])([VCS])(\d{1,5})(?: (.*))?")
 
@@ -64,7 +80,8 @@ class EdwardsTic(Simulator):
     OPTIONS = {
         "variant": "TIC",          # TIC, TC, IC, IC6: which objects exist, ?V902 layout
         # one entry per gauge socket: null (no gauge: state 0) or a map with any of
-        # pressure (torr), state (1.7.7, default 11 on), units (default 59)
+        # pressure (torr), state (1.7.7, default 11 on), units (default 59), floor_pa and
+        # top_pa (the ends of the reported value), switch (see the module's text)
         "gauges": [{"pressure": 1.0e-6}, None, None],
         "turbo_type": 11,          # 1.7.11 (11 nEXT - 232); 0 = No Pump
         "turbo_state": 4,          # 1.7.8 (4 Running)
@@ -89,14 +106,21 @@ class EdwardsTic(Simulator):
             raise ConfigError("%s: a %s has %d gauge sockets, %d configured"
                               % (self.name, o["variant"], self.n_gauges, len(gauges)))
         gauges += [None] * (self.n_gauges - len(gauges))
+        self.ends, self.switches = {}, {}
         for n, g in enumerate(gauges, 1):
             g = g or {}
-            if not isinstance(g, dict) or set(g) - {"pressure", "state", "units"}:
-                raise ConfigError("%s: gauge %d: null or a map of pressure, state, units"
-                                  % (self.name, n))
+            if not isinstance(g, dict) or set(g) - GAUGE_KEYS:
+                raise ConfigError("%s: gauge %d: null or a map of %s"
+                                  % (self.name, n, ", ".join(sorted(GAUGE_KEYS))))
             present = bool(g)
+            self.ends[n] = (float(g.get("floor_pa", 0.0)), float(g.get("top_pa", math.inf)))
+            if self.ends[n][0] > self.ends[n][1]:
+                raise ConfigError("%s: gauge %d: floor_pa above top_pa" % (self.name, n))
+            if "switch" in g:
+                self.switches[n] = self._switch_spec(n, g["switch"], len(gauges))
+            state = g.get("state", 5 if n in self.switches else 11 if present else 0)
             self.add_signal("g%d.pressure" % n, g.get("pressure", 1.0e-6), lo=0.0)
-            self.add_signal("g%d.state" % n, g.get("state", 11 if present else 0))
+            self.add_signal("g%d.state" % n, state)
             self.add_signal("g%d.units" % n, g.get("units", 59))
             self.add_signal("g%d.alert" % n, 0.0)
             self.add_signal("g%d.priority" % n, 0.0)
@@ -108,6 +132,47 @@ class EdwardsTic(Simulator):
             self.add_signal(pump + ".absent", 0.0 if has_pumps else 1.0)
         self.add_signal("turbo.speed", o["turbo_speed"], noise=0.0)
         self.commands = self.add_signal("commands", 0.0)
+        if self.switches:
+            self.add_coupling(self._switch_step)
+
+    def _switch_spec(self, n, spec, sockets):
+        keys = {"master", "on_torr", "off_torr", "strike_s"}
+        if not isinstance(spec, dict) or set(spec) != keys:
+            raise ConfigError("%s: gauge %d: switch needs exactly %s" % (self.name, n, ", ".join(sorted(keys))))
+        if spec["master"] not in range(1, sockets + 1) or spec["master"] == n:
+            raise ConfigError("%s: gauge %d: switch master must be another socket" % (self.name, n))
+        if not 0 < spec["on_torr"] <= spec["off_torr"]:
+            raise ConfigError("%s: gauge %d: switch needs 0 < on_torr <= off_torr" % (self.name, n))
+        if spec["strike_s"] < 0:
+            raise ConfigError("%s: gauge %d: strike_s must not be negative" % (self.name, n))
+        return dict(spec, since=None)
+
+    # --- a gauge switched by another one (option `switch`) -----------------------------------
+
+    def reading_pa(self, n):
+        """What gauge n reports in pascal, without noise, or None when it is not On."""
+        if self._int("g%d.state" % n) != 11 or self._int("g%d.units" % n) != 59:
+            return None
+        floor, top = self.ends[n]
+        return min(top, max(floor, self.signals["g%d.pressure" % n].value * PA_PER_TORR))
+
+    def _switch_step(self, dt, signals):
+        now = self.now()
+        for n, sw in self.switches.items():
+            sig = signals["g%d.state" % n]
+            state = int(round(sig.target))
+            master = self.reading_pa(sw["master"])
+            low = master is not None and master <= sw["on_torr"] * PA_PER_TORR
+            high = master is None or master > sw["off_torr"] * PA_PER_TORR
+            if state in (6, 11) and high:
+                state, sw["since"] = 5, None
+            elif state == 5 and low:
+                state, sw["since"] = 6, now
+            if state == 6 and sw["since"] is not None and now - sw["since"] >= sw["strike_s"]:
+                state = 11
+            if state != int(round(sig.target)):
+                self.log.info("%s: gauge %d %s", self.name, n, {5: "off", 6: "striking", 11: "on"}[state])
+                sig.target = state
 
     def _int(self, name):
         return int(round(self.signals[name].value))
@@ -121,6 +186,8 @@ class EdwardsTic(Simulator):
         elif units == 59:
             p = self.signals["g%d.pressure" % n].value
             value = max(p * (1.0 + self.rng.gauss(0.0, self.options["noise"])), 0.0) * PA_PER_TORR
+            floor, top = self.ends[n]
+            value = min(top, max(floor, value))
         else:
             value = VOLTAGE_VALUE
         return "%.4e;%d;%d;%d;%d" % (value, units, state, self._int("g%d.alert" % n),
