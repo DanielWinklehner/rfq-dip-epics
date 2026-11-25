@@ -1863,7 +1863,14 @@ exit code: 1
 
 26. **For the start and stop of the TIC's pumps (2026-11-25).**
     a. Should the AIM be switched from the GUI as well, or by the TIC alone (your rule: not
-       before the APG shows 1e-2 torr or lower)? T32 does not switch it.
+       before the APG shows 1e-2 torr or lower)? **Answered the same day** (to the lab
+       session): "Does the TIC switch it on automatically or would I go and do it from the
+       panel? If the latter, definitely through the GUI too." So T32 gets a request for the
+       gauge on socket 2, refused unless the APG is valid and at or below 1e-2 torr, and reads
+       the TIC's own link for that socket, so that the GUI shows whether the TIC switches it by
+       itself. Both are from the manual only: the gauge command was not tried on the
+       controller. The IOC does not switch the AIM off by itself. Also yours: "The APG and the
+       AIMs from the TIC cart should show as on the side flange", which is what T31 draws.
     b. T32 lets the IOC refuse a turbopump start while the backing pump is off, and a backing
        pump stop while the turbopump runs. Do you want a pressure condition as well (which
        gauge, which value) before the turbopump may start?
