@@ -402,7 +402,7 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    computer that has the rule file (copy it again as in section 3, then pull the adapter and
    plug it in; the line is new and not tested). The TIC's adapter has no rule yet: plug it in
    alone, `ls -l /dev/serial/by-path/`, and put that name into the `TIC` line of
-   `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/tic`.
+   `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` in place of `/dev/mist2/tic_station`.
    A baud rate other than 9600 on the VGC401 goes into its block of the same file.
 3. **Read**, after an IOC restart:
 

@@ -9,7 +9,7 @@
 # valve box and the MFC (99-mist2-serial.rules; seen to work on the rack server for the valve
 # box, the others NOT TESTED), and by USB socket for the two Matsusada adapters, which report no
 # serial number (99-mist2-matsusada.rules; co-u32 and usb-opt seen to work on the rack server).
-# The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2, tic) have no rule: replace each with
+# The other names (naim, faradaycup, flowmeters, nt20-1, nt20-2, tic_station) have no rule: replace each with
 # its /dev/serial/by-path/ name, found with one device plugged in at a time
 # (docs/emulation/LAB-SETUP.md, section 3).
 # ASSUMED, to be replaced when the real computer is set up:
@@ -152,8 +152,13 @@ asynSetOption("VGC",-1,"clocal","Y")
 asynSetOption("VGC",-1,"crtscts","N")
 
 # Edwards TIC station, RS-232, read only (T29). 9600 8N1, Xon/Xoff (TIC Turbo Controller manual
-# D397-12-880 2.4.5; assumed to hold for the lab's variant). NOT TESTED on the controller.
-drvAsynSerialPortConfigure("TIC","/dev/mist2/tic")
+# D397-12-880 2.4.5). The probe read the controller with these settings on the lab computer on
+# 2026-11-25 (lab session); this IOC has NOT read it yet.
+# Device name: tic_station is the owner's name for it (2026-11-25). Its adapter (Prolific
+# PL2303, 067b:2303) reports no serial number, so the name needs a rule by the rack server's
+# USB socket, which does not exist yet: until then the adapter's /dev/serial/by-path/ name
+# goes here.
+drvAsynSerialPortConfigure("TIC","/dev/mist2/tic_station")
 asynSetOption("TIC",-1,"baud","9600")
 asynSetOption("TIC",-1,"bits","8")
 asynSetOption("TIC",-1,"parity","none")
