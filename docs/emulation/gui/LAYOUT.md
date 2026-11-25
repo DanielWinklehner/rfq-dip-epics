@@ -116,12 +116,14 @@ pressures belong in the databases (`controls.yaml`, gauge notes).
 
 ### 1.3 Emulator banner
 
-- Shown on every page when **any** IOC reports mode `sim`, or when a mode PV is disconnected
-  (unknown counts as "not real").
+- Since T31 (open point P68; `src/components/modeSummary.js`): "EMULATOR" and the title prefix
+  `[SIM]` only when an IOC reports mode `sim` and none reports `real`; IOCs of both modes: the
+  "MIXED" banner and the prefix `[MIXED]`; every IOC `real`: no banner, no prefix. An IOC whose
+  mode is not known (not connected, another word) is named "mode unknown" and does not make the
+  system an emulator: with no IOC in `sim` it gets a neutral grey banner without a prefix.
 - Blue diagonal stripes, a colour no alarm uses, with the text "EMULATOR — rack IOC and HV IOC
   report mode sim. No hardware is connected." Mixed case: "MIXED — rack IOC in mode sim, HV IOC
-  on real hardware". The browser tab title gets the prefix `[SIM]`. The wireframes draw the
-  banner in grey; `S1` shows the colour.
+  on real hardware". The wireframes draw the banner in grey; `S1` shows the colour.
 - The mode comes from each IOC's mode PV, not from a GUI setting. The PDF report (WP8) should
   print the same line.
 - In sim mode only, expert views show **Inject fault** and **Clear fault** buttons that talk to
@@ -137,7 +139,7 @@ the widget asks for.
 |---|---|---|---|
 | **Supply** | TDK, REK, AU 1 to 5 | set and read V and I, output request and state, power. TDK also mode and fault | `vset` `:voltage:setpoint`, `iset` `:current:setpoint`, `vread` `:voltage:read`, `iread` `:current:read`, `out_cmd` `:SetToggleOutput` (TDK `:status:setpoint`), `out_state` `:read_output_status` (TDK `:status:get`), `power` `:power:read` (TDK `:power:get`), expert: `:voltage:get`, `:current:get`, `:status:read`, TDK `:mode:get`, `:fault:get` |
 | **Valve** | valve box channels 1 to 8 | command and read-back, words per valve (OPEN/CLOSED, IN/OUT) | `cmd` `VALVE:s<n>:set`, `state` `VALVE:s<n>:get` |
-| **Gauge** | nAIM, APG, diagnostic box | pressure in exponent format, enable if the gauge has one | `p` `AIM:getpressure`, `PRESSURE:apg:getpressure`, `PRESSURE:diag_box:getpressure`; `enable` `AIM:enable` |
+| **Gauge** | the TIC's APG and AIM (sockets 1, 2), the foreline gauge (VGC401); the nAIM (not installed) | pressure in exponent format, beside it the word of the gauge's `state` while the pressure is not alarm-free (T31: "Off", "Striking", "Underrange"), enable if the gauge has one | `p` `TIC:gauge<n>:getpressure`, `PRESSURE:foreline:getpressure`, `AIM:getpressure`; `state` `TIC:gauge<n>:state:get`, `PRESSURE:foreline:getstate`; `enable` `AIM:enable`. The homemade gauge box (`PRESSURE:apg`, `PRESSURE:diag_box`) is out since T31 |
 | **Turbo pump** | Turbo 1, Turbo 2 | run/stop, three relay lamps, state, speed, current, age of the RS-232 record | `TURBO<n>:start:set`, `:start:get`, `:accel:get`, `:atspeed:get`, `:failure:get`, `:state:get`, `:speed:get`, `:current:get`, `:age:get`; expert `:raw:get` |
 | **Mass flow controller** | MFC | set point, set point read-back, flow | `MFC:setSP`, `MFC:getSP`, `MFC:getFlow`; expert `MFC:setWink`, `MFC:getWink` |
 | **Reading** | thermocouples, sensor box temperatures and flows, Faraday cup current | one value with label and unit | `THM:t<n>:get` (expert `THM:j<n>:get`, `THM:f<n>:get`), `SENSOR:t<n>:gettemp`, `SENSOR:f<n>:getflow`, `FC:current:get` |

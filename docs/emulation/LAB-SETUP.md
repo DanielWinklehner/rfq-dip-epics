@@ -192,18 +192,21 @@ real name before the device is used.
    after `GTL`. Their stored current limit was 0 (`CH1=0000H`): the IOC sends the limit of
    `limits.defaults` at its first contact.
 3. **The devices with a serial number** (Windows' list of 2026-11-24 with the lab's `st.cmd`,
-   `reference/lab-2026`): gauge controller, interlock box, valve box and MFC get their names
+   `reference/lab-2026`): interlock box, valve box and MFC get their names
    from `99-mist2-serial.rules`:
 
    ```bash
    sudo cp rfq-dip-epics/EPICS/ioc/host/99-mist2-serial.rules /etc/udev/rules.d/ && sudo udevadm control --reload
    ```
 
-   Plug them in, then `ls -l /dev/mist2/`: `gauges`, `interlock`, `valves`, `mfc`. A missing
+   Plug them in, then `ls -l /dev/mist2/`: `interlock`, `valves`, `mfc` (and `vgc401`). The
+   homemade gauge controller is out of the system (owner, 2026-11-25): it has no line any more
+   and is not connected. A missing
    one: `udevadm info -q property -n /dev/ttyACM0` (or `ttyUSB0`) shows the serial number
    Linux reads; send it to me. Table and sources: `EPICS/ioc/host/README.md`.
-4. **Every other serial device** (nAIM, the Faraday cup Opta, the flow meter Opta, the NT 20
-   lines; Windows saw no serial number for the first three): plug in one at a time,
+4. **Every other serial device** (the Faraday cup Opta, the flow meter Opta, the NT 20 lines,
+   the TIC station; Windows saw no serial number for the first two). The nAIM is deferred
+   (owner, 2026-11-25): not connected; its records are loaded and INVALID: plug in one at a time,
    `ls -l /dev/serial/by-path/`, put that name into its line of `ports.real.cmd`, and keep the
    device in that socket. The turbopump Opta: its IP address in place of the host name.
 
@@ -242,12 +245,11 @@ caget -a IOC-RACK:heartbeat interlock_open AU-20P7-3:status:read AU-20P7-3:volta
 |---|---|---|---|
 | AU 3, 4 on CO-U32 (`mat_co`); AU 1, 2 on USB-OPT (`mat_opt`) | 9600 8N1 | `AU-20P15-1:` (the source supply, the lab's name) and `AU-20P7-<n>:` (2, 3, 4) `status:read`, `:voltage:read`, `:current:limit` | A41 reply format; A24 behaviour in local control; the lab's `st.cmd` puts units 2, 3, 4 on one line and 1, 5 on the other (question 18) |
 | Interlock box, an Opta now (`AVR11`) | USB serial | `INTLK:id` (InterlockOpta), `interlock_open` | "The interlock box is an Opta", below |
-| Gauge controller (`AVR6`) | 115200, **even** parity as in the lab's `st.cmd` (A10) | `PRESSURE:id`, `PRESSURE:apg:getpressure` | firmware |
 | Valve box (`AVR12`) | 115200 8N1 | `VALVE:id`, `VALVE:s1:get` | firmware |
 | Flow meter Opta (`AVR23`, the lab's COM23) | 115200 8N1 | `FLOW:f1:getflow` to `FLOW:f5:getflow` (l/min) | which circuit each is (question 18 c); no identity records (protocol 1) |
-| nAIM (`AIM`) | 9600 8N1 | `AIM:getpressure`, `AIM:enable` | protocol from INFICON's description (A15, A40) |
+| nAIM (`AIM`) | 9600 8N1 | deferred (owner, 2026-11-25): not connected, its PVs INVALID | protocol from INFICON's description (A15, A40) |
 | Foreline gauge, INFICON VGC401 (`VGC`) | 9600 8N1, the controller's default | `PRESSURE:foreline:getpressure`, `:getstate`, `:getgauge`, `:getunit` | never run on the controller (A51): "The foreline gauge and the TIC", below |
-| Edwards TIC station (`TIC`) | 9600 8N1, Xon/Xoff | `TIC:variant:get`, `TIC:gauge1:getpressure`, `TIC:turbo:state:get` | never run on the controller, variant not known (A52, question 23) |
+| Edwards TIC station (`TIC`): the six-way cross's APG (socket 1) and AIM (socket 2), socket 3 empty | 9600 8N1, Xon/Xoff | `TIC:variant:get`, `TIC:gauge1:getpressure` (APG), `TIC:gauge2:getpressure` and `TIC:gauge2:state:get` (AIM), `TIC:turbo:state:get` | read by the rack IOC since 2026-11-25; who switches the AIM on is not seen (the owner's rule: not above 1e-2 torr on the APG) |
 | MFC (`MFC`) | 9600 8N1, address 254 | `MFC:getFlow`, `MFC:setSP` | written from a draft (A11, P11) |
 | Faraday cup Opta (`AVR16`, the lab's COM16) | 115200 8N1 | `FC1:i1:getcurrent`, `FC1:i2:getcurrent` | what i1 and i2 are and their unit, the sketch (question 18 b); no identity records (protocol 1) |
 | Turbo Opta (`TURBO`) | TCP port 5025 | `TURBO:id` | firmware does not exist (P13): expect INVALID |
@@ -261,8 +263,8 @@ Arduino library on the rack computer had no protocol 2 (`reference/lab-2026/READ
 give their readings (query `A`), but answer identity and acknowledged sets with `ERR0`. So
 `<DEVICE>:id` is INVALID and every valve or relay command is refused and not executed
 (`AVR/libcom1/README.md`) until a box is flashed with protocol 2. The sketches of this branch
-are in `AVR/devices/` (InterlockOpta, SolenoidValveBox, IonGaugeController_Teensy; InterlockBox
-is the lost box's, SensorBox is no longer used) and `AVR/Thermocouple`, with the rack computer's
+are in `AVR/devices/` (InterlockOpta, SolenoidValveBox; InterlockBox is the lost box's,
+SensorBox and IonGaugeController_Teensy, the gauge box's, are no longer used) and `AVR/Thermocouple`, with the rack computer's
 local changes (same pins). The valve box sketch and the old interlock box sketch compile for the
 Arduino Mega 2560, the new interlock sketch for the Opta, all with one command in a container
 (`AVR/tools/compile.sh`, fixed versions of Arduino's tools); the others I have not compiled, and
@@ -414,12 +416,13 @@ Each has a probe that runs without an IOC; run it first and send me its output.
    ```
 
    ```bash
-   caget -a TIC:variant:get TIC:gauge1:getpressure TIC:gauge1:state:get TIC:turbo:state:get TIC:turbo:speed:get TIC:backing:state:get
+   caget -a TIC:variant:get TIC:gauge1:getpressure TIC:gauge1:state:get TIC:gauge2:getpressure TIC:gauge2:state:get TIC:turbo:state:get TIC:turbo:speed:get TIC:backing:state:get
    ```
 
    Pressures are in torr. Below its range the VGC401's value stays, with a MINOR alarm and the
    state "Underrange". A TIC socket without a gauge, and a pump the TIC does not have, are
-   INVALID, and the state PV says why.
+   INVALID, and the state PV says why. The AIM (socket 2) is "Off" with its pressure INVALID
+   until it is switched on; the GUI's tag shows the state's word beside it.
 4. **A gauge newly plugged into the TIC must be accepted at the TIC's front panel** before
    anything reads it: until then its state is "New Gauge Id" and its pressure INVALID (seen
    on 2026-11-25: more than two minutes, until the gauge was selected at the panel). The TIC
