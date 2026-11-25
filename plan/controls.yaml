@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.31"
+  revision: "0.32"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -50,6 +50,7 @@ meta:
     - "Revision 0.29: the foreline gauge is read by an INFICON VGC401 (owner, 2026-11-25), and the lab has an Edwards TIC station (owner, same day). Both are read by the rack IOC, read only (T29, T30): PRESSURE:foreline:* and TIC:*. Neither has met its controller yet."
     - "Revision 0.30: addresses on the experiment's network (owner, 2026-11-25): lab computer 10.77.0.1, rack server 10.77.0.6. The VGC401's USB adapter is named by its serial number. No record changed."
     - "Revision 0.31: the rack IOC reads the foreline pressure on the real VGC401 (lab session, 2026-11-25): gauge head PCG, unit Torr, a reply after about 0.1 s. The Edwards station is a TIC cart for 115 V with three gauge sockets (owner). No record changed."
+    - "Revision 0.32: the Edwards station answered the probe (lab session, 2026-11-25): a TIC Turbo and Instrument Controller (TIC100) with an EXT75DX turbopump, a mains backing pump and the APG on gauge socket 1. No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -486,24 +487,26 @@ devices:
 
   - id: tic
     name: "Edwards TIC station"
-    model: "Edwards TIC on a pump cart, part number TSM1D1002 (owner), the 115 V version by the form of the number; TIC variant not yet read"
+    model: "Edwards TIC Turbo and Instrument Controller (identity TIC100, software D39700640T) on a pump cart, part number TSM1D1002 (owner), 115 V; turbopump type EXT75DX, mains backing pump, as the controller reports"
     subsystem: vacuum
     location: rack
     host: ioc_rack
-    link: "RS-232 (9-way D), straight cable, USB to RS-232 adapter"
+    link: "RS-232 (9-way D), Prolific USB to RS-232 adapter without a serial number (named by its USB socket)"
     protocol: "StreamDevice, tic.proto (Edwards D397-30-880), 9600 baud, queries only"
     epics:
       - {db: tic.db, macros: {PORT: TIC, DEVICE: TIC}}
     status: new
-    flags: {assumed: "Never run against the controller (T29). Which TIC variant the station is, what it runs and which gauge is on which socket is not known"}
-    labels: {gauge1: "TIC gauge 1", gauge2: "TIC gauge 2", gauge3: "TIC gauge 3"}
+    flags: {assumed: "The controller answered the probe on 2026-11-25 (lab session); the IOC itself has not read it yet. Pumps running and a gauge other than the APG: not seen"}
+    labels: {gauge1: "APG, TIC cart", gauge2: "TIC socket 2 (empty)", gauge3: "TIC socket 3 (empty)"}
     notes:
       - "The lab has an Edwards TIC station (owner, 2026-11-25): its front says TIC, it has three gauge sockets (RJ45), and its mains inlet says 115 V. Not on 230 V mains without a transformer: the TIC controller alone takes 90 to 264 V by its data sheet, so the 115 V belongs to another part of the cart; rating plate and manual decide. It was not in the plan before."
       - "Read only (T29): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. No command and no setup message is sent: starting and stopping a pump from the IOC waits until it is known what the station runs. Document: docs/emulation/TIC.md."
       - "A pressure is valid only while its gauge reports the state On and a pressure in pascal; otherwise it is INVALID and the state says why. A socket without a gauge and a pump the controller does not have are INVALID as well."
-      - "Assumed: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual), replies within 120 ms, and that a measuring gauge reports the state On."
+      - "Seen with the probe on 2026-11-25 (lab session; not seen by the development session): all ten queries answered within 23 to 86 ms (reply timeout 150 ms). The APG on socket 1 reports the state On and its value in pascal once it was accepted at the TIC's front panel; before that the state is New Gauge Id and there is no reading. Sockets 2 and 3 are empty, so their PVs are INVALID. The identity has a NUL byte after the serial number, which the protocol file ignores with the PIC software version behind it."
+      - "The APG100-XM goes on a TIC socket; the nAIM (digital, own serial line) and the INFICON head (on the VGC401) do not. An AIM would be one of the three sockets (owner's question, 2026-11-25)."
     questions:
-      - "Which TIC is it (the label, D397-xx-000), which pumps does it run, and which gauge is on which socket? The probe EPICS/ioc/host/edwards_tic_probe.py reads all of it."
+      - "Does the cart back the big turbopump, and where do its gauges sit in the end? Then the pressures get names of the lab's pattern."
+      - "Will a second gauge (an AIM) come onto the TIC? If not, the records of the empty sockets can stay unloaded."
       - "Should the IOC start and stop its pumps later?"
 
   - id: gauge_gas
