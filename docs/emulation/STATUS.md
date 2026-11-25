@@ -1195,6 +1195,20 @@ repository sends a command: the probe, `tic.proto` and `tic.db` stay read only.*
   gauge 1 in state 11 throughout, 1.0000e+05 Pa before, 5.43e4 Pa at 13:20:07, 3.18e4 Pa at
   13:20:12, 2.87e4 Pa (215 torr) at 13:20:32. The turbopump stayed in state 0, speed 0.0 %: the
   command started the backing pump only.
+- **The pump-down stalled, and why** (seen in the log; the cause is the owner's finding): from
+  13:20:12 to 13:24:32 gauge 1 jumped between about 1.9e4 and 3.4e4 Pa (140 to 255 torr) and
+  did not fall. Owner: "it was backed up, the exhaust was blanked off". With the exhaust open
+  the value went from 2.51e4 Pa at 13:24:32 to 7.24e2 Pa at 13:24:47, 3.36e1 Pa at 13:25:02 and
+  2.02e1 Pa (0.15 torr) at 13:25:32, still falling. State 11 in every sample; 185 runs of the
+  probe by then, all ten queries answered in each. My own guess while it stalled, an open vent
+  valve or a leak, was wrong.
+- **Queries by hand while it stalled** (13:22:07, queries only, from D397-30-880 Table 1; not
+  among the probe's ten): `?V922` (external vent valve) `=V922 4;0;0`; `?S922` (vent option)
+  `=S922 1`, "On 50%"; `?V933` (system) `=V933 0;0;0`, off; `?S933` (system on/off setup)
+  `=S933 904;0;1;910;1;0;913;0;0;914;0;0;915;0;0;916;0;0;917;0;0;918;0;0;0;0;0;0;0;0;0;0;0;0;0;0`,
+  after 138 ms, the longest reply seen; `?V916`, `?V917`, `?V918` (relays) each `0;0;0`. The
+  others took 23 to 32 ms. Whether state 4 of the vent valve means closed or venting I cannot
+  tell from the manual.
 - **Before that, the gauge:** the owner selected the new gauge at the front panel ("It said new
   id, when I selected it, it began reading"): state 2 with alert 9 until 13:12:27, state 11
   with alert 0 from 13:12:32, 4.62e4 Pa at atmosphere. Then his atmosphere adjustment ("I
