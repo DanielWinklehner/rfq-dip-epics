@@ -128,8 +128,10 @@ Existing names are kept as in section 1. New records are marked **new**.
 | rack | AU x 5 | `mat_opt`, `mat_co` | `AU-20P7-<unit>:*` as in the snapshot, reworked polling; the source supply (unit 1) `AU-20P15-1:*`, the lab's name in its files of 2026-11-24 (T26). **new**: `AU:alloff:set` |
 | rack | MKS GV50A | `MFC` | `MFC:getSP`, `MFC:setSP`, `MFC:getWink`, `MFC:setWink`. **new**: `MFC:getFlow` |
 | rack | Valve box | `AVR12` | `VALVE:s1:get` … `s8`, `VALVE:s1:set` … `s8`, `VALVE:id/firmware/channels` |
-| rack | Gauge controller | `AVR6` | `PRESSURE:apg:getpressure`, `PRESSURE:diag_box:getpressure`, `PRESSURE:id/...` |
-| rack | nAIM | `AIM` | `AIM:getpressure`, `AIM:enable` |
+| rack | Gauge controller | `AVR6` | `PRESSURE:apg:getpressure`, `PRESSURE:diag_box:getpressure`, `PRESSURE:id/...`. OUT OF THE SYSTEM since 2026-11-25 (owner; task T31): not loaded, not simulated |
+| rack | TIC station (Edwards, since 2026-11-25) | `TIC` | `TIC:gauge<n>:*` (the APG on socket 1 and the AIM on socket 2, both on the six-way cross), `TIC:turbo:*`, `TIC:backing:*`, read only |
+| rack | Foreline gauge (INFICON VGC401, since 2026-11-25) | `VGC` | `PRESSURE:foreline:*`, read only |
+| rack | nAIM | `AIM` | `AIM:getpressure`, `AIM:enable`. Deferred by the owner on 2026-11-25: still loaded and simulated, flagged not installed |
 | rack | Faraday cup Opta | `AVR16` | `FC1:data`, `FC1:i1:getcurrent`, `FC1:i2:getcurrent`, the lab's names in its files of 2026-11-24 (T26; until then the assumed `FC:current:get` over TCP). No identity records: protocol 1 |
 | rack | Flow meter Opta | `AVR23` | `FLOW:data`, `FLOW:f1:getflow` … `f5` (l/min), the lab's names of 2026-11-24 (T26). No identity records: protocol 1 |
 | rack | NT 20 x 2 | `TURBO`, `NT20_1`, `NT20_2` | **new**, see section 4 |

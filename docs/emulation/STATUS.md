@@ -883,6 +883,38 @@ station and for hours). The adapter's by-path name in `ports.real.cmd` is right;
 `/dev/mist2/tic_station` passes `udevadm verify` and is not installed. The foreline pressure
 from the VGC401 arrives every 0.8 to 1.2 s since the restart with the corrected database.
 
+**The gauges on the TIC, the gauge box out, the drawings and the banner** (subagent, task T31,
+one round with one restart after a stall, merged 2026-11-25; answers 65, 66):
+
+- **The homemade gauge box is out:** the rack IOC no longer loads `pressure.db` on `AVR6`, the
+  port and its udev rule line are gone, so are its simulator and its entry in the plan's loads
+  (kept in the plan as the sensor box is). `PRESSURE:apg:*`, `PRESSURE:diag_box:*` and
+  `PRESSURE:id` no longer exist. `PRESSURE:foreline:*` is untouched.
+- **The six-way cross's pressures are `TIC:gauge1` (APG) and `TIC:gauge2` (AIM).** The TIC's
+  empty socket 3 is flagged not installed in the plan (a new `channel_flags`): its PVs are left
+  out of the tests, the logger, the alarms and the tags.
+- **The emulation follows the lab:** the plant drives the simulated TIC's two gauges and the
+  simulated VGC401; the APG reports its floor and its top exactly, as seen; the VGC401 has the
+  PCG head, Torr and the lab's firmware number.
+- **The GUI:** the AIM and the APG on the cross's side flange, the foreline gauge between the
+  foreline valve and the roughing pump; a gauge's tag shows its state's word while its pressure
+  is in alarm; title and banner by the IOCs' modes (P68): "[SIM]" and EMULATOR only with an IOC
+  in the emulation's mode and none on real hardware, "[MIXED]" for a mix, a neutral banner for
+  an unknown mode.
+- **By me:** the GUI check's step that clicked the nAIM's tag now clicks the foreline gauge's
+  (the engineer's run ended with that one failure); the documents that still named the old
+  gauges; plan 0.36 with the roughing line as you described it.
+- **Verified by me on the merged branch:** the plan check without a warning; the simulators'
+  tests (185); the device cases `tic` (13), `vgc401` (23) and `libcom1_devices` (82); the
+  system tests, **288 passed**, 2 deselected, 797 s (296 before: the eight that are gone are
+  the gauge box's own cases, by the engineer's list); the GUI check, **PASS**, 293 checks; the
+  rack IOC's start with the real port file in a container (its start finished, no line about
+  the old port). I looked at the screenshots of the Overview and of the vacuum page.
+- **Not seen by anyone:** the state words on a tag and the title on real hardware in a browser
+  (in the emulation the gauges are on and in range); these are for the lab computer.
+- **Known to differ from the lab's TIC:** the simulated TIC switches the AIM on by itself at
+  1e-2 torr on the APG. The real one waited for the panel (answer 69). T32 replaces it.
+
 ## Running
 
 State of 2026-11-24, evening. Nothing is running. T23 to T27 are merged (see "Done"). The
@@ -2158,6 +2190,7 @@ exit code: 1
 - 2026-11-25: T28 one round (50 min).
 - 2026-11-25: T29 (Edwards TIC) and T30 (INFICON VGC401) started side by side, each in its own worktree.
 - 2026-11-25: T29 one round (64 min), T30 one round (45 min). Both reports named the model `claude-opus-5-5`.
+- 2026-11-25: T31 one round with one restart: the first run stalled after about 40 minutes without a commit and was resumed; about 105 minutes in all. Model reported: `claude-opus-5-5`.
 - 2026-11-24: the engineer of T23 stopped once without a report (the harness: "no progress for
   600 s") near its end; resumed with a message, it finished in four minutes. Its work was
   committed up to that point.
@@ -2269,6 +2302,9 @@ exit code: 1
 | `tic.proto`: the identity ignores what follows its text (ExtraInput = Ignore) (by me, from the lab session's probe) | The lab's TIC puts a NUL byte after the serial number; the text conversion ends there and the rest counted as surplus input, so the record was INVALID. The PIC software version behind the NUL is given up |
 | `tic.proto`: reply timeout 150 ms instead of 120 ms (by me, from the measurement) | Replies came after 23 to 86 ms. 150 ms leaves 64 ms on the slowest, and the 13 queries of a silent controller still take less than the 2 s cycle (1.95 s) |
 | The TIC's three gauge sockets stay loaded although sockets 2 and 3 are empty (for now) | The owner asked about an AIM on the TIC, so a second gauge may come. Until then their PVs are INVALID with the state "Gauge Not connected" (P70) |
+| An empty socket of the TIC is flagged in the plan (`channel_flags`, `not_installed`) and its PVs leave the registry's lists for tests, logger and alarms (T31) | Its records are INVALID for good, and the system tests expect every PV valid while nothing is at fault. An uninstalled device (turbopump 2) is still simulated and tested; an empty socket cannot be |
+| The GUI check's window test clicks the foreline gauge's tag (by me) | It clicked the nAIM's, which is no longer drawn |
+| The tracked screenshots of the GUI check are those of my run on the merged branch (by me) | They are the record of how the pages look; the drawings changed |
 
 ## Assumptions that need your confirmation
 
@@ -2385,9 +2421,9 @@ loop, see "Done").
 | P63 | The Opta's relays have a minimum switching load of 300 mW (data sheet: 12.5 mA at 24 V, 60 mA at 5 V, 60 V at 5 mA). An interlock input of a power supply usually carries less; what the Matsusada and REK inputs carry is not known here | Question 22 b. A small signal relay between the Opta's contact and such an input |
 | P64 | The unit test `test_matsusada_co ... test_back_to_back_transactions_keep_the_line_timing` failed twice on 2026-11-25 while other containers ran on the PC (0.02427 s and 0.02438 s against a limit of 0.02425 s) and passed alone. Its margin of 0.5 ms is too small for a loaded PC | Widen the margin or measure against the simulator's own clock. It is not a fault of the simulator's timing as far as these runs show |
 | P65 | The VGC401 and the TIC are read by the rack IOC from their manuals only (A51, A52). If a real reply takes longer than the timeout (150 ms, 120 ms), its PVs are INVALID although the controller works | The two probes print every reply time; then the timeouts follow the measurement. **VGC401, seen on hardware, 2026-11-25 (lab session):** 17 of 18 replies after 91 to 112 ms, one after 20 ms, on an FTDI adapter with a latency timer of 16 ms; 38 ms are left of the 150 ms. **TIC, seen on hardware, 2026-11-25 (lab session):** 20 replies after 23 to 86 ms on a Prolific PL2303 adapter, against a timeout of 120 ms; the identity is the slowest |
-| P66 | The two new devices are in the registry (class gauge) and in no drawing of the GUI | With the next GUI round: the foreline gauge beside the turbopump's foreline, the TIC where its gauges turn out to sit |
+| P66 | DONE with T31 (2026-11-25): the TIC's gauges and the foreline gauge are drawn. Was: The two new devices are in the registry (class gauge) and in no drawing of the GUI | With the next GUI round: the foreline gauge beside the turbopump's foreline, the TIC where its gauges turn out to sit |
 | P67 | ModemManager runs on the lab computer and looked at the VGC401's adapter before the probe ran (lab session, 2026-11-25). If it sent a character, the controller's own sending has ended, and the probe's listening shows nothing although cable and baud rate are right | The probe's requests still answer in that case. To see the automatic lines: the rule file installed (it keeps ModemManager off this adapter) or ModemManager disabled, then the controller switched off and on |
-| P68 | With no IOC connected the GUI's title reads "[SIM] MIST-2" and its banner "EMULATOR — Rack IOC: mode unknown, HV platform IOC: mode unknown" (lab session, on the lab computer, 2026-11-25). On the real system that is wrong | GUI: the emulator's title and banner only when an IOC reports the mode of the emulation; an unknown mode as its own, neutral message |
+| P68 | DONE with T31 (2026-11-25; checked by unit tests of the mode logic, not yet seen on real hardware in a browser). Was: With no IOC connected the GUI's title reads "[SIM] MIST-2" and its banner "EMULATOR — Rack IOC: mode unknown, HV platform IOC: mode unknown" (lab session, on the lab computer, 2026-11-25). On the real system that is wrong | GUI: the emulator's title and banner only when an IOC reports the mode of the emulation; an unknown mode as its own, neutral message |
 | P69 | The real VGC401 refused the first request of the probe's first run with two NAK characters and answered every later one (lab session, 2026-11-25); the error word read 0000 right after. Characters already in the controller's input are a possible cause (ModemManager, P67) | The IOC asks again a second later, so it costs one INVALID reading. If it recurs with the rule file installed: send ETX first (the manual, p. 57: it clears the controller's input) |
 | P70 | The lab's TIC has a gauge on socket 1 only, so `TIC:gauge2:*` and `TIC:gauge3:*` are INVALID for good on the real system and show so in the GUI | When it is clear whether an AIM or another gauge comes onto the TIC: load the gauge records per socket (one database per socket), or leave them |
 | P71 | The TIC's pressures have the names of its sockets (`TIC:gauge1:getpressure`), not of the place they measure, unlike the lab's other pressures | Names or aliases in the lab's pattern once the gauges' places are fixed (the APG is on the cart's pumping port for now) |

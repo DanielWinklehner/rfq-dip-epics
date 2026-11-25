@@ -38,7 +38,6 @@ the logger.
 | The NT 20's last RS-232 record (text) | role `raw` | raw | 2 | kept to find the record format (P14) |
 | Supply power | role `power` | seconds | 6 | computed from voltage and current, both kept raw |
 | Cold-junction temperatures of the thermocouple board | role `junction` | minutes | 4 | board temperature: long-term only |
-| `PRESSURE:diag_box:getpressure` | PV | minutes | 1 | measures nothing in phase 1 (its gauge goes to the second cross in phase 2) |
 | Every written PV: set points, current limits, output requests, valves, pumps, gauge, MFC, loop settings and mode request, ALL HV OFF | written | events | 45 | each change is a set command in the event log |
 | Set point echoes (`vget`, `ilimit_get`, MFC `sp`) | roles | events | 11 | an echo changes only after a set |
 | States: output states, Matsusada status, TDK mode and fault, doors, valves, turbo relays and state, loop mode, reason, permits, limit flag, service alive, the interlock permit `interlock_open` | roles `state`, `open`, `service`; types `bi`, `mbbi`, `longin` | events | 46 | states change rarely; every change is an event |

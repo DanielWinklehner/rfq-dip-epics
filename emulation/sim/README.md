@@ -213,12 +213,18 @@ temperatures are computed but read by no simulator since the sensor box left the
 
 ### Signals
 
+Since T31 (2026-11-25) the cross's two gauges are the APG and a regular AIM on the Edwards TIC
+station, and the foreline has the INFICON VGC401; the homemade gauge box is out and the nAIM is
+deferred. Where the text below says "nAIM reading" it means the ion gauge's reading of the
+cross, which the model still computes the same way (`aim_reading`) and now sends to the TIC's
+socket 2.
+
 | Reads (model input) | Drives (model output) |
 |---|---|
 | `tdk.mc` filament current | `tdk.load_ohm` filament resistance R(T) |
 | `rek.1.vset`, `rek.1.iset`, `rek.1.output` | `rek.1.load_ohm` = V / I of the discharge operating point |
-| `mfc.254.flow` (% of 5 sccm H2) | `aim.pressure` nAIM reading of the cross (torr) |
-| `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent (turbopump), `s4` Faraday cup | `gauges.p1` APG reading of the cross (torr) |
+| `mfc.254.flow` (% of 5 sccm H2) | `tic.g2.pressure` the AIM's reading of the cross (torr; socket 2 of the TIC station, since T31) |
+| `valvebox.s1` foreline, `s2` MFC shutoff, `s3` vent (turbopump), `s4` Faraday cup | `tic.g1.pressure` the cross pressure for the APG (torr; socket 1 of the TIC station, whose simulator holds the gauge's floor and top) and `vgc401.pressure` the foreline pressure (torr) |
 | `nt20_1.speed` / 600 Hz | `faradaycup.i1` cup current (A; ASSUMED: i1 of FC1 is the cup current) |
 | `mat_opt.1.vset`, `.iset`, `.output` (ion source supply) | `mat_opt.1.load_ohm` = V / I of the source supply |
 | `mat_opt.2.vout`, `.output` (puller supply) | `thermocouple.t1`..`t4` (degC) |
@@ -377,8 +383,8 @@ gauge heads switched off (the nAIM simulator still decides what it reports when 
 | `cross_volume_l` | 40 | l | estimate: CF 10 inch six-way cross (three tubes of about 20 cm diameter, 60 cm long) |
 | `aim_h2_factor` | 0.46 | 1 | law (tabulated, approximate): an ionisation gauge calibrated for N2 reads H2 at about 0.4 to 0.5 of the true pressure. That the nAIM is calibrated for N2 is the owner's belief (2026-11-21), not checked on the gauge |
 | `cross_base_reading_torr` | 2e-06 | torr | free choice: the nAIM simulator's constant today (rack.yaml), base reading with the pump at speed and no gas |
-| `apg_floor_torr` | 0.001 | torr | free choice: the lower limit of the simulator channel gauges.p1 (rack.yaml); a Pirani gauge shows nothing below about that |
-| `apg_ceiling_torr` | 944.06 | torr | free choice: the upper limit of the simulator channel gauges.p1 (rack.yaml) |
+| `apg_floor_torr` | 7.50062e-05 | torr | seen on hardware: the lab's APG100-XM on the TIC reported exactly 1.0000e-02 Pa at high vacuum (lab session, 2026-11-25); the simulator tic has it as floor_pa (rack.yaml) |
+| `apg_ceiling_torr` | 750.062 | torr | seen on hardware: the lab's APG100-XM on the TIC reported exactly 1.0000e+05 Pa at atmosphere after its adjustment (lab session, 2026-11-25); the simulator tic has it as top_pa (rack.yaml) |
 | `turbo_speed_n2_l_s` | 1150 | l/s | law (data sheet): Leybold TURBOVAC 1000 C, 250 ISO-K inlet, N2 (GA 05.118/14.02, 1.3 Technical Data); the pump model is the owner's 'I think it's a 1000C with a 250 ISO-K flange' |
 | `turbo_h2_n2_ratio` | 1.018 | 1 | estimate: the data sheet gives no H2 speed for the 1000 C; ratio H2/N2 of the TURBOVAC 600 C in the same table (570 / 560 l/s) |
 | `turbo_stopped_fraction` | 0.01 | 1 | estimate: what a stopped turbopump still pumps (through to the foreline) |

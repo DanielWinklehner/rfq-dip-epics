@@ -64,7 +64,7 @@ If `172.30.0.0/24` collides with a network of yours: `export MIST2_SUBNET=172.31
 **Read and write PVs** from the tools container, which has the EPICS command-line tools:
 
 ```bash
-docker compose -f emulation/compose.yaml --profile tools run --rm tools caget TDK:voltage:read AIM:getpressure
+docker compose -f emulation/compose.yaml --profile tools run --rm tools caget TDK:voltage:read TIC:gauge2:getpressure
 ```
 
 ```bash

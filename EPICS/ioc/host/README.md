@@ -28,7 +28,7 @@ Python wrapper, root rights for every run) is not needed.
 | File | Purpose |
 |---|---|
 | `99-mist2-matsusada.rules` | udev rules: name the ID to `ftdi_sio`, keep ModemManager off the line, and create `/dev/mist2/co-u32` for the adapter with the serial number `CO001144`. That name works only if the adapter reports the serial number under Linux; Windows saw none (below) |
-| `99-mist2-serial.rules` | udev rules: `/dev/mist2/gauges`, `interlock`, `valves` and `mfc` by USB ID and serial number, each line with its source (the Windows device list of 2026-11-24 and the lab's `st.cmd`) |
+| `99-mist2-serial.rules` | udev rules: `/dev/mist2/interlock`, `valves`, `mfc` and `vgc401` by USB ID and serial number, each line with its source (the Windows device list of 2026-11-24 and the lab's `st.cmd`, or what the lab session read on the computers), and `tic_station` by its USB socket on the rack server |
 | `matsusada_probe.py` | First contact without an IOC: asks each unit for status, settings and monitors, prints the replies and the reply times. Read-only by default (no set command, no `REN`). With `--remote` it sends `REN` before a unit's queries and `GTL` after them, because the supplies answer the settings only under remote control (seen on 2026-11-24) |
 | `build-epics.sh` | Builds EPICS base, asyn, StreamDevice, autosave (the release tags of the `mist2-ioc` image) and the IOC application on the computer, into `/opt/epics` or a directory given as argument. Run in fresh containers of Ubuntu 20.04, 22.04 and 24.04, where both IOCs then started in `real` mode with no device; not on the lab's computers |
 
@@ -113,7 +113,7 @@ of 2026 and its notes (`reference/lab-2026`):
 
 | Device | COM | USB ID | Serial number | Name |
 |---|---|---|---|---|
-| Gauge controller (Teensy) | 6 | `16c0:0483` | `3596460` | `/dev/mist2/gauges`, `99-mist2-serial.rules` |
+| Gauge controller (Teensy) | 6 | `16c0:0483` | `3596460` | none: out of the system since 2026-11-25 (owner), its rule line is removed |
 | Interlock box (Mega) | 11 | `2341:0042` | `954323138373519002A2` | `/dev/mist2/interlock`, `99-mist2-serial.rules` |
 | Valve box (Mega) | 12 | `2341:0042` | `95433343733351502071` | `/dev/mist2/valves`, `99-mist2-serial.rules` |
 | MFC (FTDI to RS-485) | 13 | `0403:6001` | `FTJRNRWQ` | `/dev/mist2/mfc`, `99-mist2-serial.rules` |
