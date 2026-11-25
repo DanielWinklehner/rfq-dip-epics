@@ -1179,6 +1179,28 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the TIC's adapter on the rack server, its socket name in the port file
+
+Owner: "the TIC is on the rack server now, here is the output", from `mist-2@mist-2-rack-IOC`
+(vendor and model ID, `ID_PATH` of every `/dev/ttyUSB*`):
+
+| Device | USB ID | `ID_PATH` | What it is |
+|---|---|---|---|
+| `/dev/ttyUSB0` | `1192:1000` | `pci-0000:00:1d.0-usb-0:1.1:1.0` | Matsusada USB-OPT (`/dev/mist2/usb-opt` by the rule) |
+| `/dev/ttyUSB1` | `1192:1000` | `pci-0000:00:1d.0-usb-0:1.2:1.0` | Matsusada CO-U32 (`/dev/mist2/co-u32` by the rule) |
+| `/dev/ttyUSB2` | `0403:6001` | `pci-0000:01:00.0-usb-0:1:1.0` | an FTDI adapter; the VGC401's, I take it (the serial number is not in the paste) |
+| `/dev/ttyUSB3` | `067b:2303` | `pci-0000:01:00.0-usb-0:4.4:1.0` | **the TIC's Prolific adapter, behind the extension's hub** |
+
+- **Changed by me, one line** (as the port file's own comment and `CLAUDE.md` have it): the
+  `TIC` line of `EPICS/ioc/iocBoot/iocRack/ports.real.cmd` opens
+  `/dev/serial/by-path/pci-0000:01:00.0-usb-0:4.4:1.0-port0` in place of
+  `/dev/mist2/tic_station`, until a rule by socket gives that name.
+- **Not seen:** the link itself (its name is made from the `ID_PATH` as on the lab computer,
+  where `...usb-0:9:1.0` gave `...usb-0:9:1.0-port0`), and the IOC on the TIC. Both show after
+  the owner's pull and IOC restart on the rack server.
+- **For the rule** (the development session's): `SUBSYSTEM=="tty"`, `067b`, `2303`,
+  `ENV{ID_PATH}=="pci-0000:01:00.0-usb-0:4.4:1.0"`, in the form of the Matsusada lines.
+
 ### 2026-11-25: the TIC's line through a USB extension, a load test; the restarted rack IOC
 
 **The extension.** Owner: "I have a USB extension cord that I put in between the PC and the TIC

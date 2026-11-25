@@ -158,7 +158,12 @@ asynSetOption("VGC",-1,"crtscts","N")
 # PL2303, 067b:2303) reports no serial number, so the name needs a rule by the rack server's
 # USB socket, which does not exist yet: until then the adapter's /dev/serial/by-path/ name
 # goes here.
-drvAsynSerialPortConfigure("TIC","/dev/mist2/tic_station")
+# The by-path name below, lab session 2026-11-25: on the rack server the adapter is /dev/ttyUSB3
+# with ID_PATH=pci-0000:01:00.0-usb-0:4.4:1.0 (the owner's paste of udevadm from there), behind
+# the owner's USB extension, which is a hub: socket 4 of the computer, port 4 of the hub. The
+# link's name is made from that ID_PATH as on the lab computer; the link itself is NOT SEEN, and
+# this IOC has not opened it yet. The adapter moved to another socket or hub port loses the name.
+drvAsynSerialPortConfigure("TIC","/dev/serial/by-path/pci-0000:01:00.0-usb-0:4.4:1.0-port0")
 asynSetOption("TIC",-1,"baud","9600")
 asynSetOption("TIC",-1,"bits","8")
 asynSetOption("TIC",-1,"parity","none")
