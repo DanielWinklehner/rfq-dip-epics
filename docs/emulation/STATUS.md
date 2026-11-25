@@ -1178,6 +1178,37 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the rack IOC reads the VGC401, and the GUI shows it (A51, P65)
+
+Owner, after he had moved the adapter to the rack server and started the rack IOC: "I see the
+pressure in the CS. The Turbo stays manual until I have more time."
+
+**Seen on hardware, from the lab computer at 12:29** (`caget -a` in the pvServer container, over
+Channel Access to 10.77.0.6):
+
+- `IOC-RACK:heartbeat` counts (238, and 243 five seconds later).
+- `PRESSURE:foreline:getpressure` 764 without alarm, with a new time stamp in each read;
+  `:getstate` "Measurement data okay", `:getgauge` `PCG`, `:getunit` `Torr`, `:geterror`
+  "No error", `:getversion` `302-519-D`. All without alarm.
+- **So `vgc401.proto` reads the pressure reply with the blank after the comma,** and the
+  timeout of 150 ms holds on the rack server. The probe's pattern and the simulator still do
+  not know the blank.
+- The TIC's PVs (`TIC:variant:get`, `TIC:gauge1:getpressure`, `TIC:turbo:state:get` and
+  others) are LINK INVALID with "No valid reply": no TIC is connected.
+- The IOC's time stamps and the lab computer's clock agree within about a second.
+
+**Not seen by me:** the rack server itself. Whether the rule gave `/dev/mist2/vgc401` there,
+which socket the adapter is in, and the IOC's log are the owner's to tell.
+
+**The GUI against an IOC on another computer works** (`LAB-SETUP.md` section 6, "Not tried with
+IOCs on another computer"): seen in a browser on the lab computer. The banner reads "MIXED —
+Rack IOC on real hardware, HV platform IOC: mode unknown." and "Rack IOC: real" with a counting
+heartbeat; the foreline gauge shows 7.64e+2 torr; the foreline valve shows "closed"; APG, nAIM,
+interlock and TIC show INVALID; 13 fields of the platform say "no connection". The browser's
+title is still "[SIM] MIST-2" with the rack IOC in real mode.
+
+**The turbopump stays manual** (owner, above): nothing starts or stops it from the IOC for now.
+
 ### 2026-11-25: the GUI on the lab computer (`LAB-SETUP.md` section 6)
 
 **The GUI runs on the lab computer and its page opens; no PV connects, because no IOC ran.**
@@ -1332,7 +1363,8 @@ exit code: 1
 ## Not verified
 
 - **The VGC401 has met its controller on 2026-11-25:** see "Seen on hardware, lab session". The
-  IOC has not, and the pressure reply has a form the probe and the simulator do not know.
+  rack IOC reads it since 12:29 of that day (764 Torr without alarm). The pressure reply has a
+  blank that the probe and the simulator do not know.
 - The INFICON VGC401 and the Edwards TIC on their controllers: the probes, the protocol files
   and the line settings come from the manuals (A51, A52, P65). The VGC401's manual was read
   from a third-party copy; of the TIC's variants only the Turbo Controller's instruction manual
