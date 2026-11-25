@@ -1194,6 +1194,49 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the first pump-down of the six-way cross through the cart (seen through the rack IOC)
+
+The owner ran it by hand, the pumps at the TIC's panel and the foreline valve from the GUI; I
+switched nothing. Asked to start the roughing pump, I could not: the TIC's line is on the rack
+server, held by the rack IOC, which has no command for it. Read from the lab computer with
+`camonitor` and `caget` on the rack IOC's PVs (local time).
+
+His order, which he gave as the start-up procedure he wants: backing pump on, foreline valve
+open, little turbopump on, big turbopump on ("Otherwise the inrush from opening the foreline
+valve will overwhelm the little turbo"). The big turbopump was not started.
+
+| Time | Event | INFICON, roughing line (torr) | APG, six-way cross (torr) | Cart's turbopump |
+|---|---|---|---|---|
+| 16:40:33 | before | 763 | 750.062 (its top value) | Stopped |
+| 16:42:42 | `TIC:backing:state:get` On | 283 | 750.062 | Stopped |
+| 16:42:52 | | 78.3 | 750.062 | |
+| 16:43:20 | | 0.948 | 750.062 | |
+| 16:47:50 | | 0.0887 | 750.062 | |
+| 16:47:52 | `VALVE:s1:get` 1, the foreline valve open | (474 at 16:47:54) | 750.062 | speed read 0.9 % |
+| 16:48:30 | | 39.7 | 449 at 16:48:24 | |
+| 16:49:03 | | | 91.9 | |
+| 16:50:03 | | | 13.6 | |
+| 16:50:53 | `TIC:turbo:state:get` Accelerating | 4.6 | 5.4 | 1.7 % |
+| 16:51:30 | | 0.92 | 1.42 | 42.2 % |
+| 16:51:43 | `TIC:turbo:state:get` Running | | | 49.5 % at 16:51:41 |
+| 16:51:54 | | 0.062 | 0.061 | 57.3 % |
+| 16:52:30 | | 0.0041 | 0.019 | 81.5 % |
+| 16:53:04 | at speed | 0.0029 | 0.0147 | 100 % |
+| 16:55:20 | the APG at 1e-2 torr | 0.0016 | 0.00998 | 100 % |
+
+- **The states are those of the afternoon:** the backing pump 0 to 4 with nothing between; the
+  turbopump Stopped, Accelerating up to about 50 %, Running from there, 100 % after 130 s
+  (120 s on the blanked cart). No alarm on any of the watched PVs.
+- **The AIM (socket 2) stayed Off** while the APG fell through 1e-2 torr (16:55:20) and was
+  still Off at 16:56:00, with the APG at 0.0093 torr. So at that pressure the TIC did not
+  switch it on by itself within those 40 s; whether a lower set point is stored in the TIC
+  is not known.
+- **The INFICON reads far below the APG** once the turbopump runs (0.0016 against 0.010 torr at
+  16:55): it sits behind the stopped big turbopump, at the cart's inlet.
+- **`PRESSURE:foreline:getstate`** stayed "Measurement data okay"; no "Underrange" down to
+  1.6e-3 torr.
+- With the foreline valve opening, the stopped turbopump's speed read 0.9 % for a moment.
+
 ### 2026-11-25: stopping the cart's turbopump with the foreline valve open (question 26 e)
 
 Asked "Should the IOC refuse to stop the cart's turbopump from the GUI while the foreline valve
