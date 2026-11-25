@@ -1,0 +1,169 @@
+# vgc401.db - INFICON VGC401 single-channel gauge controller, read only (protocol: vgc401.proto)
+#
+# Macros:
+#   DEVICE  PV prefix, default FORELINE (what is measured: the foreline of the turbopump)
+#   PORT    asyn port, default VGC
+#
+# Task T30. The controller reads one gauge head; which head hangs on the foreline is read from
+# the controller (getgauge). Nothing here sets anything on the controller: vgc401.proto sends
+# requests for readings only. Manual: tinb01e1-f (2011-07), chapter 5, pages in vgc401.proto.
+#
+# getpressure is in torr. The controller sends its value in its own pressure unit (UNI, read
+# every 2 s); the value is converted from every unit of the manual (p. 67). Until the unit has
+# been read once, after a unit the database does not know, and while the unit cannot be read,
+# getpressure is INVALID. getstate says what the status digit of the reply (p. 60) or the line
+# said: 0 a measurement (no alarm), 1 underrange and 2 overrange (MINOR: the value as sent;
+# underrange is the normal end of a pump-down of a Pirani), 3 to 7 the gauge's errors and 8, 9
+# the line (INVALID). With INVALID getpressure is NaN, never a stale or a zero value.
+#
+# Chain, every second: _pr1 (stream, the value in the controller's unit; the status digit into
+# _pr1:status) -> _state -> getstate -> getpressure.
+
+# --- pressure, every second ----------------------------------------------------------------------
+
+record(ai, "$(DEVICE=FORELINE):_pr1") {
+    field(DESC, "PR1 value, controller unit (internal)")
+    field(DTYP, "stream")
+    field(INP,  "@vgc401.proto get_pressure($(DEVICE=FORELINE)) $(PORT=VGC)")
+    field(SCAN, "1 second")
+    field(PREC, "4")
+    field(FLNK, "$(DEVICE=FORELINE):_state")
+}
+
+# The status digit of the last PR1 reply (redirection target of get_pressure)
+record(ai, "$(DEVICE=FORELINE):_pr1:status") {
+    field(DESC, "PR1 status digit (internal)")
+}
+
+# The status digit if the reply was read, else 8 (no reply: TIMEOUT) or 9 (any other failure:
+# NAK, a reply of another form, no connection). menuAlarmStat TIMEOUT = 10.
+record(calc, "$(DEVICE=FORELINE):_state") {
+    field(DESC, "Measurement state (internal)")
+    field(INPA, "$(DEVICE=FORELINE):_pr1:status NPP")
+    field(INPB, "$(DEVICE=FORELINE):_pr1.SEVR NPP")
+    field(INPC, "$(DEVICE=FORELINE):_pr1.STAT NPP")
+    field(CALC, "B<3?A:(C=10?8:9)")
+    field(FLNK, "$(DEVICE=FORELINE):getstate")
+}
+
+# State words 0 to 7: the manual's (p. 60)
+record(mbbi, "$(DEVICE=FORELINE):getstate") {
+    field(DESC, "Foreline gauge state")
+    field(INP,  "$(DEVICE=FORELINE):_state NPP")
+    field(ZRVL, "0")
+    field(ONVL, "1")
+    field(TWVL, "2")
+    field(THVL, "3")
+    field(FRVL, "4")
+    field(FVVL, "5")
+    field(SXVL, "6")
+    field(SVVL, "7")
+    field(EIVL, "8")
+    field(NIVL, "9")
+    field(ZRST, "Measurement data okay")
+    field(ONST, "Underrange")
+    field(TWST, "Overrange")
+    field(THST, "Sensor error")
+    field(FRST, "Sensor off")
+    field(FVST, "No sensor")
+    field(SXST, "Identification error")
+    field(SVST, "Error BAG, BPG, HPG, BCG")
+    field(EIST, "No reply")
+    field(NIST, "Bad reply or disconnected")
+    field(ONSV, "MINOR")
+    field(TWSV, "MINOR")
+    field(THSV, "INVALID")
+    field(FRSV, "INVALID")
+    field(FVSV, "INVALID")
+    field(SXSV, "INVALID")
+    field(SVSV, "INVALID")
+    field(EISV, "INVALID")
+    field(NISV, "INVALID")
+    field(UNSV, "INVALID")
+    field(FLNK, "$(DEVICE=FORELINE):getpressure")
+}
+
+# A = value in the controller's unit, B = torr per unit, C = state, D = severity of B.
+# The alarm: the highest severity of the value, the unit and the state (MS).
+record(calc, "$(DEVICE=FORELINE):getpressure") {
+    field(DESC, "Foreline pressure")
+    field(INPA, "$(DEVICE=FORELINE):_pr1 NPP MS")
+    field(INPB, "$(DEVICE=FORELINE):_unit:factor NPP MS")
+    field(INPC, "$(DEVICE=FORELINE):getstate NPP MS")
+    field(INPD, "$(DEVICE=FORELINE):_unit:factor.SEVR NPP")
+    field(CALC, "(C>2||D>2)?NAN:A*B")
+    field(EGU,  "torr")
+    field(PREC, "2")
+    field(LOPR, "1e-4")
+    field(HOPR, "1000")
+}
+
+# --- every 2 s -----------------------------------------------------------------------------------
+
+# UNI (p. 67). Another number: UNSV INVALID, and the factor is NaN.
+record(mbbi, "$(DEVICE=FORELINE):getunit") {
+    field(DESC, "Pressure unit of the controller")
+    field(DTYP, "stream")
+    field(INP,  "@vgc401.proto get_unit $(PORT=VGC)")
+    field(SCAN, "2 second")
+    field(ZRVL, "0")
+    field(ONVL, "1")
+    field(TWVL, "2")
+    field(THVL, "3")
+    field(ZRST, "mbar")
+    field(ONST, "Torr")
+    field(TWST, "Pascal")
+    field(THST, "Micron")
+    field(UNSV, "INVALID")
+}
+
+# torr per unit: 1 mbar = 100 Pa, 1 torr = 101325/760 Pa = 133.322368 Pa; Micron = mTorr (p. 41).
+# Not yet read: UDF, INVALID (D in getpressure). A number not in the manual: NaN.
+record(calc, "$(DEVICE=FORELINE):_unit:factor") {
+    field(DESC, "Torr per controller unit (internal)")
+    field(INPA, "$(DEVICE=FORELINE):getunit CP MS")
+    field(CALC, "A=0?0.750061683:(A=1?1:(A=2?0.00750061683:(A=3?0.001:NAN)))")
+    field(PREC, "9")
+}
+
+# TID (p. 62): PSG, PCG, PEG, MPG, CDG, BAG, BPG, BPG402, HPG, BCG, noSEn, noid
+record(stringin, "$(DEVICE=FORELINE):getgauge") {
+    field(DESC, "Gauge identified by the controller")
+    field(DTYP, "stream")
+    field(INP,  "@vgc401.proto get_gauge $(PORT=VGC)")
+    field(SCAN, "2 second")
+}
+
+# ERR (p. 63). Bits: 8 controller error, 4 no hardware, 2 inadmissible parameter, 1 syntax error.
+# Two flags at once are not among the states: UNSV MINOR. Reading clears the word on the
+# controller (p. 63); a persisting error is set again at once.
+record(mbbi, "$(DEVICE=FORELINE):geterror") {
+    field(DESC, "Error word of the controller")
+    field(DTYP, "stream")
+    field(INP,  "@vgc401.proto get_error $(PORT=VGC)")
+    field(SCAN, "2 second")
+    field(ZRVL, "0")
+    field(ONVL, "8")
+    field(TWVL, "4")
+    field(THVL, "2")
+    field(FRVL, "1")
+    field(ZRST, "No error")
+    field(ONST, "Controller error")
+    field(TWST, "No hardware")
+    field(THST, "Inadmissible parameter")
+    field(FRST, "Syntax error")
+    field(ONSV, "MAJOR")
+    field(TWSV, "MINOR")
+    field(THSV, "MINOR")
+    field(FRSV, "MINOR")
+    field(UNSV, "MINOR")
+}
+
+# PNR (p. 71): firmware number and modification index (the manual's own: 302-519-E, p. 2).
+# The controller has no mnemonic for its type: the firmware number identifies it.
+record(stringin, "$(DEVICE=FORELINE):getversion") {
+    field(DESC, "Firmware number of the controller")
+    field(DTYP, "stream")
+    field(INP,  "@vgc401.proto get_version $(PORT=VGC)")
+    field(SCAN, "2 second")
+}
