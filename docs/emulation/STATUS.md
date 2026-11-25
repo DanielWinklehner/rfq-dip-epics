@@ -1193,6 +1193,23 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the valve box switches from the control system (seen in the watch log)
+
+Not asked for and not done by me: I set nothing. The `camonitor` log that runs on the lab
+computer since 15:38:50 (gauges, the TIC's pumps, `VALVE:s1:get` to `VALVE:s4:get`) shows the
+four used channels of the valve box switched on and off, one at a time, between 16:04:31 and
+16:06:30 local time; the owner at work, I take it (he was wiring a solenoid valve to a relay).
+
+- **Seen on hardware:** `VALVE:s3:get` 1 at 16:04:31 and 0 at 16:04:32; `s2` 1 at 16:04:34, 0 at
+  16:04:35; `s1` 1 at 16:04:36, 0 at 16:04:37; `s4` 1 at 16:04:46, 0 at 16:04:47; then `s4`
+  twice more, `s1`, `s3`, `s2`, each on for 1 to 4 s; all four 0 since 16:06:30.
+  `VALVE:s2:set` carries the time stamp of the last of them (16:06:29).
+- **So the box carries out sets from the IOC and its read-back follows**, with the sketch of
+  this branch (`VALVE:id` `SolenoidValveBox`, `VALVE:firmware` `Nov 24 2026`). Which relay moved
+  what at the bench is the owner's to say.
+- In the same log nothing else changed up to 16:30: gauge 1 750.062 `On`, gauge 2 `Off`, both
+  pumps of the TIC off, the foreline gauge 763 with "Measurement data okay".
+
 ### 2026-11-25: the owner wants to start and stop the TIC's pumps from the GUI (question 24)
 
 Owner, 16:10, after I had told him that the TIC is read only in the control system and that
