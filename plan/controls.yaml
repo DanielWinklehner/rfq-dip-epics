@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.30"
+  revision: "0.31"
   date: "2026-11-24"
   author: "D. Winklehner"
   basis:
@@ -49,6 +49,7 @@ meta:
     - "Revision 0.28: the four solenoid valves take 3 W at 24 V each, at most three at a time (owner, 2026-11-25); the sum on the NIM crate's +24 V rail. No record changed."
     - "Revision 0.29: the foreline gauge is read by an INFICON VGC401 (owner, 2026-11-25), and the lab has an Edwards TIC station (owner, same day). Both are read by the rack IOC, read only (T29, T30): PRESSURE:foreline:* and TIC:*. Neither has met its controller yet."
     - "Revision 0.30: addresses on the experiment's network (owner, 2026-11-25): lab computer 10.77.0.1, rack server 10.77.0.6. The VGC401's USB adapter is named by its serial number. No record changed."
+    - "Revision 0.31: the rack IOC reads the foreline pressure on the real VGC401 (lab session, 2026-11-25): gauge head PCG, unit Torr, a reply after about 0.1 s. The Edwards station is a TIC cart for 115 V with three gauge sockets (owner). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
     - "Revision 0.10: Matsusada's driver CD rev. 1.7.0, driver package rev. 2.12.36.20 and the owner's notes of about 2016 (the CO-U32 holds an FTDI chip under the USB ID 1192:1000; work package WP4)"
@@ -465,7 +466,7 @@ devices:
 
   - id: gauge_foreline
     name: "Foreline gauge"
-    model: "INFICON VGC401 single-channel controller; the gauge head on it is read from the controller"
+    model: "INFICON VGC401 single-channel controller (firmware 302-519-D) with a PCG gauge head (Pirani with capacitive sensor), as the controller reports"
     subsystem: vacuum
     location: rack
     host: ioc_rack
@@ -474,20 +475,18 @@ devices:
     epics:
       - {db: vgc401.db, macros: {PORT: VGC, DEVICE: "PRESSURE:foreline"}}
     status: new
-    flags: {assumed: "Never run against the controller (T30): baud rate, reply time and the handling of the unit Micron are from the manual"}
     labels: {p: "Foreline"}
     notes:
       - "The foreline pressure gauge is read by an INFICON VGC401 with an RS-232 socket (owner, 2026-11-25). Wanted since 2026-11-21."
       - "Read only (T30): pressure with its state, the gauge head the controller has identified, its pressure unit, its error word, its firmware number. Nothing sets a parameter. Manual: tinb01e1-f, chapter 5. Document: docs/emulation/VGC401.md."
       - "PRESSURE:foreline:getpressure is in torr: the controller sends its value in its own unit, which the IOC reads and converts. Below or above the gauge's range the value stays, with a MINOR alarm; a gauge error, no gauge and no reply are INVALID, and PRESSURE:foreline:getstate says which."
       - "The controller sends its reading every second by itself after power-on; the IOC's first request ends that until it is switched off and on (manual p. 55). Reading the error word clears it (p. 63)."
-      - "Assumed: 9600 baud (the factory default), a reply within 150 ms, and that a value in Micron stays in Micron above 99000 on the serial line."
-    questions:
-      - "Which gauge head hangs on the VGC401, and which baud rate and unit is it set to? The probe EPICS/ioc/host/inficon_vgc401_probe.py reads all three."
+      - "Read on the controller on 2026-11-25 (lab session; not seen by the development session): 9600 baud, unit Torr, 764 torr at atmosphere without alarm through the rack IOC and in the GUI. The pressure reply has a blank where the manual shows the sign; every reply comes after about 0.1 s, so the reply timeout is 300 ms and the pressure request has priority on the line."
+      - "Not seen on the controller: its own sending after power-on, a reading under vacuum, under- and overrange, a fault. Assumed: a value in Micron stays in Micron above 99000 on the serial line (the controller is set to Torr)."
 
   - id: tic
     name: "Edwards TIC station"
-    model: "Edwards TIC (variant not known: Instrument Controller, Turbo Controller or Turbo and Instrument Controller)"
+    model: "Edwards TIC on a pump cart, part number TSM1D1002 (owner), the 115 V version by the form of the number; TIC variant not yet read"
     subsystem: vacuum
     location: rack
     host: ioc_rack
@@ -499,7 +498,7 @@ devices:
     flags: {assumed: "Never run against the controller (T29). Which TIC variant the station is, what it runs and which gauge is on which socket is not known"}
     labels: {gauge1: "TIC gauge 1", gauge2: "TIC gauge 2", gauge3: "TIC gauge 3"}
     notes:
-      - "The lab has an Edwards TIC station (owner, 2026-11-25). It was not in the plan before."
+      - "The lab has an Edwards TIC station (owner, 2026-11-25): its front says TIC, it has three gauge sockets (RJ45), and its mains inlet says 115 V. Not on 230 V mains without a transformer: the TIC controller alone takes 90 to 264 V by its data sheet, so the 115 V belongs to another part of the cart; rating plate and manual decide. It was not in the plan before."
       - "Read only (T29): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. No command and no setup message is sent: starting and stopping a pump from the IOC waits until it is known what the station runs. Document: docs/emulation/TIC.md."
       - "A pressure is valid only while its gauge reports the state On and a pressure in pascal; otherwise it is INVALID and the state says why. A socket without a gauge and a pump the controller does not have are INVALID as well."
       - "Assumed: 9600 8N1 with Xon/Xoff and a straight cable (from the Turbo Controller's manual), replies within 120 ms, and that a measuring gauge reports the state On."
