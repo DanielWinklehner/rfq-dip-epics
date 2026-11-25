@@ -23,7 +23,7 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.37"
+  revision: "0.38"
   date: "2026-11-25"
   author: "D. Winklehner"
   basis:
@@ -54,6 +54,7 @@ meta:
     - "Revision 0.33: the rack IOC reads the TIC station on the rack server (lab session, 2026-11-25, 15:06): identity, variant, the APG on socket 1 and both pumps' states valid. Its serial line is named tic_station (owner). No record changed."
     - "Revision 0.35 (T31): the homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'): the rack IOC no longer loads pressure.db and libcom1_device.db on AVR6, and its PVs (PRESSURE:apg:*, PRESSURE:diag_box:*, PRESSURE:id and the box's others) end. The six-way cross's pressures are TIC:gauge1 (APG) and TIC:gauge2 (AIM, socket 2, owner); TIC socket 3 is empty and marked so (channel_flags, not installed). The GUI draws the TIC's gauges and the foreline gauge."
     - "Revision 0.37 (T32): the TIC cart's pumps are started and stopped from the IOC and the GUI, and the AIM on the TIC's socket 2 is switched on and off (owner, 2026-11-25: 'yes, I want to start and stop the pumps from the GUI', and the AIM 'definitely through the GUI too'). New database tic_control.db beside tic.db (which stays read only): three acknowledged requests (TIC:turbo:start:set, TIC:backing:start:set, TIC:gauge2:on:set), their read-backs from the TIC's own states, the turbopump's at-speed, three refusals in the IOC (turbopump start without the backing pump on, backing pump stop under a running turbopump, AIM on unless the APG reads 1e-2 torr or lower), the take-over at the first contact, and the AIM's slave setup read only. The device tic shows its pumps as channels with the widget class turbo; their start and stop ask for confirmation, the turbopump's stop warns while the foreline valve is not known closed."
+    - "Revision 0.38: the flag of the TIC station says what is open after T32 and the first pump-down: its three requests have not met the real TIC through the IOC, and the AIM's command is from the manual only. No record changed."
     - "Revision 0.36: the roughing line as the owner described it on 2026-11-25 (six-way cross, big turbopump, foreline valve, INFICON, TIC cart), what the first pump-down showed of the gauges, and his start-up order for a later task on procedures. No record changed."
     - "Revision 0.34: the owner's change of 2026-11-25 for the gauges: the INFICON on the roughing line, the APG and a regular AIM on the six-way cross, both on the TIC station; the nAIM later (flagged not installed). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
@@ -505,7 +506,7 @@ devices:
       - {db: first_contact.db, macros: {P: TIC, N: backing, REQ: "TIC:backing:start:set", RB: "TIC:backing:start:get"}}
       - {db: first_contact.db, macros: {P: TIC, N: gauge2, REQ: "TIC:gauge2:on:set", RB: "TIC:gauge2:on:get"}}
     status: new
-    flags: {assumed: "Read by the rack IOC since 2026-11-25 with the station idle (lab session). Not seen through the IOC: the pumps running, a gauge other than the APG, hours of running"}
+    flags: {assumed: "The start and stop of the pumps and the AIM's switch (T32) have not met the real TIC through the IOC; the AIM's command is from the manual only, never sent. Reading: by the rack IOC since 2026-11-25, through one pump-down (lab session)"}
     labels: {gauge1: "APG, six-way cross", gauge2: "AIM, six-way cross", gauge3: "TIC socket 3 (empty)",
              turbo: "Cart turbopump (EXT75DX)", backing: "Cart backing pump"}
     # the cart's two pumps are channels of the station, shown with the widget of a turbopump (T32)
