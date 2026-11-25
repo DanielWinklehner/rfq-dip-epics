@@ -294,3 +294,12 @@ class DrivesAndTrends(unittest.TestCase):
             data["databases"]["loop.db"]["drives"]["macro"] = "HB"     # the heartbeat: a calc, not written
         warnings = self.model_with(change).warnings
         self.assertTrue(any("drives IOC-HV:heartbeat, which is not a written record" in w for w in warnings), warnings)
+
+    def test_channel_flags_name_a_channel_and_a_known_flag(self):
+        tic = lambda data: [d for d in data["devices"] if d["id"] == "tic"][0]  # noqa: E731
+        model = Model(os.path.join(REPO, "plan", "controls.yaml"), os.path.join(REPO, "EPICS", "Db"))
+        self.assertEqual([w for w in model.warnings if "channel_flags" in w], [])
+        warnings = self.model_with(lambda data: tic(data)["channel_flags"].update(gauge9={"not_installed": "x"})).warnings
+        self.assertTrue(any("channel_flags for 'gauge9'" in w for w in warnings), warnings)
+        warnings = self.model_with(lambda data: tic(data)["channel_flags"].update(gauge2={"broken": "x"})).warnings
+        self.assertTrue(any("channel_flags of 'gauge2'" in w for w in warnings), warnings)

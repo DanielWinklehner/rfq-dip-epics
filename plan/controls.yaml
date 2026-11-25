@@ -23,8 +23,8 @@
 meta:
   title: "MIST-2 Control System Rebuild at IBA"
   subtitle: "Device inventory, connections, process variables and work plan"
-  revision: "0.34"
-  date: "2026-11-24"
+  revision: "0.35"
+  date: "2026-11-25"
   author: "D. Winklehner"
   basis:
     - "Device list 'MIST-2 Devices Comm Protocols' (docx)"
@@ -52,6 +52,7 @@ meta:
     - "Revision 0.31: the rack IOC reads the foreline pressure on the real VGC401 (lab session, 2026-11-25): gauge head PCG, unit Torr, a reply after about 0.1 s. The Edwards station is a TIC cart for 115 V with three gauge sockets (owner). No record changed."
     - "Revision 0.32: the Edwards station answered the probe (lab session, 2026-11-25): a TIC Turbo and Instrument Controller (TIC100) with an EXT75DX turbopump, a mains backing pump and the APG on gauge socket 1. No record changed."
     - "Revision 0.33: the rack IOC reads the TIC station on the rack server (lab session, 2026-11-25, 15:06): identity, variant, the APG on socket 1 and both pumps' states valid. Its serial line is named tic_station (owner). No record changed."
+    - "Revision 0.35 (T31): the homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'): the rack IOC no longer loads pressure.db and libcom1_device.db on AVR6, and its PVs (PRESSURE:apg:*, PRESSURE:diag_box:*, PRESSURE:id and the box's others) end. The six-way cross's pressures are TIC:gauge1 (APG) and TIC:gauge2 (AIM, socket 2, owner); TIC socket 3 is empty and marked so (channel_flags, not installed). The GUI draws the TIC's gauges and the foreline gauge."
     - "Revision 0.34: the owner's change of 2026-11-25 for the gauges: the INFICON on the roughing line, the APG and a regular AIM on the six-way cross, both on the TIC station; the nAIM later (flagged not installed). No record changed."
     - "Revision 0.12: review of the loop (T15): a limit change in PID, a lost permit link (loop and supplies), permit records as words without alarm, set point limits as records, role names of the loop"
     - "Revision 0.11: the first control loop, discharge current through the filament heating current (work package WP10 step 1): records in the HV platform IOC, PID in the Python service loops/mist2loop (owner's decision of 2026-11-22, docs/emulation/LOOP.md); the owner's answer on the set point (22 A) and on the platform PC's operating system (a light Ubuntu variant)"
@@ -425,16 +426,12 @@ devices:
     subsystem: vacuum
     location: rack
     host: ioc_rack
-    link: "USB"
+    link: "none"
     protocol: "libcom1"
-    epics:
-      - {db: pressure.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
-      - {db: libcom1_device.db, macros: {PORT: AVR6, DEVICE: PRESSURE}}
     status: replace
-    labels: {apg: "APG, six-way cross", diag_box: "AIM, second six-way (phase 2)"}
     notes:
-      - "Since the owner's change of 2026-11-25 the APG hangs on the TIC station (device tic, socket 1), not on this box, and the six-way cross's second gauge is a regular AIM on the TIC as well. Whether this box is out of the system with that is asked (STATUS.md, question 25); until then its records stay loaded."
-      - "Out of the system (owner, 2026-11-25: 'Yes, drop it'). Task T31 takes it out of the rack IOC, the emulation and the GUI; until that is merged its records are still loaded and INVALID."
+      - "Out of the system (owner, 2026-11-25: 'Yes, drop it'), after the owner's change of the same day: the APG hangs on the TIC station (device tic, socket 1) and the six-way cross's second gauge is a regular AIM on the TIC's socket 2. Since T31 neither the rack IOC, the emulation, the GUI nor the logger has it: its PVs (PRESSURE:apg:*, PRESSURE:diag_box:*, PRESSURE:id, PRESSURE:firmware, PRESSURE:channel_list) end; they are not renamed."
+      - "Its database (EPICS/Db/pressure.db) and its device case (emulation/devtest/libcom1_devices) stay in the repository, in case the box comes back."
       - "Arrangement (owner, 2026-11-21): the APG sits next to the nAIM on a side flange of the six-way cross. The AIM of this controller goes to the second six-way cross behind the dipole magnet in phase 2, so the channel diag_box measures nothing in phase 1. The board is a Teensy (sketch AVR/devices/IonGaugeController_Teensy)."
       - "To be replaced by an off-the-shelf controller."
       - "Two channels in torr: p1 the Pirani gauge (APG, PRESSURE:apg:getpressure), p2 the ion gauge (AIM, PRESSURE:diag_box:getpressure, the diagnostic box in the lab's names). Labels from the lab GUI of 2023."
@@ -452,7 +449,6 @@ devices:
     link: "tbd (RS-232/485 or Ethernet, depending on the choice)"
     protocol: "StreamDevice, protocol file per controller"
     status: new
-    inherits_pvs_from: gauge_ctrl
     proposed:
       - {name: "gauge:aim:enable:set", type: bo, desc: "Cold-cathode gauge on / off"}
       - {name: "gauge:<n>:state:get", type: mbbi, desc: "Gauge state (off, striking, on, error)"}
@@ -464,6 +460,7 @@ devices:
       - {name: "B1: Pfeiffer TPG 366 (or TPG 361/362)", text: "6 (or 1/2) Pfeiffer ActiveLine gauges. New gauge heads needed, one full-range head replaces an APG and AIM pair.", interface: "Ethernet, RS-485, USB", note: "Best if the turbopumps are Pfeiffer, or if Ethernet matters most."}
       - {name: "B2: digital gauges without controller", text: "Transducers with their own serial or fieldbus port, as the nAIM already is.", interface: "RS-485 or EtherCAT", note: "Fewest boxes. New gauge heads needed. Fits a later EtherCAT migration."}
     notes:
+      - "Settled by the owner on 2026-11-25 in the sense of option A2: the lab's Edwards TIC station (device tic) runs the APG and the AIM of the six-way cross. The PV names stay the TIC's (TIC:gauge<n>:*), no alias yet (STATUS.md, question 25 c)."
       - "Proposal: keep the two pressure PV names (or alias them), add units and alarm limits (HIHI/HIGH) so that a bad vacuum shows as an alarm."
     questions:
       - "Which gauges stay: only the APG and the AIM, or more heads at IBA (how many channels)?"
@@ -503,6 +500,8 @@ devices:
     status: new
     flags: {assumed: "Read by the rack IOC since 2026-11-25 with the station idle (lab session). Not seen through the IOC: the pumps running, a gauge other than the APG, hours of running"}
     labels: {gauge1: "APG, six-way cross", gauge2: "AIM, six-way cross", gauge3: "TIC socket 3 (empty)"}
+    channel_flags:
+      gauge3: {not_installed: "Socket 3 of the TIC is empty (lab session, 2026-11-25: 'Gauge Not connected'): its pressure is INVALID for good"}
     notes:
       - "The lab has an Edwards TIC station (owner, 2026-11-25): its front says TIC, it has three gauge sockets (RJ45), and its mains inlet says 115 V. Not on 230 V mains without a transformer: the TIC controller alone takes 90 to 264 V by its data sheet, so the 115 V belongs to another part of the cart; rating plate and manual decide. It was not in the plan before."
       - "Read only (T29): the three gauge sockets (pressure in torr, state), the turbopump (state, type, speed), the backing pump (state, type) and the controller's identity. No command and no setup message is sent: starting and stopping a pump from the IOC waits until it is known what the station runs. Document: docs/emulation/TIC.md."
@@ -511,10 +510,11 @@ devices:
       - "The APG100-XM goes on a TIC socket; the nAIM (digital, own serial line) and the INFICON head (on the VGC401) do not. An AIM would be one of the three sockets (owner's question, 2026-11-25)."
       - "Owner, 2026-11-25: the APG and a regular AIM go on the six-way cross and both are run by the TIC station; the nAIM is deferred. So the six-way cross's two pressures are TIC:gauge<n>:getpressure. The APG is on socket 1 (it sat on the cart's pumping port for the first tests), the AIM on socket 2 (owner, 2026-11-25; read through the rack IOC as Off at atmosphere, its pressure INVALID). A newly plugged gauge must be accepted at the TIC's panel. Switching the AIM is the TIC's business; the IOC reads."
       - "Rule of the owner (2026-11-25): the AIM may not be turned on until the APG shows 1e-2 torr or lower. Nothing in the control system switches the AIM, so nothing here enforces it; the TIC can hold it itself (a slave setup of socket 2 on socket 1, D397-30-880 Table 1). How the lab's TIC is set is not read."
-      - "The homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'); taking it out of the rack IOC, the emulation and the GUI is task T31."
+      - "The homemade gauge box is out of the system (owner, 2026-11-25: 'Yes, drop it'); since T31 the rack IOC, the emulation and the GUI follow."
+      - "Socket 3 is empty: the channel gauge3 is flagged not installed (channel_flags). Its records stay loaded; the registry lists its PVs apart from the device's (not_installed_pvs), so the tests, the logger and the GUI's alarm summaries leave them out, as the GUI leaves out a device that is not installed, and the device window still shows them."
+      - "In the emulation (T31) the TIC switches the AIM by the APG's value: on at 1e-2 torr or lower (the owner's rule), through the state Striking; the switch-off pressure and the striking time are assumed (emulation/sim/config/rack.yaml). On the lab's TIC who switches it is not seen."
     questions:
       - "Does the cart back the big turbopump, and where do its gauges sit in the end? Then the pressures get names of the lab's pattern."
-      - "Will a second gauge (an AIM) come onto the TIC? If not, the records of the empty sockets can stay unloaded."
       - "Should the IOC start and stop its pumps later?"
 
   - id: gauge_gas
@@ -548,7 +548,7 @@ devices:
     flags: {not_installed: "Deferred (owner, 2026-11-25): the six-way cross gets the APG and a regular AIM on the TIC station instead"}
     labels: {p: "nAIM, six-way cross"}
     notes:
-      - "Deferred to later (owner, 2026-11-25). Its records stay loaded and are INVALID without the gauge; the GUI does not draw it."
+      - "Deferred to later (owner, 2026-11-25). Its records stay loaded and are INVALID without the gauge; the GUI does not draw it. Nothing depends on its reading since T31: the plant model of the emulation drives the TIC's AIM instead, and the drawings show the TIC's gauge 2 where they showed the nAIM."
       - "On a side flange of the six-way cross, next to the APG. The gauge is set to torr (owner, 2026-11-21)."
       - "AIM:enable now waits for the gauge's answer, so a rejected or unanswered command raises an alarm."
       - "After an IOC start AIM:enable takes over the state of the cold cathode at the gauge's first answer, sending nothing (first_contact.db). The state is bit 1 of the status word of every pressure reply, read by the internal record AIM:_enable:get (new in T18, SCAN I/O Intr on the replies that AIM:getpressure requests). It is not a read-back for an operator: an I/O Intr record keeps its last value while the gauge is silent."
@@ -639,7 +639,7 @@ devices:
       - {name: "rough1:running:get", type: bi, desc: "Pump running (contactor or pump status)"}
       - {name: "rough1:fault:get", type: bi, desc: "Motor protection / pump fault"}
     notes:
-      - "Foreline pressure: PRESSURE:foreline:getpressure, read from the INFICON VGC401 (T30). The APG of the homemade gauge box sits on the six-way cross (owner, 2026-11-21)."
+      - "Foreline pressure: PRESSURE:foreline:getpressure, read from the INFICON VGC401 (T30). The APG on the six-way cross is on the TIC station (TIC:gauge1, owner, 2026-11-25)."
     questions:
       - "Make and model of the roughing pumps, and how many? Do they have a remote interface or only mains?"
 
@@ -957,7 +957,7 @@ work_packages:
     items:
       - "Turbopump controllers: protocol file and database per controller type."
       - "Roughing pumps: on/off and status through the PLC, or serial if available."
-      - "Replace the homemade gauge controller by an off-the-shelf one."
+      - "Done (owner, 2026-11-25; T31): the homemade gauge controller is out; the APG and the AIM of the six-way cross are on the Edwards TIC station, read only."
       - "Turbopumps: two Leybold NT 20 on an Opta (start, stop, status relays), RS-232 monitor output in addition."
       - "Mass flow controller: works as it is. Commit its protocol file and database to the repository."
       - "Solenoid valves: Arduino now, Opta when the new units arrive."
@@ -1129,8 +1129,7 @@ trends:
 # Each rule is {tier, reason}. A PV that no rule covers is a WARNING of build.py; plan/registry.py
 # writes the tier of each PV into the registry (key "log"), where the logger reads it.
 logging:
-  pvs:
-    "PRESSURE:diag_box:getpressure": {tier: minutes, reason: "measures nothing in phase 1: its gauge goes to the second six-way cross in phase 2"}
+  pvs: {}
   classes:
     logger: {tier: none, reason: "the logger's own state (R8); its loss is seen in the rack IOC, not in its own database"}
   internal: {tier: none, reason: "helper records (fan-outs, arrays, sequences, mirrors); what they do shows in the public PVs"}

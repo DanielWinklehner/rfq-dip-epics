@@ -72,6 +72,13 @@ def stream_port(fields):
     return link.split()[-1], "in" if "INP" in fields else "out"
 
 
+def channel_of(key, channels):
+    """The channel an internal record belongs to, by the channel's name before its first ':'
+    (gauge3:_q of channel gauge3), or None."""
+    head = key.split(":")[0]
+    return head if head in channels else None
+
+
 def build(model):
     sims, containers = simulators(model)
     owners = {o["id"]: o for o in model.owners}
@@ -103,6 +110,8 @@ def build(model):
         out_roles, out_channels, pvs = {}, {}, {}
         labels, states = owner.get("labels") or {}, owner.get("states") or {}
         spare, confirm = set(owner.get("spare") or []), owner.get("confirm") or {}
+        channel_flags = owner.get("channel_flags") or {}
+        absent = {}      # PVs of a channel that is not installed: listed apart (not_installed_pvs)
         for pv in owner["pvs"]:
             if pv["state"] != "existing":
                 continue
@@ -126,6 +135,8 @@ def build(model):
                         channel = out_channels[pv["channel"]] = {"label": labels.get(pv["channel"])}
                         if pv["channel"] in spare:
                             channel["spare"] = True
+                        if pv["channel"] in channel_flags:
+                            channel["flags"] = channel_flags[pv["channel"]]
                         if pv["channel"] in states:
                             channel["states"] = states[pv["channel"]]
                         channel["roles"] = {}
@@ -147,7 +158,8 @@ def build(model):
                 item["fails_with"] = sorted(faults["silent"][pv["name"]])
             if faults["closed"][pv["name"]]:
                 item["fails_closed"] = sorted(faults["closed"][pv["name"]])
-            pvs[pv["name"]] = item
+            channel = pv.get("channel") or channel_of(pv["key"], channel_flags)
+            (absent if channel_flags.get(channel, {}).get("not_installed") else pvs)[pv["name"]] = item
         # readback: role name -> PV name, looked up in the channel first, then in the device
         for item in pvs.values():
             if item.get("readback"):
@@ -169,6 +181,8 @@ def build(model):
         result["simulators"] = sorted({r["sim"] for r in records.values() if r["owner"] == owner["id"] and r["sim"]})
         result["loads"] = [{"db": l["db"], "macros": {k: str(v) for k, v in model.macros(l).items()}} for l in loads_of(owner)]
         result["pvs"] = pvs
+        if absent:
+            result["not_installed_pvs"] = absent
         drives = [{"pv": target, "while": {"pv": cond, "value": value}} for target, cond, value in model.drives(owner)]
         if drives:
             result["drives"] = drives

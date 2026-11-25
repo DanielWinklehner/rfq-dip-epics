@@ -636,6 +636,14 @@ class Model:
                     self.warnings.append("%s: spare %r is no channel of the device" % (owner["id"], name))
                 elif name in (owner.get("labels") or {}):
                     self.warnings.append("%s: channel %r is spare and has a label" % (owner["id"], name))
+            for name, flags in (owner.get("channel_flags") or {}).items():
+                # a channel known to be empty (a socket without a gauge): flagged as a device is
+                if name not in channels:
+                    self.warnings.append("%s: channel_flags for %r, which is no channel of the device" % (owner["id"], name))
+                elif not isinstance(flags, dict) or not flags or set(flags) - {"not_installed"}:
+                    self.warnings.append("%s: channel_flags of %r: a map of flag -> reason; known: not_installed" % (owner["id"], name))
+                elif name in (owner.get("spare") or []):
+                    self.warnings.append("%s: channel %r is spare and has channel_flags" % (owner["id"], name))
             for name, words in (owner.get("states") or {}).items():
                 if not (isinstance(words, list) and all(isinstance(w, str) for w in words)):
                     self.warnings.append("%s: states of %r must be a list of words (index = value)" % (owner["id"], name))
