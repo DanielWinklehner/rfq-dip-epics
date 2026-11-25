@@ -25,6 +25,9 @@ Where the state of the work is written down. Read these before you act:
 - No `sudo`: give the owner the command to run, in a fenced `bash` block, one command per block.
 - The owner's name, e-mail address and the project's name go into no request to an outside
   service.
+- **This repository is public** (owner, 2026-11-25). No raw logs or data from the lab, no
+  credentials, keys or passwords go into it. Ask the owner before adding new details of the
+  lab's computers or network. Lab data stays in a folder outside the repository.
 
 ## Two sessions since 2026-11-25
 
