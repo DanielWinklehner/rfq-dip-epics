@@ -37,6 +37,14 @@ def sevr(name):
     return get(name + ".SEVR")
 
 
+def sample(name):
+    """(value, severity) of ONE Channel Access reply, or None when the get timed out (the IOC
+    is restarting). Two gets, one for each, can straddle a change: a value from before it
+    with a severity from after it."""
+    data = epics.get_pv(name, form="time").get_with_metadata(use_monitor=False, timeout=2.0)
+    return None if data is None or data.get("value") is None else (data["value"], data["severity"])
+
+
 def wait_for(what, test, timeout=10.0):
     end = time.time() + timeout
     while True:
@@ -215,14 +223,16 @@ def test_controller_that_sends_by_itself_at_the_start(ctl):
     seen = []
     end = time.time() + 6.0
     while time.time() < end:
-        seen.append((get(PRESSURE), sevr(PRESSURE)))
+        one = sample(PRESSURE)
+        if one is not None:
+            seen.append(one)
         time.sleep(0.1)
     log = sim_log()
     power_on = [log_time(l) for l in log if "power on" in l][-1]
     stopped = [log_time(l) for l in log if "first character received" in l][-1]
     lines_before = int((stopped - power_on) / 0.1)
     assert ctl.get("continuous")["value"] == 0.0          # the IOC's first character ended it
-    good = [(v, s) for v, s in seen if s is not None and s != INVALID]
+    good = [(v, s) for v, s in seen if s != INVALID]
     assert good, seen
     assert all(near(v, TRUE_TORR) for v, s in good), seen
     assert lines_before >= 3                              # the IOC did get the automatic output
