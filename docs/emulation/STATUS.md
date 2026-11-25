@@ -1178,6 +1178,38 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the GUI on the lab computer (`LAB-SETUP.md` section 6)
+
+**The GUI runs on the lab computer and its page opens; no PV connects, because no IOC ran.**
+Docker 29.1.3, Compose 2.40.3, buildx 0.30.1, all from Ubuntu 26.04.1's packages.
+
+- **The build works:** `make -C RAS/mist2 dev-up` built all four images in 18 minutes (11:57:39
+  to 12:15:31, 8 processors). Docker's images take 11.8 GB, its build cache 7.5 GB.
+- **`make dev-up` then failed at its last step.** `docker compose -f compose.dev.yaml up -d
+  --no-build` printed `service "pvserver" declares unknown service "epicsbase" as additional
+  contexts epicsbase`, and make ended with exit code 2. This Compose refuses the project file
+  whenever the profile `build` is off: `pvserver` and `frontend` name the services `epicsbase`
+  and `node_cache` in `additional_contexts`, and those two are in that profile.
+  `docker compose -f compose.dev.yaml config -q` fails the same way, and passes with
+  `--profile build`. The Makefile's `dev-down` and `dev-logs` use the same command line
+  without the profile; I have not run them.
+- **Started by hand,** no tracked file changed:
+  `docker compose -f compose.dev.yaml --profile build up -d --no-build pvserver frontend nginx`,
+  then `tools/wait-for-gui.sh`: "MIST-2 GUI is up: http://localhost:3000/". With the profile
+  and the three names nothing but the three services is started.
+- **Seen:** the three containers run (restart policy `unless-stopped`, Docker starts at boot);
+  pvServer's log shows `EPICS_CA_ADDR_LIST: 10.77.0.6`; the page opens in a browser on the lab
+  computer with its eight tabs and no error in the browser's console.
+- **No PV connects:** every field says "no connection". The rack server answers a ping, and its
+  TCP port 5064 was closed at 12:16, so no IOC ran there; the platform computer is not online.
+  The GUI with an IOC on another computer is therefore still not tried.
+- **Seen on the page, for the development session:** with no IOC connected the browser's title
+  is "[SIM] MIST-2" and the banner reads "EMULATOR — Rack IOC: mode unknown, HV platform IOC:
+  mode unknown." The Overview lists "Foreline gauge" and "Edwards TIC station" beside the
+  drawing (P66).
+- **Settings:** `RAS/mist2/.env` (not under version control) has `EPICS_CA_ADDR_LIST=10.77.0.6`.
+  The platform computer's address is to be added when it is online.
+
 ### 2026-11-25: the VGC401, first contact (A51, P65)
 
 **Seen on hardware: the controller answers at 9600 baud, 8N1, no handshake, through a USB to
