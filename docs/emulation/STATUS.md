@@ -1178,6 +1178,30 @@ nothing of the simulator but a new module with its tests and a line of its READM
 Written by the lab session on the lab computer `mist-at-iba` (`CLAUDE.md`, "Two sessions"). "I"
 in this section is the lab session. Newest first.
 
+### 2026-11-25: the station's controller is a TIC with three gauge sockets (question 23 a)
+
+Owner: "It's front label says TIC and it has three RJ45 recepticals on the side". **This corrects
+my entry below:** the station is not a T-Station with the simple controller. A TIC with gauge
+sockets and a turbopump is the TIC Turbo and Instrument Controller or the Instrument
+Controller; the probe's `?V902` line tells which (10 fields or 8). So T29 fits as far as the
+owner's reading goes. Not yet told: whether its 9-pin "RS232/485" socket is there (Edwards'
+data sheet shows it on the back), and what is plugged into the three sockets.
+
+**The part number's family, read in Edwards' webshop on 2026-11-25** (a search for `TSM1D1002`;
+the number itself is not listed, 19 neighbours are): the numbers of the "nEXT TIC Cart" have
+this form, for example `TSK1D1002` and `TSJ1D1002` (nEXT85 TIC Cart, NW40), `TSK1D1001`,
+`TSB4D1002` (nEXT240 TIC Cart, ISO100, listed with 100 to 115 V, one phase, 50/60 Hz) and
+`TSC4D1002` (nEXT300 TIC Cart, listed with 110 to 115 V). So `TSM1D1002` reads as a TIC cart,
+and its last digit agrees with the 115 V the owner read at the inlet. Not known: what the `M`
+and the `D` stand for (which turbopump, which backing pump). A product page for the number
+could not be read: the shop put a bot check in front of it, which I do not work around.
+
+**Mains, unchanged: 115 V, not 230 V.** The TIC controller alone takes 90 to 264 V by its data
+sheet, so the 115 V belongs to something else on the cart, most likely the backing pump. Its
+rating plate and the cart's manual decide; neither is read.
+
+**No probe has run.** The station has to be powered and its serial socket on an adapter first.
+
 ### 2026-11-25: the Edwards station is a 115 V unit, and may not be a TIC at all (A52, question 23)
 
 Owner: "The station's part number is TSM1D1002 does it accept 230 V mains? Could the nAIM and
